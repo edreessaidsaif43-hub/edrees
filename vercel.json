@@ -1,8 +1,0 @@
-{
-  "version": 2,
-  "routes": [
-    { "src": "/t", "dest": "/t.html" },
-    { "src": "/m", "dest": "/m.html" },
-    { "src": "/", "dest": "/index.html" }
-  ]
-}
