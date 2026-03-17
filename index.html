@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+
+<html lang="ar" dir="rtl" class="h-full">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0, user-scalable=yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1e3a5f">
+<meta name="description" content="منصة تعليمية متكاملة - تحضير الدروس والمنصة التعليمية">
+<title>🎓 منصتي التعليمية</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+
+<style>
+* { font-family: 'Tajawal', sans-serif; box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; -webkit-font-smoothing: antialiased; }
+
+/* ===== NAVBAR ===== */
+#main-navbar {
+position: fixed;
+top: 0; left: 0; right: 0;
+z-index: 9000;
+background: rgba(10, 20, 40, 0.92);
+backdrop-filter: blur(20px);
+-webkit-backdrop-filter: blur(20px);
+border-bottom: 1px solid rgba(255,255,255,0.1);
+box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+}
+.nav-inner {
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 0 20px;
+height: 60px;
+max-width: 1200px;
+margin: 0 auto;
+}
+.nav-logo {
+font-size: 18px;
+font-weight: 900;
+color: white;
+letter-spacing: 0.5px;
+white-space: nowrap;
+}
+.nav-links {
+display: flex;
+gap: 6px;
+}
+.nav-btn {
+padding: 8px 16px;
+border-radius: 10px;
+font-size: 14px;
+font-weight: 700;
+cursor: pointer;
+border: none;
+transition: all 0.2s ease;
+color: rgba(255,255,255,0.75);
+background: transparent;
+white-space: nowrap;
+}
+.nav-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+.nav-btn.active {
+color: white;
+background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+box-shadow: 0 4px 15px rgba(59,130,246,0.4);
+}
+/* Mobile nav */
+.nav-hamburger {
+display: none;
+flex-direction: column;
+gap: 5px;
+cursor: pointer;
+padding: 8px;
+background: none;
+border: none;
+}
+.nav-hamburger span {
+display: block;
+width: 24px;
+height: 2px;
+background: white;
+border-radius: 2px;
+transition: all 0.3s ease;
+}
+.mobile-menu {
+display: none;
+flex-direction: column;
+gap: 4px;
+padding: 12px 20px;
+border-top: 1px solid rgba(255,255,255,0.08);
+}
+.mobile-menu.open { display: flex; }
+.mobile-menu .nav-btn { text-align: right; width: 100%; }
+
+@media (max-width: 640px) {
+.nav-links { display: none; }
+.nav-hamburger { display: flex; }
+.nav-logo { font-size: 15px; }
+}
+
+/* ===== PAGES ===== */
+.page { display: none; padding-top: 60px; min-height: 100vh; }
+.page.active { display: block; }
+
+/* ===== PAGE 1: مرحبا ===== */
+#page-welcome {
+background: linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 50%, #f3e5f5 100%);
+}
+.welcome-inner {
+display: flex;
+align-items: center;
+justify-content: center;
+min-height: calc(100vh - 60px);
+padding: 24px;
+}
+.btn-primary-welcome {
+background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+border: none;
+position: relative;
+overflow: hidden;
+color: white;
+font-weight: 700;
+padding: 14px 32px;
+border-radius: 12px;
+font-size: 17px;
+text-decoration: none;
+display: inline-block;
+}
+.btn-primary-welcome:hover {
+transform: translateY(-4px);
+box-shadow: 0 12px 32px rgba(37, 99, 235, 0.45);
+}
+.btn-secondary-welcome {
+background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
+border: none;
+color: white;
+font-weight: 700;
+padding: 14px 32px;
+border-radius: 12px;
+font-size: 17px;
+text-decoration: none;
+display: inline-block;
+}
+.btn-secondary-welcome:hover {
+transform: translateY(-4px);
+box-shadow: 0 12px 32px rgba(124, 58, 237, 0.45);
+}
+@keyframes fadeInUp {
+from { opacity: 0; transform: translateY(30px); }
+to { opacity: 1; transform: translateY(0); }
+}
+.welcome-anim { animation: fadeInUp 0.8s ease-out; }
+
+/* ===== PAGE 2: تحضير الدروس ===== */
+#page-lesson {
+background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+}
+.glass-effect {
+background: rgba(255, 255, 255, 0.95);
+backdrop-filter: blur(15px);
+border: 1px solid rgba(255, 255, 255, 0.3);
+box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+.result-card {
+background: rgba(255, 255, 255, 0.98);
+backdrop-filter: blur(20px);
+box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+.connection-status {
+position: fixed;
+top: 68px;
+left: 8px;
+padding: 6px 10px;
+border-radius: 20px;
+font-size: 11px;
+font-weight: bold;
+z-index: 1000;
+}
+.status-online { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+.status-offline { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+.status-loading { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+.content-block {
+max-height: 250px;
+overflow-y: auto;
+word-wrap: break-word;
+overflow-wrap: break-word;
+white-space: pre-wrap;
+}
+.input-focus:focus {
+transform: translateY(-2px);
+box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+border-color: #3b82f6 !important;
+outline: none;
+}
+.btn-hover:hover {
+transform: translateY(-2px);
+box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
+}
+select {
+appearance: none; -webkit-appearance: none;
+background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+background-repeat: no-repeat;
+background-position: left 10px center;
+background-size: 1.5em 1.5em;
+padding-left: 35px;
+}
+@keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+.loading-spin {
+display: inline-block; width: 16px; height: 16px;
+border: 3px solid #f3f3f3; border-top: 3px solid #3498db;
+border-radius: 50%; animation: spin 1s linear infinite;
+}
+@media (max-width: 640px) {
+#page-lesson { font-size: 13px; }
+#page-lesson h1 { font-size: 20px !important; }
+}
+
+/* ===== PAGE 3: المنصة التعليمية ===== */
+#page-platform {
+background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 50%, #1b263b 100%);
+}
+.card-glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+.tab-active { background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%); color: white !important; }
+.game-card, .presentation-card, .file-card { transform: translate3d(0, 0, 0); will-change: transform; }
+.game-card:active { transform: translateY(-2px) scale(0.98); }
+
+/* Platform loading overlay */
+#platform-loading-overlay {
+position: absolute;
+top: 0; left: 0; width: 100%; height: 100%;
+background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 50%, #1b263b 100%);
+display: flex; align-items: center; justify-content: center;
+z-index: 100; min-height: calc(100vh - 60px);
+}
+.loading-container-p {
+text-align: center;
+background: rgba(255,255,255,0.1);
+backdrop-filter: blur(20px);
+border-radius: 30px;
+padding: 40px 30px;
+max-width: 500px; width: 90%;
+border: 2px solid rgba(255,255,255,0.2);
+}
+.progress-bar-container {
+background: rgba(255,255,255,0.2); border-radius: 20px;
+height: 22px; overflow: hidden; margin-bottom: 12px;
+border: 2px solid rgba(255,255,255,0.3);
+}
+.progress-bar-fill {
+height: 100%;
+background: linear-gradient(90deg, #f59e0b, #fbbf24, #f59e0b);
+border-radius: 18px; width: 0%;
+transition: width 0.2s linear;
+box-shadow: 0 0 15px rgba(245,158,11,0.8);
+}
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+.dot-anim { animation: bounce 0.8s infinite; display: inline-block; }
+.dot-anim:nth-child(2){animation-delay:0.15s}
+.dot-anim:nth-child(3){animation-delay:0.3s}
+
+/* Toast */
+.toast-item { animation: slideInToast 0.2s ease; }
+@keyframes slideInToast { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+
+@media(max-width:640px){
+.nav-btn { font-size:13px; padding: 6px 12px; }
+}
+
+/* Upload overlay */
+#upload-overlay {
+position: fixed; top:0;left:0;width:100%;height:100%;
+background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a);
+display:flex; align-items:center; justify-content:center;
+z-index:9999;
+}
+#upload-overlay.hidden { display:none; }
+</style>
+
+</head>
+<body>
+
+<!-- ===== NAVBAR ===== -->
+
+<nav id="main-navbar">
+<div class="nav-inner">
+<div class="nav-logo">🎓 منصتي التعليمية</div>
+<div class="nav-links">
+<button class="nav-btn active" onclick="showPage('welcome', this)">🏠 مرحباً بك</button>
+<button class="nav-btn" onclick="showPage('lesson', this)">📚 تحضير الدرس</button>
+<button class="nav-btn" onclick="showPage('platform', this)">🎮 المنصة التعليمية</button>
+</div>
+<button class="nav-hamburger" onclick="toggleMobileMenu()" id="hamburger">
+<span></span><span></span><span></span>
+</button>
+</div>
+<div class="mobile-menu" id="mobile-menu">
+<button class="nav-btn active" onclick="showPage('welcome', this); closeMobileMenu()">🏠 مرحباً بك</button>
+<button class="nav-btn" onclick="showPage('lesson', this); closeMobileMenu()">📚 تحضير الدرس</button>
+<button class="nav-btn" onclick="showPage('platform', this); closeMobileMenu()">🎮 المنصة التعليمية</button>
+</div>
+</nav>
+
+<!-- ===== PAGE 1: مرحباً بك ===== -->
+
+<div id="page-welcome" class="page active">
+<div class="welcome-inner">
+<div class="welcome-anim text-center w-full" style="max-width:600px;">
+<h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-4" style="animation:fadeInUp 0.6s ease-out">مرحباً بك</h1>
+<p class="text-gray-600 text-lg md:text-xl mb-12 opacity-95">اختر ما يناسبك من القائمة</p>
+<div class="flex flex-col sm:flex-row gap-6 justify-center mb-12">
+<button onclick="showPage('lesson', document.querySelectorAll('.nav-btn')[1])" class="btn-primary-welcome">التحضير الذكي</button>
+<button onclick="showPage('platform', document.querySelectorAll('.nav-btn')[2])" class="btn-secondary-welcome">المنصة التعليمية</button>
+</div>
+<div class="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4 inline-block max-w-md">
+<p class="text-yellow-800 font-bold text-sm md:text-base">📌 ملاحظة مهمة: استعمل متصفح Google Chrome للحصول على أفضل النتائج</p>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ===== PAGE 2: تحضير الدرس ===== -->
+
+<div id="page-lesson" class="page" style="padding-bottom:80px;">
+<div id="connectionStatus" class="connection-status status-loading"><span class="loading-spin"></span> جاري...</div>
+
+<div class="max-w-4xl mx-auto p-3 md:p-6">
+<header class="text-center mb-6" style="animation:fadeInUp 0.6s ease-out">
+<h1 class="text-2xl md:text-4xl font-bold text-white mb-2">📚 تحضير الدروس</h1>
+<p class="text-xs md:text-lg text-white/90">نظام متطور للتخطيط التعليمي</p>
+</header>
+
+```
+<main class="glass-effect rounded-2xl p-3 md:p-8 mb-6">
+<div class="mb-3">
+<label class="block text-gray-700 font-semibold mb-1 text-right text-xs">🎓 الصف</label>
+<select id="grade" onchange="updateSubjects()" class="w-full p-2 border-2 border-gray-300 rounded-lg text-right text-sm input-focus transition-all duration-300 bg-white">
+<option value="">اختر الصف</option>
+</select>
+</div>
+<div class="mb-3">
+<label class="block text-gray-700 font-semibold mb-1 text-right text-xs">📖 المادة</label>
+<select id="subject" onchange="updateSemesters()" class="w-full p-2 border-2 border-gray-300 rounded-lg text-right text-sm input-focus transition-all duration-300 bg-white">
+<option value="">اختر المادة</option>
+</select>
+</div>
+<div class="mb-3">
+<label class="block text-gray-700 font-semibold mb-1 text-right text-xs">📅 الفصل</label>
+<select id="semester" onchange="updateUnits()" class="w-full p-2 border-2 border-gray-300 rounded-lg text-right text-sm input-focus transition-all duration-300 bg-white">
+<option value="">اختر الفصل</option>
+</select>
+</div>
+<div class="mb-3">
+<label class="block text-gray-700 font-semibold mb-1 text-right text-xs">📑 الوحدة</label>
+<select id="unit" onchange="updateLessons()" class="w-full p-2 border-2 border-gray-300 rounded-lg text-right text-sm input-focus transition-all duration-300 bg-white">
+<option value="">اختر الوحدة</option>
+</select>
+</div>
+<div class="mb-3">
+<label class="block text-gray-700 font-semibold mb-1 text-right text-xs">📝 الدرس</label>
+<select id="lesson" class="w-full p-2 border-2 border-gray-300 rounded-lg text-right text-sm input-focus transition-all duration-300 bg-white">
+<option value="">اختر الدرس</option>
+</select>
+</div>
+<div class="mb-4">
+<label class="block text-gray-700 font-semibold mb-1 text-right text-xs">🔐 الرمز</label>
+<input type="password" id="code" maxlength="4" placeholder="4 أرقام" class="w-full p-2 border-2 border-gray-300 rounded-lg text-right text-sm input-focus transition-all duration-300">
+</div>
+<div class="flex flex-col gap-2 mt-4">
+<button onclick="searchLesson()" class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg font-bold text-sm btn-hover transition-all duration-300">🔍 بحث</button>
+<button onclick="subscribe()" class="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white px-4 py-2 rounded-lg font-bold text-sm btn-hover transition-all duration-300">🔑 احصل على الرمز</button>
+</div>
+</main>
+
+<section id="result-container">
+<div class="result-card rounded-2xl p-3 md:p-8 text-right">
+<div id="result">
+<div class="text-center py-8">
+<div class="text-4xl mb-3">📚</div>
+<h3 class="text-lg md:text-2xl font-bold text-gray-700 mb-2">مرحباً!</h3>
+<p class="text-gray-600 text-xs md:text-base">اختر الصف والمادة للبدء</p>
+</div>
+</div>
+</div>
+</section>
+
+<footer class="text-center mt-6 text-white/80">
+<p class="text-xs md:text-base mb-4">🎓 نظام تحضير الدروس المتطور</p>
+<div class="glass-effect rounded-xl p-3 text-gray-700 text-xs">
+<p class="font-semibold mb-2">©️ جميع الحقوق محفوظة</p>
+<div class="space-y-1 border-t border-gray-300 pt-2">
+<p class="font-bold text-gray-800">الأستاذ إدريس الذيابي</p>
+<p>معلم فيزياء - مدرسة ابن دريد</p>
+<p class="flex items-center justify-center gap-2 font-semibold"><span>📞</span><span dir="ltr">95054153</span></p>
+<div class="flex items-center justify-center mt-2 pt-2 border-t border-gray-300">
+<a href="https://www.instagram.com/edrees_aldhy?igsh=dmIzZ3JyN2Nyamk3&utm_source=qr" target="_blank" rel="noopener noreferrer"
+style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:linear-gradient(135deg,#f59e0b,#ec4899,#8b5cf6);border-radius:50%;color:white;font-size:16px;text-decoration:none;">📷</a>
+</div>
+</div>
+</div>
+</footer>
+```
+
+</div>
+</div>
+
+<!-- ===== PAGE 3: المنصة التعليمية ===== -->
+
+<div id="page-platform" class="page" style="position:relative;">
+
+<!-- Platform Loading Overlay -->
+
+<div id="platform-loading-overlay">
+<div class="loading-container-p">
+<div style="font-size:36px;margin-bottom:12px;">
+<span class="dot-anim">🎮</span> <span class="dot-anim">📊</span> <span class="dot-anim">📁</span>
+</div>
+<div style="font-size:24px;font-weight:900;color:white;margin-bottom:8px;animation:bounce 2s infinite">🎓 منصة تعليمية</div>
+<div style="color:#fbbf24;font-size:14px;margin-bottom:20px;font-weight:600;">منصة تعليمية متكاملة للتعلم المتقدم</div>
+<div class="progress-bar-container">
+<div id="p3-progress-bar" class="progress-bar-fill"></div>
+</div>
+<div style="color:white;font-size:16px;font-weight:bold;margin-bottom:8px;"><span id="p3-progress-percent">0</span>%</div>
+<div style="color:rgba(255,255,255,0.7);font-size:12px;">يتم تحميل الألعاب والمحتوى...</div>
+<div style="color:rgba(255,255,255,0.9);font-size:13px;font-weight:600;margin-top:14px;padding:10px;background:rgba(59,130,246,0.2);border:2px solid rgba(59,130,246,0.5);border-radius:10px;">
+استخدم متصفح Chrome للحصول على أفضل أداء
+</div>
+</div>
+</div>
+
+<div class="min-h-full w-full relative z-10 p-4 md:p-8">
+<header class="text-center mb-8">
+<div class="inline-flex items-center gap-3 mb-4">
+<div class="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg"><span class="text-2xl">🎮</span></div>
+<div class="text-right">
+<h1 class="text-2xl md:text-4xl font-extrabold text-white">🎓 منصة تعليمية</h1>
+<p class="text-amber-300 text-sm md:text-base">🚀 اكتشف آفاقاً جديدة في التعلم التفاعلي والممتع</p>
+</div>
+</div>
+</header>
+
+```
+<nav class="flex justify-center gap-2 mb-8 flex-wrap">
+<button onclick="switchPlatformTab('browse')" id="ptab-browse" class="tab-active px-4 py-2 rounded-xl font-bold transition-all text-white shadow-lg text-sm">📚 الألعاب</button>
+<button onclick="switchPlatformTab('presentations')" id="ptab-presentations" class="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-2 rounded-xl font-bold transition-all text-sm">📊 العروض</button>
+<button onclick="switchPlatformTab('files')" id="ptab-files" class="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 rounded-xl font-bold transition-all text-sm">📁 الملفات</button>
+<button onclick="switchPlatformTab('stars')" id="ptab-stars" class="bg-gradient-to-r from-yellow-500 to-amber-500 text-white px-4 py-2 rounded-xl font-bold transition-all text-sm">⭐ المتميزون</button>
+<button onclick="switchPlatformTab('submit')" id="ptab-submit" class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-2 rounded-xl font-bold transition-all text-sm">➕ إرسال</button>
+<button onclick="switchPlatformTab('admin')" id="ptab-admin" class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-xl font-bold transition-all text-sm">🔐 المدير</button>
+</nav>
+
+<!-- Browse Section -->
+<section id="psection-browse" class="max-w-6xl mx-auto">
+<div class="mb-6 text-center">
+<h2 class="text-2xl md:text-4xl font-extrabold text-white mb-2">📚 الألعاب التعليمية</h2>
+<p class="text-white text-base">مجموعة رائعة من الألعاب التفاعلية</p>
+</div>
+<div class="mb-6 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 rounded-2xl p-6 border-2 border-purple-400/30">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div><label class="block text-purple-200 font-bold mb-2">🔍 البحث</label><input type="text" id="search-lesson-games" placeholder="ابحث عن اسم الدرس..." class="w-full p-3 border-2 border-purple-300 rounded-xl outline-none bg-white text-gray-800 font-medium" oninput="applyGameFilters()"></div>
+<div><label class="block text-purple-200 font-bold mb-2">🎓 الصف</label>
+<select id="filter-grade-games" class="w-full p-3 border-2 border-purple-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyGameFilters()">
+<option value="">جميع الصفوف</option>
+<option>الصف الأول</option><option>الصف الثاني</option><option>الصف الثالث</option><option>الصف الرابع</option><option>الصف الخامس</option><option>الصف السادس</option><option>الصف السابع</option><option>الصف الثامن</option><option>الصف التاسع</option><option>الصف العاشر</option><option>الصف الحادي عشر</option><option>الصف الثاني عشر</option>
+</select>
+</div>
+<div><label class="block text-purple-200 font-bold mb-2">📖 المادة</label>
+<select id="filter-subject-games" class="w-full p-3 border-2 border-purple-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyGameFilters()">
+<option value="">جميع المواد</option>
+<option>اللغة العربية</option><option>اللغة الإنجليزية</option><option>الرياضيات</option><option>العلوم</option><option>الفيزياء</option><option>الكيمياء</option><option>الأحياء</option><option>الدراسات الاجتماعية</option><option>التربية الإسلامية</option><option>الحاسوب</option><option>التربية الفنية</option><option>التربية الرياضية</option>
+</select>
+</div>
+</div>
+</div>
+<div id="games-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+</section>
+
+<!-- Presentations Section -->
+<section id="psection-presentations" class="hidden max-w-6xl mx-auto">
+<div class="mb-6 text-center">
+<h2 class="text-2xl md:text-4xl font-extrabold text-white mb-2">📊 العروض التقديمية</h2>
+</div>
+<div class="mb-6 bg-gradient-to-r from-pink-500/10 to-rose-500/10 rounded-2xl p-6 border-2 border-pink-400/30">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div><label class="block text-pink-200 font-bold mb-2">🔍 البحث</label><input type="text" id="search-lesson-presentations" placeholder="ابحث..." class="w-full p-3 border-2 border-pink-300 rounded-xl outline-none bg-white text-gray-800 font-medium" oninput="applyPresentationFilters()"></div>
+<div><label class="block text-pink-200 font-bold mb-2">🎓 الصف</label>
+<select id="filter-grade-presentations" class="w-full p-3 border-2 border-pink-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyPresentationFilters()">
+<option value="">جميع الصفوف</option>
+<option>الصف الأول</option><option>الصف الثاني</option><option>الصف الثالث</option><option>الصف الرابع</option><option>الصف الخامس</option><option>الصف السادس</option><option>الصف السابع</option><option>الصف الثامن</option><option>الصف التاسع</option><option>الصف العاشر</option><option>الصف الحادي عشر</option><option>الصف الثاني عشر</option>
+</select>
+</div>
+<div><label class="block text-pink-200 font-bold mb-2">📖 المادة</label>
+<select id="filter-subject-presentations" class="w-full p-3 border-2 border-pink-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyPresentationFilters()">
+<option value="">جميع المواد</option>
+<option>اللغة العربية</option><option>اللغة الإنجليزية</option><option>الرياضيات</option><option>العلوم</option><option>الفيزياء</option><option>الكيمياء</option><option>الأحياء</option><option>الدراسات الاجتماعية</option><option>التربية الإسلامية</option><option>الحاسوب</option>
+</select>
+</div>
+</div>
+</div>
+<div id="presentations-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+</section>
+
+<!-- Files Section -->
+<section id="psection-files" class="hidden max-w-6xl mx-auto">
+<div class="mb-6 text-center">
+<h2 class="text-2xl md:text-4xl font-extrabold text-white mb-2">📁 الملفات المخزنة</h2>
+</div>
+<div class="mb-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-2xl p-6 border-2 border-cyan-400/30">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div><label class="block text-cyan-200 font-bold mb-2">🔍 البحث</label><input type="text" id="search-lesson-files" placeholder="ابحث..." class="w-full p-3 border-2 border-cyan-300 rounded-xl outline-none bg-white text-gray-800 font-medium" oninput="applyFilesFilters()"></div>
+<div><label class="block text-cyan-200 font-bold mb-2">🎓 الصف</label>
+<select id="filter-grade-files" class="w-full p-3 border-2 border-cyan-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyFilesFilters()">
+<option value="">جميع الصفوف</option>
+<option>الصف الأول</option><option>الصف الثاني</option><option>الصف الثالث</option><option>الصف الرابع</option><option>الصف الخامس</option><option>الصف السادس</option><option>الصف السابع</option><option>الصف الثامن</option><option>الصف التاسع</option><option>الصف العاشر</option><option>الصف الحادي عشر</option><option>الصف الثاني عشر</option>
+</select>
+</div>
+<div><label class="block text-cyan-200 font-bold mb-2">📖 المادة</label>
+<select id="filter-subject-files" class="w-full p-3 border-2 border-cyan-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyFilesFilters()">
+<option value="">جميع المواد</option>
+<option>اللغة العربية</option><option>اللغة الإنجليزية</option><option>الرياضيات</option><option>العلوم</option><option>الفيزياء</option><option>الكيمياء</option><option>الأحياء</option><option>الدراسات الاجتماعية</option><option>التربية الإسلامية</option><option>الحاسوب</option>
+</select>
+</div>
+</div>
+</div>
+<div id="files-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+</section>
+
+<!-- Stars Section -->
+<section id="psection-stars" class="hidden max-w-6xl mx-auto">
+<div class="mb-8 text-center">
+<h2 class="text-2xl md:text-4xl font-extrabold text-white mb-2">⭐ المعلمون المتميزون</h2>
+<p class="text-white text-base">أفضل المساهمين في منصتنا</p>
+</div>
+<div id="stars-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+</section>
+
+<!-- Submit Section -->
+<section id="psection-submit" class="hidden max-w-2xl mx-auto">
+<div class="bg-gradient-to-br from-emerald-400/10 to-teal-400/10 rounded-2xl p-8 shadow-xl border-2 border-emerald-400/30">
+<h2 class="text-3xl font-extrabold text-white mb-6">📝 إرسال محتوى تعليمي</h2>
+<form id="submit-form" class="space-y-5">
+<div><label class="block text-emerald-200 font-bold mb-2">اسم المعلم</label><input type="text" id="teacher-name" required placeholder="أدخل اسمك الكامل" class="w-full p-4 border-2 border-emerald-300 rounded-xl outline-none bg-white text-gray-800 font-medium"></div>
+<div><label class="block text-emerald-200 font-bold mb-2">نوع المحتوى</label>
+<select id="content-type" required class="w-full p-4 border-2 border-emerald-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+<option value="">اختر نوع المحتوى</option>
+<option value="game">🎮 لعبة تعليمية</option>
+<option value="presentation">📊 عرض تقديمي</option>
+<option value="file">📁 ملف مخزن</option>
+</select>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-emerald-200 font-bold mb-2">الصفوف (اختر واحد أو أكثر)</label>
+<select id="submit-grade" multiple required class="w-full p-4 border-2 border-emerald-400 rounded-xl outline-none bg-white text-gray-900 font-semibold" size="5">
+<option>الصف الأول</option><option>الصف الثاني</option><option>الصف الثالث</option><option>الصف الرابع</option><option>الصف الخامس</option><option>الصف السادس</option><option>الصف السابع</option><option>الصف الثامن</option><option>الصف التاسع</option><option>الصف العاشر</option><option>الصف الحادي عشر</option><option>الصف الثاني عشر</option>
+</select>
+<p class="text-emerald-100 text-xs mt-1">💡 Ctrl + انقر لاختيار عدة صفوف</p>
+</div>
+<div>
+<label class="block text-emerald-200 font-bold mb-2">المواد (اختر واحدة أو أكثر)</label>
+<select id="submit-subject" multiple required class="w-full p-4 border-2 border-emerald-400 rounded-xl outline-none bg-white text-gray-900 font-semibold" size="5">
+<option>اللغة العربية</option><option>اللغة الإنجليزية</option><option>الرياضيات</option><option>العلوم</option><option>الفيزياء</option><option>الكيمياء</option><option>الأحياء</option><option>الدراسات الاجتماعية</option><option>التربية الإسلامية</option><option>الحاسوب</option><option>التربية الفنية</option><option>التربية الرياضية</option>
+</select>
+<p class="text-emerald-100 text-xs mt-1">💡 Ctrl + انقر لاختيار عدة مواد</p>
+</div>
+</div>
+<div><label class="block text-emerald-200 font-bold mb-2">اسم الدرس</label><input type="text" id="lesson-name-submit" required placeholder="مثال: جمع الأعداد الصحيحة" class="w-full p-4 border-2 border-emerald-300 rounded-xl outline-none bg-white text-gray-800 font-medium"></div>
+<div><label class="block text-emerald-200 font-bold mb-2">رابط المحتوى</label><input type="url" id="content-link" required placeholder="https://example.com/game" class="w-full p-4 border-2 border-emerald-300 rounded-xl outline-none bg-white text-gray-800 font-medium"></div>
+<button type="submit" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transition-all">🚀 إرسال للمراجعة</button>
+</form>
+</div>
+</section>
+
+<!-- Admin Section -->
+<section id="psection-admin" class="hidden max-w-6xl mx-auto">
+<div id="admin-login" class="max-w-md mx-auto">
+<div class="bg-gradient-to-br from-red-400/10 to-orange-400/10 rounded-2xl p-8 shadow-xl border-2 border-red-400/30">
+<h2 class="text-2xl font-bold text-red-300 mb-6 text-center">🔐 تسجيل دخول المدير</h2>
+<form id="admin-login-form" class="space-y-4">
+<div><label class="block text-red-200 mb-2 font-medium">كلمة المرور</label><input type="password" id="admin-password" required class="w-full p-4 border-2 border-red-300 rounded-xl outline-none bg-white/80"></div>
+<button type="submit" class="w-full bg-gradient-to-r from-red-500 to-orange-500 text-white py-4 rounded-xl font-bold hover:shadow-lg transition-all">دخول</button>
+</form>
+</div>
+</div>
+<div id="admin-panel" class="hidden">
+<div class="flex justify-between items-center mb-6">
+<h2 class="text-2xl font-bold text-orange-300">👨‍💼 لوحة تحكم المدير</h2>
+<button onclick="adminLogout()" class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-6 py-2 rounded-xl font-bold">🚪 خروج</button>
+</div>
+<div id="admin-games-list" class="space-y-4"></div>
+</div>
+</section>
+```
+
+</div>
+</div>
+
+<!-- Upload Overlay -->
+
+<div id="upload-overlay" class="hidden">
+<div class="loading-container-p">
+<div style="font-size:36px;margin-bottom:12px;"><span class="dot-anim">📤</span> <span class="dot-anim">⚡</span> <span class="dot-anim">💾</span></div>
+<div style="font-size:22px;font-weight:900;color:white;margin-bottom:8px;">جاري رفع المحتوى...</div>
+<div class="progress-bar-container"><div id="upload-progress-bar" class="progress-bar-fill"></div></div>
+<div style="color:white;font-weight:bold;"><span id="upload-progress-percent">0</span>%</div>
+</div>
+</div>
+
+<!-- Toast container -->
+
+<div id="toast-container" class="fixed top-16 left-4 z-50 space-y-2" style="max-width:220px;"></div>
+
+<!-- ===================================================
+SCRIPTS
+===================================================== -->
+
+<script>
+// =================== NAVIGATION ===================
+function showPage(name, btn) {
+document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+document.getElementById('page-' + name).classList.add('active');
+
+// update desktop nav
+document.querySelectorAll('.nav-links .nav-btn').forEach(b => b.classList.remove('active'));
+document.querySelectorAll('.mobile-menu .nav-btn').forEach(b => b.classList.remove('active'));
+
+// find matching buttons by onclick text
+document.querySelectorAll('.nav-btn').forEach(b => {
+if (b.getAttribute('onclick') && b.getAttribute('onclick').includes("'" + name + "'")) {
+b.classList.add('active');
+}
+});
+
+// init page if needed
+if (name === 'lesson' && !lessonDataLoaded) loadLessonData();
+if (name === 'platform' && !platformDataLoaded) loadPlatformData();
+
+window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleMobileMenu() {
+document.getElementById('mobile-menu').classList.toggle('open');
+}
+function closeMobileMenu() {
+document.getElementById('mobile-menu').classList.remove('open');
+}
+
+// =================== PAGE 2: LESSON ===================
+let D = [];
+let lessonDataLoaded = false;
+
+const codes = {
+"الأول":"7891","الثاني":"4523","الثالث":"9167","الرابع":"2845",
+"الخامس":"6309","السادس":"1478","السابع":"5632","الثامن":"8904",
+"التاسع":"3256","العاشر":"7014","الحادي عشر":"4789","الثاني عشر":"9523"
+};
+
+function toEN(t) { return t.replace(/[٠-٩]/g, d => "0123456789"["٠١٢٣٤٥٦٧٨٩".indexOf(d)]); }
+
+function updateCSS(status, msg) {
+const el = document.getElementById('connectionStatus');
+if (!el) return;
+el.className = 'connection-status status-' + status;
+el.innerHTML = msg;
+}
+
+async function loadLessonData() {
+if (lessonDataLoaded) return;
+updateCSS('loading', '<span class="loading-spin"></span> جاري...');
+const urls = [
+"https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ/export?format=csv&gid=0",
+"https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ/pub?gid=0&single=true&output=csv"
+];
+try {
+let csv = null;
+for (let url of urls) {
+try {
+const r = await fetch(url, { mode: 'cors' });
+if (r.ok) { csv = await r.text(); if (csv && csv.length > 100) break; }
+} catch(e) {}
+}
+if (!csv || csv.length < 100) throw new Error('فشل التحميل');
+const rows = parseCSV(csv);
+if (rows.length < 2) throw new Error('لا توجد بيانات');
+D = [];
+for (let i = 1; i < rows.length; i++) {
+const cells = rows[i];
+if (cells.length > 0 && cells[0] && cells[0].trim()) {
+const obj = {};
+cells.forEach((c, j) => obj[(j+1).toString()] = c);
+D.push(obj);
+}
+}
+if (!D.length) throw new Error('لا توجد بيانات صحيحة');
+const gradeOrder = ["الأول","الثاني","الثالث","الرابع","الخامس","السادس","السابع","الثامن","التاسع","العاشر","الحادي عشر","الثاني عشر"];
+const gradesSet = new Set(D.map(r => r["1"]).filter(Boolean));
+let grades = gradeOrder.filter(g => gradesSet.has(g));
+gradesSet.forEach(g => { if (!grades.includes(g)) grades.push(g); });
+const sel = document.getElementById('grade');
+sel.innerHTML = '<option value="">اختر...</option>';
+grades.forEach(g => { const o = document.createElement('option'); o.value = g; o.textContent = g; sel.appendChild(o); });
+updateCSS('online', `✅ جاهز - ${D.length} درس`);
+lessonDataLoaded = true;
+} catch(e) {
+updateCSS('offline', '❌ خطأ');
+showLessonMsg('خطأ: ' + e.message, 'error');
+}
+}
+
+function parseCSV(text) {
+const rows = []; let row = [], cell = '', inQ = false, i = 0;
+while (i < text.length) {
+const c = text[i], n = text[i+1];
+if (c === '"') { if (inQ && n === '"') { cell += '"'; i+=2; } else { inQ = !inQ; i++; } }
+else if (c === ',' && !inQ) { row.push(cell.trim().replace(/^"|"$/g,'')); cell=''; i++; }
+else if ((c==='\n'||c==='\r') && !inQ) {
+if (cell.trim() || row.length) { row.push(cell.trim().replace(/^"|"$/g,'')); if(row.some(x=>x.length)) rows.push(row); }
+row=[]; cell=''; if(c==='\r'&&n==='\n') i+=2; else i++;
+} else { cell+=c; i++; }
+}
+if (cell.trim() || row.length) { row.push(cell.trim()); if(row.some(x=>x.length)) rows.push(row); }
+return rows;
+}
+
+function updateSubjects() {
+const g = document.getElementById('grade').value;
+['subject','semester','unit','lesson'].forEach(id => { document.getElementById(id).innerHTML = '<option value="">اختر...</option>'; });
+if (!g) return;
+const items = [...new Set(D.filter(r=>r["1"]===g).map(r=>r["2"]).filter(Boolean))].sort();
+fillSelect('subject', items);
+}
+function updateSemesters() {
+const g=document.getElementById('grade').value, s=document.getElementById('subject').value;
+['semester','unit','lesson'].forEach(id=>{document.getElementById(id).innerHTML='<option value="">اختر...</option>';});
+if(!g||!s) return;
+fillSelect('semester', [...new Set(D.filter(r=>r["1"]===g&&r["2"]===s).map(r=>r["3"]).filter(Boolean))].sort());
+}
+function updateUnits() {
+const g=document.getElementById('grade').value, s=document.getElementById('subject').value, m=document.getElementById('semester').value;
+['unit','lesson'].forEach(id=>{document.getElementById(id).innerHTML='<option value="">اختر...</option>';});
+if(!g||!s||!m) return;
+const seen=new Set(), list=[];
+D.filter(r=>r["1"]===g&&r["2"]===s&&r["3"]===m).forEach(r=>{if(r["4"]&&!seen.has(r["4"])){list.push(r["4"]);seen.add(r["4"]);}});
+fillSelect('unit', list);
+}
+function updateLessons() {
+const g=document.getElementById('grade').value, s=document.getElementById('subject').value, m=document.getElementById('semester').value, u=document.getElementById('unit').value;
+document.getElementById('lesson').innerHTML='<option value="">اختر...</option>';
+if(!g||!s||!m||!u) return;
+const seen=new Set(), list=[];
+D.filter(r=>r["1"]===g&&r["2"]===s&&r["3"]===m&&r["4"]===u).forEach(r=>{if(r["5"]&&!seen.has(r["5"])){list.push(r["5"]);seen.add(r["5"]);}});
+fillSelect('lesson', list);
+}
+function fillSelect(id, items) {
+const sel=document.getElementById(id);
+sel.innerHTML='<option value="">اختر...</option>';
+items.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;sel.appendChild(o);});
+}
+
+function searchLesson() {
+const g=document.getElementById('grade').value, s=document.getElementById('subject').value,
+m=document.getElementById('semester').value, u=document.getElementById('unit').value,
+l=document.getElementById('lesson').value, code=toEN(document.getElementById('code').value||'');
+if(!g||!s||!m||!u||!l){showLessonMsg('أكمل جميع الاختيارات','error');return;}
+const req = codes[g];
+if(!req){showLessonMsg('خطأ في تحديد الصف','error');return;}
+if(!code){showLessonMsg('أدخل الرمز السري','error');return;}
+if(code!==req){showLessonMsg('الرمز غير صحيح','error');return;}
+const data=D.find(r=>r["1"]===g&&r["2"]===s&&r["3"]===m&&r["4"]===u&&r["5"]===l);
+if(!data){showLessonMsg('الدرس غير موجود','error');return;}
+displayLesson(data);
+setTimeout(()=>document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'}),100);
+}
+
+function mkBlock(title, content, icon, bg='#f8fafc') {
+const id='cb-'+Math.random().toString(36).substr(2,7);
+return `<div style="background:${bg};padding:8px;border-radius:8px;border:1px solid #e2e8f0;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;flex-wrap:wrap;">
+<b style="color:#1e293b;font-size:11px;flex:1;">${icon} ${title}</b>
+<button onclick="copyBlock('${id}')" style="background:#3b82f6;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;">📋</button>
+</div>
+<div id="${id}" class="content-block" style="background:white;padding:8px;border-radius:6px;border:1px solid #e2e8f0;line-height:1.4;font-size:11px;">${content}</div>
+</div>`;
+}
+
+function displayLesson(data) {
+const c=[];for(let i=6;i<=21;i++)c.push(data[i.toString()]||'غير محدد');
+document.getElementById('result').innerHTML=`
+<div style="background:linear-gradient(135deg,#1e293b,#334155);color:white;padding:12px;border-radius:10px;text-align:center;margin-bottom:16px;">
+<h2 style="font-weight:700;margin:0;font-size:14px">📖 ${data["5"]||'درس'}</h2>
+<p style="margin:4px 0 0;opacity:0.9;font-size:10px">${data["1"]} - ${data["2"]}</p>
+</div>
+<div style="display:grid;gap:10px;margin-bottom:16px">
+${mkBlock('أهداف',c[0],'🎯')}${mkBlock('المفاهيم',c[1],'💡')}${mkBlock('التمهيد',c[2],'🚀')}
+${mkBlock('التنفيذ',c[3],'⚡')}${mkBlock('تقويم تكويني',c[4],'📊')}${mkBlock('تقويم ختامي',c[5],'✅')}
+${mkBlock('ملاحظات',c[6],'👨‍👧')}${mkBlock('مرفقات',c[7],'📎')}
+</div>
+<div style="background:linear-gradient(135deg,#a78bfa,#c084fc);color:white;padding:10px;border-radius:10px;text-align:center;margin-bottom:12px;font-size:12px;font-weight:700;">✨ أقسام الذكاء الاصطناعي</div>
+<div style="display:grid;gap:10px;margin-bottom:16px">
+${mkBlock('الواجب الأول',c[8],'✍️','#f3e8ff')}${mkBlock('الواجب الثاني',c[9],'📄','#f3e8ff')}
+${mkBlock('ألعاب صفية',c[10],'🎯','#f3e8ff')}${mkBlock('المواطنة',c[11],'🏛️','#f3e8ff')}
+${mkBlock('التحفيز',c[15],'⭐','#f3e8ff')}${mkBlock('الانتظام',c[12],'⏰','#f3e8ff')}
+${mkBlock('تقويم شفوي',c[13],'🗣️','#f3e8ff')}${mkBlock('السبورة',c[14],'🖊️','#f3e8ff')}
+</div>
+<div style="text-align:center;padding:10px;background:#f8fafc;border-radius:10px;">
+<button onclick="copyAllContent()" style="background:#3b82f6;color:white;padding:8px 16px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">📋 نسخ الكل</button>
+</div>`;
+window.currentLessonData = data;
+}
+
+function copyBlock(id) {
+const el=document.getElementById(id);
+if(el) copyToClipboard(el.textContent||'');
+}
+function copyAllContent() {
+if(!window.currentLessonData){showLessonMsg('لا يوجد درس','error');return;}
+const d=window.currentLessonData;
+const t=`📖 ${d["5"]}\n\n🎯 أهداف:\n${d["6"]}\n\n💡 مفاهيم:\n${d["7"]}\n\n🚀 تمهيد:\n${d["8"]}\n\n⚡ تنفيذ:\n${d["9"]}\n\n📊 تقويم:\n${d["10"]}\n\n✅ ختامي:\n${d["11"]}`;
+copyToClipboard(t);
+}
+function copyToClipboard(text) {
+if(navigator.clipboard){navigator.clipboard.writeText(text).then(()=>showLessonMsg('تم النسخ!','success')).catch(()=>fallbackCopy(text));}
+else fallbackCopy(text);
+}
+function fallbackCopy(text) {
+const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0;';
+document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+showLessonMsg('تم النسخ!','success');
+}
+
+function subscribe() {
+const grade=document.getElementById('grade').value;
+if(!grade){showLessonMsg('اختر الصف أولاً','error');return;}
+const existing=document.querySelector('[data-modal="sub"]');if(existing)existing.remove();
+const modal=document.createElement('div');
+modal.setAttribute('data-modal','sub');
+modal.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;display:flex;justify-content:center;align-items:center;padding:16px;';
+modal.innerHTML=`<div style="background:white;border-radius:12px;padding:16px;max-width:300px;width:100%;text-align:center;position:relative;">
+<button id="closeSubModal" style="position:absolute;top:8px;right:8px;background:#ef4444;color:white;border:none;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:14px;">×</button>
+<h2 style="color:#1e293b;font-size:16px;font-weight:700;margin:0 0 12px 0;">🔑 احصل على الرمز</h2>
+<div style="background:#e0f2fe;padding:10px;border-radius:8px;margin-bottom:12px;border:2px solid #0284c7;">
+<p style="color:#0c4a6e;font-size:12px;margin:0;font-weight:600;">الصف: <span style="color:#0284c7;font-size:14px;font-weight:700;">${grade}</span></p>
+</div>
+<div style="background:#f0fdf4;padding:12px;border-radius:8px;margin-bottom:12px;border:2px solid #10b981;">
+<p style="color:#047857;font-size:14px;font-weight:700;margin:0 0 6px 0;">ريال واحد</p>
+<p style="color:#059669;font-size:12px;margin:0 0 4px 0;">🏦 <span dir="ltr" style="font-family:monospace;background:white;padding:4px 8px;border-radius:4px;font-weight:900;">91470590</span></p>
+<p style="color:#047857;font-size:11px;margin:0;">إدريس الذيابي</p>
+</div>
+<button id="waBtn" style="background:#10b981;color:white;padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;width:100%;">💬 واتساب</button>
+</div>`;
+document.body.appendChild(modal);
+modal.querySelector('#closeSubModal').addEventListener('click',()=>modal.remove());
+modal.querySelector('#waBtn').addEventListener('click',()=>{
+window.open(`https://wa.me/96891470590?text=${encodeURIComponent('السلام عليكم 🌙\nأريد الاشتراك\nالصف: '+grade)}`,'_blank');
+});
+modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+}
+
+function showLessonMsg(text,type='info'){
+const colors={success:'#10b981',error:'#ef4444',info:'#3b82f6'};
+const msg=document.createElement('div');
+msg.style.cssText=`position:fixed;top:70px;right:8px;background:${colors[type]};color:white;padding:8px 12px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:10000;font-size:12px;max-width:200px;`;
+msg.textContent=text;document.body.appendChild(msg);setTimeout(()=>msg.remove(),3000);
+}
+
+// =================== PAGE 3: PLATFORM ===================
+let platformDataLoaded = false;
+let allGames = [], presentations = [], storedFiles = [], starTeachers = [];
+let filteredGames = [], filteredPresentations = [], filteredFiles = [];
+let currentPage = 1;
+const gamesPerPage = 10;
+let totalPages = 1;
+
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbw6AVVHvNAz9vQ-Me3YxRn_J1Z1o9h4SnpblpnKCsN1gTkw_pi-5f1j1Gavdp-AxqElQA/exec';
+
+async function loadPlatformData() {
+if (platformDataLoaded) return;
+try {
+const steps = [10,25,50,75];
+let si=0;
+const iv=setInterval(()=>{
+if(si<steps.length){updateP3Progress(steps[si]);si++;}
+},300);
+const r=await fetch(GAS_URL+'?action=getGames');
+clearInterval(iv);
+if(!r.ok) throw new Error('HTTP '+r.status);
+const data=await r.json();
+if(data.success && Array.isArray(data.data)) {
+updateP3Progress(90);
+allGames=data.data.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+presentations=allGames.filter(g=>g.content_type==='presentation');
+storedFiles=allGames.filter(g=>g.content_type==='file');
+totalPages=Math.ceil(allGames.length/gamesPerPage);
+currentPage=1;
+calculateStarTeachers();
+renderGamesPaginated();
+renderPresentations();
+renderStoredFiles();
+platformDataLoaded=true;
+} else { showPlatformToast('⚠️ تعذر جلب البيانات','error'); }
+updateP3Progress(100);
+} catch(e) { showPlatformToast('❌ خطأ في الاتصال','error'); }
+finally {
+setTimeout(()=>{
+const ov=document.getElementById('platform-loading-overlay');
+if(ov){ov.style.opacity='0';ov.style.transition='opacity 0.4s ease';setTimeout(()=>ov.style.display='none',400);}
+},600);
+}
+}
+
+function updateP3Progress(p) {
+const bar=document.getElementById('p3-progress-bar'), pct=document.getElementById('p3-progress-percent');
+if(bar) bar.style.width=p+'%';
+if(pct) pct.textContent=p;
+}
+
+function switchPlatformTab(tab) {
+['browse','presentations','files','stars','submit','admin'].forEach(t=>{
+const s=document.getElementById('psection-'+t), b=document.getElementById('ptab-'+t);
+if(s) s.classList.add('hidden');
+if(b){b.classList.remove('tab-active');}
+});
+const as=document.getElementById('psection-'+tab), ab=document.getElementById('ptab-'+tab);
+if(as) as.classList.remove('hidden');
+if(ab) ab.classList.add('tab-active');
+}
+
+function fmtDate(d){
+if(!d) return 'بدون تاريخ';
+return new Date(d).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+}
+
+function calcShields(n){return Math.min(Math.floor(n/100),10);}
+
+function shieldName(n){
+const names=['🌟 درع البدايات المشرقة','⭐ درع المعلم المتميز','✨ درع الإبداع التعليمي','🏆 درع القيادة التربوية','👑 درع التفوق الأكاديمي','🔥 درع الشغف بالتعليم','💎 درع الجودة والتميز','🎯 درع الإتقان والاحترافية','🌠 درع النجومية التعليمية','👨‍🎓 درع الأسطورة الحية'];
+return names[n-1]||'درع المستوى '+n;
+}
+
+function getArr(v){
+if(Array.isArray(v)) return v;
+if(typeof v==='string') return v.split(',').map(s=>s.trim());
+return [v];
+}
+
+function renderGameCard(game,colors={bg:'from-purple-400 to-indigo-500',badge:'bg-purple-100 text-purple-800',badge2:'bg-indigo-100 text-indigo-800',btn:'from-purple-500 to-indigo-600',btnLabel:'🎮 العب الآن'}) {
+const grades=getArr(game.grade), subjects=getArr(game.subject);
+const tg=allGames.filter(g=>g.teacher_name===game.teacher_name&&g.status==='approved');
+const pts=tg.length, sh=calcShields(pts);
+return `<div class="game-card card-glass rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl">
+<div class="bg-gradient-to-br ${colors.bg} p-5 text-white">
+<div class="flex justify-between items-start mb-2">
+<div><h3 class="text-lg font-bold mb-1">${game.lesson_name||'عنوان'}</h3>
+<p class="text-sm opacity-90 cursor-pointer hover:text-amber-200" onclick="showTeacherDetails('${game.teacher_name}')">👨‍🏫 ${game.teacher_name||'معلم'}</p>
+</div>
+<div class="bg-white/20 rounded-lg px-2 py-1 text-center"><p class="text-xs">📊 نقاط</p><p class="text-base font-black">${pts}</p></div>
+</div>
+<p class="text-xs opacity-75">📅 ${fmtDate(game.reviewed_at||game.created_at)}</p>
+</div>
+<div class="p-5">
+<div class="mb-3 bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-3 border border-slate-700">
+<div class="flex items-center justify-between">
+<div><p class="text-slate-300 text-xs font-semibold mb-1">🛡️ الدروع</p><p class="text-amber-300 font-black">${sh}/10</p></div>
+<div class="flex gap-1">${Array.from({length:Math.min(3,sh)}).map(()=>'<div class="w-5 h-5 rounded bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white text-xs">✓</div>').join('')}${sh>3?'<div class="w-5 h-5 rounded bg-slate-700 flex items-center justify-center text-amber-300 text-xs">+'+( sh-3)+'</div>':''}</div>
+</div>
+</div>
+<div class="space-y-2 text-gray-700 mb-4">
+<div><p class="font-bold text-gray-600 mb-1 text-xs">الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(g=>'<span class="'+colors.badge+' px-2 py-1 rounded-full text-xs font-semibold">'+g+'</span>').join('')}</div></div>
+<div><p class="font-bold text-gray-600 mb-1 text-xs">المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(s=>'<span class="'+colors.badge2+' px-2 py-1 rounded-full text-xs font-semibold">'+s+'</span>').join('')}</div></div>
+</div>
+<a href="${game.game_link||'#'}" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r ${colors.btn} text-white py-2 px-4 rounded-xl font-bold block text-center w-full hover:shadow-lg transition-all text-sm">${colors.btnLabel}</a>
+</div>
+</div>`;
+}
+
+function renderGamesPaginated() {
+const games=allGames.filter(g=>g.content_type==='game'&&g.status==='approved');
+const grade=document.getElementById('filter-grade-games').value;
+const subject=document.getElementById('filter-subject-games').value;
+const search=(document.getElementById('search-lesson-games').value||'').toLowerCase().trim();
+filteredGames=games.filter(g=>{
+const gr=getArr(g.grade), su=getArr(g.subject);
+return (!grade||gr.some(x=>x.trim()===grade.trim()))&&(!subject||su.some(x=>x.trim()===subject.trim()))&&(!search||(g.lesson_name||'').toLowerCase().includes(search));
+});
+totalPages=Math.ceil(filteredGames.length/gamesPerPage)||1;
+const paged=filteredGames.slice((currentPage-1)*gamesPerPage, currentPage*gamesPerPage);
+const grid=document.getElementById('games-grid');
+if(!paged.length){grid.innerHTML='<div class="col-span-full text-center text-white text-lg py-8">لا توجد ألعاب تطابق المعايير المختارة</div>';}
+else grid.innerHTML=paged.map(g=>renderGameCard(g)).join('');
+renderPaginationControls();
+}
+
+function renderPaginationControls(){
+let html='<div class="col-span-full flex justify-center items-center gap-4 mt-8">';
+if(currentPage>1) html+='<button onclick="goPrevPage()" class="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-5 py-2 rounded-xl font-bold">← السابق</button>';
+html+=`<span class="text-white font-bold">صفحة ${currentPage} من ${totalPages}</span>`;
+if(currentPage<totalPages) html+='<button onclick="goNextPage()" class="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-5 py-2 rounded-xl font-bold">التالي →</button>';
+html+='</div>';
+let pg=document.getElementById('games-grid').parentElement.querySelector('.pg-ctrl');
+if(!pg){pg=document.createElement('div');pg.className='pg-ctrl';document.getElementById('games-grid').parentElement.appendChild(pg);}
+pg.innerHTML=html;
+}
+function applyGameFilters(){currentPage=1;renderGamesPaginated();}
+function goNextPage(){if(currentPage<totalPages){currentPage++;renderGamesPaginated();document.getElementById('games-grid').scrollIntoView({behavior:'smooth',block:'start'});}}
+function goPrevPage(){if(currentPage>1){currentPage--;renderGamesPaginated();document.getElementById('games-grid').scrollIntoView({behavior:'smooth',block:'start'});}}
+
+function renderPresentations(){
+const grade=document.getElementById('filter-grade-presentations').value;
+const subject=document.getElementById('filter-subject-presentations').value;
+const search=(document.getElementById('search-lesson-presentations').value||'').toLowerCase().trim();
+filteredPresentations=presentations.filter(p=>{
+const gr=getArr(p.grade), su=getArr(p.subject);
+return (!grade||gr.some(x=>x.trim()===grade.trim()))&&(!subject||su.some(x=>x.trim()===subject.trim()))&&(!search||(p.lesson_name||'').toLowerCase().includes(search));
+});
+const grid=document.getElementById('presentations-grid');
+if(!filteredPresentations.length){grid.innerHTML='<div class="col-span-full text-center text-white text-lg py-8">لا توجد عروض</div>';return;}
+grid.innerHTML=filteredPresentations.map(p=>renderGameCard(p,{bg:'from-pink-400 to-rose-500',badge:'bg-pink-100 text-pink-800',badge2:'bg-rose-100 text-rose-800',btn:'from-pink-500 to-rose-600',btnLabel:'📊 عرض الآن'})).join('');
+}
+function applyPresentationFilters(){renderPresentations();}
+
+function renderStoredFiles(){
+const grade=document.getElementById('filter-grade-files').value;
+const subject=document.getElementById('filter-subject-files').value;
+const search=(document.getElementById('search-lesson-files').value||'').toLowerCase().trim();
+filteredFiles=storedFiles.filter(f=>{
+const gr=getArr(f.grade), su=getArr(f.subject);
+return (!grade||gr.some(x=>x.trim()===grade.trim()))&&(!subject||su.some(x=>x.trim()===subject.trim()))&&(!search||(f.lesson_name||'').toLowerCase().includes(search));
+});
+const grid=document.getElementById('files-grid');
+if(!filteredFiles.length){grid.innerHTML='<div class="col-span-full text-center text-white text-lg py-8">لا توجد ملفات</div>';return;}
+grid.innerHTML=filteredFiles.map(f=>renderGameCard(f,{bg:'from-cyan-400 to-blue-500',badge:'bg-cyan-100 text-cyan-800',badge2:'bg-blue-100 text-blue-800',btn:'from-cyan-500 to-blue-600',btnLabel:'📁 تحميل الملف'})).join('');
+}
+function applyFilesFilters(){renderStoredFiles();}
+
+function calculateStarTeachers(){
+const approved=allGames.filter(g=>g.status==='approved');
+const cnt={};
+approved.forEach(g=>{const n=g.teacher_name||'غير معروف';cnt[n]=(cnt[n]||0)+1;});
+starTeachers=Object.entries(cnt).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count).slice(0,3);
+renderStarTeachers();
+}
+
+function renderStarTeachers(){
+const grid=document.getElementById('stars-grid');
+if(!starTeachers.length){grid.innerHTML='<div class="col-span-full text-center text-white text-lg py-12">لا يوجد معلمون بعد</div>';return;}
+const medals=['🥇','🥈','🥉'];
+const colors=[{bg:'from-yellow-400 to-yellow-600',light:'bg-yellow-100',text:'text-yellow-800'},{bg:'from-gray-300 to-gray-500',light:'bg-gray-100',text:'text-gray-800'},{bg:'from-orange-400 to-orange-600',light:'bg-orange-100',text:'text-orange-800'}];
+grid.innerHTML=starTeachers.map((t,i)=>{
+const medal=medals[i]||'⭐',c=colors[i]||colors[0];
+const tg=allGames.filter(g=>g.teacher_name===t.name&&g.status==='approved');
+const sh=calcShields(t.count), prog=t.count%100;
+return `<div class="card-glass rounded-3xl overflow-hidden shadow-2xl">
+<div class="bg-gradient-to-br ${c.bg} p-6 text-white text-center">
+<div class="text-6xl mb-2">${medal}</div>
+<h3 class="text-2xl font-black cursor-pointer hover:opacity-80" onclick="showTeacherDetails('${t.name}')">${t.name}</h3>
+<p class="text-sm opacity-90">المرتبة ${['الأول','الثاني','الثالث'][i]||'متميز'}</p>
+</div>
+<div class="p-6">
+<div class="bg-gradient-to-r ${c.bg} rounded-2xl p-4 text-white text-center mb-4">
+<p class="text-4xl font-black">${t.count}</p><p class="text-sm">إجمالي المساهمات</p>
+</div>
+<div class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-4 border border-slate-700">
+<div class="flex justify-between mb-2"><p class="text-white text-sm">🛡️ الدروع</p><p class="text-amber-300 font-bold">${sh}/10</p></div>
+<div class="flex gap-1 flex-wrap mb-3">
+${Array.from({length:10}).map((_,j)=>{const earned=j<sh,num=j+1;return `<div class="w-7 h-7 rounded flex items-center justify-center text-xs font-bold ${earned?'bg-gradient-to-br from-amber-400 to-amber-600 text-yellow-900':'bg-slate-700 text-slate-500 border border-slate-600'}">${earned?'✓':num}</div>`}).join('')}
+</div>
+${sh<10?`<div class="flex justify-between text-xs mb-1"><span class="text-slate-300">→ ${shieldName(sh+1)}</span><span class="text-amber-300">${prog}/100</span></div><div class="h-2 bg-slate-700 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-amber-400 to-amber-600 rounded-full" style="width:${prog}%"></div></div>`:`<p class="text-center text-amber-300 text-xs">🏆 وصل إلى الحد الأقصى!</p>`}
+</div>
+</div>
+</div>`;
+}).join('');
+}
+
+function showTeacherDetails(name){
+const tg=allGames.filter(g=>g.teacher_name===name&&g.status==='approved');
+const byType={game:tg.filter(g=>g.content_type==='game'),presentation:tg.filter(g=>g.content_type==='presentation'),file:tg.filter(g=>g.content_type==='file')};
+const sh=calcShields(tg.length);
+const modal=document.createElement('div');
+modal.className='fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+modal.onclick=e=>{if(e.target===modal)modal.remove();};
+let html=`<div class="card-glass rounded-3xl max-w-3xl w-full max-h-screen overflow-y-auto shadow-2xl">
+<div class="sticky top-0 bg-gradient-to-r from-amber-400 to-amber-600 p-6 text-white flex justify-between items-center">
+<div><h2 class="text-2xl font-black mb-1">👨‍🏫 ${name}</h2><p class="text-amber-100 text-sm">جميع المشاركات</p></div>
+<button onclick="this.closest('.fixed').remove()" class="bg-white/20 text-white px-3 py-1 rounded-lg font-bold">✕</button>
+</div>
+<div class="p-6">
+<div class="grid grid-cols-4 gap-3 mb-6">
+<div class="bg-blue-50 rounded-xl p-3 text-center"><p class="text-2xl font-black text-blue-600">${tg.length}</p><p class="text-blue-800 text-xs font-bold">الإجمالي</p></div>
+<div class="bg-purple-50 rounded-xl p-3 text-center"><p class="text-2xl font-black text-purple-600">${byType.game.length}</p><p class="text-purple-800 text-xs font-bold">🎮 ألعاب</p></div>
+<div class="bg-pink-50 rounded-xl p-3 text-center"><p class="text-2xl font-black text-pink-600">${byType.presentation.length}</p><p class="text-pink-800 text-xs font-bold">📊 عروض</p></div>
+<div class="bg-cyan-50 rounded-xl p-3 text-center"><p class="text-2xl font-black text-cyan-600">${byType.file.length}</p><p class="text-cyan-800 text-xs font-bold">📁 ملفات</p></div>
+</div>`;
+[
+{key:'game',title:'🎮 الألعاب',g:'from-purple-400 to-indigo-500',label:'🎮 العب الآن'},
+{key:'presentation',title:'📊 العروض',g:'from-pink-400 to-rose-500',label:'📊 عرض الآن'},
+{key:'file',title:'📁 الملفات',g:'from-cyan-400 to-blue-500',label:'📁 تحميل'}
+].forEach(type=>{
+const items=byType[type.key];
+if(!items.length) return;
+html+=`<div class="mb-6"><h3 class="text-xl font-bold text-gray-800 mb-3">${type.title}</h3><div class="space-y-3">`;
+items.forEach(item=>{
+html+=`<div class="bg-gradient-to-br ${type.g} p-4 rounded-xl text-white"><h4 class="text-base font-bold mb-1">${item.lesson_name}</h4><p class="text-xs opacity-75 mb-2">📅 ${fmtDate(item.created_at)}</p><a href="${item.game_link||'#'}" target="_blank" class="inline-block bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg font-bold text-sm">${type.label}</a></div>`;
+});
+html+='</div></div>';
+});
+html+='</div></div>';
+modal.innerHTML=html;
+document.body.appendChild(modal);
+}
+
+async function loadAllGamesForAdmin(){
+try {
+const r=await fetch(GAS_URL+'?action=getAllGames');
+const data=await r.json();
+if(data.success&&Array.isArray(data.data)) renderAdminGames(data.data);
+else showPlatformToast('❌ فشل تحميل القائمة','error');
+} catch(e){showPlatformToast('❌ خطأ','error');}
+}
+
+function renderAdminGames(games){
+const container=document.getElementById('admin-games-list');
+const pending=games.filter(g=>g.status==='pending');
+if(!pending.length){container.innerHTML='<div class="text-center text-white py-8">✅ لا توجد ألعاب معلقة</div>';return;}
+container.innerHTML=pending.map(game=>{
+const grades=getArr(game.grade), subjects=getArr(game.subject);
+return `<div class="card-glass rounded-xl p-4 border-l-4 border-amber-400">
+<div class="flex flex-col md:flex-row justify-between items-start gap-3 mb-3">
+<div><h3 class="text-lg font-bold text-gray-800">${game.lesson_name}</h3>
+<p class="text-gray-600 text-sm">👨‍🏫 ${game.teacher_name}</p>
+<p class="text-gray-700 text-xs mt-1">📚 ${grades.join(', ')} | 📖 ${subjects.join(', ')}</p>
+<p class="text-gray-500 text-xs mt-1">📅 ${fmtDate(game.created_at)}</p>
+</div>
+<div class="bg-yellow-500/20 border-2 border-yellow-500 text-yellow-700 rounded-lg px-3 py-1 font-bold text-sm">⏳ قيد المراجعة</div>
+</div>
+<div class="mb-3"><label class="text-gray-700 font-medium block mb-1 text-sm">رابط المحتوى</label>
+<input type="url" value="${game.game_link||''}" class="w-full p-2 border border-gray-300 rounded-lg outline-none focus:border-amber-400 text-sm" data-game-id="${game.id}">
+</div>
+<div class="flex gap-2 flex-wrap">
+<button onclick="updateGameStatus('${game.id}','approved',this)" class="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-3 py-2 rounded-lg font-bold text-sm flex-1">✅ موافقة</button>
+<button onclick="updateGameStatus('${game.id}','rejected',this)" class="bg-gradient-to-r from-red-500 to-red-600 text-white px-3 py-2 rounded-lg font-bold text-sm flex-1">❌ رفض</button>
+<button onclick="deleteAdminGame('${game.id}',this)" class="bg-gradient-to-r from-gray-500 to-gray-600 text-white px-3 py-2 rounded-lg font-bold text-sm flex-1">🗑️ حذف</button>
+</div>
+</div>`;
+}).join('');
+}
+
+async function updateGameStatus(id,status,btn){
+const link=document.querySelector(`input[data-game-id="${id}"]`).value;
+btn.disabled=true; const orig=btn.textContent; btn.textContent='⏳...';
+try {
+const r=await fetch(GAS_URL,{method:'POST',body:JSON.stringify({action:'updateGame',gameId:id,status,gameLink:link,reviewed_at:new Date().toISOString()})});
+const res=await r.json();
+if(res.success){showPlatformToast('✅ تم التحديث','success');loadAllGamesForAdmin();}
+else{showPlatformToast('❌ فشل التحديث','error');btn.disabled=false;btn.textContent=orig;}
+} catch(e){showPlatformToast('❌ خطأ','error');btn.disabled=false;btn.textContent=orig;}
+}
+
+async function deleteAdminGame(id,btn){
+btn.disabled=true; const orig=btn.textContent; btn.textContent='⏳...';
+try {
+const r=await fetch(GAS_URL,{method:'POST',body:JSON.stringify({action:'deleteGame',gameId:id})});
+const res=await r.json();
+if(res.success){showPlatformToast('✅ تم الحذف','success');loadAllGamesForAdmin();}
+else{showPlatformToast('❌ فشل الحذف','error');btn.disabled=false;btn.textContent=orig;}
+} catch(e){showPlatformToast('❌ خطأ','error');btn.disabled=false;btn.textContent=orig;}
+}
+
+function showPlatformToast(msg,type='info'){
+const container=document.getElementById('toast-container');
+if(!container) return;
+const toast=document.createElement('div');
+const bg=type==='success'?'bg-emerald-500':type==='error'?'bg-red-500':'bg-blue-500';
+toast.className=`toast-item ${bg} text-white px-4 py-3 rounded-lg shadow-lg font-medium text-sm`;
+toast.textContent=msg;
+container.appendChild(toast);
+setTimeout(()=>{toast.style.opacity='0';toast.style.transition='opacity 0.25s';setTimeout(()=>toast.remove(),250);},2800);
+}
+
+// Admin login
+document.getElementById('admin-login-form').addEventListener('submit',function(e){
+e.preventDefault();
+const pw=document.getElementById('admin-password').value;
+if(pw==='edrees92526869@'){
+document.getElementById('admin-login').classList.add('hidden');
+document.getElementById('admin-panel').classList.remove('hidden');
+showPlatformToast('تم تسجيل الدخول! 🎉','success');
+loadAllGamesForAdmin();
+} else { showPlatformToast('كلمة المرور غير صحيحة','error'); }
+});
+
+function adminLogout(){
+document.getElementById('admin-login').classList.remove('hidden');
+document.getElementById('admin-panel').classList.add('hidden');
+document.getElementById('admin-password').value='';
+document.getElementById('admin-games-list').innerHTML='';
+}
+
+// Submit form
+document.getElementById('submit-form').addEventListener('submit',async function(e){
+e.preventDefault();
+const teacher=document.getElementById('teacher-name').value.trim();
+const ctype=document.getElementById('content-type').value;
+const grades=Array.from(document.getElementById('submit-grade').selectedOptions).map(o=>o.value);
+const subjects=Array.from(document.getElementById('submit-subject').selectedOptions).map(o=>o.value);
+const lname=document.getElementById('lesson-name-submit').value.trim();
+const link=document.getElementById('content-link').value.trim();
+if(!teacher||!ctype||!grades.length||!subjects.length||!lname||!link){
+showPlatformToast('❌ يرجى ملء جميع الحقول','error');return;
+}
+const submitBtn=this.querySelector('button[type="submit"]');
+submitBtn.disabled=true;
+document.getElementById('upload-overlay').classList.remove('hidden');
+let p=0;
+const iv=setInterval(()=>{if(p<80){p+=10;updateUploadProg(p);}},150);
+try {
+const r=await fetch(GAS_URL,{method:'POST',body:JSON.stringify({action:'addGame',game:{teacher_name:teacher,grade:grades,subject:subjects,lesson_name:lname,game_link:link,status:'pending',content_type:ctype,created_at:new Date().toISOString()}})});
+clearInterval(iv); updateUploadProg(100);
+const res=await r.json();
+setTimeout(()=>{
+document.getElementById('upload-overlay').classList.add('hidden');
+if(res.success){showPlatformToast('✅ تم الإرسال بنجاح!','success');e.target.reset();}
+else showPlatformToast('❌ حدث خطأ: '+(res.error||''),'error');
+submitBtn.disabled=false;
+},800);
+} catch(err){
+clearInterval(iv);
+document.getElementById('upload-overlay').classList.add('hidden');
+showPlatformToast('❌ خطأ في الاتصال','error');
+submitBtn.disabled=false;
+}
+});
+
+function updateUploadProg(p){
+const bar=document.getElementById('upload-progress-bar'), pct=document.getElementById('upload-progress-percent');
+if(bar) bar.style.width=p+'%';
+if(pct) pct.textContent=p;
+}
+</script>
+
+</body>
+</html>
