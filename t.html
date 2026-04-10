@@ -1,0 +1,2366 @@
+﻿<!doctype html>
+<html lang="ar" dir="rtl" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="true">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1e3a5f">
+  <meta name="description" content="منصة تعليمية متكاملة للتعلم التفاعلي">
+  <title>🎓 منصة تعليمية</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://script.google.com" crossorigin>
+  <link rel="dns-prefetch" href="//script.google.com">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <style>
+    * { font-family: 'Tajawal', sans-serif; }
+    html, body { width: 100%; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+    img { max-width: 100%; height: auto; }
+    section { content-visibility: auto; contain-intrinsic-size: 1px 900px; }
+    button, a, input, select, textarea { touch-action: manipulation; }
+    .gradient-bg { background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 50%, #1b263b 100%); }
+    .card-glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); will-change: contents; }
+    .btn-primary { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); transition: transform 0.15s ease; will-change: transform; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+    .btn-primary:active { transform: scale(0.98) translateZ(0); }
+    .btn-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); transition: transform 0.15s ease; }
+    .btn-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); transition: transform 0.15s ease; }
+    .tab-active { background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); color: white; border-color: rgba(255,255,255,0.35); box-shadow: 0 12px 26px rgba(79,70,229,0.35); }
+    .tab-inactive { background: rgba(255, 255, 255, 0.12); color: white; }
+    .main-nav-btn {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.22);
+      backdrop-filter: blur(6px);
+      transition: all 0.2s ease;
+      transform: translateY(0);
+    }
+    .main-nav-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(2, 6, 23, 0.35);
+      border-color: rgba(255,255,255,0.45);
+    }
+    .main-nav-btn::before {
+      content: '';
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 6px;
+      height: 3px;
+      border-radius: 999px;
+      background: var(--tab-accent, linear-gradient(90deg, #fff, #fff));
+      opacity: 0.9;
+    }
+    .main-nav-games { --tab-accent: linear-gradient(90deg, #a78bfa, #6366f1); }
+    .main-nav-presentations { --tab-accent: linear-gradient(90deg, #f472b6, #fb7185); }
+    .main-nav-files { --tab-accent: linear-gradient(90deg, #22d3ee, #3b82f6); }
+    .main-nav-stars { --tab-accent: linear-gradient(90deg, #facc15, #f59e0b); }
+    .main-nav-account { --tab-accent: linear-gradient(90deg, #e879f9, #8b5cf6); }
+    .main-nav-submit { --tab-accent: linear-gradient(90deg, #34d399, #14b8a6); }
+    .main-nav-admin { --tab-accent: linear-gradient(90deg, #f87171, #fb923c); }
+    .game-card, .presentation-card, .file-card { transform: translate3d(0, 0, 0); will-change: transform; backface-visibility: hidden; }
+    .game-card:active { transform: translateY(-2px) scale(0.98) translateZ(0); }
+    .input-field { transition: border-color 0.15s ease, box-shadow 0.15s ease; backface-visibility: hidden; }
+    .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 50%, #1b263b 100%); display: flex; align-items: center; justify-content: center; z-index: 1000; animation: fadeIn 0.3s ease; -webkit-user-select: none; user-select: none; }
+    .loading-container { text-align: center; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); border-radius: 30px; padding: 40px 30px; max-width: 500px; width: 90%; border: 2px solid rgba(255, 255, 255, 0.2); box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+    .loading-title { font-size: 28px; margin-bottom: 10px; animation: pulse 2s infinite; color: white; font-weight: 800; }
+    .loading-subtitle { color: #fbbf24; font-size: 16px; margin-bottom: 25px; font-weight: 600; line-height: 1.4; }
+    .progress-bar-container { background: rgba(255, 255, 255, 0.2); border-radius: 20px; height: 25px; overflow: hidden; margin-bottom: 15px; border: 2px solid rgba(255, 255, 255, 0.3); position: relative; }
+    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #f59e0b, #fbbf24, #f59e0b); border-radius: 18px; width: 0%; transition: width 0.2s linear; box-shadow: 0 0 15px rgba(245, 158, 11, 0.8); position: relative; overflow: hidden; }
+    .progress-bar-fill::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); animation: shimmer 1.2s infinite; }
+    .progress-text { color: white; font-size: 18px; font-weight: bold; margin-bottom: 12px; }
+    .loading-message { color: rgba(255, 255, 255, 0.8); font-size: 13px; margin-top: 15px; line-height: 1.4; }
+    .game-icons { font-size: 36px; margin-bottom: 15px; display: flex; justify-content: center; gap: 12px; animation: bounce-icons 2s infinite; }
+    .game-icons span { animation: bounce 0.8s infinite; display: inline-block; will-change: transform; }
+    .game-icons span:nth-child(2) { animation-delay: 0.15s; }
+    .game-icons span:nth-child(3) { animation-delay: 0.3s; }
+    .browser-recommendation { color: rgba(255, 255, 255, 0.9); font-size: 14px; font-weight: 600; margin-top: 18px; padding: 12px 15px; background: rgba(59, 130, 246, 0.2); border: 2px solid rgba(59, 130, 246, 0.5); border-radius: 12px; text-align: center; animation: fadeInScale 0.5s ease; line-height: 1.3; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    @keyframes bounce-icons { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    @keyframes fadeInOpacity { from { opacity: 0; } to { opacity: 1; } }
+    .toast { animation: fadeInOpacity 0.18s ease; }
+    html.ios-safari-fast, body.ios-safari-fast { scroll-behavior: auto !important; }
+    .ios-safari-fast .card-glass,
+    .ios-safari-fast .loading-container,
+    .ios-safari-fast .main-nav-btn {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+    .ios-safari-fast .card-glass { background: rgba(255,255,255,0.98) !important; }
+    .ios-safari-fast .progress-bar-fill::after,
+    .ios-safari-fast .game-icons,
+    .ios-safari-fast .game-icons span,
+    .ios-safari-fast .loading-title {
+      animation: none !important;
+    }
+    @media (max-width: 640px) {
+      .loading-container { padding: 35px 25px; }
+      .loading-title { font-size: 24px; }
+      .loading-subtitle { font-size: 14px; margin-bottom: 20px; }
+      .progress-bar-container { height: 22px; margin-bottom: 12px; }
+      .progress-text { font-size: 16px; margin-bottom: 10px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    }
+  </style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full gradient-bg overflow-auto">
+  <div id="loading-overlay" class="loading-overlay">
+   <div class="loading-container">
+    <div class="game-icons"><span>🎮</span> <span>📊</span> <span>📁</span></div>
+    <div class="loading-title">🎓 منصة تعليمية</div>
+    <div class="loading-subtitle">منصة تعليمية متكاملة للتعلم المتقدم</div>
+    <div class="progress-bar-container"><div id="progress-bar" class="progress-bar-fill"></div></div>
+    <div class="progress-text"><span id="progress-percent">0</span>%</div>
+    <div class="loading-message">يتم تحميل الألعاب والمحتوى<span class="loading-dots"></span></div>
+    <div class="browser-recommendation">استخدم متصفح Chrome للحصول على أفضل أداء</div>
+   </div>
+  </div>
+
+  <div class="min-h-full w-full relative z-10 p-4 md:p-8">
+   <header class="text-center mb-8">
+    <div class="inline-flex items-center gap-3 mb-4">
+     <div class="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg"><span class="text-3xl">🎮</span></div>
+     <div class="text-right">
+      <h1 id="site-title" class="text-3xl md:text-4xl font-extrabold text-white">🎓 منصة تعليمية</h1>
+      <p id="welcome-message" class="text-amber-300 text-lg">🚀 اكتشف آفاقاً جديدة في التعلم التفاعلي والممتع</p>
+     </div>
+    </div>
+   </header>
+
+   <nav class="flex justify-center gap-2 mb-8 flex-wrap">
+    <button onclick="switchTab('home')" id="tab-home" class="tab-active bg-gradient-to-r from-indigo-500 to-sky-500 px-6 py-3 rounded-xl font-bold transition-all text-white shadow-lg hover:shadow-xl">🏠 الصفحة الرئيسة</button>
+    <button onclick="switchTab('browse')" id="tab-browse" class="main-nav-btn main-nav-games tab-inactive px-6 py-3 rounded-xl font-bold transition-all">📚 الألعاب</button>
+    <button onclick="switchTab('presentations')" id="tab-presentations" class="main-nav-btn main-nav-presentations tab-inactive px-6 py-3 rounded-xl font-bold transition-all">📊 العروض التقديمية</button>
+    <button onclick="switchTab('files')" id="tab-files" class="main-nav-btn main-nav-files tab-inactive px-6 py-3 rounded-xl font-bold transition-all">📁 الملفات المخزنة</button>
+    <button onclick="switchTab('submit')" id="tab-submit" class="main-nav-btn main-nav-submit tab-inactive px-6 py-3 rounded-xl font-bold transition-all">➕ إرسال محتوى</button>
+    <button onclick="switchTab('account')" id="tab-account" class="main-nav-btn main-nav-account tab-inactive px-6 py-3 rounded-xl font-bold transition-all">👤 الحساب</button>
+    <button onclick="switchTab('stars')" id="tab-stars" class="main-nav-btn main-nav-stars tab-inactive px-6 py-3 rounded-xl font-bold transition-all">⭐ المعلمون المتميزون</button>
+    <button onclick="switchTab('admin')" id="tab-admin" class="main-nav-btn main-nav-admin tab-inactive px-6 py-3 rounded-xl font-bold transition-all">🔐 لوحة المدير</button>
+   </nav>
+
+   <section id="section-home" class="max-w-6xl mx-auto">
+    <div class="bg-gradient-to-br from-sky-500/10 to-indigo-500/10 rounded-3xl p-8 border-2 border-sky-300/30 mb-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+        <div>
+          <h2 class="text-4xl font-black text-white mb-3">🏠 الصفحة الرئيسة</h2>
+          <p class="text-sky-100 text-lg leading-8 mb-5">
+            منصة تعليمية شاملة تجمع الألعاب التفاعلية والعروض التقديمية والملفات التعليمية في مكان واحد، مع نظام تقييم وتعليقات ومتابعة المشاهدات.
+          </p>
+          <div class="flex flex-wrap gap-3">
+            <button type="button" onclick="switchTab('submit')" class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-5 py-3 rounded-xl font-bold">ابدأ بإرسال محتوى</button>
+            <button type="button" onclick="switchTab('browse')" class="bg-white/20 text-white px-5 py-3 rounded-xl font-bold border border-white/30">تصفح الألعاب</button>
+          </div>
+        </div>
+        <div class="card-glass rounded-2xl p-6">
+          <h3 class="text-2xl font-black text-gray-800 mb-3">🔐 حالة الحساب</h3>
+          <p id="home-auth-status" class="text-gray-700 font-semibold mb-4">جارٍ التحقق من حالة تسجيل الدخول...</p>
+          <div class="grid grid-cols-2 gap-3">
+            <button type="button" id="home-auth-primary-btn" class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-3 rounded-xl font-bold" onclick="goToSubmitLogin()">تسجيل الدخول</button>
+            <button type="button" id="home-auth-secondary-btn" class="bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-3 rounded-xl font-bold" onclick="switchTab('account')">إنشاء حساب</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div class="card-glass rounded-2xl p-5">
+        <p class="text-3xl mb-2">🎮</p>
+        <h4 class="font-black text-gray-800 mb-2">ألعاب تعليمية</h4>
+        <p class="text-gray-600 text-sm">تعلم ممتع عبر ألعاب تفاعلية مناسبة لمواد وصفوف مختلفة.</p>
+      </div>
+      <div class="card-glass rounded-2xl p-5">
+        <p class="text-3xl mb-2">📊</p>
+        <h4 class="font-black text-gray-800 mb-2">عروض تقديمية</h4>
+        <p class="text-gray-600 text-sm">محتوى بصري منظم يساعد المعلم والطالب على شرح الدروس بسرعة.</p>
+      </div>
+      <div class="card-glass rounded-2xl p-5">
+        <p class="text-3xl mb-2">📁</p>
+        <h4 class="font-black text-gray-800 mb-2">ملفات مخزنة</h4>
+        <p class="text-gray-600 text-sm">مكتبة موارد جاهزة للاستخدام مع إمكانية التحميل المباشر.</p>
+      </div>
+      <div class="card-glass rounded-2xl p-5">
+        <p class="text-3xl mb-2">⭐</p>
+        <h4 class="font-black text-gray-800 mb-2">تفاعل المجتمع</h4>
+        <p class="text-gray-600 text-sm">تقييمات وتعليقات ومشاهدات تعكس جودة المحتوى وتأثيره.</p>
+      </div>
+    </div>
+
+    <div class="card-glass rounded-2xl p-6">
+      <h3 class="text-2xl font-black text-gray-800 mb-4">🚀 كيف تبدأ؟</h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-gray-700">
+        <div class="bg-sky-50 border border-sky-200 rounded-xl p-4">
+          <p class="font-black mb-1">1) أنشئ حسابًا</p>
+          <p class="text-sm">من تبويب الحساب، أنشئ حسابًا أو سجّل دخولك.</p>
+        </div>
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+          <p class="font-black mb-1">2) أرسل محتواك</p>
+          <p class="text-sm">أضف رابط الدرس وحدد الصفوف والمواد ثم أرسل للمراجعة.</p>
+        </div>
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <p class="font-black mb-1">3) تابع التفاعل</p>
+          <p class="text-sm">راقب المشاهدات والتقييمات والتعليقات على محتواك.</p>
+        </div>
+      </div>
+    </div>
+   </section>
+
+   <section id="section-browse" class="hidden max-w-6xl mx-auto">
+    <div class="mb-8 text-center">
+     <h2 class="text-3xl md:text-4xl font-extrabold text-white mb-2">📚 الألعاب التعليمية</h2>
+     <p class="text-white text-lg font-medium">مجموعة رائعة من الألعاب التفاعلية للتعليم</p>
+    </div>
+    <div class="mb-6 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 rounded-2xl p-6 border-2 border-purple-400/30">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="block text-purple-200 font-bold mb-2">🔍 البحث عن الدرس</label><input type="text" id="search-lesson-games" placeholder="ابحث عن اسم الدرس..." class="w-full p-3 border-2 border-purple-300 rounded-xl outline-none bg-white text-gray-800 font-medium" oninput="applyGameFilters()"></div>
+        <div><label class="block text-purple-200 font-bold mb-2">🎓 الصف الدراسي</label><select id="filter-grade-games" class="w-full p-3 border-2 border-purple-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyGameFilters()"><option value="">جميع الصفوف</option><option value="الصف الأول">الصف الأول</option><option value="الصف الثاني">الصف الثاني</option><option value="الصف الثالث">الصف الثالث</option><option value="الصف الرابع">الصف الرابع</option><option value="الصف الخامس">الصف الخامس</option><option value="الصف السادس">الصف السادس</option><option value="الصف السابع">الصف السابع</option><option value="الصف الثامن">الصف الثامن</option><option value="الصف التاسع">الصف التاسع</option><option value="الصف العاشر">الصف العاشر</option><option value="الصف الحادي عشر">الصف الحادي عشر</option><option value="الصف الثاني عشر">الصف الثاني عشر</option></select></div>
+        <div><label class="block text-purple-200 font-bold mb-2">📖 المادة الدراسية</label><select id="filter-subject-games" class="w-full p-3 border-2 border-purple-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyGameFilters()"><option value="">جميع المواد</option><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="الرياضيات">الرياضيات</option><option value="العلوم">العلوم</option><option value="الفيزياء">الفيزياء</option><option value="الكيمياء">الكيمياء</option><option value="الأحياء">الأحياء</option><option value="الدراسات الاجتماعية">الدراسات الاجتماعية</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="الحاسوب">الحاسوب</option><option value="التربية الفنية">التربية الفنية</option><option value="التربية الرياضية">التربية الرياضية</option><option value="التربية الموسيقية">التربية الموسيقية</option></select></div>
+      </div>
+    </div>
+    <div id="games-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    <div id="games-pagination" class="mt-6"></div>
+   </section>
+
+   <section id="section-presentations" class="hidden max-w-6xl mx-auto">
+    <div class="mb-8 text-center">
+      <h2 class="text-3xl md:text-4xl font-extrabold text-white mb-2">📊 العروض التقديمية</h2>
+      <p class="text-white text-lg font-medium">مجموعة من العروض التقديمية التعليمية المتنوعة</p>
+    </div>
+    <div class="mb-6 bg-gradient-to-r from-pink-500/10 to-rose-500/10 rounded-2xl p-6 border-2 border-pink-400/30">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="block text-pink-200 font-bold mb-2">🔍 البحث عن الدرس</label><input type="text" id="search-lesson-presentations" placeholder="ابحث عن اسم الدرس..." class="w-full p-3 border-2 border-pink-300 rounded-xl outline-none bg-white text-gray-800 font-medium" oninput="applyPresentationFilters()"></div>
+        <div><label class="block text-pink-200 font-bold mb-2">🎓 الصف الدراسي</label><select id="filter-grade-presentations" class="w-full p-3 border-2 border-pink-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyPresentationFilters()"><option value="">جميع الصفوف</option><option value="الصف الأول">الصف الأول</option><option value="الصف الثاني">الصف الثاني</option><option value="الصف الثالث">الصف الثالث</option><option value="الصف الرابع">الصف الرابع</option><option value="الصف الخامس">الصف الخامس</option><option value="الصف السادس">الصف السادس</option><option value="الصف السابع">الصف السابع</option><option value="الصف الثامن">الصف الثامن</option><option value="الصف التاسع">الصف التاسع</option><option value="الصف العاشر">الصف العاشر</option><option value="الصف الحادي عشر">الصف الحادي عشر</option><option value="الصف الثاني عشر">الصف الثاني عشر</option></select></div>
+        <div><label class="block text-pink-200 font-bold mb-2">📖 المادة الدراسية</label><select id="filter-subject-presentations" class="w-full p-3 border-2 border-pink-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyPresentationFilters()"><option value="">جميع المواد</option><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="الرياضيات">الرياضيات</option><option value="العلوم">العلوم</option><option value="الفيزياء">الفيزياء</option><option value="الكيمياء">الكيمياء</option><option value="الأحياء">الأحياء</option><option value="الدراسات الاجتماعية">الدراسات الاجتماعية</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="الحاسوب">الحاسوب</option><option value="التربية الفنية">التربية الفنية</option><option value="التربية الرياضية">التربية الرياضية</option><option value="التربية الموسيقية">التربية الموسيقية</option></select></div>
+      </div>
+    </div>
+    <div id="presentations-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    <div id="presentations-pagination" class="mt-6"></div>
+   </section>
+   <section id="section-files" class="hidden max-w-6xl mx-auto">
+    <div class="mb-8 text-center">
+      <h2 class="text-3xl md:text-4xl font-extrabold text-white mb-2">📁 الملفات المخزنة</h2>
+      <p class="text-white text-lg font-medium">مكتبة الملفات والموارد التعليمية</p>
+    </div>
+    <div class="mb-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-2xl p-6 border-2 border-cyan-400/30">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="block text-cyan-200 font-bold mb-2">🔍 البحث عن الدرس</label><input type="text" id="search-lesson-files" placeholder="ابحث عن اسم الدرس..." class="w-full p-3 border-2 border-cyan-300 rounded-xl outline-none bg-white text-gray-800 font-medium" oninput="applyFilesFilters()"></div>
+        <div><label class="block text-cyan-200 font-bold mb-2">🎓 الصف الدراسي</label><select id="filter-grade-files" class="w-full p-3 border-2 border-cyan-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyFilesFilters()"><option value="">جميع الصفوف</option><option value="الصف الأول">الصف الأول</option><option value="الصف الثاني">الصف الثاني</option><option value="الصف الثالث">الصف الثالث</option><option value="الصف الرابع">الصف الرابع</option><option value="الصف الخامس">الصف الخامس</option><option value="الصف السادس">الصف السادس</option><option value="الصف السابع">الصف السابع</option><option value="الصف الثامن">الصف الثامن</option><option value="الصف التاسع">الصف التاسع</option><option value="الصف العاشر">الصف العاشر</option><option value="الصف الحادي عشر">الصف الحادي عشر</option><option value="الصف الثاني عشر">الصف الثاني عشر</option></select></div>
+        <div><label class="block text-cyan-200 font-bold mb-2">📖 المادة الدراسية</label><select id="filter-subject-files" class="w-full p-3 border-2 border-cyan-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyFilesFilters()"><option value="">جميع المواد</option><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="الرياضيات">الرياضيات</option><option value="العلوم">العلوم</option><option value="الفيزياء">الفيزياء</option><option value="الكيمياء">الكيمياء</option><option value="الأحياء">الأحياء</option><option value="الدراسات الاجتماعية">الدراسات الاجتماعية</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="الحاسوب">الحاسوب</option><option value="التربية الفنية">التربية الفنية</option><option value="التربية الرياضية">التربية الرياضية</option><option value="التربية الموسيقية">التربية الموسيقية</option></select></div>
+      </div>
+    </div>
+    <div id="files-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    <div id="files-pagination" class="mt-6"></div>
+   </section>
+   <section id="section-stars" class="hidden max-w-6xl mx-auto"><div class="mb-8 text-center"><h2 class="text-3xl md:text-4xl font-extrabold text-white mb-2">⭐ المعلمون المتميزون</h2><p class="text-white text-lg font-medium">أفضل المساهمين في منصتنا</p></div><div id="stars-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div></section>
+
+   <section id="section-account" class="hidden max-w-2xl mx-auto">
+    <div class="bg-gradient-to-br from-fuchsia-400/10 to-violet-400/10 rounded-2xl p-8 shadow-xl border-2 border-fuchsia-400/30">
+      <h2 class="text-3xl font-extrabold text-white mb-6">👤 الحساب</h2>
+
+      <div id="account-auth-card" class="space-y-5">
+        <p class="text-fuchsia-100 font-medium">سجّل الدخول أو أنشئ حسابًا للوصول إلى الإرسال والتقييم والتعليقات.</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" id="auth-tab-login" class="bg-white/20 text-white py-2 rounded-lg font-bold">تسجيل دخول</button>
+          <button type="button" id="auth-tab-register" class="bg-white/10 text-fuchsia-100 py-2 rounded-lg font-bold">إنشاء حساب</button>
+        </div>
+        <form id="login-form" class="space-y-3" autocomplete="on">
+          <div>
+            <label class="block text-fuchsia-200 font-bold mb-2">الإيميل</label>
+            <input type="email" id="login-email" name="email" autocomplete="email username" required class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <div>
+            <label class="block text-fuchsia-200 font-bold mb-2">كلمة المرور</label>
+            <input type="password" id="login-password" name="password" autocomplete="current-password" required class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <button type="submit" class="w-full bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white py-3 rounded-xl font-bold">دخول</button>
+          <button type="button" id="forgot-password-btn" class="w-full text-fuchsia-100 underline font-bold py-1">نسيت كلمة المرور؟</button>
+        </form>
+        <form id="forgot-form" class="space-y-3 hidden" autocomplete="on">
+          <div>
+            <label class="block text-fuchsia-200 font-bold mb-2">الإيميل</label>
+            <input type="email" id="forgot-email" name="recover_email" autocomplete="email" required class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <div>
+            <label class="block text-fuchsia-200 font-bold mb-2">الاسم الكامل (كما سُجل)</label>
+            <input type="text" id="forgot-full-name" required class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <div>
+            <label class="block text-fuchsia-200 font-bold mb-2">كلمة المرور الجديدة</label>
+            <input type="password" id="forgot-new-password" name="new_password" autocomplete="new-password" required minlength="6" class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <div>
+            <label class="block text-fuchsia-200 font-bold mb-2">تأكيد كلمة المرور الجديدة</label>
+            <input type="password" id="forgot-new-password-confirm" name="new_password_confirm" autocomplete="new-password" required minlength="6" class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <button type="submit" class="w-full bg-gradient-to-r from-amber-600 to-orange-600 text-white py-3 rounded-xl font-bold">إعادة تعيين كلمة المرور</button>
+          <button type="button" id="back-to-login-btn" class="w-full text-fuchsia-100 underline font-bold py-1">العودة لتسجيل الدخول</button>
+        </form>
+        <form id="register-form" class="space-y-3 hidden" autocomplete="on">
+          <div>
+            <label class="block text-fuchsia-200 font-bold mb-2">الاسم الكامل</label>
+            <input type="text" id="register-full-name" name="full_name" autocomplete="name" required class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <div>
+            <label class="block text-fuchsia-200 font-bold mb-2">نوع الجنس</label>
+            <select id="register-gender" class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+              <option value="male">رجل</option>
+              <option value="female">امرأة</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-fuchsia-200 font-bold mb-2">الإيميل</label>
+            <input type="email" id="register-email" name="email" autocomplete="email username" required class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <div>
+            <label class="block text-fuchsia-200 font-bold mb-2">كلمة المرور</label>
+            <input type="password" id="register-password" name="password" autocomplete="new-password" required minlength="6" class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <div>
+            <label class="block text-fuchsia-200 font-bold mb-2">تأكيد كلمة المرور</label>
+            <input type="password" id="register-password-confirm" name="password_confirm" autocomplete="new-password" required minlength="6" class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <button type="submit" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white py-3 rounded-xl font-bold">إنشاء حساب</button>
+        </form>
+      </div>
+
+      <div id="account-user-bar" class="hidden mb-4 bg-fuchsia-900/40 text-fuchsia-100 rounded-xl p-3 flex justify-between items-center">
+        <span id="account-user-label" class="font-bold"></span>
+        <button type="button" id="logout-btn" class="bg-red-500 text-white px-3 py-1 rounded-lg font-bold">تسجيل خروج</button>
+      </div>
+
+      <div id="account-profile-panel" class="hidden space-y-4">
+        <div class="card-glass rounded-2xl p-5">
+          <h3 class="text-xl font-black text-gray-800 mb-4">📋 تفاصيل العضو</h3>
+          <div class="flex items-center gap-4 mb-4">
+            <img id="profile-preview" src="" alt="الصورة الشخصية" class="w-20 h-20 rounded-full object-cover border-4 border-fuchsia-200 bg-gray-100">
+            <div>
+              <p id="profile-full-name-view" class="font-black text-gray-800 text-lg"></p>
+              <p id="profile-email-view" class="text-gray-600"></p>
+              <p id="profile-meta-view" class="text-xs text-gray-500"></p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-fuchsia-50 rounded-xl p-3">
+              <p class="text-xs text-fuchsia-700 font-bold">المساهمات المعتمدة</p>
+              <p id="profile-contrib-count" class="text-2xl font-black text-fuchsia-900">0</p>
+            </div>
+            <div class="bg-indigo-50 rounded-xl p-3">
+              <p class="text-xs text-indigo-700 font-bold">عدد التعليقات</p>
+              <p id="profile-comments-count" class="text-2xl font-black text-indigo-900">0</p>
+            </div>
+          </div>
+        </div>
+
+        <form id="profile-settings-form" class="card-glass rounded-2xl p-5 space-y-4">
+          <h3 class="text-xl font-black text-gray-800">⚙️ إعدادات الحساب</h3>
+          <div>
+            <label class="block text-gray-700 font-bold mb-2">الاسم الكامل</label>
+            <input type="text" id="profile-full-name" class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <div>
+            <label class="block text-gray-700 font-bold mb-2">الإيميل</label>
+            <input type="email" id="profile-email" class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-gray-700 font-bold mb-2">نوع الجنس</label>
+              <select id="profile-gender" class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+                <option value="male">رجل</option>
+                <option value="female">امرأة</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-gray-700 font-bold mb-2">لغة الواجهة</label>
+              <select id="profile-language" class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+                <option value="ar">العربية</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-gray-700 font-bold mb-2">خلفية الموقع</label>
+              <select id="profile-background" class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+                <option value="classic">الكلاسيكية (أزرق)</option>
+                <option value="sunset">الغروب</option>
+                <option value="forest">الغابة</option>
+                <option value="night">ليلية داكنة</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-gray-700 font-bold mb-2">الصورة الشخصية</label>
+            <input type="file" id="profile-image-file" accept="image/*" class="w-full p-2 border-2 border-fuchsia-300 rounded-xl bg-white text-gray-800">
+          </div>
+          <div class="flex gap-2">
+            <button type="submit" class="flex-1 bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white py-3 rounded-xl font-bold">حفظ التعديلات</button>
+            <button type="button" id="profile-remove-image-btn" class="bg-gray-500 text-white px-4 py-3 rounded-xl font-bold">حذف الصورة</button>
+          </div>
+        </form>
+      </div>
+    </div>
+   </section>
+
+   <section id="section-submit" class="hidden max-w-2xl mx-auto">
+    <div class="bg-gradient-to-br from-emerald-400/10 to-teal-400/10 rounded-2xl p-8 shadow-xl border-2 border-emerald-400/30">
+      <h2 class="text-3xl font-extrabold text-white mb-6">📝 إرسال محتوى تعليمي جديد</h2>
+      <div id="submit-login-required" class="hidden bg-white/10 border border-emerald-300/40 rounded-xl p-4 mb-5">
+        <p class="text-emerald-100 font-bold mb-3">يلزم تسجيل الدخول أولًا لإرسال المحتوى.</p>
+        <button type="button" onclick="switchTab('account'); toggleAuthTab('login');" class="bg-gradient-to-r from-fuchsia-500 to-violet-600 text-white px-4 py-2 rounded-lg font-bold">الذهاب إلى صفحة الحساب</button>
+      </div>
+      <form id="submit-form" class="space-y-5 hidden">
+        <div><label class="block text-emerald-200 font-bold mb-2">اسم المعلم</label><input type="text" id="teacher-name" required placeholder="أدخل اسمك الكامل" class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"></div>
+        <div><label class="block text-emerald-200 font-bold mb-2">نوع المحتوى</label><select id="content-type" required class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"><option value="">اختر نوع المحتوى</option><option value="game">🎮 لعبة تعليمية</option><option value="presentation">📊 عرض تقديمي</option><option value="file">📁 ملف مخزن</option></select></div>
+        <div><label class="block text-emerald-200 font-bold mb-2">الصفوف الدراسية</label><select id="submit-grade" multiple required class="w-full p-4 border-2 border-emerald-400 rounded-xl input-field outline-none bg-white text-gray-900 font-semibold" size="5"><option value="الصف الأول">الصف الأول</option><option value="الصف الثاني">الصف الثاني</option><option value="الصف الثالث">الصف الثالث</option><option value="الصف الرابع">الصف الرابع</option><option value="الصف الخامس">الصف الخامس</option><option value="الصف السادس">الصف السادس</option><option value="الصف السابع">الصف السابع</option><option value="الصف الثامن">الصف الثامن</option><option value="الصف التاسع">الصف التاسع</option><option value="الصف العاشر">الصف العاشر</option><option value="الصف الحادي عشر">الصف الحادي عشر</option><option value="الصف الثاني عشر">الصف الثاني عشر</option></select></div>
+        <div><label class="block text-emerald-200 font-bold mb-2">المواد الدراسية</label><select id="submit-subject" multiple required class="w-full p-4 border-2 border-emerald-400 rounded-xl input-field outline-none bg-white text-gray-900 font-semibold" size="5"><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="الرياضيات">الرياضيات</option><option value="العلوم">العلوم</option><option value="الفيزياء">الفيزياء</option><option value="الكيمياء">الكيمياء</option><option value="الأحياء">الأحياء</option><option value="الدراسات الاجتماعية">الدراسات الاجتماعية</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="الحاسوب">الحاسوب</option><option value="التربية الفنية">التربية الفنية</option><option value="التربية الرياضية">التربية الرياضية</option><option value="التربية الموسيقية">التربية الموسيقية</option></select></div>
+        <div><label class="block text-emerald-200 font-bold mb-2">اسم الدرس</label><input type="text" id="lesson-name" required class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"></div>
+        <div><label class="block text-emerald-200 font-bold mb-2">رابط المحتوى</label><input type="url" id="content-link" required class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"></div>
+        <button id="submit-review-btn" type="submit" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transition-all">🚀 إرسال للمراجعة</button>
+      </form>
+    </div>
+   </section>
+
+   <section id="section-admin" class="hidden max-w-6xl mx-auto">
+    <div class="bg-gradient-to-br from-red-400/10 to-orange-400/10 rounded-2xl p-8 shadow-xl border-2 border-red-400/30">
+      <h2 class="text-3xl font-extrabold text-white mb-6">🔐 لوحة المدير</h2>
+
+      <div id="admin-login-box" class="space-y-4">
+        <p class="text-red-100 font-medium">أدخل كلمة المرور للوصول إلى لوحة المدير.</p>
+        <form id="admin-login-form" class="space-y-3">
+          <div>
+            <label class="block text-red-200 font-bold mb-2">الإيميل</label>
+            <input type="email" id="admin-email" required class="w-full p-3 border-2 border-red-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <div>
+            <label class="block text-red-200 font-bold mb-2">كلمة المرور</label>
+            <input type="password" id="admin-password" required class="w-full p-3 border-2 border-red-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          </div>
+          <button type="submit" class="w-full bg-gradient-to-r from-red-600 to-orange-600 text-white py-3 rounded-xl font-bold">دخول</button>
+        </form>
+      </div>
+
+      <div id="admin-panel-box" class="hidden space-y-4">
+        <div class="bg-white/10 rounded-xl p-4 text-red-100 font-bold">
+          تم تسجيل الدخول بنجاح إلى لوحة المدير.
+        </div>
+        <div class="flex gap-2">
+          <button type="button" id="admin-refresh-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">تحديث القائمة</button>
+          <button type="button" id="admin-logout-btn" class="bg-gray-700 text-white px-4 py-2 rounded-lg font-bold">تسجيل خروج</button>
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div>
+            <h3 class="text-white font-black mb-2">📥 المشاركات المرسلة</h3>
+            <div id="admin-submissions-list" class="space-y-3"></div>
+          </div>
+          <div class="space-y-4">
+            <div>
+              <h3 class="text-white font-black mb-2">👥 إدارة المستخدمين</h3>
+              <div id="admin-users-list" class="space-y-3"></div>
+            </div>
+            <div>
+              <h3 class="text-white font-black mb-2">💬 إدارة التعليقات</h3>
+              <div id="admin-comments-list" class="space-y-3"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+   </section>
+  </div>
+
+  <div id="toast-container" class="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"></div>
+
+  <script>
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdBOQwSbIIjJI18MH1Nd3sxrSWBiVYLDBoIswbOJ9BhdzVICH8Fd5KKJJJdAB61ZJM/exec';
+    const ADMIN_EMAIL = 'edreessaidsaif43@gmail.com';
+    const ADMIN_PASSWORD = 'Edrees92526869@';
+
+    const defaultConfig = {
+      site_title: '🎓 منصة تعليمية',
+      welcome_message: '🚀 اكتشف آفاقاً جديدة في التعلم التفاعلي والممتع'
+    };
+
+    let allGames = [];
+    let presentations = [];
+    let storedFiles = [];
+    let starTeachers = [];
+    let isSubmittingContent = false;
+    let approvedGames = [];
+    let approvedByType = { game: [], presentation: [], file: [] };
+    let teacherStatsByKey = {};
+    let usersIndex = { list: [], byEmail: new Map(), byName: new Map() };
+    let usersIndexReady = false;
+    const filterDebounceTimers = { game: null, presentation: null, file: null };
+    const ITEMS_PER_PAGE = 9;
+    const pageState = { game: 1, presentation: 1, file: 1 };
+    const REMOTE_STORAGE_VERSION = 1;
+    const DEFAULT_PROFILE_IMAGE_MALE = 'default-profile-man.png';
+    const DEFAULT_PROFILE_IMAGE_FEMALE = 'default-profile-woman.png';
+    const BACKGROUND_PRESETS = {
+      classic: 'linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 50%, #1b263b 100%)',
+      sunset: 'linear-gradient(135deg, #7c2d12 0%, #c2410c 45%, #f59e0b 100%)',
+      forest: 'linear-gradient(135deg, #14532d 0%, #166534 45%, #0f766e 100%)',
+      night: 'linear-gradient(135deg, #111827 0%, #0f172a 50%, #1f2937 100%)'
+    };
+    const remoteStorage = {
+      version: REMOTE_STORAGE_VERSION,
+      users: [],
+      contentMetrics: {},
+      contentComments: {}
+    };
+    let currentUserState = null;
+    let saveRemoteTimer = null;
+    let isRemoteSaveInFlight = false;
+    let hasPendingRemoteSave = false;
+    let lastRemoteLoadOk = true;
+
+    function getDefaultProfileImageByGender(gender = 'male') {
+      return gender === 'female' ? DEFAULT_PROFILE_IMAGE_FEMALE : DEFAULT_PROFILE_IMAGE_MALE;
+    }
+
+    function isDefaultProfileImage(url = '') {
+      const s = String(url || '');
+      return s === DEFAULT_PROFILE_IMAGE_MALE || s === DEFAULT_PROFILE_IMAGE_FEMALE || s.startsWith('data:image/svg+xml');
+    }
+
+    function getRaterKey() {
+      const current = getCurrentUser();
+      if (current && current.email) return 'user_' + current.email;
+      return null;
+    }
+
+    function detectIOSSafari() {
+      const ua = navigator.userAgent || '';
+      const isIOS = /iP(hone|ad|od)/.test(ua);
+      const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+      return isIOS && isSafari;
+    }
+
+    async function apiGet(action, timeoutMs = 20000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const url = `${GOOGLE_APPS_SCRIPT_URL}?action=${encodeURIComponent(action)}`;
+        const response = await fetch(url, {
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller.signal,
+          keepalive: true
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    async function apiPost(payload, timeoutMs = 25000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify(payload || {}),
+          signal: controller.signal,
+          keepalive: true
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function rebuildUsersIndex(usersList = []) {
+      const list = Array.isArray(usersList) ? usersList : [];
+      const byEmail = new Map();
+      const byName = new Map();
+      list.forEach(user => {
+        const normalized = normalizeUserRecord(user);
+        const emailKey = normalizeEmail(normalized.email);
+        const nameKey = normalizeTeacherName(normalized.full_name);
+        if (emailKey) byEmail.set(emailKey, normalized);
+        if (nameKey && !byName.has(nameKey)) byName.set(nameKey, normalized);
+      });
+      usersIndex = { list, byEmail, byName };
+      usersIndexReady = true;
+    }
+
+    function rebuildContentIndexes() {
+      approvedGames = allGames.filter(g => g.status === 'approved');
+      approvedByType = {
+        game: approvedGames.filter(g => g.content_type === 'game'),
+        presentation: approvedGames.filter(g => g.content_type === 'presentation'),
+        file: approvedGames.filter(g => g.content_type === 'file')
+      };
+
+      const stats = {};
+      approvedGames.forEach(game => {
+        const key = getTeacherKey(game);
+        if (!key) return;
+        if (!stats[key]) {
+          stats[key] = {
+            key,
+            name: game.teacher_name || 'معلم غير معروف',
+            count: 0,
+            byType: { game: 0, presentation: 0, file: 0 },
+            items: []
+          };
+        }
+        stats[key].count += 1;
+        if (stats[key].byType[game.content_type] != null) {
+          stats[key].byType[game.content_type] += 1;
+        }
+        stats[key].items.push(game);
+      });
+      teacherStatsByKey = stats;
+    }
+
+    function rerenderVisibleContent() {
+      if (!document.getElementById('section-browse')?.classList.contains('hidden')) renderGames();
+      if (!document.getElementById('section-presentations')?.classList.contains('hidden')) renderPresentations();
+      if (!document.getElementById('section-files')?.classList.contains('hidden')) renderStoredFiles();
+      if (!document.getElementById('section-stars')?.classList.contains('hidden')) renderStarTeachers();
+    }
+
+    function setPage(type, page) {
+      pageState[type] = Math.max(1, Number(page) || 1);
+    }
+
+    function renderPaginationControls(containerId, type, totalItems) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+      if (pageState[type] > totalPages) pageState[type] = totalPages;
+      if (totalItems <= ITEMS_PER_PAGE) {
+        container.innerHTML = '';
+        return;
+      }
+      const current = pageState[type];
+      container.innerHTML = `
+        <div class="flex items-center justify-center gap-3 flex-wrap">
+          <button type="button" onclick="changePage('${type}', -1)" ${current <= 1 ? 'disabled' : ''} class="px-4 py-2 rounded-lg font-bold ${current <= 1 ? 'bg-white/20 text-white/50 cursor-not-allowed' : 'bg-white text-gray-800 hover:bg-gray-100'}">السابق</button>
+          <span class="text-white font-bold">الصفحة ${current} من ${totalPages}</span>
+          <button type="button" onclick="changePage('${type}', 1)" ${current >= totalPages ? 'disabled' : ''} class="px-4 py-2 rounded-lg font-bold ${current >= totalPages ? 'bg-white/20 text-white/50 cursor-not-allowed' : 'bg-white text-gray-800 hover:bg-gray-100'}">التالي</button>
+        </div>
+      `;
+    }
+
+    function changePage(type, delta) {
+      const nextPage = Math.max(1, (pageState[type] || 1) + Number(delta || 0));
+      setPage(type, nextPage);
+      if (type === 'game') renderGames();
+      if (type === 'presentation') renderPresentations();
+      if (type === 'file') renderStoredFiles();
+      const sectionId = type === 'game' ? 'section-browse' : type === 'presentation' ? 'section-presentations' : 'section-files';
+      const section = document.getElementById(sectionId);
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function loadStorageFromAppScript() {
+      try {
+        const payload = await apiGet('getStorage');
+        if (payload && payload.success && payload.storage && typeof payload.storage === 'object') {
+          const storage = payload.storage;
+          remoteStorage.version = Number(storage.version) || REMOTE_STORAGE_VERSION;
+          remoteStorage.users = Array.isArray(storage.users) ? storage.users.map(normalizeUserRecord) : [];
+          remoteStorage.contentMetrics = storage.contentMetrics && typeof storage.contentMetrics === 'object' ? storage.contentMetrics : {};
+          remoteStorage.contentComments = storage.contentComments && typeof storage.contentComments === 'object' ? storage.contentComments : {};
+        }
+        lastRemoteLoadOk = true;
+        return true;
+      } catch (e) {
+        console.error('Remote storage load failed:', e);
+        lastRemoteLoadOk = false;
+        return false;
+      } finally {
+        rebuildUsersIndex(remoteStorage.users);
+      }
+    }
+
+    async function flushStorageToAppScript() {
+      if (isRemoteSaveInFlight) {
+        hasPendingRemoteSave = true;
+        return false;
+      }
+      isRemoteSaveInFlight = true;
+      hasPendingRemoteSave = false;
+      let ok = true;
+      try {
+        const payload = await apiPost({
+          action: 'saveStorage',
+          storage: {
+            version: REMOTE_STORAGE_VERSION,
+            users: remoteStorage.users,
+            contentMetrics: remoteStorage.contentMetrics,
+            contentComments: remoteStorage.contentComments
+          }
+        });
+        if (!payload || !payload.success) {
+          throw new Error((payload && payload.error) || 'Save storage failed');
+        }
+      } catch (e) {
+        console.error('Remote storage save failed:', e);
+        ok = false;
+      } finally {
+        isRemoteSaveInFlight = false;
+        if (hasPendingRemoteSave) {
+          const nextOk = await flushStorageToAppScript();
+          ok = ok && nextOk;
+        }
+      }
+      return ok;
+    }
+
+    function queueRemoteStorageSave() {
+      if (saveRemoteTimer) clearTimeout(saveRemoteTimer);
+      saveRemoteTimer = setTimeout(() => { flushStorageToAppScript(); }, 250);
+    }
+
+    async function forceSaveRemoteStorageNow() {
+      if (saveRemoteTimer) {
+        clearTimeout(saveRemoteTimer);
+        saveRemoteTimer = null;
+      }
+      return await flushStorageToAppScript();
+    }
+
+    async function verifyUserExistsInRemoteStorage(email) {
+      const target = normalizeEmail(email || '');
+      if (!target) return false;
+      const ok = await loadStorageFromAppScript();
+      if (!ok) return false;
+      const users = Array.isArray(remoteStorage.users) ? remoteStorage.users : [];
+      return users.some(u => normalizeEmail(u.email) === target);
+    }
+
+    function loadContentMetrics() {
+      return remoteStorage.contentMetrics && typeof remoteStorage.contentMetrics === 'object'
+        ? remoteStorage.contentMetrics
+        : {};
+    }
+
+    function saveContentMetrics() {
+      remoteStorage.contentMetrics = contentMetrics && typeof contentMetrics === 'object' ? contentMetrics : {};
+      queueRemoteStorageSave();
+    }
+
+    function loadContentComments() {
+      return remoteStorage.contentComments && typeof remoteStorage.contentComments === 'object'
+        ? remoteStorage.contentComments
+        : {};
+    }
+
+    function saveContentComments() {
+      remoteStorage.contentComments = contentComments && typeof contentComments === 'object' ? contentComments : {};
+      queueRemoteStorageSave();
+    }
+
+    function getContentId(item) {
+      const base = item && item.id
+        ? String(item.id)
+        : `${item.content_type || 'content'}_${item.lesson_name || ''}_${item.teacher_name || ''}_${item.game_link || ''}`;
+      return base.replace(/[^\w\-:.]/g, '_');
+    }
+
+    function ensureContentMetric(contentId) {
+      if (!contentMetrics[contentId]) {
+        contentMetrics[contentId] = { views: 0, ratings: {} };
+      }
+      if (typeof contentMetrics[contentId].views !== 'number') contentMetrics[contentId].views = 0;
+      if (!contentMetrics[contentId].ratings || typeof contentMetrics[contentId].ratings !== 'object') {
+        contentMetrics[contentId].ratings = {};
+      }
+      return contentMetrics[contentId];
+    }
+
+    function getContentStats(contentId) {
+      const metric = ensureContentMetric(contentId);
+      const ratingValues = Object.values(metric.ratings).map(Number).filter(n => Number.isFinite(n) && n >= 1 && n <= 5);
+      const count = ratingValues.length;
+      const avg = count ? (ratingValues.reduce((a, b) => a + b, 0) / count) : 0;
+      const raterKey = getRaterKey();
+      const myRating = raterKey ? (metric.ratings[raterKey] || 0) : 0;
+      return { views: metric.views, count, avg, myRating };
+    }
+
+    async function rateContent(contentId, rating) {
+      const raterKey = getRaterKey();
+      if (!raterKey) {
+        showToast('❌ يجب تسجيل الدخول لتقييم المحتوى', 'error');
+        switchTab('account');
+        toggleAuthTab('login');
+        return;
+      }
+      const value = Number(rating);
+      if (!Number.isFinite(value) || value < 1 || value > 5) return;
+      const metric = ensureContentMetric(contentId);
+      const oldValue = metric.ratings[raterKey];
+      metric.ratings[raterKey] = value;
+      saveContentMetrics();
+      const saved = await forceSaveRemoteStorageNow();
+      if (!saved) {
+        if (oldValue == null) {
+          delete metric.ratings[raterKey];
+        } else {
+          metric.ratings[raterKey] = oldValue;
+        }
+        saveContentMetrics();
+        showToast('❌ تعذر حفظ التقييم على الخادم', 'error');
+        rerenderVisibleContent();
+        return;
+      }
+      rerenderVisibleContent();
+      showToast('✅ تم حفظ تقييمك', 'success');
+    }
+
+    function openContent(contentId, encodedUrl) {
+      const metric = ensureContentMetric(contentId);
+      metric.views += 1;
+      saveContentMetrics();
+      rerenderVisibleContent();
+      const url = decodeURIComponent(encodedUrl || '');
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    function getContentComments(contentId) {
+      const list = contentComments[contentId];
+      return Array.isArray(list) ? list : [];
+    }
+
+    async function addComment(contentId) {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        showToast('❌ يجب تسجيل الدخول لإضافة تعليق', 'error');
+        switchTab('account');
+        return;
+      }
+      const input = document.getElementById(`comment-input-${contentId}`);
+      if (!input) return;
+      const text = String(input.value || '').trim();
+      if (!text) {
+        showToast('❌ اكتب تعليقًا أولًا', 'error');
+        return;
+      }
+      if (!contentComments[contentId]) contentComments[contentId] = [];
+      const newComment = {
+        user_email: currentUser.email,
+        full_name: currentUser.full_name,
+        text,
+        created_at: new Date().toISOString()
+      };
+      contentComments[contentId].push(newComment);
+      saveContentComments();
+      const saved = await forceSaveRemoteStorageNow();
+      if (!saved) {
+        const list = contentComments[contentId] || [];
+        const idx = list.indexOf(newComment);
+        if (idx >= 0) list.splice(idx, 1);
+        if (!list.length) delete contentComments[contentId];
+        saveContentComments();
+        showToast('❌ تعذر حفظ التعليق على الخادم', 'error');
+        rerenderVisibleContent();
+        return;
+      }
+      input.value = '';
+      rerenderVisibleContent();
+      showToast('✅ تم إضافة التعليق', 'success');
+    }
+
+    function renderCommentsBlock(contentId) {
+      const currentUser = getCurrentUser();
+      const comments = getContentComments(contentId);
+      const commentsHtml = comments.length
+        ? comments.slice().reverse().slice(0, 4).map(c => `
+            <div class="bg-white border border-gray-200 rounded-lg px-3 py-2">
+              <p class="text-xs text-gray-500 mb-1">${c.full_name} • ${formatDate(c.created_at)}</p>
+              <p class="text-sm text-gray-700">${c.text}</p>
+            </div>
+          `).join('')
+        : '<p class="text-sm text-gray-500">لا توجد تعليقات بعد</p>';
+
+      if (!currentUser) {
+        return `
+          <div class="mt-3 rounded-xl border border-gray-200 p-3 bg-gray-50">
+            <p class="text-sm text-gray-600 mb-2">💬 التعليقات (${comments.length})</p>
+            <p class="text-xs text-red-600 mb-2">سجّل الدخول لإضافة تعليق</p>
+            <div class="space-y-2 max-h-40 overflow-auto">${commentsHtml}</div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="mt-3 rounded-xl border border-gray-200 p-3 bg-gray-50">
+          <p class="text-sm text-gray-600 mb-2">💬 التعليقات (${comments.length})</p>
+          <div class="flex gap-2 mb-2">
+            <input id="comment-input-${contentId}" type="text" placeholder="اكتب تعليقك..." class="flex-1 p-2 border border-gray-300 rounded-lg text-sm outline-none">
+            <button type="button" onclick="addComment('${contentId}')" class="px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-bold">إرسال</button>
+          </div>
+          <div class="space-y-2 max-h-40 overflow-auto">${commentsHtml}</div>
+        </div>
+      `;
+    }
+
+    function renderRatingAndViews(contentId) {
+      const stats = getContentStats(contentId);
+      const currentUser = getCurrentUser();
+      const rateHint = currentUser
+        ? ''
+        : '<p class="text-xs text-red-600 mt-2">سجّل الدخول للتقييم</p>';
+      return `
+        <div class="mb-3 rounded-xl border border-gray-200 p-3 bg-gray-50">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-sm font-bold text-gray-700">👁️ المشاهدات: ${stats.views}</p>
+            <p class="text-sm font-bold text-gray-700">⭐ ${stats.avg.toFixed(1)} (${stats.count})</p>
+          </div>
+          <div class="flex items-center gap-1">
+            ${[1,2,3,4,5].map(v => `
+              <button
+                type="button"
+                onclick="rateContent('${contentId}', ${v})"
+                title="تقييم ${v} من 5"
+                aria-label="تقييم ${v} من 5"
+                class="text-2xl leading-none transition-transform hover:scale-110 ${stats.myRating >= v ? 'text-amber-500' : 'text-gray-300'}"
+              >★</button>
+            `).join('')}
+          </div>
+          ${rateHint}
+        </div>
+      `;
+    }
+
+    let contentMetrics = loadContentMetrics();
+    let contentComments = loadContentComments();
+
+    function normalizeEmail(email = '') {
+      return String(email).trim().toLowerCase();
+    }
+
+    function normalizeUserRecord(user = {}) {
+      const gender = user.gender === 'female' ? 'female' : 'male';
+      const rawProfileImage = user.profile_image || '';
+      const shouldUseNewDefault = !rawProfileImage || isDefaultProfileImage(rawProfileImage);
+      const email = normalizeEmail(user.email || user.username || '');
+      return {
+        email,
+        username: email,
+        full_name: String(user.full_name || '').trim().replace(/\s+/g, ' '),
+        password: String(user.password || ''),
+        gender,
+        language: user.language === 'en' ? 'en' : 'ar',
+        background: BACKGROUND_PRESETS[user.background] ? user.background : 'classic',
+        profile_image: shouldUseNewDefault ? getDefaultProfileImageByGender(gender) : rawProfileImage,
+        created_at: user.created_at || new Date().toISOString()
+      };
+    }
+
+    function loadUsers() {
+      const users = Array.isArray(remoteStorage.users)
+        ? remoteStorage.users.map(normalizeUserRecord)
+        : [];
+      remoteStorage.users = users;
+      rebuildUsersIndex(users);
+      return users;
+    }
+
+    function saveUsers(users) {
+      const normalized = (users || []).map(normalizeUserRecord);
+      remoteStorage.users = normalized;
+      rebuildUsersIndex(normalized);
+      queueRemoteStorageSave();
+    }
+
+    function applyLanguagePreference(lang) {
+      const safeLang = lang === 'en' ? 'en' : 'ar';
+      document.documentElement.lang = safeLang;
+      document.documentElement.dir = safeLang === 'en' ? 'ltr' : 'rtl';
+    }
+
+    function applyBackgroundPreference(bgKey) {
+      const safeKey = BACKGROUND_PRESETS[bgKey] ? bgKey : 'classic';
+      document.body.style.background = BACKGROUND_PRESETS[safeKey];
+    }
+
+    function getCurrentUser() {
+      return currentUserState ? normalizeUserRecord(currentUserState) : null;
+    }
+
+    function setCurrentUser(user) {
+      currentUserState = user ? normalizeUserRecord(user) : null;
+      const current = getCurrentUser();
+      if (current) {
+        applyLanguagePreference(current.language);
+        applyBackgroundPreference(current.background);
+      } else {
+        applyLanguagePreference('ar');
+        applyBackgroundPreference('classic');
+      }
+      updateSubmitAccessUI();
+      updateHomeAuthState();
+    }
+
+    function toggleAuthTab(tab) {
+      const loginForm = document.getElementById('login-form');
+      const forgotForm = document.getElementById('forgot-form');
+      const registerForm = document.getElementById('register-form');
+      const loginTab = document.getElementById('auth-tab-login');
+      const registerTab = document.getElementById('auth-tab-register');
+
+      if (tab === 'register') {
+        loginForm.classList.add('hidden');
+        forgotForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+        registerTab.className = 'bg-white/20 text-white py-2 rounded-lg font-bold';
+        loginTab.className = 'bg-white/10 text-emerald-100 py-2 rounded-lg font-bold';
+      } else {
+        registerForm.classList.add('hidden');
+        forgotForm.classList.add('hidden');
+        loginForm.classList.remove('hidden');
+        loginTab.className = 'bg-white/20 text-white py-2 rounded-lg font-bold';
+        registerTab.className = 'bg-white/10 text-emerald-100 py-2 rounded-lg font-bold';
+      }
+    }
+
+    function showForgotPasswordForm() {
+      document.getElementById('register-form').classList.add('hidden');
+      document.getElementById('login-form').classList.add('hidden');
+      document.getElementById('forgot-form').classList.remove('hidden');
+      document.getElementById('auth-tab-login').className = 'bg-white/20 text-white py-2 rounded-lg font-bold';
+      document.getElementById('auth-tab-register').className = 'bg-white/10 text-emerald-100 py-2 rounded-lg font-bold';
+    }
+
+    function updateSubmitAccessUI() {
+      const authCard = document.getElementById('account-auth-card');
+      const userBar = document.getElementById('account-user-bar');
+      const submitForm = document.getElementById('submit-form');
+      const userLabel = document.getElementById('account-user-label');
+      const teacherInput = document.getElementById('teacher-name');
+      const submitLoginRequired = document.getElementById('submit-login-required');
+      const currentUser = getCurrentUser();
+
+      if (currentUser) {
+        authCard.classList.add('hidden');
+        userBar.classList.remove('hidden');
+        submitForm.classList.remove('hidden');
+        submitLoginRequired.classList.add('hidden');
+        userLabel.textContent = `مرحبًا ${currentUser.full_name} (${currentUser.email})`;
+        teacherInput.value = currentUser.full_name;
+        teacherInput.readOnly = true;
+      } else {
+        authCard.classList.remove('hidden');
+        userBar.classList.add('hidden');
+        submitForm.classList.add('hidden');
+        submitLoginRequired.classList.remove('hidden');
+        teacherInput.value = '';
+        teacherInput.readOnly = false;
+      }
+      renderAccountProfileDetails();
+    }
+
+    function goToSubmitLogin() {
+      switchTab('account');
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        toggleAuthTab('login');
+      }
+    }
+
+    function updateHomeAuthState() {
+      const status = document.getElementById('home-auth-status');
+      const primaryBtn = document.getElementById('home-auth-primary-btn');
+      const secondaryBtn = document.getElementById('home-auth-secondary-btn');
+      if (!status || !primaryBtn || !secondaryBtn) return;
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        status.textContent = `✅ تم تسجيل الدخول باسم ${currentUser.full_name} (${currentUser.email})`;
+        primaryBtn.textContent = 'إرسال محتوى الآن';
+        primaryBtn.onclick = () => switchTab('submit');
+        secondaryBtn.textContent = 'تصفح المحتوى';
+        secondaryBtn.onclick = () => switchTab('browse');
+      } else {
+        status.textContent = '⚠️ غير مسجل الدخول حاليًا. سجّل الدخول لتقييم المحتوى وإضافة التعليقات وإرسال الدروس.';
+        primaryBtn.textContent = 'تسجيل الدخول';
+        primaryBtn.onclick = () => goToSubmitLogin();
+        secondaryBtn.textContent = 'إنشاء حساب';
+        secondaryBtn.onclick = () => {
+          switchTab('account');
+          toggleAuthTab('register');
+        };
+      }
+    }
+
+    function getMemberStats(email, fullName) {
+      const approved = allGames.filter(g =>
+        g.status === 'approved' &&
+        (
+          normalizeTeacherName(g.teacher_name || '') === normalizeTeacherName(fullName || '') ||
+          normalizeEmail(g.teacher_email || '') === normalizeEmail(email || '')
+        )
+      );
+      let commentsCount = 0;
+      Object.values(contentComments).forEach(list => {
+        if (!Array.isArray(list)) return;
+        commentsCount += list.filter(c => normalizeEmail(c.user_email || c.username || '') === normalizeEmail(email || '')).length;
+      });
+      return { approvedCount: approved.length, commentsCount };
+    }
+
+    function renderAccountProfileDetails() {
+      const currentUser = getCurrentUser();
+      const panel = document.getElementById('account-profile-panel');
+      if (!panel) return;
+      if (!currentUser) {
+        panel.classList.add('hidden');
+        return;
+      }
+      panel.classList.remove('hidden');
+
+      const stats = getMemberStats(currentUser.email, currentUser.full_name);
+      const profileImage = currentUser.profile_image || getDefaultProfileImageByGender(currentUser.gender);
+
+      const fullNameView = document.getElementById('profile-full-name-view');
+      const usernameView = document.getElementById('profile-email-view');
+      const metaView = document.getElementById('profile-meta-view');
+      const contribView = document.getElementById('profile-contrib-count');
+      const commentsView = document.getElementById('profile-comments-count');
+      const preview = document.getElementById('profile-preview');
+
+      fullNameView.textContent = currentUser.full_name;
+      usernameView.textContent = currentUser.email;
+      metaView.textContent = `عضو منذ ${formatDate(currentUser.created_at)}`;
+      contribView.textContent = stats.approvedCount;
+      commentsView.textContent = stats.commentsCount;
+      preview.src = profileImage;
+
+      document.getElementById('profile-full-name').value = currentUser.full_name;
+      document.getElementById('profile-email').value = currentUser.email;
+      document.getElementById('profile-gender').value = currentUser.gender || 'male';
+      document.getElementById('profile-language').value = currentUser.language || 'ar';
+      document.getElementById('profile-background').value = currentUser.background || 'classic';
+      document.getElementById('profile-image-file').value = '';
+    }
+
+    function migrateUserReferences(oldEmail, newEmail, newFullName) {
+      const oldKey = 'user_' + normalizeEmail(oldEmail);
+      const newKey = 'user_' + normalizeEmail(newEmail);
+
+      Object.keys(contentMetrics).forEach(contentId => {
+        const ratings = contentMetrics[contentId]?.ratings;
+        if (!ratings) return;
+        if (ratings[oldKey] != null) {
+          ratings[newKey] = ratings[oldKey];
+          delete ratings[oldKey];
+        }
+      });
+      saveContentMetrics();
+
+      Object.keys(contentComments).forEach(contentId => {
+        const list = contentComments[contentId];
+        if (!Array.isArray(list)) return;
+        list.forEach(c => {
+          if (normalizeEmail(c.user_email || c.username || '') === normalizeEmail(oldEmail)) {
+            c.user_email = normalizeEmail(newEmail);
+            c.full_name = newFullName;
+          }
+        });
+      });
+      saveContentComments();
+    }
+
+    function normalizeTeacherName(name = '') {
+      return String(name)
+        .trim()
+        .replace(/\s+/g, ' ')
+        .replace(/[أإآ]/g, 'ا')
+        .replace(/ى/g, 'ي')
+        .replace(/ة/g, 'ه')
+        .replace(/ـ/g, '')
+        .replace(/[\u064B-\u065F]/g, '')
+        .toLowerCase();
+    }
+
+    function getTeacherKey(gameOrName) {
+      if (!gameOrName) return '';
+      if (typeof gameOrName === 'string') return normalizeTeacherName(gameOrName);
+      return gameOrName.teacher_key || normalizeTeacherName(gameOrName.teacher_name || '');
+    }
+
+    function findUserForTeacher(teacherName, teacherEmail) {
+      if (!usersIndexReady) loadUsers();
+      const uemail = normalizeEmail(teacherEmail || '');
+      const tname = normalizeTeacherName(teacherName || '');
+
+      if (uemail) {
+        const byEmail = usersIndex.byEmail.get(uemail);
+        if (byEmail) return byEmail;
+      }
+
+      if (tname) {
+        const byName = usersIndex.byName.get(tname);
+        if (byName) return byName;
+      }
+
+      return null;
+    }
+
+    function getTeacherProfileImage(item) {
+      const user = findUserForTeacher(item.teacher_name, item.teacher_email || item.teacher_username);
+      return (user && user.profile_image) ? user.profile_image : getDefaultProfileImageByGender(user?.gender || 'male');
+    }
+
+    function setButtonLoadingState(buttonEl, isLoading, loadingText, originalText) {
+      if (!buttonEl) return;
+      if (isLoading) {
+        buttonEl.dataset.originalText = originalText || buttonEl.textContent || '';
+        buttonEl.disabled = true;
+        buttonEl.classList.add('opacity-70', 'cursor-not-allowed');
+        buttonEl.textContent = loadingText || '⏳ جاري التنفيذ...';
+      } else {
+        const restoreText = originalText || buttonEl.dataset.originalText || buttonEl.textContent;
+        buttonEl.disabled = false;
+        buttonEl.classList.remove('opacity-70', 'cursor-not-allowed');
+        buttonEl.textContent = restoreText;
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      container.innerHTML = '';
+      const toast = document.createElement('div');
+      const bgColor = type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+      toast.className = `toast fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ${bgColor} text-white px-5 py-4 rounded-xl shadow-2xl font-bold text-sm md:text-base text-center max-w-md w-[90%] pointer-events-auto`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.2s ease';
+        setTimeout(() => toast.remove(), 220);
+      }, 2800);
+    }
+
+    function formatDate(dateString) {
+      if (!dateString) return 'بدون تاريخ';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function calculateShields(count) {
+      const maxShields = 10;
+      const shieldsEarned = Math.floor(count / 100);
+      return Math.min(shieldsEarned, maxShields);
+    }
+
+    const SHIELD_DEFINITIONS = [
+      { level: 1, name: 'درع الانطلاق الذكي', reward: 'الاشتراك مدى الحياة في التحضير الذكي' },
+      { level: 2, name: 'درع التميز التعليمي', reward: 'لم يتم التعيين' },
+      { level: 3, name: 'درع الإبداع التربوي', reward: 'لم يتم التعيين' },
+      { level: 4, name: 'درع التفاعل المؤثر', reward: 'لم يتم التعيين' },
+      { level: 5, name: 'درع القائد الملهم', reward: 'لم يتم التعيين' },
+      { level: 6, name: 'درع الجودة الذهبية', reward: 'لم يتم التعيين' },
+      { level: 7, name: 'درع صانع المعرفة', reward: 'لم يتم التعيين' },
+      { level: 8, name: 'درع النخبة التعليمية', reward: 'لم يتم التعيين' },
+      { level: 9, name: 'درع الأسطورة المهنية', reward: 'لم يتم التعيين' },
+      { level: 10, name: 'درع القمة الكبرى', reward: 'لم يتم التعيين' }
+    ];
+
+    function getShieldInfo(level) {
+      const safeLevel = Math.max(1, Math.min(10, Number(level) || 1));
+      return SHIELD_DEFINITIONS[safeLevel - 1];
+    }
+
+    function getCurrentShieldInfo(points) {
+      const shields = calculateShields(points);
+      if (shields <= 0) return null;
+      return getShieldInfo(shields);
+    }
+
+    function getNextShieldInfo(points) {
+      const shields = calculateShields(points);
+      if (shields >= 10) return null;
+      return getShieldInfo(shields + 1);
+    }
+
+    function switchTab(tab) {
+      ['home', 'browse', 'presentations', 'files', 'stars', 'account', 'submit', 'admin'].forEach(t => {
+        const section = document.getElementById(`section-${t}`);
+        const tabBtn = document.getElementById(`tab-${t}`);
+        if (section) section.classList.add('hidden');
+        if (tabBtn) {
+          tabBtn.classList.remove('tab-active');
+          if (t !== 'home') tabBtn.classList.add('tab-inactive');
+        }
+      });
+      const activeSection = document.getElementById(`section-${tab}`);
+      const activeTab = document.getElementById(`tab-${tab}`);
+      if (activeSection) activeSection.classList.remove('hidden');
+      if (activeTab) {
+        activeTab.classList.add('tab-active');
+        if (tab !== 'home') activeTab.classList.remove('tab-inactive');
+      }
+    }
+
+    function calculateStarTeachers() {
+      starTeachers = Object.values(teacherStatsByKey).map(t => ({
+        key: t.key,
+        name: t.name,
+        count: t.count
+      }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20);
+
+      renderStarTeachers();
+    }
+
+    function renderStarTeachers() {
+      const grid = document.getElementById('stars-grid');
+      if (!grid) return;
+      if (!starTeachers.length) {
+        grid.innerHTML = '<div class="col-span-full text-center text-white text-lg py-12">لا يوجد معلمون بعد</div>';
+        return;
+      }
+      const medals = ['🥇', '🥈', '🥉'];
+      const topThree = starTeachers.slice(0, 3);
+      const nextRanks = starTeachers.slice(3, 20);
+
+      const detailedTopThreeHtml = topThree.map((teacher, index) => {
+        const teacherData = teacherStatsByKey[teacher.key] || { items: [], byType: { game: 0, presentation: 0, file: 0 } };
+        const teacherGames = teacherData.items;
+        const byType = teacherData.byType;
+        const shields = calculateShields(teacher.count);
+
+        let totalViews = 0;
+        let totalRatings = 0;
+        let ratingsCount = 0;
+        teacherGames.forEach(item => {
+          const stats = getContentStats(getContentId(item));
+          totalViews += stats.views;
+          totalRatings += (stats.avg * stats.count);
+          ratingsCount += stats.count;
+        });
+        const teacherAvgRating = ratingsCount ? (totalRatings / ratingsCount) : 0;
+        const currentShield = getCurrentShieldInfo(teacher.count);
+        const nextShield = getNextShieldInfo(teacher.count);
+        const progressToNext = teacher.count % 100;
+
+        return `
+          <div class="card-glass rounded-3xl p-6 shadow-2xl border-2 ${index === 0 ? 'border-yellow-300' : index === 1 ? 'border-gray-300' : 'border-amber-300'}">
+            <div class="text-center mb-4">
+              <div class="text-6xl mb-2">${medals[index]}</div>
+              <h3 class="text-2xl font-black text-gray-800">${teacher.name}</h3>
+              <p class="text-sm font-bold text-gray-500">المركز ${index + 1}</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-4">
+              <div class="bg-indigo-50 rounded-xl p-3 text-center">
+                <p class="text-xs text-indigo-700 font-bold">إجمالي المساهمات</p>
+                <p class="text-2xl font-black text-indigo-900">${teacher.count}</p>
+              </div>
+              <div class="bg-emerald-50 rounded-xl p-3 text-center">
+                <p class="text-xs text-emerald-700 font-bold">المشاهدات</p>
+                <p class="text-2xl font-black text-emerald-900">${totalViews}</p>
+              </div>
+            </div>
+
+            <div class="mb-4 bg-slate-50 rounded-xl p-3 border border-slate-200">
+              <p class="text-sm font-bold text-slate-700 mb-2">تفاصيل المحتوى</p>
+              <div class="grid grid-cols-3 gap-2 text-center">
+                <div class="bg-purple-100 rounded-lg p-2"><p class="text-xs font-bold text-purple-700">🎮 ألعاب</p><p class="font-black text-purple-900">${byType.game}</p></div>
+                <div class="bg-pink-100 rounded-lg p-2"><p class="text-xs font-bold text-pink-700">📊 عروض</p><p class="font-black text-pink-900">${byType.presentation}</p></div>
+                <div class="bg-cyan-100 rounded-lg p-2"><p class="text-xs font-bold text-cyan-700">📁 ملفات</p><p class="font-black text-cyan-900">${byType.file}</p></div>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <p class="text-sm font-bold text-gray-700">⭐ متوسط تقييم المحتوى: <span class="text-amber-600">${teacherAvgRating.toFixed(1)}</span> (${ratingsCount})</p>
+              <p class="text-sm font-bold text-gray-700">🛡️ الدروع: <span class="text-slate-900">${shields}/10</span></p>
+              <p class="text-sm font-bold text-gray-700">🏷️ اسم الدرع الحالي: <span class="text-indigo-700">${currentShield ? currentShield.name : 'لا يوجد درع بعد'}</span></p>
+              <p class="text-sm font-bold text-gray-700">🎁 جائزة الدرع الحالي: <span class="text-emerald-700">${currentShield ? currentShield.reward : 'احصل على 100 مشاركة لفتح أول جائزة'}</span></p>
+              ${nextShield ? `<p class="text-xs font-bold text-gray-600">الدرع التالي: ${nextShield.name} (${progressToNext}/100)</p>` : `<p class="text-xs font-bold text-amber-700">تم بلوغ أعلى درع متاح</p>`}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const simpleRanksHtml = nextRanks.length ? `
+        <div class="col-span-full card-glass rounded-3xl p-6">
+          <h3 class="text-2xl font-black text-gray-800 mb-4">🏅 من المركز الرابع إلى العشرين</h3>
+          <div class="space-y-2">
+            ${nextRanks.map((teacher, idx) => {
+              const rank = idx + 4;
+              const shields = calculateShields(teacher.count);
+              const shieldInfo = shields > 0 ? getShieldInfo(shields) : null;
+              return `
+                <div class="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3">
+                  <div class="flex items-center gap-3">
+                    <span class="w-9 h-9 rounded-full bg-slate-100 text-slate-700 font-black flex items-center justify-center">${rank}</span>
+                    <div>
+                      <p class="font-bold text-gray-800">${teacher.name}</p>
+                      <p class="text-xs text-gray-500">🛡️ ${shieldInfo ? shieldInfo.name : 'بدون درع'} (${shields}/10)</p>
+                    </div>
+                  </div>
+                  <p class="text-sm font-bold text-gray-600">المساهمات: ${teacher.count}</p>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : '';
+
+      grid.innerHTML = `
+        <div class="col-span-full">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            ${detailedTopThreeHtml}
+          </div>
+        </div>
+        ${simpleRanksHtml}
+      `;
+    }
+
+    function renderGames() {
+      const grid = document.getElementById('games-grid');
+      if (!grid) return;
+      const selectedGrade = (document.getElementById('filter-grade-games')?.value || '').trim();
+      const selectedSubject = (document.getElementById('filter-subject-games')?.value || '').trim();
+      const searchTerm = (document.getElementById('search-lesson-games')?.value || '').toLowerCase().trim();
+
+      const gamesOnly = approvedByType.game
+        .filter(g => {
+          const grades = parseMultiValues(g.grade);
+          const subjects = parseMultiValues(g.subject);
+          const lesson = String(g.lesson_name || '').toLowerCase();
+          const gradeMatch = !selectedGrade || grades.includes(selectedGrade);
+          const subjectMatch = !selectedSubject || subjects.includes(selectedSubject);
+          const searchMatch = !searchTerm || lesson.includes(searchTerm);
+          return gradeMatch && subjectMatch && searchMatch;
+        });
+      if (!gamesOnly.length) {
+        grid.innerHTML = '<div class="col-span-full text-center text-white text-lg">لا توجد ألعاب تطابق الفلتر الحالي</div>';
+        renderPaginationControls('games-pagination', 'game', 0);
+        return;
+      }
+      const totalItems = gamesOnly.length;
+      const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+      if (pageState.game > totalPages) pageState.game = totalPages;
+      const start = (pageState.game - 1) * ITEMS_PER_PAGE;
+      const pageItems = gamesOnly.slice(start, start + ITEMS_PER_PAGE);
+
+      grid.innerHTML = pageItems.map(game => {
+        const teacherPoints = teacherStatsByKey[getTeacherKey(game)]?.count || 0;
+        const contentId = getContentId(game);
+        const teacherImage = getTeacherProfileImage(game);
+        const grades = parseMultiValues(game.grade);
+        const subjects = parseMultiValues(game.subject);
+        return `
+          <div class="game-card card-glass rounded-2xl overflow-hidden shadow-lg">
+            <div class="bg-gradient-to-br from-purple-400 to-indigo-500 p-6 text-white">
+              <h3 class="text-xl font-bold mb-2">${game.lesson_name || 'لعبة تعليمية'}</h3>
+              <div class="flex items-center gap-3 mb-1">
+                <img src="${teacherImage}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border-2 border-white/50 bg-white">
+                <p class="text-base opacity-95 font-bold">${game.teacher_name || 'معلم'}</p>
+              </div>
+              <p class="text-xs opacity-75">📅 ${formatDate(game.reviewed_at || game.created_at)}</p>
+            </div>
+            <div class="p-6">
+              <p class="mb-4 font-bold text-gray-700">📊 النقاط: ${teacherPoints}</p>
+              <div class="mb-3">
+                <p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p>
+                <div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div>
+              </div>
+              <div class="mb-3">
+                <p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p>
+                <div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div>
+              </div>
+              ${renderRatingAndViews(contentId)}
+              <a href="${game.game_link || '#'}" onclick="openContent('${contentId}', '${encodeURIComponent(game.game_link || '#')}'); return false;" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-3 px-4 rounded-xl font-bold block text-center">🎮 العب الآن</a>
+              ${renderCommentsBlock(contentId)}
+            </div>
+          </div>
+        `;
+      }).join('');
+      renderPaginationControls('games-pagination', 'game', totalItems);
+    }
+
+    function renderPresentations() {
+      const grid = document.getElementById('presentations-grid');
+      if (!grid) return;
+      const selectedGrade = (document.getElementById('filter-grade-presentations')?.value || '').trim();
+      const selectedSubject = (document.getElementById('filter-subject-presentations')?.value || '').trim();
+      const searchTerm = (document.getElementById('search-lesson-presentations')?.value || '').toLowerCase().trim();
+
+      const items = approvedByType.presentation
+        .filter(g => {
+          const grades = parseMultiValues(g.grade);
+          const subjects = parseMultiValues(g.subject);
+          const lesson = String(g.lesson_name || '').toLowerCase();
+          const gradeMatch = !selectedGrade || grades.includes(selectedGrade);
+          const subjectMatch = !selectedSubject || subjects.includes(selectedSubject);
+          const searchMatch = !searchTerm || lesson.includes(searchTerm);
+          return gradeMatch && subjectMatch && searchMatch;
+        });
+      if (!items.length) {
+        grid.innerHTML = '<div class="col-span-full text-center text-white text-lg">لا توجد عروض تطابق الفلتر الحالي</div>';
+        renderPaginationControls('presentations-pagination', 'presentation', 0);
+        return;
+      }
+      const totalItems = items.length;
+      const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+      if (pageState.presentation > totalPages) pageState.presentation = totalPages;
+      const start = (pageState.presentation - 1) * ITEMS_PER_PAGE;
+      const pageItems = items.slice(start, start + ITEMS_PER_PAGE);
+      grid.innerHTML = pageItems.map(p => {
+        const contentId = getContentId(p);
+        const teacherImage = getTeacherProfileImage(p);
+        const grades = parseMultiValues(p.grade);
+        const subjects = parseMultiValues(p.subject);
+        return `<div class="presentation-card card-glass rounded-2xl p-6"><h3 class="text-xl font-bold text-gray-800 mb-2">${p.lesson_name || 'عرض تقديمي'}</h3><div class="flex items-center gap-3 mb-3"><img src="${teacherImage}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border border-gray-300 bg-gray-100"><p class="text-gray-700 font-bold">${p.teacher_name || 'معلم'}</p></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-pink-100 text-pink-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-rose-100 text-rose-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div>${renderRatingAndViews(contentId)}<a href="${p.game_link || '#'}" onclick="openContent('${contentId}', '${encodeURIComponent(p.game_link || '#')}'); return false;" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r from-pink-500 to-rose-600 text-white py-3 px-4 rounded-xl font-bold block text-center">📊 عرض الآن</a>${renderCommentsBlock(contentId)}</div>`;
+      }).join('');
+      renderPaginationControls('presentations-pagination', 'presentation', totalItems);
+    }
+
+    function renderStoredFiles() {
+      const grid = document.getElementById('files-grid');
+      if (!grid) return;
+      const selectedGrade = (document.getElementById('filter-grade-files')?.value || '').trim();
+      const selectedSubject = (document.getElementById('filter-subject-files')?.value || '').trim();
+      const searchTerm = (document.getElementById('search-lesson-files')?.value || '').toLowerCase().trim();
+
+      const items = approvedByType.file
+        .filter(g => {
+          const grades = parseMultiValues(g.grade);
+          const subjects = parseMultiValues(g.subject);
+          const lesson = String(g.lesson_name || '').toLowerCase();
+          const gradeMatch = !selectedGrade || grades.includes(selectedGrade);
+          const subjectMatch = !selectedSubject || subjects.includes(selectedSubject);
+          const searchMatch = !searchTerm || lesson.includes(searchTerm);
+          return gradeMatch && subjectMatch && searchMatch;
+        });
+      if (!items.length) {
+        grid.innerHTML = '<div class="col-span-full text-center text-white text-lg">لا توجد ملفات تطابق الفلتر الحالي</div>';
+        renderPaginationControls('files-pagination', 'file', 0);
+        return;
+      }
+      const totalItems = items.length;
+      const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+      if (pageState.file > totalPages) pageState.file = totalPages;
+      const start = (pageState.file - 1) * ITEMS_PER_PAGE;
+      const pageItems = items.slice(start, start + ITEMS_PER_PAGE);
+      grid.innerHTML = pageItems.map(f => {
+        const contentId = getContentId(f);
+        const teacherImage = getTeacherProfileImage(f);
+        const grades = parseMultiValues(f.grade);
+        const subjects = parseMultiValues(f.subject);
+        return `<div class="file-card card-glass rounded-2xl p-6"><h3 class="text-xl font-bold text-gray-800 mb-2">${f.lesson_name || 'ملف مخزن'}</h3><div class="flex items-center gap-3 mb-3"><img src="${teacherImage}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border border-gray-300 bg-gray-100"><p class="text-gray-700 font-bold">${f.teacher_name || 'معلم'}</p></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-cyan-100 text-cyan-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div>${renderRatingAndViews(contentId)}<a href="${f.game_link || '#'}" onclick="openContent('${contentId}', '${encodeURIComponent(f.game_link || '#')}'); return false;" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-3 px-4 rounded-xl font-bold block text-center">📁 تحميل الملف</a>${renderCommentsBlock(contentId)}</div>`;
+      }).join('');
+      renderPaginationControls('files-pagination', 'file', totalItems);
+    }
+
+    function parseMultiValues(value) {
+      if (Array.isArray(value)) return value.map(v => String(v).trim()).filter(Boolean);
+      if (typeof value === 'string') {
+        const t = value.trim();
+        if (!t) return [];
+        if (t.startsWith('[') && t.endsWith(']')) {
+          try {
+            const parsed = JSON.parse(t);
+            if (Array.isArray(parsed)) return parsed.map(v => String(v).trim()).filter(Boolean);
+          } catch (e) {}
+        }
+        return t.split(',').map(v => v.trim()).filter(Boolean);
+      }
+      return [];
+    }
+
+    function debounceRenderFilter(type, renderFn) {
+      if (filterDebounceTimers[type]) clearTimeout(filterDebounceTimers[type]);
+      filterDebounceTimers[type] = setTimeout(renderFn, 120);
+    }
+
+    function applyGameFilters() { setPage('game', 1); debounceRenderFilter('game', renderGames); }
+    function applyPresentationFilters() { setPage('presentation', 1); debounceRenderFilter('presentation', renderPresentations); }
+    function applyFilesFilters() { setPage('file', 1); debounceRenderFilter('file', renderStoredFiles); }
+
+    async function loadDataFromSheet() {
+      try {
+        const data = await apiGet('getGames');
+
+        if (data.success && Array.isArray(data.data)) {
+          allGames = data.data
+            .map(g => ({
+              ...g,
+              teacher_name: (g.teacher_name || '').trim().replace(/\s+/g, ' '),
+              teacher_key: getTeacherKey(g)
+            }))
+            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+          presentations = allGames.filter(g => g.content_type === 'presentation');
+          storedFiles = allGames.filter(g => g.content_type === 'file');
+
+          rebuildContentIndexes();
+          setPage('game', 1);
+          setPage('presentation', 1);
+          setPage('file', 1);
+          calculateStarTeachers();
+          renderGames();
+          renderPresentations();
+          renderStoredFiles();
+        } else {
+          showToast('⚠️ تعذر جلب البيانات من الخادم', 'error');
+        }
+      } catch (error) {
+        console.error(error);
+        showToast('❌ تعذر جلب البيانات: ' + (error.message || 'خطأ غير معروف'), 'error');
+      } finally {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+          loadingOverlay.style.display = 'none';
+        }
+      }
+    }
+
+    async function loadAdminSubmissions() {
+      const container = document.getElementById('admin-submissions-list');
+      if (!container) return;
+      container.innerHTML = '<div class="text-white/90 bg-white/10 rounded-xl p-4">جاري تحميل المشاركات...</div>';
+      try {
+        const payload = await apiGet('getAllGames');
+        if (!payload.success || !Array.isArray(payload.data)) {
+          throw new Error(payload.error || 'تعذر قراءة بيانات المشاركات');
+        }
+        renderAdminSubmissions(payload.data);
+      } catch (error) {
+        console.error(error);
+        container.innerHTML = '<div class="bg-red-500/20 border border-red-300/40 text-red-100 rounded-xl p-4">تعذر تحميل المشاركات المرسلة.</div>';
+      }
+    }
+
+    function renderAdminSubmissions(items) {
+      const container = document.getElementById('admin-submissions-list');
+      if (!container) return;
+
+      const pending = items
+        .filter(i => String(i.status || '').toLowerCase() === 'pending')
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+      if (!pending.length) {
+        container.innerHTML = '<div class="bg-emerald-500/20 border border-emerald-300/40 text-emerald-100 rounded-xl p-4 font-bold">لا توجد مشاركات معلقة حاليًا.</div>';
+        return;
+      }
+
+      container.innerHTML = pending.map(item => {
+        const grades = Array.isArray(item.grade) ? item.grade : (typeof item.grade === 'string' ? item.grade.split(',').map(s => s.trim()) : []);
+        const subjects = Array.isArray(item.subject) ? item.subject : (typeof item.subject === 'string' ? item.subject.split(',').map(s => s.trim()) : []);
+        const typeLabel = item.content_type === 'game' ? '🎮 لعبة' : item.content_type === 'presentation' ? '📊 عرض' : '📁 ملف';
+        return `
+          <div class="card-glass rounded-2xl p-4 border border-white/20">
+            <div class="flex flex-wrap justify-between items-start gap-2 mb-3">
+              <div>
+                <h4 class="text-lg font-black text-gray-800">${item.lesson_name || 'محتوى بدون عنوان'}</h4>
+                <p class="text-gray-700 font-bold">${item.teacher_name || 'غير معروف'} • ${typeLabel}</p>
+              </div>
+              <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full">قيد المراجعة</span>
+            </div>
+            <div class="text-sm text-gray-700 space-y-1 mb-3">
+              <p>📚 الصفوف: ${grades.length ? grades.join('، ') : '-'}</p>
+              <p>📖 المواد: ${subjects.length ? subjects.join('، ') : '-'}</p>
+              <p>🔗 الرابط: <a href="${item.game_link || '#'}" target="_blank" rel="noopener noreferrer" class="text-blue-700 underline">فتح المحتوى</a></p>
+              <p>🕒 تاريخ الإرسال: ${formatDate(item.created_at)}</p>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" onclick="updateAdminSubmissionStatus('${item.id}', 'approved', this, '${encodeURIComponent(item.game_link || '')}')" class="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-bold">✅ موافقة</button>
+              <button type="button" onclick="updateAdminSubmissionStatus('${item.id}', 'rejected', this, '${encodeURIComponent(item.game_link || '')}')" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-bold">❌ رفض</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getSafeDomId(value) {
+      return String(value || '').replace(/[^\w\-]/g, '_');
+    }
+
+    function renderAdminUsersManager() {
+      const container = document.getElementById('admin-users-list');
+      if (!container) return;
+      const users = loadUsers();
+      if (!users.length) {
+        container.innerHTML = '<div class="bg-white/10 text-white rounded-xl p-3">لا توجد حسابات مستخدمين.</div>';
+        return;
+      }
+
+      container.innerHTML = users.map((user, idx) => {
+        const cardId = `admin-user-${idx}`;
+        return `
+          <div class="card-glass rounded-xl p-3 border border-white/20 space-y-2">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <input id="${cardId}-name" type="text" value="${String(user.full_name || '').replace(/"/g, '&quot;')}" class="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="الاسم الكامل">
+              <input id="${cardId}-email" type="email" value="${String(user.email || '').replace(/"/g, '&quot;')}" class="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="الإيميل">
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <input id="${cardId}-password" type="text" value="${String(user.password || '').replace(/"/g, '&quot;')}" class="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="كلمة المرور">
+              <select id="${cardId}-gender" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                <option value="male" ${user.gender === 'male' ? 'selected' : ''}>ذكر</option>
+                <option value="female" ${user.gender === 'female' ? 'selected' : ''}>أنثى</option>
+              </select>
+              <select id="${cardId}-language" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                <option value="ar" ${user.language === 'ar' ? 'selected' : ''}>العربية</option>
+                <option value="en" ${user.language === 'en' ? 'selected' : ''}>English</option>
+              </select>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" onclick="saveAdminUser(${idx}, this)" class="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm font-bold">حفظ</button>
+              <button type="button" onclick="deleteAdminUser(${idx}, this)" class="bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-bold">حذف</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function flattenAdminComments() {
+      const rows = [];
+      Object.keys(contentComments || {}).forEach(contentId => {
+        const list = Array.isArray(contentComments[contentId]) ? contentComments[contentId] : [];
+        list.forEach((comment, commentIndex) => {
+          rows.push({
+            contentId,
+            commentIndex,
+            user_email: comment.user_email || '',
+            full_name: comment.full_name || '',
+            text: comment.text || '',
+            created_at: comment.created_at || ''
+          });
+        });
+      });
+      rows.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      return rows;
+    }
+
+    function renderAdminCommentsManager() {
+      const container = document.getElementById('admin-comments-list');
+      if (!container) return;
+      const rows = flattenAdminComments();
+      if (!rows.length) {
+        container.innerHTML = '<div class="bg-white/10 text-white rounded-xl p-3">لا توجد تعليقات.</div>';
+        return;
+      }
+
+      container.innerHTML = rows.map((row, idx) => {
+        const key = `${getSafeDomId(row.contentId)}_${row.commentIndex}_${idx}`;
+        return `
+          <div class="card-glass rounded-xl p-3 border border-white/20 space-y-2">
+            <div class="text-xs text-gray-600 font-bold">المحتوى: ${row.contentId}</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <input id="admin-comment-name-${key}" type="text" value="${String(row.full_name).replace(/"/g, '&quot;')}" class="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="اسم المعلق">
+              <input id="admin-comment-email-${key}" type="email" value="${String(row.user_email).replace(/"/g, '&quot;')}" class="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="إيميل المعلق">
+            </div>
+            <textarea id="admin-comment-text-${key}" rows="2" class="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="نص التعليق">${String(row.text || '')}</textarea>
+            <div class="flex gap-2">
+              <button type="button" onclick="saveAdminComment('${encodeURIComponent(row.contentId)}', ${row.commentIndex}, '${key}', this)" class="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm font-bold">حفظ</button>
+              <button type="button" onclick="deleteAdminComment('${encodeURIComponent(row.contentId)}', ${row.commentIndex}, this)" class="bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-bold">حذف</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function loadAdminManagementData() {
+      const ok = await loadStorageFromAppScript();
+      contentMetrics = loadContentMetrics();
+      contentComments = loadContentComments();
+      loadUsers();
+      renderAdminUsersManager();
+      renderAdminCommentsManager();
+      if (!ok) showToast('⚠️ تعذر تحميل بيانات المستخدمين/التعليقات', 'error');
+    }
+
+    async function saveAdminUser(index, buttonEl) {
+      const users = loadUsers();
+      if (index < 0 || index >= users.length) return;
+      const baseId = `admin-user-${index}`;
+      const fullName = document.getElementById(`${baseId}-name`)?.value.trim().replace(/\s+/g, ' ');
+      const email = normalizeEmail(document.getElementById(`${baseId}-email`)?.value || '');
+      const password = String(document.getElementById(`${baseId}-password`)?.value || '');
+      const gender = document.getElementById(`${baseId}-gender`)?.value === 'female' ? 'female' : 'male';
+      const language = document.getElementById(`${baseId}-language`)?.value === 'en' ? 'en' : 'ar';
+      if (!fullName || !email || !password) {
+        showToast('❌ الاسم والإيميل وكلمة المرور مطلوبة', 'error');
+        return;
+      }
+
+      const original = users[index];
+      const emailConflict = users.some((u, i) => i !== index && normalizeEmail(u.email) === email);
+      if (emailConflict) {
+        showToast('❌ هذا الإيميل مستخدم بالفعل', 'error');
+        return;
+      }
+
+      const oldEmail = original.email;
+      users[index] = {
+        ...original,
+        full_name: fullName,
+        email,
+        password,
+        gender,
+        language,
+        profile_image: isDefaultProfileImage(original.profile_image)
+          ? getDefaultProfileImageByGender(gender)
+          : original.profile_image
+      };
+      saveUsers(users);
+
+      setButtonLoadingState(buttonEl, true, '⏳ جاري الحفظ...');
+      const ok = await forceSaveRemoteStorageNow();
+      setButtonLoadingState(buttonEl, false);
+      if (!ok) {
+        showToast('❌ تعذر حفظ بيانات المستخدم', 'error');
+        return;
+      }
+
+      if (normalizeEmail(oldEmail) !== normalizeEmail(email) || original.full_name !== fullName) {
+        migrateUserReferences(oldEmail, email, fullName);
+      }
+      renderAdminUsersManager();
+      renderAdminCommentsManager();
+      showToast('✅ تم حفظ بيانات المستخدم', 'success');
+    }
+
+    async function deleteAdminUser(index, buttonEl) {
+      const users = loadUsers();
+      if (index < 0 || index >= users.length) return;
+      const target = users[index];
+      users.splice(index, 1);
+      saveUsers(users);
+      setButtonLoadingState(buttonEl, true, '⏳ جاري الحذف...');
+      const ok = await forceSaveRemoteStorageNow();
+      setButtonLoadingState(buttonEl, false);
+      if (!ok) {
+        showToast('❌ تعذر حذف المستخدم من الخادم', 'error');
+        return;
+      }
+      if (target && target.email) {
+        Object.keys(contentMetrics).forEach(cid => {
+          const ratings = contentMetrics[cid] && contentMetrics[cid].ratings;
+          if (ratings) delete ratings['user_' + normalizeEmail(target.email)];
+        });
+        saveContentMetrics();
+      }
+      renderAdminUsersManager();
+      renderAdminCommentsManager();
+      showToast('✅ تم حذف المستخدم', 'success');
+    }
+
+    async function saveAdminComment(contentIdEncoded, commentIndex, key, buttonEl) {
+      const contentId = decodeURIComponent(contentIdEncoded || '');
+      const list = Array.isArray(contentComments[contentId]) ? contentComments[contentId] : null;
+      if (!list || commentIndex < 0 || commentIndex >= list.length) return;
+
+      const fullName = String(document.getElementById(`admin-comment-name-${key}`)?.value || '').trim();
+      const userEmail = normalizeEmail(document.getElementById(`admin-comment-email-${key}`)?.value || '');
+      const text = String(document.getElementById(`admin-comment-text-${key}`)?.value || '').trim();
+      if (!fullName || !text) {
+        showToast('❌ اسم المعلق ونص التعليق مطلوبان', 'error');
+        return;
+      }
+
+      list[commentIndex].full_name = fullName;
+      list[commentIndex].user_email = userEmail;
+      list[commentIndex].text = text;
+      saveContentComments();
+
+      setButtonLoadingState(buttonEl, true, '⏳ جاري الحفظ...');
+      const ok = await forceSaveRemoteStorageNow();
+      setButtonLoadingState(buttonEl, false);
+      if (!ok) {
+        showToast('❌ تعذر حفظ التعليق', 'error');
+        return;
+      }
+      renderAdminCommentsManager();
+      showToast('✅ تم حفظ التعليق', 'success');
+    }
+
+    async function deleteAdminComment(contentIdEncoded, commentIndex, buttonEl) {
+      const contentId = decodeURIComponent(contentIdEncoded || '');
+      const list = Array.isArray(contentComments[contentId]) ? contentComments[contentId] : null;
+      if (!list || commentIndex < 0 || commentIndex >= list.length) return;
+      list.splice(commentIndex, 1);
+      if (!list.length) delete contentComments[contentId];
+      saveContentComments();
+
+      setButtonLoadingState(buttonEl, true, '⏳ جاري الحذف...');
+      const ok = await forceSaveRemoteStorageNow();
+      setButtonLoadingState(buttonEl, false);
+      if (!ok) {
+        showToast('❌ تعذر حذف التعليق', 'error');
+        return;
+      }
+      renderAdminCommentsManager();
+      showToast('✅ تم حذف التعليق', 'success');
+    }
+
+    async function updateAdminSubmissionStatus(contentId, status, buttonEl, encodedLink) {
+      const oldText = buttonEl ? buttonEl.textContent : '';
+      if (buttonEl) {
+        buttonEl.disabled = true;
+        buttonEl.textContent = '...';
+      }
+      try {
+        const gameLink = decodeURIComponent(encodedLink || '');
+        const payload = await apiPost({
+          action: 'updateGame',
+          gameId: contentId,
+          status,
+          gameLink,
+          reviewed_at: new Date().toISOString()
+        });
+        if (!payload.success) throw new Error(payload.error || 'تعذر تحديث الحالة');
+
+        showToast(status === 'approved' ? '✅ تمت الموافقة على المشاركة' : '✅ تم رفض المشاركة', 'success');
+        await loadAdminSubmissions();
+        await loadDataFromSheet();
+      } catch (error) {
+        console.error(error);
+        showToast('❌ فشل تحديث حالة المشاركة', 'error');
+        if (buttonEl) {
+          buttonEl.disabled = false;
+          buttonEl.textContent = oldText;
+        }
+      }
+    }
+
+    document.getElementById('auth-tab-login').addEventListener('click', () => toggleAuthTab('login'));
+    document.getElementById('auth-tab-register').addEventListener('click', () => toggleAuthTab('register'));
+    document.getElementById('forgot-password-btn').addEventListener('click', showForgotPasswordForm);
+    document.getElementById('back-to-login-btn').addEventListener('click', () => toggleAuthTab('login'));
+
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+      if (submitBtn && submitBtn.disabled) return;
+      const originalText = submitBtn ? submitBtn.textContent : '';
+      setButtonLoadingState(submitBtn, true, '⏳ جاري إنشاء الحساب...', originalText);
+
+      try {
+        const fullName = document.getElementById('register-full-name').value.trim().replace(/\s+/g, ' ');
+        const emailRaw = document.getElementById('register-email').value;
+        const email = normalizeEmail(emailRaw);
+        const password = document.getElementById('register-password').value;
+        const passwordConfirm = document.getElementById('register-password-confirm').value;
+
+        if (!fullName || !email || !password) {
+          showToast('❌ يرجى تعبئة كل الحقول', 'error');
+          return;
+        }
+        if (!email.includes('@')) {
+          showToast('❌ يرجى إدخال إيميل صحيح', 'error');
+          return;
+        }
+        if (password.length < 6) {
+          showToast('❌ كلمة المرور يجب أن تكون 6 أحرف على الأقل', 'error');
+          return;
+        }
+        if (password !== passwordConfirm) {
+          showToast('❌ كلمة المرور وتأكيدها غير متطابقين', 'error');
+          return;
+        }
+
+        const users = loadUsers();
+        const fullNameKey = normalizeTeacherName(fullName);
+        if (users.some(u => normalizeEmail(u.email) === email)) {
+          showToast('❌ هذا الإيميل مستخدم بالفعل، يرجى تغييره', 'error');
+          return;
+        }
+        if (users.some(u => normalizeTeacherName(u.full_name) === fullNameKey)) {
+          showToast('❌ هذا الاسم مستخدم بالفعل، يرجى اختيار اسم مختلف', 'error');
+          return;
+        }
+
+        const newUser = {
+          email,
+          full_name: fullName,
+          password,
+          gender: document.getElementById('register-gender').value === 'female' ? 'female' : 'male',
+          language: 'ar',
+          background: 'classic',
+          profile_image: getDefaultProfileImageByGender(document.getElementById('register-gender').value === 'female' ? 'female' : 'male'),
+          created_at: new Date().toISOString()
+        };
+        users.push(newUser);
+        saveUsers(users);
+        const saved = await forceSaveRemoteStorageNow();
+        if (!saved) {
+          users.pop();
+          saveUsers(users);
+          showToast('❌ تعذر حفظ الحساب على الخادم، حاول مرة أخرى', 'error');
+          return;
+        }
+        const verified = await verifyUserExistsInRemoteStorage(email);
+        if (!verified) {
+          showToast('❌ لم يتم تأكيد حفظ الحساب على الخادم، حاول مرة أخرى', 'error');
+          return;
+        }
+        setCurrentUser(newUser);
+        document.getElementById('register-form').reset();
+        showToast('✅ تم إنشاء الحساب وتسجيل الدخول بنجاح', 'success');
+      } finally {
+        setButtonLoadingState(submitBtn, false, '', originalText);
+      }
+    });
+
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = normalizeEmail(document.getElementById('login-email').value);
+      const password = document.getElementById('login-password').value;
+      const users = loadUsers();
+      const user = users.find(u => normalizeEmail(u.email) === email && u.password === password);
+
+      if (!user) {
+        showToast('❌ بيانات الدخول غير صحيحة', 'error');
+        return;
+      }
+
+      setCurrentUser(user);
+      document.getElementById('login-form').reset();
+      showToast('✅ تم تسجيل الدخول بنجاح', 'success');
+    });
+
+    document.getElementById('forgot-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = normalizeEmail(document.getElementById('forgot-email').value);
+      const fullName = document.getElementById('forgot-full-name').value.trim().replace(/\s+/g, ' ');
+      const newPassword = document.getElementById('forgot-new-password').value;
+      const newPasswordConfirm = document.getElementById('forgot-new-password-confirm').value;
+
+      if (!email || !fullName || !newPassword || !newPasswordConfirm) {
+        showToast('❌ يرجى تعبئة كل الحقول', 'error');
+        return;
+      }
+      if (newPassword.length < 6) {
+        showToast('❌ كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل', 'error');
+        return;
+      }
+      if (newPassword !== newPasswordConfirm) {
+        showToast('❌ كلمة المرور الجديدة وتأكيدها غير متطابقين', 'error');
+        return;
+      }
+
+      const users = loadUsers();
+      const idx = users.findIndex(u =>
+        normalizeEmail(u.email) === email &&
+        String(u.full_name || '').trim().replace(/\s+/g, ' ') === fullName
+      );
+
+      if (idx === -1) {
+        showToast('❌ تعذر التحقق من البيانات', 'error');
+        return;
+      }
+
+      users[idx].password = newPassword;
+      saveUsers(users);
+      const saved = await forceSaveRemoteStorageNow();
+      if (!saved) {
+        showToast('❌ تعذر حفظ كلمة المرور الجديدة على الخادم', 'error');
+        return;
+      }
+      document.getElementById('forgot-form').reset();
+      toggleAuthTab('login');
+      showToast('✅ تم تحديث كلمة المرور بنجاح، يمكنك تسجيل الدخول الآن', 'success');
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      setCurrentUser(null);
+      showToast('✅ تم تسجيل الخروج', 'success');
+    });
+
+    document.getElementById('admin-login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = normalizeEmail(document.getElementById('admin-email').value);
+      const input = document.getElementById('admin-password').value;
+      if (email === normalizeEmail(ADMIN_EMAIL) && input === ADMIN_PASSWORD) {
+        document.getElementById('admin-login-box').classList.add('hidden');
+        document.getElementById('admin-panel-box').classList.remove('hidden');
+        showToast('✅ تم تسجيل دخول المدير بنجاح', 'success');
+        loadAdminSubmissions();
+        loadAdminManagementData();
+      } else {
+        showToast('❌ بيانات دخول المدير غير صحيحة', 'error');
+      }
+    });
+
+    document.getElementById('admin-refresh-btn').addEventListener('click', () => {
+      loadAdminSubmissions();
+      loadAdminManagementData();
+    });
+
+    document.getElementById('admin-logout-btn').addEventListener('click', () => {
+      document.getElementById('admin-login-box').classList.remove('hidden');
+      document.getElementById('admin-panel-box').classList.add('hidden');
+      document.getElementById('admin-email').value = '';
+      document.getElementById('admin-password').value = '';
+      const list = document.getElementById('admin-submissions-list');
+      if (list) list.innerHTML = '';
+      const usersList = document.getElementById('admin-users-list');
+      if (usersList) usersList.innerHTML = '';
+      const commentsList = document.getElementById('admin-comments-list');
+      if (commentsList) commentsList.innerHTML = '';
+      showToast('✅ تم تسجيل خروج المدير', 'success');
+    });
+
+    document.getElementById('profile-image-file').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const preview = document.getElementById('profile-preview');
+        const currentUser = getCurrentUser();
+        preview.src = String(reader.result || getDefaultProfileImageByGender((currentUser && currentUser.gender) || 'male'));
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('profile-gender').addEventListener('change', () => {
+      const preview = document.getElementById('profile-preview');
+      if (!preview) return;
+      if (isDefaultProfileImage(preview.src)) {
+        const g = document.getElementById('profile-gender').value === 'female' ? 'female' : 'male';
+        preview.src = getDefaultProfileImageByGender(g);
+      }
+    });
+
+    document.getElementById('profile-remove-image-btn').addEventListener('click', () => {
+      const preview = document.getElementById('profile-preview');
+      const selectedGender = document.getElementById('profile-gender').value === 'female' ? 'female' : 'male';
+      preview.src = getDefaultProfileImageByGender(selectedGender);
+      document.getElementById('profile-image-file').value = '';
+      showToast('✅ تم حذف الصورة الشخصية الحالية', 'success');
+    });
+
+    document.getElementById('profile-settings-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+      if (submitBtn && submitBtn.disabled) return;
+      const originalText = submitBtn ? submitBtn.textContent : '';
+      setButtonLoadingState(submitBtn, true, '⏳ جاري حفظ التعديلات...', originalText);
+
+      try {
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+          showToast('❌ يجب تسجيل الدخول أولًا', 'error');
+          return;
+        }
+
+        const fullName = document.getElementById('profile-full-name').value.trim().replace(/\s+/g, ' ');
+        const email = normalizeEmail(document.getElementById('profile-email').value);
+        const gender = document.getElementById('profile-gender').value === 'female' ? 'female' : 'male';
+        const language = document.getElementById('profile-language').value === 'en' ? 'en' : 'ar';
+        const background = BACKGROUND_PRESETS[document.getElementById('profile-background').value] ? document.getElementById('profile-background').value : 'classic';
+        const imagePreviewSrc = document.getElementById('profile-preview').src || getDefaultProfileImageByGender(gender);
+
+        if (!fullName || !email) {
+          showToast('❌ الاسم الكامل والإيميل مطلوبان', 'error');
+          return;
+        }
+        if (!email.includes('@')) {
+          showToast('❌ يرجى إدخال إيميل صحيح', 'error');
+          return;
+        }
+
+        const users = loadUsers();
+        const emailConflict = users.some(u => normalizeEmail(u.email) === email && normalizeEmail(u.email) !== normalizeEmail(currentUser.email));
+        if (emailConflict) {
+          showToast('❌ هذا الإيميل مستخدم بالفعل، يرجى تغييره', 'error');
+          return;
+        }
+        const nameConflict = users.some(u =>
+          normalizeTeacherName(u.full_name) === normalizeTeacherName(fullName) &&
+          normalizeEmail(u.email) !== normalizeEmail(currentUser.email)
+        );
+        if (nameConflict) {
+          showToast('❌ هذا الاسم مستخدم بالفعل، يرجى اختيار اسم مختلف', 'error');
+          return;
+        }
+
+        const updatedUser = {
+          ...currentUser,
+          full_name: fullName,
+          email,
+          gender,
+          language,
+          background,
+          profile_image: isDefaultProfileImage(imagePreviewSrc) ? getDefaultProfileImageByGender(gender) : imagePreviewSrc
+        };
+
+        const oldEmail = currentUser.email;
+        const oldFullName = currentUser.full_name;
+
+        const idx = users.findIndex(u => normalizeEmail(u.email) === normalizeEmail(oldEmail));
+        if (idx !== -1) users[idx] = updatedUser;
+        saveUsers(users);
+        const saved = await forceSaveRemoteStorageNow();
+        if (!saved) {
+          showToast('❌ تعذر حفظ التعديلات على الخادم، حاول مرة أخرى', 'error');
+          return;
+        }
+        setCurrentUser(updatedUser);
+
+        if (normalizeEmail(oldEmail) !== normalizeEmail(email)) {
+          migrateUserReferences(oldEmail, email, fullName);
+        } else if (oldFullName !== fullName) {
+          migrateUserReferences(email, email, fullName);
+        }
+
+        applyLanguagePreference(language);
+        applyBackgroundPreference(background);
+        renderGames();
+        renderPresentations();
+        renderStoredFiles();
+        calculateStarTeachers();
+        showToast('✅ تم تحديث بيانات الحساب بنجاح', 'success');
+      } finally {
+        setButtonLoadingState(submitBtn, false, '', originalText);
+      }
+    });
+
+    document.getElementById('submit-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (isSubmittingContent) {
+        showToast('⏳ جاري إرسال المشاركة بالفعل... يرجى الانتظار', 'info');
+        return;
+      }
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        showToast('❌ يرجى تسجيل الدخول أولاً', 'error');
+        updateSubmitAccessUI();
+        return;
+      }
+
+      const teacherNameRaw = currentUser.full_name || document.getElementById('teacher-name').value.trim();
+      const teacherName = String(teacherNameRaw).replace(/\s+/g, ' ');
+      const teacherKey = normalizeTeacherName(teacherName);
+
+      const contentType = document.getElementById('content-type').value;
+      const gradeSelect = document.getElementById('submit-grade');
+      const selectedGrades = Array.from(gradeSelect.selectedOptions).map(option => option.value);
+      const subjectSelect = document.getElementById('submit-subject');
+      const selectedSubjects = Array.from(subjectSelect.selectedOptions).map(option => option.value);
+      const lessonName = document.getElementById('lesson-name').value.trim();
+      const contentLink = document.getElementById('content-link').value.trim();
+
+      if (!teacherName || !contentType || selectedGrades.length === 0 || selectedSubjects.length === 0 || !lessonName || !contentLink) {
+        showToast('❌ يرجى ملء جميع الحقول', 'error');
+        return;
+      }
+
+      const submitBtn = document.getElementById('submit-review-btn');
+      const originalBtnText = submitBtn ? submitBtn.textContent : '';
+      isSubmittingContent = true;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⏳ جاري الإرسال...';
+        submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
+      }
+
+      try {
+        const gameData = {
+          teacher_name: currentUser.full_name,
+          teacher_email: currentUser.email,
+          teacher_key: teacherKey,
+          grade: selectedGrades,
+          subject: selectedSubjects,
+          lesson_name: lessonName,
+          game_link: contentLink,
+          status: 'pending',
+          content_type: contentType,
+          created_at: new Date().toISOString()
+        };
+
+        const result = await apiPost({ action: 'addGame', game: gameData });
+        if (result.success) {
+          showToast('✅ تم إرسال المحتوى للمراجعة بنجاح', 'success');
+          document.getElementById('submit-form').reset();
+          const teacherInput = document.getElementById('teacher-name');
+          if (teacherInput && currentUser) {
+            teacherInput.value = currentUser.full_name || '';
+            teacherInput.readOnly = true;
+          }
+        } else {
+          showToast('❌ حدث خطأ: ' + (result.error || 'غير معروف'), 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('❌ خطأ في الاتصال بالخادم', 'error');
+      } finally {
+        isSubmittingContent = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalBtnText || '🚀 إرسال للمراجعة';
+          submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+        }
+      }
+    });
+
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange: async (config) => {
+          document.getElementById('site-title').textContent = config.site_title || defaultConfig.site_title;
+          document.getElementById('welcome-message').textContent = config.welcome_message || defaultConfig.welcome_message;
+        },
+        mapToCapabilities: () => ({ recolorables: [], borderables: [], fontEditable: undefined, fontSizeable: undefined }),
+        mapToEditPanelValues: (config) => new Map([
+          ['site_title', config.site_title || defaultConfig.site_title],
+          ['welcome_message', config.welcome_message || defaultConfig.welcome_message]
+        ])
+      });
+    }
+
+    async function initApp() {
+      if (detectIOSSafari()) {
+        document.documentElement.classList.add('ios-safari-fast');
+        document.body.classList.add('ios-safari-fast');
+      }
+
+      toggleAuthTab('login');
+      applyLanguagePreference('ar');
+      applyBackgroundPreference('classic');
+      updateSubmitAccessUI();
+      updateHomeAuthState();
+
+      const storagePromise = loadStorageFromAppScript();
+      const dataPromise = loadDataFromSheet();
+
+      await storagePromise;
+      contentMetrics = loadContentMetrics();
+      contentComments = loadContentComments();
+      loadUsers();
+
+      const bootUser = getCurrentUser();
+      if (bootUser) {
+        applyLanguagePreference(bootUser.language);
+        applyBackgroundPreference(bootUser.background);
+      }
+
+      updateSubmitAccessUI();
+      updateHomeAuthState();
+      rerenderVisibleContent();
+
+      if (!lastRemoteLoadOk) {
+        showToast('⚠️ تعذر تحميل بيانات الحسابات من الخادم', 'error');
+      }
+
+      await dataPromise;
+    }
+
+    initApp();
+  </script>
+ </body>
+</html>
