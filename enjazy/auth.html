@@ -1,0 +1,507 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>بوابة التسجيل | التحضير الذكي</title>
+  <style>
+    :root {
+      --bg1: #0f172a;
+      --bg2: #1e3a8a;
+      --card: #ffffff;
+      --txt: #0f172a;
+      --muted: #64748b;
+      --accent: #0ea5e9;
+      --accent2: #10b981;
+      --danger: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Tahoma", "Segoe UI", sans-serif;
+      background: radial-gradient(1200px 600px at 80% -20%, #38bdf8 0%, transparent 60%),
+                  linear-gradient(140deg, var(--bg1), var(--bg2));
+      display: grid;
+      place-items: center;
+      padding: 88px 18px 84px;
+    }
+    .ej-nav {
+      position: fixed;
+      top: 0;
+      right: 0;
+      left: 0;
+      z-index: 1000;
+      background: rgba(13, 27, 42, 0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    }
+    .ej-nav-inner {
+      width: min(1200px, 94vw);
+      margin-inline: auto;
+      min-height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .ej-brand {
+      color: #fff;
+      font-weight: 800;
+      text-decoration: none;
+      font-size: 1rem;
+      white-space: nowrap;
+    }
+    .ej-links {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ej-link {
+      color: #dbeafe;
+      text-decoration: none;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .ej-link.active {
+      background: rgba(56, 189, 248, 0.2);
+      color: #fff;
+    }
+    .ej-mobile-nav {
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      left: 0;
+      z-index: 1000;
+      display: none;
+      background: rgba(13, 27, 42, 0.96);
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+      justify-content: space-around;
+      gap: 8px;
+    }
+    .ej-mobile-nav .ej-link {
+      padding: 8px;
+      font-size: 0.82rem;
+      justify-content: center;
+      flex: 1;
+    }
+    .card {
+      width: 100%;
+      max-width: 460px;
+      background: var(--card);
+      border-radius: 18px;
+      box-shadow: 0 20px 50px rgba(2, 6, 23, .28);
+      padding: 20px;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.25rem;
+      color: var(--txt);
+    }
+    .muted {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: .95rem;
+    }
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .tab {
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #0f172a;
+      border-radius: 10px;
+      padding: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tab.active {
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      color: #fff;
+      border-color: transparent;
+    }
+    .form { display: none; }
+    .form.active { display: block; }
+    label {
+      display: block;
+      margin: 8px 0 6px;
+      color: #334155;
+      font-weight: 700;
+      font-size: .9rem;
+    }
+    input {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 11px 12px;
+      font-size: .95rem;
+      outline: none;
+    }
+    input:focus { border-color: var(--accent); }
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    button.primary {
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 12px;
+      color: #fff;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      cursor: pointer;
+    }
+    button.secondary {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 11px 12px;
+      background: #fff;
+      color: #334155;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      width: 100%;
+    }
+    .msg {
+      min-height: 22px;
+      margin-top: 8px;
+      font-size: .9rem;
+      font-weight: 700;
+    }
+    .msg.ok { color: #059669; }
+    .msg.err { color: var(--danger); }
+    @media (max-width: 768px) {
+      .ej-links { display: none; }
+      .ej-mobile-nav { display: flex; }
+    }
+    @media (min-width: 769px) {
+      body { padding-bottom: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="ej-nav">
+    <div class="ej-nav-inner">
+      <a href="/" class="ej-brand">🎓 التحضير الذكي</a>
+      <ul class="ej-links">
+        <li><a href="/" class="ej-link" data-page="home">🏠 الرئيسية</a></li>
+        <li><a href="/t" class="ej-link" data-page="t">📚 تحضير الدروس</a></li>
+        <li><a href="/m" class="ej-link" data-page="m">🎮 المنصة التعليمية</a></li>
+        <li><a href="/enjazy" class="ej-link" data-page="enjazy">📁 ملف الإنجاز الرقمي</a></li>
+      </ul>
+    </div>
+  </nav>
+  <div class="ej-mobile-nav">
+    <a href="/" class="ej-link" data-page="home">🏠 الرئيسية</a>
+    <a href="/t" class="ej-link" data-page="t">📚 تحضير الدروس</a>
+    <a href="/m" class="ej-link" data-page="m">🎮 المنصة التعليمية</a>
+    <a href="/enjazy" class="ej-link" data-page="enjazy">📁 ملف الإنجاز الرقمي</a>
+  </div>
+
+  <main class="card">
+    <h1>بوابة التسجيل</h1>
+    <p class="muted">سجّل حسابك أو ادخل بحسابك، ثم سيتم إعادتك تلقائيًا.</p>
+
+    <div class="tabs">
+      <button id="tab-login" class="tab active" type="button">تسجيل دخول</button>
+      <button id="tab-register" class="tab" type="button">إنشاء حساب</button>
+    </div>
+
+    <form id="login-form" class="form active">
+      <label for="login-contact">البريد الإلكتروني</label>
+      <input id="login-contact" type="email" placeholder="teacher@mail.com" />
+      <label for="login-password">كلمة المرور</label>
+      <input id="login-password" type="password" placeholder="******" />
+      <div class="actions">
+        <button id="login-btn" class="primary" type="submit">دخول</button>
+      </div>
+    </form>
+
+    <form id="register-form" class="form">
+      <label for="register-name">اسم المعلم</label>
+      <input id="register-name" type="text" placeholder="الاسم الكامل" />
+      <label for="register-contact">البريد الإلكتروني</label>
+      <input id="register-contact" type="email" placeholder="teacher@mail.com" />
+      <label for="register-password">كلمة المرور</label>
+      <input id="register-password" type="password" placeholder="6 أحرف على الأقل" />
+      <label for="register-password-confirm">تأكيد كلمة المرور</label>
+      <input id="register-password-confirm" type="password" placeholder="أعد إدخال كلمة المرور" />
+      <div class="actions">
+        <button id="register-btn" class="primary" type="submit">إنشاء حساب</button>
+      </div>
+    </form>
+
+    <button id="go-home" class="secondary" type="button">العودة للصفحة الرئيسية</button>
+    <div id="msg" class="msg"></div>
+  </main>
+
+  <script>
+    (function highlightTopNav(){
+      const rawPath = window.location.pathname.replace(/\/$/, "") || "/";
+      const path = rawPath.toLowerCase();
+      let active = "home";
+      if (path === "/t" || path === "/t.html") active = "t";
+      else if (path === "/m" || path === "/m.html") active = "m";
+      else if (path === "/enjazy" || path === "/enjazy/index.html" || path === "/enjazy/auth.html" || path === "/enjazy/admin.html" || path.startsWith("/enjazy/")) active = "enjazy";
+      document.querySelectorAll(".ej-link[data-page]").forEach((a) => {
+        a.classList.toggle("active", a.getAttribute("data-page") === active);
+      });
+    })();
+
+    const API_BASE = "";
+    const API_BASE_CANDIDATES = Array.from(new Set(["", "/enjazy", API_BASE].map(v => String(v || "").replace(/\/$/, ""))));
+    const SESSION_KEY = "enjazy_session_v1";
+    const M_BACKEND_SESSION_STORAGE_KEY = "lesson_platform_backend_session_v1";
+    const ENJAZY_AUTH_BRIDGE_KEY = "enjazy_auth_bridge_v1";
+
+    const tabLogin = document.getElementById("tab-login");
+    const tabRegister = document.getElementById("tab-register");
+    const loginForm = document.getElementById("login-form");
+    const registerForm = document.getElementById("register-form");
+    const msgEl = document.getElementById("msg");
+
+    function setMode(mode) {
+      const isLogin = mode !== "register";
+      tabLogin.classList.toggle("active", isLogin);
+      tabRegister.classList.toggle("active", !isLogin);
+      loginForm.classList.toggle("active", isLogin);
+      registerForm.classList.toggle("active", !isLogin);
+    }
+
+    function showMessage(text, ok) {
+      msgEl.textContent = text || "";
+      msgEl.className = `msg ${ok ? "ok" : "err"}`;
+    }
+
+    function normalizeEmail(v) {
+      return String(v || "").trim().toLowerCase();
+    }
+
+    function safeReturnPath() {
+      try {
+        const q = new URLSearchParams(window.location.search || "");
+        const raw = String(q.get("return") || "/m").trim();
+        if (!raw.startsWith("/") || raw.startsWith("//")) return "/m";
+        if (raw.startsWith("/api/") || raw.startsWith("/enjazy/api/")) return "/m";
+        return raw;
+      } catch (e) {
+        return "/m";
+      }
+    }
+
+    function consumeBridgePayload() {
+      try {
+        const raw = sessionStorage.getItem(ENJAZY_AUTH_BRIDGE_KEY);
+        sessionStorage.removeItem(ENJAZY_AUTH_BRIDGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw || "{}");
+        return {
+          email: normalizeEmail(parsed?.email || ""),
+          password: String(parsed?.password || "")
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function readStoredSession() {
+      let sessionUserId = "";
+      let backendUserId = "";
+      let backendEmail = "";
+      try {
+        const raw = localStorage.getItem(SESSION_KEY);
+        const parsed = raw ? JSON.parse(raw) : null;
+        sessionUserId = String(parsed?.userId || "").trim();
+      } catch (e) {}
+      try {
+        const rawBackend = localStorage.getItem(M_BACKEND_SESSION_STORAGE_KEY);
+        const parsedBackend = rawBackend ? JSON.parse(rawBackend) : null;
+        backendUserId = String(parsedBackend?.userId || "").trim();
+        backendEmail = normalizeEmail(parsedBackend?.email || "");
+      } catch (e) {}
+      return {
+        userId: sessionUserId || backendUserId,
+        email: backendEmail
+      };
+    }
+
+    function autoRedirectIfLoggedIn() {
+      const session = readStoredSession();
+      if (!session.userId && !session.email) return false;
+      showMessage("أنت مسجل الدخول بالفعل. جارٍ التحويل...", true);
+      setTimeout(() => {
+        window.location.href = safeReturnPath();
+      }, 120);
+      return true;
+    }
+
+    function persistSession(payload) {
+      const userId = String(payload?.userId || "");
+      const profile = payload?.profile || {};
+      if (!userId) return;
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        userId,
+        savedAt: Date.now()
+      }));
+      localStorage.setItem(M_BACKEND_SESSION_STORAGE_KEY, JSON.stringify({
+        userId,
+        email: String(profile.contact || "").trim(),
+        full_name: String(profile.name || "").trim(),
+        savedAt: Date.now()
+      }));
+    }
+
+    async function fetchApiWithFallback(path, options = {}) {
+      let last404 = null;
+      let lastError = null;
+      for (const base of API_BASE_CANDIDATES) {
+        const url = `${base}${path}`;
+        try {
+          const res = await fetch(url, options);
+          if (res.status === 404) {
+            last404 = res;
+            continue;
+          }
+          return res;
+        } catch (e) {
+          lastError = e;
+        }
+      }
+      if (last404) return last404;
+      throw lastError || new Error("network_error");
+    }
+
+    async function apiJson(path, options = {}) {
+      const res = await fetchApiWithFallback(path, options);
+      let body = {};
+      try { body = await res.json(); } catch (e) {}
+      if (!res.ok) {
+        const reason = body?.error || (res.status === 404 ? "endpoint_not_found" : "api_error");
+        const message = body?.message || "";
+        throw new Error(`${reason}::${message}`);
+      }
+      return body;
+    }
+
+    async function doLogin() {
+      const contact = normalizeEmail(document.getElementById("login-contact").value);
+      const password = String(document.getElementById("login-password").value || "");
+      if (!contact || !password) {
+        showMessage("يرجى إدخال البريد وكلمة المرور.", false);
+        return;
+      }
+      const out = await apiJson("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact, password })
+      });
+      persistSession(out);
+      showMessage("تم تسجيل الدخول بنجاح، جاري التحويل...", true);
+      window.location.href = safeReturnPath();
+    }
+
+    async function doRegister() {
+      const name = String(document.getElementById("register-name").value || "").trim();
+      const contact = normalizeEmail(document.getElementById("register-contact").value);
+      const password = String(document.getElementById("register-password").value || "");
+      const confirm = String(document.getElementById("register-password-confirm").value || "");
+      if (!name || !contact || !password) {
+        showMessage("يرجى تعبئة جميع الحقول.", false);
+        return;
+      }
+      if (password.length < 6) {
+        showMessage("كلمة المرور يجب أن تكون 6 أحرف على الأقل.", false);
+        return;
+      }
+      if (password !== confirm) {
+        showMessage("تأكيد كلمة المرور غير مطابق.", false);
+        return;
+      }
+      const out = await apiJson("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          contact,
+          school: "",
+          subject: "",
+          grades: "",
+          password
+        })
+      });
+      persistSession(out);
+      showMessage("تم إنشاء الحساب بنجاح، جاري التحويل...", true);
+      window.location.href = safeReturnPath();
+    }
+
+    tabLogin.addEventListener("click", () => setMode("login"));
+    tabRegister.addEventListener("click", () => setMode("register"));
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      showMessage("", false);
+      try {
+        await doLogin();
+      } catch (error) {
+        const reason = String(error?.message || "");
+        if (reason.includes("invalid_credentials")) showMessage("بيانات الدخول غير صحيحة.", false);
+        else if (reason.includes("not_found")) showMessage("الحساب غير موجود. أنشئ حسابًا جديدًا.", false);
+        else if (reason.includes("db_not_configured")) showMessage("قاعدة البيانات غير مهيأة على الخادم.", false);
+        else if (reason.includes("endpoint_not_found")) showMessage("مسار API غير موجود في النشر الحالي.", false);
+        else showMessage("تعذر تسجيل الدخول الآن.", false);
+      }
+    });
+
+    registerForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      showMessage("", false);
+      try {
+        await doRegister();
+      } catch (error) {
+        const reason = String(error?.message || "");
+        if (reason.includes("user_exists")) showMessage("هذا الحساب موجود مسبقًا. استخدم تسجيل الدخول.", false);
+        else if (reason.includes("db_not_configured")) showMessage("قاعدة البيانات غير مهيأة على الخادم.", false);
+        else if (reason.includes("endpoint_not_found")) showMessage("مسار API غير موجود في النشر الحالي.", false);
+        else showMessage("تعذر إنشاء الحساب الآن.", false);
+      }
+    });
+
+    document.getElementById("go-home").addEventListener("click", () => {
+      window.location.href = "/";
+    });
+
+    const mode = String(new URLSearchParams(window.location.search).get("mode") || "").toLowerCase();
+    setMode(mode === "register" ? "register" : "login");
+
+    if (!autoRedirectIfLoggedIn()) {
+      (async () => {
+        const bridge = consumeBridgePayload();
+        if (!bridge || mode !== "login") return;
+        if (!bridge.email || !bridge.password) return;
+        document.getElementById("login-contact").value = bridge.email;
+        document.getElementById("login-password").value = bridge.password;
+        showMessage("جاري تسجيل الدخول تلقائيًا...", true);
+        try {
+          await doLogin();
+        } catch (error) {
+          showMessage("تعذر تسجيل الدخول التلقائي. راجع البيانات ثم أعد المحاولة.", false);
+        }
+      })();
+    }
+  </script>
+</body>
+</html>
