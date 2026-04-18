@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="prefetch" href="/t" />
+  <link rel="prefetch" href="/m" />
   <style>
     :root {
       --bg-1: #f6f9ff;
@@ -390,6 +392,86 @@
     const activePage = pageMap[normalizedPath] || 'home';
     document.querySelectorAll('.nav-link-item').forEach(function(a){
       if(a.dataset.page === activePage) a.classList.add('nav-active');
+    });
+  })();
+
+  (function prewarmPagesData(){
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdBOQwSbIIjJI18MH1Nd3sxrSWBiVYLDBoIswbOJ9BhdzVICH8Fd5KKJJJdAB61ZJM/exec';
+    const CONTENT_CACHE_KEY = 'lesson_platform_content_cache_v1';
+    const STORAGE_CACHE_KEY = 'lesson_platform_storage_cache_v1';
+    const API_GET_CACHE_PREFIX = 'lesson_platform_api_get_cache_v1_';
+    const T_CSV_CACHE_KEY = 'lesson_system_csv_cache_v2';
+
+    const tCsvUrls = [
+      'https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ/export?format=csv&gid=0',
+      'https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ/export?format=csv',
+      'https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ/pub?gid=0&single=true&output=csv'
+    ];
+
+    function runWhenIdle(fn) {
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(fn, { timeout: 1500 });
+      } else {
+        setTimeout(fn, 200);
+      }
+    }
+
+    function storeJson(key, payload) {
+      try {
+        localStorage.setItem(key, JSON.stringify(payload));
+      } catch (e) {}
+    }
+
+    function prefetchUrl(url) {
+      try {
+        fetch(url, { method: 'GET', mode: 'cors', cache: 'force-cache' }).catch(() => {});
+      } catch (e) {}
+    }
+
+    async function prewarmM() {
+      try {
+        const [gamesRes, storageRes] = await Promise.allSettled([
+          fetch(`${APPS_SCRIPT_URL}?action=getGames`, { cache: 'no-store' }),
+          fetch(`${APPS_SCRIPT_URL}?action=getStorage`, { cache: 'no-store' })
+        ]);
+
+        if (gamesRes.status === 'fulfilled' && gamesRes.value && gamesRes.value.ok) {
+          const gamesPayload = await gamesRes.value.json();
+          storeJson(API_GET_CACHE_PREFIX + 'getGames', { ts: Date.now(), payload: gamesPayload });
+          if (gamesPayload && gamesPayload.success && Array.isArray(gamesPayload.data)) {
+            storeJson(CONTENT_CACHE_KEY, { ts: Date.now(), data: gamesPayload.data });
+          }
+        }
+
+        if (storageRes.status === 'fulfilled' && storageRes.value && storageRes.value.ok) {
+          const storagePayload = await storageRes.value.json();
+          storeJson(API_GET_CACHE_PREFIX + 'getStorage', { ts: Date.now(), payload: storagePayload });
+          if (storagePayload && storagePayload.success && storagePayload.storage) {
+            storeJson(STORAGE_CACHE_KEY, { ts: Date.now(), storage: storagePayload.storage });
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function prewarmT() {
+      for (const url of tCsvUrls) {
+        try {
+          const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
+          if (!res.ok) continue;
+          const csv = await res.text();
+          if (csv && csv.length > 100) {
+            storeJson(T_CSV_CACHE_KEY, { time: Date.now(), csv });
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+
+    runWhenIdle(() => {
+      prefetchUrl('/t');
+      prefetchUrl('/m');
+      prewarmM();
+      prewarmT();
     });
   })();
 
