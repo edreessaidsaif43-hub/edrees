@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/enjazy/api/:path*", "destination": "/api/:path*" },
+    { "source": "/t", "destination": "/t.html" },
+    { "source": "/m", "destination": "/m.html" },
+    { "source": "/enjazy", "destination": "/enjazy/index.html" },
+    { "source": "/enjazy/:path*", "destination": "/enjazy/:path*" },
+    { "source": "/", "destination": "/index.html" }
+  ]
+}
