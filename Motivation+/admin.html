@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>تحفيز+ | لوحة المدير</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #102a43;
+      --muted: #627d98;
+      --brand: #2563eb;
+      --danger: #dc2626;
+      --border: #d9e2ec;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Cairo", sans-serif;
+      background: radial-gradient(1000px 500px at 90% -20%, #dbeafe 0%, transparent 65%), var(--bg);
+      color: var(--text);
+      padding: 18px;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      border-top: 5px solid #3b82f6;
+      box-shadow: 0 8px 22px rgba(16,42,67,.09);
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    h1 { margin: 0 0 8px; font-size: 1.5rem; }
+    p { margin: 0 0 8px; color: var(--muted); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+    input, button {
+      font-family: inherit;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      font-size: .95rem;
+    }
+    input { flex: 1; min-width: 220px; }
+    button {
+      cursor: pointer;
+      border: none;
+      font-weight: 700;
+      background: var(--brand);
+      color: #fff;
+    }
+    button.secondary { background: #334e68; }
+    button.danger { background: var(--danger); }
+    .msg { min-height: 24px; font-weight: 700; }
+    .msg.ok { color: #047857; }
+    .msg.err { color: #b91c1c; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td {
+      text-align: right;
+      border-bottom: 1px solid #eef2f6;
+      padding: 8px;
+      font-size: .9rem;
+      vertical-align: top;
+    }
+    th { background: #f8fafc; color: #334e68; }
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: #e0f2fe;
+      color: #0369a1;
+      font-size: .78rem;
+      font-weight: 700;
+    }
+    .muted { color: var(--muted); }
+    .hidden { display: none; }
+    .class-block {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 8px;
+      margin-bottom: 8px;
+      background: #f8fafc;
+    }
+    .class-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+    .students-list {
+      margin: 0;
+      padding-right: 18px;
+      color: #334155;
+    }
+    @media (max-width: 760px) {
+      body { padding: 10px; }
+      .row { flex-direction: column; align-items: stretch; }
+      button, input { width: 100%; }
+      th, td { font-size: .82rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card" id="login-card">
+      <h1>لوحة مدير تحفيز+</h1>
+      <p>أدخل كلمة مرور المدير لمشاهدة حسابات المستخدمين وصفوفهم وطلابهم.</p>
+      <div class="row">
+        <input id="admin-password" type="password" placeholder="كلمة مرور المدير" />
+        <button id="admin-login-btn">دخول المدير</button>
+      </div>
+      <div id="login-msg" class="msg"></div>
+    </section>
+
+    <section class="card hidden" id="dashboard-card">
+      <div class="row">
+        <button id="refresh-btn" class="secondary">تحديث الحسابات</button>
+        <button id="logout-btn" class="danger">تسجيل خروج</button>
+      </div>
+      <div id="dashboard-msg" class="msg"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>المستخدم</th>
+            <th>عدد الصفوف</th>
+            <th>عدد الطلاب</th>
+            <th>آخر تحديث</th>
+            <th>إجراء</th>
+          </tr>
+        </thead>
+        <tbody id="accounts-body">
+          <tr><td colspan="5" class="muted">لا توجد بيانات بعد.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card hidden" id="details-card">
+      <div class="row">
+        <h2 id="details-title" style="margin:0;">تفاصيل الحساب</h2>
+      </div>
+      <div id="details-meta" class="muted" style="margin-bottom:8px;"></div>
+      <div id="classes-container"></div>
+    </section>
+  </div>
+
+  <script>
+    const ADMIN_KEY = "motivation_admin_password_v1";
+
+    function getPassword() {
+      return String(localStorage.getItem(ADMIN_KEY) || "");
+    }
+    function setPassword(v) {
+      localStorage.setItem(ADMIN_KEY, String(v || ""));
+    }
+    function clearPassword() {
+      localStorage.removeItem(ADMIN_KEY);
+    }
+    function setMsg(id, text, ok) {
+      const el = document.getElementById(id);
+      el.textContent = text || "";
+      el.className = `msg ${ok ? "ok" : "err"}`;
+    }
+    async function adminApi(action, method = "GET", body = null) {
+      const pwd = getPassword();
+      const headers = {
+        "x-admin-password": pwd,
+        "Content-Type": "application/json"
+      };
+      const url = method === "GET"
+        ? `/api/admin?action=${encodeURIComponent(action)}${body && body.userId ? `&userId=${encodeURIComponent(body.userId)}` : ""}`
+        : "/api/admin";
+      const options = {
+        method,
+        headers
+      };
+      if (method !== "GET") {
+        options.body = JSON.stringify({ action, ...(body || {}) });
+      }
+      const res = await fetch(url, options);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || `http_${res.status}`);
+      }
+      return data;
+    }
+
+    function showDashboard(show) {
+      document.getElementById("login-card").classList.toggle("hidden", show);
+      document.getElementById("dashboard-card").classList.toggle("hidden", !show);
+      if (!show) {
+        document.getElementById("details-card").classList.add("hidden");
+      }
+    }
+
+    function formatDate(v) {
+      if (!v) return "-";
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return String(v);
+      return d.toLocaleString("ar");
+    }
+
+    async function loadAccounts() {
+      setMsg("dashboard-msg", "جاري تحميل الحسابات...", true);
+      const out = await adminApi("motivation_accounts", "GET");
+      const rows = Array.isArray(out.accounts) ? out.accounts : [];
+      const body = document.getElementById("accounts-body");
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="5" class="muted">لا توجد حسابات تحفيز+ محفوظة.</td></tr>`;
+        setMsg("dashboard-msg", "تم التحميل.", true);
+        return;
+      }
+      body.innerHTML = rows.map((acc) => `
+        <tr>
+          <td><span class="badge">${acc.userId}</span></td>
+          <td>${Number(acc.classesCount || 0)}</td>
+          <td>${Number(acc.studentsCount || 0)}</td>
+          <td>${formatDate(acc.updatedAt)}</td>
+          <td><button class="secondary" onclick="viewAccount('${String(acc.userId || "").replace(/'/g, "\\'")}')">عرض التفاصيل</button></td>
+        </tr>
+      `).join("");
+      setMsg("dashboard-msg", `تم تحميل ${rows.length} حساب.`, true);
+    }
+
+    function renderAccountDetails(data) {
+      const detailsCard = document.getElementById("details-card");
+      const title = document.getElementById("details-title");
+      const meta = document.getElementById("details-meta");
+      const box = document.getElementById("classes-container");
+      const state = data && data.state && typeof data.state === "object" ? data.state : {};
+      const classes = Array.isArray(state.classes) ? state.classes : [];
+      title.textContent = `تفاصيل الحساب: ${data.userId || "-"}`;
+      meta.textContent = `عدد الصفوف: ${Number(data.classesCount || classes.length)} | عدد الطلاب: ${Number(data.studentsCount || 0)} | آخر تحديث: ${formatDate(data.updatedAt)}`;
+      if (!classes.length) {
+        box.innerHTML = `<p class="muted">لا توجد صفوف في هذا الحساب.</p>`;
+      } else {
+        box.innerHTML = classes.map((cls) => {
+          const students = Array.isArray(cls.students) ? cls.students : [];
+          const studentsHtml = students.length
+            ? `<ul class="students-list">${students.map((s) => `<li>${s.name || "-"} <span class="muted">(${s.code || "-"})</span></li>`).join("")}</ul>`
+            : `<p class="muted">لا يوجد طلاب في هذا الصف.</p>`;
+          return `
+            <article class="class-block">
+              <div class="class-title">
+                <strong>${cls.name || "صف بدون اسم"}</strong>
+                <span class="badge">الكود: ${cls.inviteCode || "-"}</span>
+              </div>
+              <div class="muted" style="margin-bottom:6px;">المادة: ${cls.subject || "-"} | الطلاب: ${students.length}</div>
+              ${studentsHtml}
+            </article>
+          `;
+        }).join("");
+      }
+      detailsCard.classList.remove("hidden");
+    }
+
+    async function viewAccount(userId) {
+      try {
+        setMsg("dashboard-msg", "جاري تحميل تفاصيل الحساب...", true);
+        const out = await adminApi("motivation_account", "GET", { userId });
+        renderAccountDetails(out);
+        setMsg("dashboard-msg", "تم تحميل التفاصيل.", true);
+      } catch (e) {
+        setMsg("dashboard-msg", `تعذر تحميل التفاصيل: ${String(e.message || e)}`, false);
+      }
+    }
+
+    window.viewAccount = viewAccount;
+
+    async function doLogin() {
+      const input = document.getElementById("admin-password");
+      const password = String(input.value || "").trim();
+      if (!password) {
+        setMsg("login-msg", "يرجى إدخال كلمة مرور المدير.", false);
+        return;
+      }
+      setPassword(password);
+      try {
+        await adminApi("login", "POST", { password });
+        setMsg("login-msg", "تم تسجيل الدخول بنجاح.", true);
+        showDashboard(true);
+        await loadAccounts();
+      } catch (e) {
+        clearPassword();
+        setMsg("login-msg", `فشل تسجيل الدخول: ${String(e.message || e)}`, false);
+      }
+    }
+
+    async function tryAutoLogin() {
+      const pwd = getPassword();
+      if (!pwd) return;
+      try {
+        await adminApi("motivation_accounts", "GET");
+        showDashboard(true);
+        await loadAccounts();
+      } catch {
+        clearPassword();
+      }
+    }
+
+    document.getElementById("admin-login-btn").addEventListener("click", () => {
+      doLogin();
+    });
+    document.getElementById("admin-password").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") doLogin();
+    });
+    document.getElementById("refresh-btn").addEventListener("click", async () => {
+      try {
+        await loadAccounts();
+      } catch (e) {
+        setMsg("dashboard-msg", `تعذر تحديث الحسابات: ${String(e.message || e)}`, false);
+      }
+    });
+    document.getElementById("logout-btn").addEventListener("click", () => {
+      clearPassword();
+      showDashboard(false);
+      setMsg("login-msg", "تم تسجيل الخروج.", true);
+      document.getElementById("accounts-body").innerHTML = `<tr><td colspan="5" class="muted">لا توجد بيانات بعد.</td></tr>`;
+      document.getElementById("details-card").classList.add("hidden");
+    });
+
+    showDashboard(false);
+    tryAutoLogin();
+  </script>
+</body>
+</html>
