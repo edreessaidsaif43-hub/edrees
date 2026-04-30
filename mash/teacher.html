@@ -1,0 +1,83 @@
+﻿<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>موقع المعلم</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="container nav-wrap">
+      <a class="brand" href="index.html">منصة مشاريع المعلمين</a>
+      <nav class="nav-links">
+        <a class="nav-link" href="index.html">الرئيسية</a>
+        <a class="nav-link active" href="teacher.html">موقع المعلم</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="section">
+    <div class="container">
+      <div id="teacherLogin" class="panel">
+        <h2>دخول المعلم</h2>
+                <p>الدخول وإنشاء الحساب عبر التسجيل الموحد.</p>
+        <div class="actions" style="margin-bottom:12px;">
+          <a class="btn btn-dark" href="../enjazy/auth.html?mode=login&return=/mash/teacher.html">تسجيل الدخول الموحد</a>
+          <a class="btn" style="background:#f0f9ff;color:#0b4f78;" href="../enjazy/auth.html?mode=register&return=/mash/teacher.html">إنشاء حساب جديد</a>
+        </div>
+        <form id="teacherLoginForm" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+          <input id="teacherUsername" placeholder="اسم المستخدم" required>
+          <input id="teacherPassword" type="password" placeholder="كلمة المرور" required>
+          <button class="btn btn-dark" type="submit">دخول</button>
+        </form>
+      </div>
+
+      <div id="teacherUserBox" class="panel" style="display:none; margin-top:14px;">
+        <strong id="teacherWelcome"></strong>
+        <button id="teacherLogout" class="btn" style="margin-right:8px;">تسجيل خروج</button>
+      </div>
+
+      <div id="teacherFormWrap" class="panel" style="display:none; margin-top:14px;">
+        <h2>رفع مشروع جديد</h2>
+        <form id="teacherProjectForm" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+          <input id="title" placeholder="اسم المشروع" required>
+          <input id="school" placeholder="المدرسة" required>
+          <select id="category">
+            <option>مشاريع علاجية</option><option>مشاريع إثرائية</option><option>مشاريع رقمية</option><option>مبادرات مدرسية</option><option>مشاريع الذكاء الاصطناعي</option><option>مشاريع STEM</option><option>مشاريع القراءة</option><option>مشاريع القيم والمواطنة</option><option>مشاريع الانضباط والتحفيز</option>
+          </select>
+          <input id="subject" placeholder="المادة">
+          <input id="grade" placeholder="الصف المستهدف">
+          <textarea id="description" placeholder="وصف مختصر"></textarea>
+          <textarea id="problem" placeholder="المشكلة التي يعالجها"></textarea>
+          <textarea id="goals" placeholder="أهداف المشروع (كل هدف بسطر)"></textarea>
+          <textarea id="steps" placeholder="خطوات التنفيذ (كل خطوة بسطر)"></textarea>
+          <textarea id="evidence" placeholder="الشواهد (كل شاهد بسطر)"></textarea>
+          <textarea id="results" placeholder="النتائج والأثر"></textarea>
+          <textarea id="recommendations" placeholder="التوصيات"></textarea>
+
+          <div>
+            <p><strong>هل تريد إظهار المشروع في الصفحة الرئيسية؟</strong></p>
+            <label><input id="publicYes" name="publicMode" type="radio" checked> نعم، عرض المشروع للعامة</label><br>
+            <label><input id="publicNo" name="publicMode" type="radio"> لا، يبقى داخل موقعي فقط</label>
+          </div>
+
+          <button class="btn btn-dark" type="submit">نشر المشروع</button>
+        </form>
+      </div>
+
+      <div id="teacherProjectsList" class="panel" style="display:none; margin-top:14px;">
+        <h2>مشاريعي التعليمية</h2>
+        <div id="teacherProjects"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">© 2026 منصة مشاريع المعلمين</footer>
+  <script src="js/app.js"></script>
+</body>
+</html>
+
