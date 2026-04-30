@@ -1,0 +1,23 @@
+[
+  {
+    "username": "admin",
+    "password": "admin123",
+    "role": "admin",
+    "teacherSlug": null,
+    "name": "إدارة المنصة"
+  },
+  {
+    "username": "idrees",
+    "password": "teacher123",
+    "role": "teacher",
+    "teacherSlug": "idrees",
+    "name": "أ. إدريس الذيابي"
+  },
+  {
+    "username": "ahmed",
+    "password": "teacher123",
+    "role": "teacher",
+    "teacherSlug": "ahmed",
+    "name": "أ. أحمد سالم"
+  }
+]
