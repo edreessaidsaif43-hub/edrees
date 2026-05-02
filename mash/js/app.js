@@ -71,21 +71,37 @@ function readFileAsDataUrl(file) {
 }
 
 async function uploadProjectFile(file, purpose = 'media') {
-  const maxSize = 4 * 1024 * 1024;
+  const isVideo = file.type.startsWith('video/');
+  const maxSize = isVideo ? 50 * 1024 * 1024 : 3 * 1024 * 1024;
   if (file.size > maxSize) {
-    throw new Error(`الملف ${file.name} أكبر من 4MB. للملفات الكبيرة، ضع رابط الفيديو في حقل روابط المشروع.`);
+    const maxLabel = isVideo ? '50MB' : '3MB';
+    throw new Error(`الملف ${file.name} أكبر من ${maxLabel}. للملفات الكبيرة جدًا استخدم رابطًا مباشرًا في حقل روابط المشروع.`);
   }
-  const url = `/api/mash?action=upload&purpose=${encodeURIComponent(purpose)}&filename=${encodeURIComponent(file.name)}`;
-  const res = await fetch(apiUrl(url), {
+
+  const dataUrl = await readFileAsDataUrl(file);
+  const base64Data = String(dataUrl).includes(',') ? String(dataUrl).split(',')[1] : '';
+  if (!base64Data) throw new Error(`تعذر قراءة الملف ${file.name}`);
+
+  const res = await fetch(apiUrl('/api/media/upload'), {
     method: 'POST',
-    headers: { 'Content-Type': file.type || 'application/octet-stream' },
-    body: file
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fileName: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      base64Data,
+      kind: isVideo ? 'video' : (purpose === 'logo' || purpose === 'cover' ? 'image' : 'image')
+    })
   });
+
+  const payload = await res.json().catch(async () => ({ message: await res.text().catch(() => '') }));
   if (!res.ok) {
-    const e = await res.json().catch(async () => ({ message: await res.text().catch(() => '') }));
-    throw new Error(e.message || e.error || 'تعذر رفع الملف');
+    throw new Error(payload.message || payload.error || 'تعذر رفع الملف');
   }
-  return res.json();
+  return {
+    url: payload.mediaUrl,
+    id: payload.mediaFileId,
+    name: payload.mediaName || file.name
+  };
 }
 
 async function fileToMediaItem(file) {
@@ -576,6 +592,7 @@ async function init() {
 }
 
 init();
+
 
 
 
