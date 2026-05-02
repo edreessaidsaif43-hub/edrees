@@ -17,6 +17,10 @@ function ownerTokenValid(req) {
   return token === password;
 }
 
+function teacherSlugFromReq(req) {
+  return String(req.headers["x-teacher-slug"] || "").trim().toLowerCase();
+}
+
 function sendStoreError(res, out, fallback = "Request failed.") {
   if (out.error === "db_not_configured") {
     send(res, 500, {
@@ -63,12 +67,46 @@ export default async function handler(req, res) {
         return send(res, 200, out.data);
       }
 
-      if (req.method === "PATCH") {
-        if (!ownerTokenValid(req)) return send(res, 403, { error: "owner_only" });
-        const out = await updateMashProject(id, req.body || {});
+    if (req.method === "PATCH") {
+      const body = req.body || {};
+      if (!ownerTokenValid(req)) {
+        const teacherSlug = teacherSlugFromReq(req);
+        const existing = await readMashProject(id);
+        if (existing.error || !existing.data) {
+          return send(res, 404, { error: "not_found", message: "Project not found." });
+        }
+        const projectOwner = String(existing.data.teacherSlug || "").trim().toLowerCase();
+        if (!teacherSlug || !projectOwner || teacherSlug !== projectOwner) {
+          return send(res, 403, { error: "owner_only", message: "You can only edit your own projects." });
+        }
+        const teacherPatch = {
+          title: body.title,
+          school: body.school,
+          category: body.category,
+          subject: body.subject,
+          grade: body.grade,
+          description: body.description,
+          cover: body.cover,
+          logo: body.logo,
+          media: body.media,
+          links: body.links,
+          problem: body.problem,
+          goals: body.goals,
+          steps: body.steps,
+          evidence: body.evidence,
+          results: body.results,
+          recommendations: body.recommendations,
+          publicInMain: body.publicInMain,
+          latest: true,
+        };
+        const out = await updateMashProject(id, teacherPatch);
         if (out.error) return sendStoreError(res, out, "Could not update project.");
         return send(res, 200, out.data);
       }
+      const out = await updateMashProject(id, body);
+      if (out.error) return sendStoreError(res, out, "Could not update project.");
+      return send(res, 200, out.data);
+    }
 
       return send(res, 405, { error: "method_not_allowed" });
     }
