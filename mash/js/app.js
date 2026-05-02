@@ -306,7 +306,7 @@ function renderProjectPage(page, p) {
               <div class="info-item"><strong>المشاهدات:</strong> ${Number(p.views||0).toLocaleString('ar-EG')}</div>
             </div>
             <div class="actions" style="margin-top:14px;">
-              <a class="btn btn-dark" href="teacher.html?slug=${p.teacherSlug}">رابط موقع المعلم</a>
+              <a class="btn btn-dark" href="teacher.html?slug=${encodeURIComponent(p.teacherSlug || '')}">رابط موقع المعلم</a>
               <button class="btn" style="background:#f0f9ff;color:#0b4f78;" onclick="navigator.clipboard.writeText(location.href);alert('تم نسخ الرابط')">مشاركة المشروع</button>
             </div>
           </aside>
@@ -314,14 +314,66 @@ function renderProjectPage(page, p) {
       </section>`;
 }
 
+function isTeacherPublicMode() {
+  const pageHasPublicView = !!qs('#teacherPublicView');
+  const slug = String(getQueryParam('slug') || '').trim();
+  return pageHasPublicView && !!slug;
+}
+
+async function renderTeacherPublicSite() {
+  const slug = String(getQueryParam('slug') || '').trim();
+  const publicView = qs('#teacherPublicView');
+  const publicProjects = qs('#teacherPublicProjects');
+  const publicName = qs('#teacherPublicName');
+  const publicBio = qs('#teacherPublicBio');
+  if (!publicView || !publicProjects || !slug) return;
+
+  publicView.style.display = 'block';
+  publicProjects.innerHTML = '<p>جار تحميل مشاريع المعلم...</p>';
+  try {
+    const allProjects = await api('/api/projects?scope=all');
+    const visible = (allProjects || []).filter((p) =>
+      String(p.teacherSlug || '').trim() === slug &&
+      p.adminApproved &&
+      p.publicInMain &&
+      !p.hidden &&
+      !p.deleted
+    );
+
+    const teacherName = visible[0]?.teacher || `المعلم ${slug}`;
+    const teacherSchool = visible[0]?.school || '';
+    if (publicName) publicName.textContent = teacherName;
+    if (publicBio) {
+      publicBio.textContent = teacherSchool
+        ? `صفحة عامة لمشاريع ${teacherName} - ${teacherSchool}`
+        : `صفحة عامة لمشاريع ${teacherName}`;
+    }
+    publicProjects.innerHTML = visible.map(projectCard).join('') || '<p>لا توجد مشاريع عامة لهذا المعلم حاليًا.</p>';
+  } catch (error) {
+    publicProjects.innerHTML = `<p>تعذر تحميل موقع المعلم: ${error.message || 'خطأ غير معروف'}</p>`;
+  }
+}
+
 function renderTeacherLogin() {
   const loginBox = qs('#teacherLogin');
   const userBox = qs('#teacherUserBox');
   const formBox = qs('#teacherFormWrap');
   const listBox = qs('#teacherProjectsList');
+  const publicView = qs('#teacherPublicView');
   if (!loginBox) return;
 
+  if (isTeacherPublicMode()) {
+    loginBox.style.display = 'none';
+    if (userBox) userBox.style.display = 'none';
+    if (formBox) formBox.style.display = 'none';
+    if (listBox) listBox.style.display = 'none';
+    if (publicView) publicView.style.display = 'block';
+    renderTeacherPublicSite();
+    return;
+  }
+
   const user = ensureUnifiedUser();
+  if (publicView) publicView.style.display = 'none';
   loginBox.style.display = user ? 'none' : 'block';
   userBox.style.display = user ? 'block' : 'none';
   formBox.style.display = user ? 'block' : 'none';
