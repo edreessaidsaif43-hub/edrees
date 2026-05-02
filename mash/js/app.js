@@ -371,6 +371,7 @@ function renderTeacherLogin() {
   const formBox = qs('#teacherFormWrap');
   const listBox = qs('#teacherProjectsList');
   const publicView = qs('#teacherPublicView');
+  const topProjectsLink = qs('#myProjectsTopLink');
   if (!loginBox) return;
 
   if (isTeacherPublicMode()) {
@@ -379,12 +380,14 @@ function renderTeacherLogin() {
     if (formBox) formBox.style.display = 'none';
     if (listBox) listBox.style.display = 'none';
     if (publicView) publicView.style.display = 'block';
+    if (topProjectsLink) topProjectsLink.style.display = 'none';
     renderTeacherPublicSite();
     return;
   }
 
   const user = ensureUnifiedUser();
   if (publicView) publicView.style.display = 'none';
+  if (topProjectsLink) topProjectsLink.style.display = user ? 'inline-flex' : 'none';
   loginBox.style.display = user ? 'none' : 'block';
   userBox.style.display = user ? 'block' : 'none';
   formBox.style.display = user ? 'block' : 'none';
@@ -739,6 +742,13 @@ function attachEvents() {
   if (tLogin) tLogin.onsubmit = teacherLogin;
   const tForm = qs('#teacherProjectForm');
   if (tForm) tForm.onsubmit = submitProject;
+  const topProjectsLink = qs('#myProjectsTopLink');
+  if (topProjectsLink) {
+    topProjectsLink.onclick = (ev) => {
+      ev.preventDefault();
+      qs('#teacherProjectsList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+  }
   const editCancel = qs('#editCancelBtn');
   if (editCancel) editCancel.onclick = () => clearEditMode(true);
   attachBuilderPreview();
