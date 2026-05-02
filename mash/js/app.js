@@ -1,10 +1,12 @@
 ﻿const state = {
   projects: [],
+  teacherProjects: [],
   filteredCategory: "الكل",
   user: JSON.parse(localStorage.getItem('tp_user') || 'null'),
-  token: localStorage.getItem('tp_token') || ''
+  token: localStorage.getItem('tp_token') || '',
+  editingProjectId: '',
+  editingProjectMedia: []
 };
-
 const builderAssets = {
   cover: '',
   logo: ''
@@ -415,14 +417,75 @@ async function loadTeacherProjects() {
   if (!wrap) return;
   try {
     const projects = await api('/api/projects?scope=mine');
-    wrap.innerHTML = projects.map(p => `
+    state.teacherProjects = Array.isArray(projects) ? projects : [];
+    wrap.innerHTML = state.teacherProjects.map(p => `
       <div class="panel" style="margin-bottom:10px;">
         <strong>${p.title}</strong><br>
         <small>اعتماد الإدارة: ${p.adminApproved ? 'معتمد' : 'قيد المراجعة'} | الظهور: ${p.publicInMain ? 'عام' : 'داخل موقعي'}</small>
+        <div class="actions" style="margin-top:8px;">
+          <button class="btn" style="padding:6px 10px;background:#ecfeff;color:#155e75;" onclick="startEditProject('${p.id}')">تعديل</button>
+        </div>
       </div>`).join('') || '<p>لا توجد مشاريع بعد.</p>';
   } catch {
+    state.teacherProjects = [];
     wrap.innerHTML = '<p>تعذر تحميل المشاريع.</p>';
   }
+}
+
+function setEditMode(project) {
+  state.editingProjectId = String(project?.id || '');
+  state.editingProjectMedia = Array.isArray(project?.media) ? [...project.media] : [];
+  builderAssets.cover = project?.cover || '';
+  builderAssets.logo = project?.logo || '';
+
+  qs('#title').value = project?.title || '';
+  qs('#school').value = project?.school || '';
+  qs('#category').value = project?.category || 'مشاريع علاجية';
+  qs('#subject').value = project?.subject || '';
+  qs('#grade').value = project?.grade || '';
+  qs('#description').value = project?.description || '';
+  qs('#problem').value = project?.problem || '';
+  qs('#goals').value = Array.isArray(project?.goals) ? project.goals.join('\n') : '';
+  qs('#steps').value = Array.isArray(project?.steps) ? project.steps.join('\n') : '';
+  qs('#evidence').value = Array.isArray(project?.evidence) ? project.evidence.join('\n') : '';
+  qs('#results').value = project?.results || '';
+  qs('#recommendations').value = project?.recommendations || '';
+  qs('#links').value = Array.isArray(project?.links)
+    ? project.links.map((l) => `${l?.title || ''} | ${l?.url || ''}`).join('\n')
+    : '';
+  if (project?.publicInMain) qs('#publicYes').checked = true;
+  else qs('#publicNo').checked = true;
+
+  const submitBtn = qs('#projectSubmitBtn');
+  const cancelBtn = qs('#editCancelBtn');
+  if (submitBtn) submitBtn.textContent = 'حفظ التعديلات';
+  if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+  updateProjectPreview();
+  qs('#teacherFormWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function clearEditMode(resetForm = false) {
+  state.editingProjectId = '';
+  state.editingProjectMedia = [];
+  const submitBtn = qs('#projectSubmitBtn');
+  const cancelBtn = qs('#editCancelBtn');
+  if (submitBtn) submitBtn.textContent = 'نشر الصفحة';
+  if (cancelBtn) cancelBtn.style.display = 'none';
+  if (resetForm) {
+    qs('#teacherProjectForm')?.reset();
+    builderAssets.cover = '';
+    builderAssets.logo = '';
+    updateProjectPreview();
+  }
+}
+
+function startEditProject(projectId) {
+  const project = state.teacherProjects.find((p) => String(p.id) === String(projectId));
+  if (!project) {
+    alert('تعذر العثور على المشروع.');
+    return;
+  }
+  setEditMode(project);
 }
 
 async function submitProject(ev) {
@@ -479,23 +542,29 @@ async function submitProject(ev) {
     results: qs('#results').value,
     recommendations: qs('#recommendations').value,
     logo,
-    media,
+    media: [...state.editingProjectMedia, ...media],
     links: parseProjectLinks(qs('#links').value),
     publicInMain: qs('#publicYes').checked,
     goals: qs('#goals').value.split('\n').map(s => s.trim()).filter(Boolean),
     steps: qs('#steps').value.split('\n').map(s => s.trim()).filter(Boolean),
     evidence: qs('#evidence').value.split('\n').map(s => s.trim()).filter(Boolean)
   };
+  const editingId = state.editingProjectId;
   try {
-    await api('/api/projects', { method: 'POST', body: JSON.stringify(payload) });
-    ev.target.reset();
-    builderAssets.cover = '';
-    builderAssets.logo = '';
-    updateProjectPreview();
-    if (uploadWarnings.length) {
-      alert(`تم نشر صفحة المشروع، لكن بعض الوسائط لم تُرفع:\n- ${uploadWarnings.join('\n- ')}`);
+    if (editingId) {
+      await api(`/api/projects/${editingId}`, {
+        method: 'PATCH',
+        headers: { 'x-teacher-slug': toTeacherSlug(unifiedUser.username || unifiedUser.name) },
+        body: JSON.stringify(payload)
+      });
     } else {
-      alert('تم نشر صفحة المشروع بنجاح');
+      await api('/api/projects', { method: 'POST', body: JSON.stringify(payload) });
+    }
+    clearEditMode(true);
+    if (uploadWarnings.length) {
+      alert(`تم حفظ المشروع، لكن بعض الوسائط لم تُرفع:\n- ${uploadWarnings.join('\n- ')}`);
+    } else {
+      alert(editingId ? 'تم حفظ التعديلات بنجاح' : 'تم نشر صفحة المشروع بنجاح');
     }
     loadTeacherProjects();
   } catch (e) {
@@ -670,6 +739,8 @@ function attachEvents() {
   if (tLogin) tLogin.onsubmit = teacherLogin;
   const tForm = qs('#teacherProjectForm');
   if (tForm) tForm.onsubmit = submitProject;
+  const editCancel = qs('#editCancelBtn');
+  if (editCancel) editCancel.onclick = () => clearEditMode(true);
   attachBuilderPreview();
   const tOut = qs('#teacherLogout');
   if (tOut) tOut.onclick = teacherLogout;
@@ -685,6 +756,7 @@ function attachEvents() {
   };
 
   window.adminAction = adminAction;
+  window.startEditProject = startEditProject;
 }
 
 async function init() {
@@ -696,6 +768,8 @@ async function init() {
 }
 
 init();
+
+
 
 
 
