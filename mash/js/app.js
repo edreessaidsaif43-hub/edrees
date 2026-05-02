@@ -447,6 +447,8 @@ function setEditMode(project) {
   state.editingProjectMedia = Array.isArray(project?.media) ? [...project.media] : [];
   builderAssets.cover = project?.cover || '';
   builderAssets.logo = project?.logo || '';
+  const formBox = qs('#teacherFormWrap');
+  if (formBox) formBox.style.display = 'block';
 
   qs('#title').value = project?.title || '';
   qs('#school').value = project?.school || '';
@@ -494,6 +496,11 @@ function startEditProject(projectId) {
   if (!project) {
     alert('تعذر العثور على المشروع.');
     return;
+  }
+  if (isMyProjectsOnlyMode()) {
+    try {
+      window.history.replaceState({}, '', location.pathname);
+    } catch {}
   }
   setEditMode(project);
 }
