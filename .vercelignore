@@ -1,0 +1,6 @@
+﻿enjazy/release
+enjazy/release/**
+enjazy/*.zip
+mash/node_modules
+mash/node_modules/**
+**/.DS_Store
