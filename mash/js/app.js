@@ -426,7 +426,10 @@ async function loadTeacherProjects() {
   const wrap = qs('#teacherProjects');
   if (!wrap) return;
   try {
-    const projects = await api('/api/projects?scope=mine');
+    const slug = toTeacherSlug(state.user?.username || state.user?.name);
+    const projects = await api('/api/projects?scope=mine', {
+      headers: { 'x-teacher-slug': slug }
+    });
     state.teacherProjects = Array.isArray(projects) ? projects : [];
     wrap.innerHTML = state.teacherProjects.map(p => `
       <div class="panel" style="margin-bottom:10px;">
