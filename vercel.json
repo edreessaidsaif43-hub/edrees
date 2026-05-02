@@ -47,8 +47,11 @@
     { "source": "/enjazy/admin-v2", "destination": "/enjazy/admin-v2.html" },
     { "source": "/t", "destination": "/t.html" },
     { "source": "/m", "destination": "/m.html" },
+    { "source": "/mash", "destination": "/mash/index.html" },
+    { "source": "/mash/:path*", "destination": "/mash/:path*" },
     { "source": "/enjazy", "destination": "/enjazy/index.html" },
     { "source": "/enjazy/:path*", "destination": "/enjazy/:path*" },
-    { "source": "/", "destination": "/index.html" }
+    { "source": "/", "destination": "/mash/index.html" }
   ]
 }
+
