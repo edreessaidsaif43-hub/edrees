@@ -177,6 +177,15 @@ function ownerHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function toTeacherSlug(value) {
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-_]/g, '');
+  return raw || 'demo-teacher';
+}
+
 function apiUrl(path) {
   if (path.startsWith('/api/mash?action=')) return path;
   if (path === '/api/projects') return '/api/mash?action=projects';
@@ -418,6 +427,11 @@ async function loadTeacherProjects() {
 
 async function submitProject(ev) {
   ev.preventDefault();
+  const unifiedUser = ensureUnifiedUser();
+  if (!unifiedUser) {
+    alert('يرجى تسجيل الدخول أولاً من صفحة التسجيل الموحد.');
+    return;
+  }
   const coverFile = qs('#coverFile')?.files?.[0];
   const logoFile = qs('#logoFile')?.files?.[0];
   const imageFiles = [...(qs('#imageFiles')?.files || [])].slice(0, 6);
@@ -452,6 +466,8 @@ async function submitProject(ev) {
     }
   }
   const payload = {
+    teacher: unifiedUser.name || unifiedUser.username || 'المعلم',
+    teacherSlug: toTeacherSlug(unifiedUser.username || unifiedUser.name),
     title: qs('#title').value,
     school: qs('#school').value,
     category: qs('#category').value,
