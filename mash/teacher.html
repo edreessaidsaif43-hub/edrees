@@ -1,0 +1,147 @@
+﻿<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>موقع المعلم</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="container nav-wrap">
+      <a class="brand" href="index.html">منصة مشاريع المعلمين</a>
+      <nav class="nav-links">
+        <a class="nav-link" href="index.html">الرئيسية</a>
+        <a class="nav-link active" href="teacher.html">موقع المعلم</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="section">
+    <div class="container">
+      <div id="teacherLogin" class="panel">
+        <h2>دخول المعلم</h2>
+                <p>استخدم صفحة التسجيل الموحد الخاصة بموقع التحضير الذكي للمتابعة.</p>
+        <div class="actions" style="margin-bottom:12px;">
+          <a class="btn btn-dark" href="../enjazy/auth.html?mode=login&return=/mash/teacher.html">تسجيل الدخول الموحد</a>
+          <a class="btn" style="background:#f0f9ff;color:#0b4f78;" href="../enjazy/auth.html?mode=register&return=/mash/teacher.html">إنشاء حساب جديد</a>
+        </div>
+      </div>
+
+      <div id="teacherUserBox" class="panel" style="display:none; margin-top:14px;">
+        <strong id="teacherWelcome"></strong>
+        <button id="teacherLogout" class="btn" style="margin-right:8px;">تسجيل خروج</button>
+      </div>
+
+      <div id="teacherFormWrap" class="project-builder" style="display:none; margin-top:14px;">
+        <div class="builder-head">
+          <div>
+            <span class="builder-kicker">منشئ صفحة مشروع</span>
+            <h2>صمّم صفحة احترافية لمشروعك</h2>
+          </div>
+          <button class="btn btn-dark" form="teacherProjectForm" type="submit">نشر الصفحة</button>
+        </div>
+
+        <div class="builder-layout">
+          <form id="teacherProjectForm" class="builder-form">
+            <section class="builder-block">
+              <h3>هوية المشروع</h3>
+              <div class="builder-fields two">
+                <input id="title" placeholder="اسم المشروع" required>
+                <input id="school" placeholder="المدرسة" required>
+                <select id="category">
+                  <option>مشاريع علاجية</option><option>مشاريع إثرائية</option><option>مشاريع رقمية</option><option>مبادرات مدرسية</option><option>مشاريع الذكاء الاصطناعي</option><option>مشاريع STEM</option><option>مشاريع القراءة</option><option>مشاريع القيم والمواطنة</option><option>مشاريع الانضباط والتحفيز</option>
+                </select>
+                <input id="subject" placeholder="المادة">
+                <input id="grade" placeholder="الصف المستهدف">
+                <select id="pageTone">
+                  <option value="emerald">نمط أخضر احترافي</option>
+                  <option value="blue">نمط أزرق تقني</option>
+                  <option value="amber">نمط ذهبي إنجازي</option>
+                </select>
+              </div>
+            </section>
+
+            <section class="builder-block">
+              <h3>الغلاف والوسائط</h3>
+              <p class="meta">يمكن رفع الصور والفيديوهات حتى 4MB للملف الواحد. للفيديوهات الكبيرة استخدم حقل روابط المشروع.</p>
+              <div class="builder-fields two">
+                <label class="file-field">صورة الغلاف
+                  <input id="coverFile" type="file" accept="image/*">
+                </label>
+                <label class="file-field">شعار المشروع
+                  <input id="logoFile" type="file" accept="image/*">
+                </label>
+                <label class="file-field wide">صور وفيديوهات المشروع
+                  <input id="mediaFiles" type="file" accept="image/*,video/*" multiple>
+                </label>
+              </div>
+            </section>
+
+            <section class="builder-block">
+              <h3>قصة المشروع</h3>
+              <div class="builder-fields">
+                <textarea id="description" placeholder="وصف مختصر يظهر في مقدمة الصفحة"></textarea>
+                <textarea id="problem" placeholder="المشكلة التي يعالجها المشروع"></textarea>
+                <textarea id="goals" placeholder="أهداف المشروع (كل هدف بسطر)"></textarea>
+                <textarea id="steps" placeholder="خطوات التنفيذ (كل خطوة بسطر)"></textarea>
+                <textarea id="evidence" placeholder="الشواهد (كل شاهد بسطر)"></textarea>
+                <textarea id="links" placeholder="روابط المشروع (كل رابط بسطر)&#10;مثال: موقع المشروع | https://example.com"></textarea>
+                <textarea id="results" placeholder="النتائج والأثر"></textarea>
+                <textarea id="recommendations" placeholder="التوصيات"></textarea>
+              </div>
+            </section>
+
+            <section class="builder-block">
+              <h3>النشر</h3>
+              <div class="publish-toggle">
+                <label><input id="publicYes" name="publicMode" type="radio" checked> عرض المشروع في الصفحة الرئيسية</label>
+                <label><input id="publicNo" name="publicMode" type="radio"> إبقاؤه داخل موقعي فقط</label>
+              </div>
+            </section>
+          </form>
+
+          <aside class="builder-preview">
+            <div id="projectPreview" class="preview-page tone-emerald">
+              <div class="preview-cover"></div>
+              <div class="preview-content">
+                <div class="preview-logo">شعار</div>
+                <span class="preview-chip">مشاريع علاجية</span>
+                <h2>اسم المشروع</h2>
+                <p>اكتب وصفًا مختصرًا ليظهر هنا في معاينة صفحة المشروع.</p>
+                <div class="preview-meta">
+                  <span>المدرسة</span>
+                  <span>المادة</span>
+                  <span>الصف</span>
+                </div>
+                <div class="preview-section">
+                  <h3>أهداف المشروع</h3>
+                  <ul><li>سيتم عرض الأهداف هنا أثناء الكتابة.</li></ul>
+                </div>
+                <div class="preview-section">
+                  <h3>الروابط والوسائط</h3>
+                  <p>ستظهر الروابط وعدد الصور والفيديوهات المختارة هنا.</p>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <div id="teacherProjectsList" class="panel" style="display:none; margin-top:14px;">
+        <h2>مشاريعي التعليمية</h2>
+        <div id="teacherProjects"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">© 2026 منصة مشاريع المعلمين</footer>
+  <script src="js/app.js"></script>
+</body>
+</html>
+
+
+

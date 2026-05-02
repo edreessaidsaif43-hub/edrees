@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>التسجيل الموحد | منصة مشاريع المعلمين</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+    .auth-shell { width: min(460px, 100%); }
+    .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0; }
+    .auth-tab { border: 1px solid var(--border); background: #fff; color: var(--ink); }
+    .auth-tab.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+    .auth-form { display: none; }
+    .auth-form.active { display: grid; gap: 10px; }
+    .auth-form input { width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-family: inherit; }
+    .auth-msg { min-height: 22px; margin-top: 10px; font-weight: 700; color: var(--danger); }
+    .auth-msg.ok { color: var(--brand); }
+  </style>
+</head>
+<body>
+  <main class="auth-shell panel">
+    <h1 style="margin-top:0;">التسجيل الموحد</h1>
+    <p class="meta">الدخول وإنشاء الحسابات محفوظان داخل قاعدة بيانات هذا المشروع.</p>
+
+    <div class="auth-tabs">
+      <button id="loginTab" class="btn auth-tab" type="button">تسجيل الدخول</button>
+      <button id="registerTab" class="btn auth-tab" type="button">إنشاء حساب</button>
+    </div>
+
+    <form id="loginForm" class="auth-form">
+      <input id="loginUsername" placeholder="اسم المستخدم" autocomplete="username" required>
+      <input id="loginPassword" type="password" placeholder="كلمة المرور" autocomplete="current-password" required>
+      <button class="btn btn-dark" type="submit">دخول</button>
+    </form>
+
+    <form id="registerForm" class="auth-form">
+      <input id="registerName" placeholder="اسم المعلم" required>
+      <input id="registerUsername" placeholder="اسم المستخدم" autocomplete="username" required>
+      <input id="registerPassword" type="password" placeholder="كلمة المرور" autocomplete="new-password" required>
+      <button class="btn btn-dark" type="submit">إنشاء الحساب</button>
+    </form>
+
+    <div id="authMsg" class="auth-msg"></div>
+    <a class="btn" style="margin-top:8px;background:#f0f9ff;color:#0b4f78;" href="index.html">العودة للرئيسية</a>
+  </main>
+
+  <script>
+    const query = new URLSearchParams(location.search);
+    const returnPath = query.get('return') || 'teacher.html';
+    const mode = query.get('mode') === 'register' ? 'register' : 'login';
+    const msg = document.getElementById('authMsg');
+    const loginTab = document.getElementById('loginTab');
+    const registerTab = document.getElementById('registerTab');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+
+    function safeReturnPath() {
+      if (/^https?:\/\//i.test(returnPath) || returnPath.startsWith('//')) return 'teacher.html';
+      return returnPath.replace(/^\/+/, '') || 'teacher.html';
+    }
+
+    function setMode(next) {
+      const isRegister = next === 'register';
+      loginTab.classList.toggle('active', !isRegister);
+      registerTab.classList.toggle('active', isRegister);
+      loginForm.classList.toggle('active', !isRegister);
+      registerForm.classList.toggle('active', isRegister);
+      msg.textContent = '';
+      msg.className = 'auth-msg';
+    }
+
+    function fillDemoLogin() {
+      document.getElementById('loginUsername').value = 'demo.teacher';
+      document.getElementById('loginPassword').value = 'demo12345';
+      setMode('login');
+    }
+
+    async function api(path, payload) {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'تعذر تنفيذ الطلب');
+      return body;
+    }
+
+    function persist(data) {
+      localStorage.setItem('tp_token', data.token);
+      localStorage.setItem('tp_user', JSON.stringify(data.user));
+    }
+
+    function show(text, ok = false) {
+      msg.textContent = text;
+      msg.className = ok ? 'auth-msg ok' : 'auth-msg';
+    }
+
+    loginTab.onclick = () => setMode('login');
+    registerTab.onclick = () => setMode('register');
+
+    loginForm.onsubmit = async (event) => {
+      event.preventDefault();
+      try {
+        const data = await api('/api/login', {
+          username: document.getElementById('loginUsername').value.trim(),
+          password: document.getElementById('loginPassword').value
+        });
+        persist(data);
+        show('تم تسجيل الدخول. جار التحويل...', true);
+        location.href = safeReturnPath();
+      } catch (error) {
+        show(error.message);
+      }
+    };
+
+    registerForm.onsubmit = async (event) => {
+      event.preventDefault();
+      try {
+        const data = await api('/api/register', {
+          name: document.getElementById('registerName').value.trim(),
+          username: document.getElementById('registerUsername').value.trim(),
+          password: document.getElementById('registerPassword').value
+        });
+        persist(data);
+        show('تم إنشاء الحساب. جار التحويل...', true);
+        location.href = safeReturnPath();
+      } catch (error) {
+        show(error.message);
+      }
+    };
+
+    setMode(mode);
+    if (query.get('demo') === '1') fillDemoLogin();
+  </script>
+</body>
+</html>
