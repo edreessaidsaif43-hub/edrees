@@ -366,19 +366,36 @@ async function submitProject(ev) {
   ev.preventDefault();
   const coverFile = qs('#coverFile')?.files?.[0];
   const logoFile = qs('#logoFile')?.files?.[0];
-  const mediaFiles = [...(qs('#mediaFiles')?.files || [])].slice(0, 6);
+  const imageFiles = [...(qs('#imageFiles')?.files || [])].slice(0, 6);
+  const videoFiles = [...(qs('#videoFiles')?.files || [])].slice(0, 2);
+  const mediaFiles = [...imageFiles, ...videoFiles].slice(0, 8);
   let cover = '';
   let logo = '';
   const media = [];
-  try {
-    if (coverFile) cover = (await uploadProjectFile(coverFile, 'cover')).url;
-    if (logoFile) logo = (await uploadProjectFile(logoFile, 'logo')).url;
-    for (const file of mediaFiles) {
-      media.push(await fileToMediaItem(file));
+  const uploadWarnings = [];
+
+  if (coverFile) {
+    try {
+      cover = (await uploadProjectFile(coverFile, 'cover')).url;
+    } catch (error) {
+      uploadWarnings.push(`تعذر رفع صورة الغلاف: ${error.message || 'خطأ غير معروف'}`);
     }
-  } catch (error) {
-    alert(error.message || 'تعذر رفع الملفات');
-    return;
+  }
+
+  if (logoFile) {
+    try {
+      logo = (await uploadProjectFile(logoFile, 'logo')).url;
+    } catch (error) {
+      uploadWarnings.push(`تعذر رفع الشعار: ${error.message || 'خطأ غير معروف'}`);
+    }
+  }
+
+  for (const file of mediaFiles) {
+    try {
+      media.push(await fileToMediaItem(file));
+    } catch (error) {
+      uploadWarnings.push(`تعذر رفع ${file.name}: ${error.message || 'خطأ غير معروف'}`);
+    }
   }
   const payload = {
     title: qs('#title').value,
@@ -405,7 +422,11 @@ async function submitProject(ev) {
     builderAssets.cover = '';
     builderAssets.logo = '';
     updateProjectPreview();
-    alert('تم نشر صفحة المشروع بنجاح');
+    if (uploadWarnings.length) {
+      alert(`تم نشر صفحة المشروع، لكن بعض الوسائط لم تُرفع:\n- ${uploadWarnings.join('\n- ')}`);
+    } else {
+      alert('تم نشر صفحة المشروع بنجاح');
+    }
     loadTeacherProjects();
   } catch (e) {
     alert(e.message);
@@ -440,7 +461,9 @@ function updateProjectPreview() {
   const tone = qs('#pageTone')?.value || 'emerald';
   const goals = textLines('#goals').slice(0, 4);
   const links = parseProjectLinks(qs('#links')?.value || '');
-  const mediaCount = qs('#mediaFiles')?.files?.length || 0;
+  const imageCount = qs('#imageFiles')?.files?.length || 0;
+  const videoCount = qs('#videoFiles')?.files?.length || 0;
+  const mediaCount = imageCount + videoCount;
 
   preview.className = `preview-page tone-${tone}`;
   const cover = preview.querySelector('.preview-cover');
@@ -462,7 +485,7 @@ function updateProjectPreview() {
     goalsList.innerHTML = (goals.length ? goals : ['سيتم عرض الأهداف هنا أثناء الكتابة.']).map(item => `<li>${item}</li>`).join('');
   }
   const summary = preview.querySelectorAll('.preview-section p')[0];
-  if (summary) summary.textContent = `${links.length} رابط منشور، و${mediaCount} ملف وسائط محدد.`;
+  if (summary) summary.textContent = `${links.length} رابط منشور، و${mediaCount} ملف وسائط محدد (${imageCount} صورة، ${videoCount} فيديو).`;
 }
 
 async function updatePreviewImage(inputId, key) {
