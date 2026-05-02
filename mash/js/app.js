@@ -331,6 +331,10 @@ function isTeacherPublicMode() {
   return pageHasPublicView && !!slug;
 }
 
+function isMyProjectsOnlyMode() {
+  return String(getQueryParam('view') || '').trim().toLowerCase() === 'my-projects';
+}
+
 async function renderTeacherPublicSite() {
   const slug = String(getQueryParam('slug') || '').trim();
   const publicView = qs('#teacherPublicView');
@@ -390,12 +394,15 @@ function renderTeacherLogin() {
   if (topProjectsLink) topProjectsLink.style.display = user ? 'inline-flex' : 'none';
   loginBox.style.display = user ? 'none' : 'block';
   userBox.style.display = user ? 'block' : 'none';
-  formBox.style.display = user ? 'block' : 'none';
+  formBox.style.display = user && !isMyProjectsOnlyMode() ? 'block' : 'none';
   listBox.style.display = user ? 'block' : 'none';
   if (!user) return;
 
   qs('#teacherWelcome').textContent = `${state.user.name} (${state.user.username})`;
   loadTeacherProjects();
+  if (isMyProjectsOnlyMode()) {
+    qs('#teacherProjectsList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 async function teacherLogin(ev) {
@@ -742,13 +749,6 @@ function attachEvents() {
   if (tLogin) tLogin.onsubmit = teacherLogin;
   const tForm = qs('#teacherProjectForm');
   if (tForm) tForm.onsubmit = submitProject;
-  const topProjectsLink = qs('#myProjectsTopLink');
-  if (topProjectsLink) {
-    topProjectsLink.onclick = (ev) => {
-      ev.preventDefault();
-      qs('#teacherProjectsList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-  }
   const editCancel = qs('#editCancelBtn');
   if (editCancel) editCancel.onclick = () => clearEditMode(true);
   attachBuilderPreview();
