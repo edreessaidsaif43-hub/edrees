@@ -191,6 +191,9 @@ function toTeacherSlug(value) {
 function toTeacherIdentity(user) {
   return String(user?.username || user?.name || '').trim().toLowerCase();
 }
+function normalizeLoose(value) {
+  return String(value || '').trim().toLowerCase();
+}
 
 function apiUrl(path) {
   if (path.startsWith('/api/mash?action=')) return path;
@@ -433,13 +436,31 @@ async function loadTeacherProjects() {
     const slug = toTeacherSlug(state.user?.username || state.user?.name);
     const teacherId = String(state.user?.userId || '').trim();
     const teacherIdentity = toTeacherIdentity(state.user);
-    const projects = await api('/api/projects?scope=mine', {
+    let projects = await api('/api/projects?scope=mine', {
       headers: {
         'x-teacher-slug': slug,
         'x-teacher-id': teacherId,
         'x-teacher-identity': teacherIdentity
       }
     });
+    if (!Array.isArray(projects) || projects.length === 0) {
+      const allProjects = await api('/api/projects?scope=all');
+      const nameA = normalizeLoose(state.user?.name);
+      const nameB = normalizeLoose(state.user?.username);
+      projects = (Array.isArray(allProjects) ? allProjects : []).filter((p) => {
+        const ownerId = String(p?.teacherOwnerId || '').trim();
+        const pSlug = normalizeLoose(p?.teacherSlug);
+        const pIdentity = normalizeLoose(p?.teacherIdentity);
+        const pTeacher = normalizeLoose(p?.teacher);
+        return (
+          (teacherId && ownerId === teacherId) ||
+          (slug && pSlug === slug) ||
+          (teacherIdentity && (pIdentity === teacherIdentity || pTeacher === teacherIdentity)) ||
+          (nameA && pTeacher === nameA) ||
+          (nameB && pTeacher === nameB)
+        );
+      });
+    }
     state.teacherProjects = Array.isArray(projects) ? projects : [];
     wrap.innerHTML = state.teacherProjects.map(p => `
       <div class="panel" style="margin-bottom:10px;">
