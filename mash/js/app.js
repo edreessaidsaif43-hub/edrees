@@ -185,7 +185,7 @@ function toTeacherSlug(value) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9\-_]/g, '');
+    .replace(/[^\p{L}\p{N}\-_]/gu, '');
   return raw || 'demo-teacher';
 }
 function toTeacherIdentity(user) {
@@ -445,19 +445,14 @@ async function loadTeacherProjects() {
     });
     if (!Array.isArray(projects) || projects.length === 0) {
       const allProjects = await api('/api/projects?scope=all');
-      const nameA = normalizeLoose(state.user?.name);
-      const nameB = normalizeLoose(state.user?.username);
       projects = (Array.isArray(allProjects) ? allProjects : []).filter((p) => {
         const ownerId = String(p?.teacherOwnerId || '').trim();
         const pSlug = normalizeLoose(p?.teacherSlug);
         const pIdentity = normalizeLoose(p?.teacherIdentity);
-        const pTeacher = normalizeLoose(p?.teacher);
         return (
           (teacherId && ownerId === teacherId) ||
           (slug && pSlug === slug) ||
-          (teacherIdentity && (pIdentity === teacherIdentity || pTeacher === teacherIdentity)) ||
-          (nameA && pTeacher === nameA) ||
-          (nameB && pTeacher === nameB)
+          (teacherIdentity && pIdentity === teacherIdentity)
         );
       });
     }
