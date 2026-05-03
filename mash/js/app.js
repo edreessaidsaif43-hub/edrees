@@ -29,6 +29,11 @@ const qs = (s) => document.querySelector(s);
 const UNIFIED_SESSION_KEY = 'enjazy_session_v1';
 const UNIFIED_PROFILE_KEY = 'lesson_platform_backend_session_v1';
 const OWNER_TOKEN_KEY = 'mash_owner_token_v1';
+const TONE_GRADIENTS = {
+  emerald: ['#0f766e', '#14b8a6'],
+  blue: ['#075985', '#38bdf8'],
+  amber: ['#92400e', '#f59e0b']
+};
 
 function readUnifiedSession() {
   let userId = '';
@@ -167,6 +172,24 @@ function normalizeUrl(url) {
   return `https://${trimmed}`;
 }
 
+function projectTone(value) {
+  const tone = String(value || '').trim().toLowerCase();
+  return TONE_GRADIENTS[tone] ? tone : 'emerald';
+}
+
+function fallbackCoverDataUrl(project = {}) {
+  const tone = projectTone(project.pageTone);
+  const colors = TONE_GRADIENTS[tone];
+  const title = String(project.title || 'مشروع تعليمي');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${colors[0]}"/><stop offset="100%" stop-color="${colors[1]}"/></linearGradient></defs><rect width="1200" height="675" fill="url(#g)"/><circle cx="1050" cy="120" r="180" fill="rgba(255,255,255,0.12)"/><circle cx="140" cy="610" r="200" fill="rgba(255,255,255,0.12)"/><text x="70" y="355" font-family="Tajawal, Arial" font-size="62" fill="#ffffff" font-weight="700">${title.replace(/[<>&"]/g, '')}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function projectCoverSrc(project = {}) {
+  const cover = String(project.cover || '').trim();
+  return cover || fallbackCoverDataUrl(project);
+}
+
 function parseProjectLinks(value) {
   return String(value || '')
     .split('\n')
@@ -251,7 +274,7 @@ function getQueryParam(name) {
 function projectCard(p) {
   return `
   <article class="project-card">
-    <img src="${p.cover}" alt="${p.title}">
+    <img src="${projectCoverSrc(p)}" alt="${p.title}">
     <div class="project-body">
       ${p.logo ? `<img class="project-logo" src="${p.logo}" alt="شعار ${p.title}">` : ''}
       <h3 class="project-title">${p.title}</h3>
@@ -319,7 +342,7 @@ function renderProjectPage(page, p) {
       <section class="section">
         <div class="container detail-wrap">
           <div>
-            <img class="detail-cover" src="${p.cover}" alt="${p.title}">
+            <img class="detail-cover" src="${projectCoverSrc(p)}" alt="${p.title}">
             <div class="panel" style="margin-top:14px;">
               <h3>فكرة المشروع</h3><p>${p.description || ''}</p>
               <h3>المشكلة التي يعالجها</h3><p>${p.problem || ''}</p>
@@ -510,6 +533,7 @@ function setEditMode(project) {
   qs('#category').value = project?.category || 'مشاريع علاجية';
   qs('#subject').value = project?.subject || '';
   qs('#grade').value = project?.grade || '';
+  qs('#pageTone').value = projectTone(project?.pageTone);
   qs('#description').value = project?.description || '';
   qs('#problem').value = project?.problem || '';
   qs('#goals').value = Array.isArray(project?.goals) ? project.goals.join('\n') : '';
@@ -651,6 +675,7 @@ async function submitProject(ev) {
     category: qs('#category').value,
     subject: qs('#subject').value,
     grade: qs('#grade').value,
+    pageTone: projectTone(qs('#pageTone')?.value),
     description: qs('#description').value,
     cover,
     problem: qs('#problem').value,
