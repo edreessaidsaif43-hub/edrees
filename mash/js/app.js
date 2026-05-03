@@ -100,8 +100,7 @@ async function uploadProjectFile(file, purpose = 'media') {
   const payload = await res.json().catch(async () => ({ message: await res.text().catch(() => '') }));
   if (!res.ok) {
     if (res.status === 413) {
-      const maxMb = isVideo ? '50MB' : '10MB';
-      throw new Error(`الملف ${file.name} تجاوز الحد المسموح للرفع المباشر. ارفع ملفًا أقل من ${maxMb} أو استخدم رابط فيديو.`);
+      throw new Error(`تعذر رفع ${file.name} بسبب حد الطلب على الخادم. للفيديوهات الكبيرة استخدم رابطًا مباشرًا في حقل الروابط.`);
     }
     throw new Error(payload.message || payload.error || `تعذر رفع الملف (${res.status})`);
   }
@@ -180,7 +179,7 @@ function toTeacherSlug(value) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '-')
-    .replace(/[^\p{L}\p{N}\-_]/gu, '');
+    .replace(/[^a-z0-9\u0600-\u06FF\-_]/g, '');
   return raw || 'demo-teacher';
 }
 function toTeacherIdentity(user) {
@@ -421,6 +420,11 @@ async function teacherLogin(ev) {
     renderTeacherLogin();
   } catch (e) {
     alert(e.message);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = submitBtn.dataset.originalText || 'نشر الصفحة';
+    }
   }
 }
 
@@ -550,16 +554,33 @@ async function deleteTeacherProject(projectId) {
     loadTeacherProjects();
   } catch (e) {
     alert(e.message);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = submitBtn.dataset.originalText || 'نشر الصفحة';
+    }
   }
 }
 
 async function submitProject(ev) {
   ev.preventDefault();
+  const submitBtn = qs('#projectSubmitBtn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.dataset.originalText = submitBtn.textContent || 'نشر الصفحة';
+    submitBtn.textContent = 'جارٍ النشر...';
+  }
+
   const unifiedUser = ensureUnifiedUser();
   if (!unifiedUser) {
     alert('يرجى تسجيل الدخول أولاً من صفحة التسجيل الموحد.');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = submitBtn.dataset.originalText || 'نشر الصفحة';
+    }
     return;
   }
+
   const coverFile = qs('#coverFile')?.files?.[0];
   const logoFile = qs('#logoFile')?.files?.[0];
   const imageFiles = [...(qs('#imageFiles')?.files || [])].slice(0, 6);
@@ -593,6 +614,7 @@ async function submitProject(ev) {
       uploadWarnings.push(`تعذر رفع ${file.name}: ${error.message || 'خطأ غير معروف'}`);
     }
   }
+
   const payload = {
     teacherOwnerId: String(unifiedUser.userId || '').trim(),
     teacherIdentity: toTeacherIdentity(unifiedUser),
@@ -612,10 +634,11 @@ async function submitProject(ev) {
     media: [...state.editingProjectMedia, ...media],
     links: parseProjectLinks(qs('#links').value),
     publicInMain: qs('#publicYes').checked,
-    goals: qs('#goals').value.split('\n').map(s => s.trim()).filter(Boolean),
-    steps: qs('#steps').value.split('\n').map(s => s.trim()).filter(Boolean),
-    evidence: qs('#evidence').value.split('\n').map(s => s.trim()).filter(Boolean)
+    goals: qs('#goals').value.split('\n').map((s) => s.trim()).filter(Boolean),
+    steps: qs('#steps').value.split('\n').map((s) => s.trim()).filter(Boolean),
+    evidence: qs('#evidence').value.split('\n').map((s) => s.trim()).filter(Boolean),
   };
+
   const editingId = state.editingProjectId;
   try {
     if (editingId) {
@@ -625,9 +648,9 @@ async function submitProject(ev) {
         headers: {
           'x-teacher-slug': toTeacherSlug(unifiedUser.username || unifiedUser.name),
           'x-teacher-id': teacherId,
-          'x-teacher-identity': toTeacherIdentity(unifiedUser)
+          'x-teacher-identity': toTeacherIdentity(unifiedUser),
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
     } else {
       const teacherId = String(unifiedUser.userId || '').trim();
@@ -636,11 +659,12 @@ async function submitProject(ev) {
         headers: {
           'x-teacher-slug': toTeacherSlug(unifiedUser.username || unifiedUser.name),
           'x-teacher-id': teacherId,
-          'x-teacher-identity': toTeacherIdentity(unifiedUser)
+          'x-teacher-identity': toTeacherIdentity(unifiedUser),
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
     }
+
     clearEditMode(true);
     if (uploadWarnings.length) {
       alert(`تم حفظ المشروع، لكن بعض الوسائط لم تُرفع:\n- ${uploadWarnings.join('\n- ')}`);
@@ -650,9 +674,13 @@ async function submitProject(ev) {
     loadTeacherProjects();
   } catch (e) {
     alert(e.message);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = submitBtn.dataset.originalText || 'نشر الصفحة';
+    }
   }
 }
-
 async function teacherLogout() {
   try { if (state.token) await api('/api/logout', { method: 'POST' }); } catch {}
   localStorage.removeItem('tp_token');
@@ -793,6 +821,11 @@ async function adminAction(id, action) {
     await loadAdminData();
   } catch (e) {
     alert(e.message);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = submitBtn.dataset.originalText || 'نشر الصفحة';
+    }
   }
 }
 
@@ -850,6 +883,10 @@ async function init() {
 }
 
 init();
+
+
+
+
 
 
 
