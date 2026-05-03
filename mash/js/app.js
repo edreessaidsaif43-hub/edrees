@@ -188,6 +188,9 @@ function toTeacherSlug(value) {
     .replace(/[^a-z0-9\-_]/g, '');
   return raw || 'demo-teacher';
 }
+function toTeacherIdentity(user) {
+  return String(user?.username || user?.name || '').trim().toLowerCase();
+}
 
 function apiUrl(path) {
   if (path.startsWith('/api/mash?action=')) return path;
@@ -429,8 +432,13 @@ async function loadTeacherProjects() {
   try {
     const slug = toTeacherSlug(state.user?.username || state.user?.name);
     const teacherId = String(state.user?.userId || '').trim();
+    const teacherIdentity = toTeacherIdentity(state.user);
     const projects = await api('/api/projects?scope=mine', {
-      headers: { 'x-teacher-slug': slug, 'x-teacher-id': teacherId }
+      headers: {
+        'x-teacher-slug': slug,
+        'x-teacher-id': teacherId,
+        'x-teacher-identity': teacherIdentity
+      }
     });
     state.teacherProjects = Array.isArray(projects) ? projects : [];
     wrap.innerHTML = state.teacherProjects.map(p => `
@@ -552,6 +560,7 @@ async function submitProject(ev) {
   }
   const payload = {
     teacherOwnerId: String(unifiedUser.userId || '').trim(),
+    teacherIdentity: toTeacherIdentity(unifiedUser),
     teacher: unifiedUser.name || unifiedUser.username || 'المعلم',
     teacherSlug: toTeacherSlug(unifiedUser.username || unifiedUser.name),
     title: qs('#title').value,
@@ -580,7 +589,8 @@ async function submitProject(ev) {
         method: 'PATCH',
         headers: {
           'x-teacher-slug': toTeacherSlug(unifiedUser.username || unifiedUser.name),
-          'x-teacher-id': teacherId
+          'x-teacher-id': teacherId,
+          'x-teacher-identity': toTeacherIdentity(unifiedUser)
         },
         body: JSON.stringify(payload)
       });
@@ -590,7 +600,8 @@ async function submitProject(ev) {
         method: 'POST',
         headers: {
           'x-teacher-slug': toTeacherSlug(unifiedUser.username || unifiedUser.name),
-          'x-teacher-id': teacherId
+          'x-teacher-id': teacherId,
+          'x-teacher-identity': toTeacherIdentity(unifiedUser)
         },
         body: JSON.stringify(payload)
       });
