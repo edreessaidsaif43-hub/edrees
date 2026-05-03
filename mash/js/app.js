@@ -76,21 +76,15 @@ function readFileAsDataUrl(file) {
 async function uploadProjectFile(file, purpose = 'media') {
   const isVideo = file.type.startsWith('video/');
 
-  // Base64 يزيد الحجم ~33%، وفيرسل يرفض أي body أكبر من 4.5MB.
-  // نضع حدًا محافظًا لتفادي 413 قبل وصول الطلب للخادم.
-  const maxBinaryBytes = isVideo ? 2 * 1024 * 1024 : 2 * 1024 * 1024;
+  const maxBinaryBytes = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
   if (file.size > maxBinaryBytes) {
-    throw new Error(`الملف ${file.name} كبير جدًا للرفع المباشر. الحد الحالي 2MB. للملفات الأكبر استخدم رابطًا في حقل روابط المشروع.`);
+    const maxMb = isVideo ? '50MB' : '10MB';
+    throw new Error(`الملف ${file.name} كبير جدًا للرفع المباشر. الحد الحالي ${maxMb}. للملفات الأكبر استخدم رابطًا مباشرًا في حقل روابط المشروع.`);
   }
 
   const dataUrl = await readFileAsDataUrl(file);
   const base64Data = String(dataUrl).includes(',') ? String(dataUrl).split(',')[1] : '';
   if (!base64Data) throw new Error(`تعذر قراءة الملف ${file.name}`);
-
-  const approxPayloadBytes = base64Data.length + 2000;
-  if (approxPayloadBytes > 4.3 * 1024 * 1024) {
-    throw new Error(`الملف ${file.name} سيتجاوز حد الرفع في Vercel. قلل الحجم أو استخدم رابطًا مباشرًا.`);
-  }
 
   const res = await fetch(apiUrl('/api/media/upload'), {
     method: 'POST',
@@ -106,7 +100,8 @@ async function uploadProjectFile(file, purpose = 'media') {
   const payload = await res.json().catch(async () => ({ message: await res.text().catch(() => '') }));
   if (!res.ok) {
     if (res.status === 413) {
-      throw new Error(`الملف ${file.name} تجاوز الحد المسموح للرفع (Vercel 4.5MB). استخدم صورة أصغر أو رابط فيديو.`);
+      const maxMb = isVideo ? '50MB' : '10MB';
+      throw new Error(`الملف ${file.name} تجاوز الحد المسموح للرفع المباشر. ارفع ملفًا أقل من ${maxMb} أو استخدم رابط فيديو.`);
     }
     throw new Error(payload.message || payload.error || `تعذر رفع الملف (${res.status})`);
   }
