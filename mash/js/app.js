@@ -73,6 +73,14 @@ function readFileAsDataUrl(file) {
   });
 }
 
+let vercelBlobUploadFn = null;
+async function getVercelBlobUpload() {
+  if (vercelBlobUploadFn) return vercelBlobUploadFn;
+  const mod = await import('https://esm.sh/@vercel/blob/client');
+  vercelBlobUploadFn = mod.upload;
+  return vercelBlobUploadFn;
+}
+
 async function uploadProjectFile(file, purpose = 'media') {
   const isVideo = file.type.startsWith('video/');
 
@@ -82,34 +90,52 @@ async function uploadProjectFile(file, purpose = 'media') {
     throw new Error(`الملف ${file.name} كبير جدًا للرفع المباشر. الحد الحالي ${maxMb}. للملفات الأكبر استخدم رابطًا مباشرًا في حقل روابط المشروع.`);
   }
 
-  const dataUrl = await readFileAsDataUrl(file);
-  const base64Data = String(dataUrl).includes(',') ? String(dataUrl).split(',')[1] : '';
-  if (!base64Data) throw new Error(`تعذر قراءة الملف ${file.name}`);
+  // Primary path: direct upload to Vercel Blob (avoids Serverless body-size limits).
+  try {
+    const upload = await getVercelBlobUpload();
+    const result = await upload(file.name, file, {
+      access: 'public',
+      handleUploadUrl: apiUrl('/api/media/client-upload'),
+      clientPayload: JSON.stringify({ purpose, kind: isVideo ? 'video' : 'image' }),
+    });
+    return {
+      url: result.url,
+      id: result.pathname || result.url,
+      name: file.name
+    };
+  } catch (directError) {
+    // Fallback: legacy JSON/base64 upload for environments where direct upload is blocked.
+    const dataUrl = await readFileAsDataUrl(file);
+    const base64Data = String(dataUrl).includes(',') ? String(dataUrl).split(',')[1] : '';
+    if (!base64Data) throw new Error(`تعذر قراءة الملف ${file.name}`);
 
-  const res = await fetch(apiUrl('/api/media/upload'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      fileName: file.name,
-      mimeType: file.type || 'application/octet-stream',
-      base64Data,
-      kind: isVideo ? 'video' : 'image'
-    })
-  });
+    const res = await fetch(apiUrl('/api/media/upload'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        base64Data,
+        kind: isVideo ? 'video' : 'image'
+      })
+    });
 
-  const payload = await res.json().catch(async () => ({ message: await res.text().catch(() => '') }));
-  if (!res.ok) {
-    if (res.status === 413) {
-      throw new Error(`تعذر رفع ${file.name} بسبب حد الطلب على الخادم. للفيديوهات الكبيرة استخدم رابطًا مباشرًا في حقل الروابط.`);
+    const payload = await res.json().catch(async () => ({ message: await res.text().catch(() => '') }));
+    if (!res.ok) {
+      if (res.status === 413) {
+        throw new Error(`تعذر رفع ${file.name}. الرفع المباشر غير متاح حاليًا وتجاوز الملف حد الخادم. أضف الفيديو كرابط مباشر في حقل الروابط.`);
+      }
+      const detail = payload.message || payload.error || '';
+      const directMsg = String(directError?.message || '');
+      throw new Error(detail || directMsg || `تعذر رفع الملف (${res.status})`);
     }
-    throw new Error(payload.message || payload.error || `تعذر رفع الملف (${res.status})`);
-  }
 
-  return {
-    url: payload.mediaUrl,
-    id: payload.mediaFileId,
-    name: payload.mediaName || file.name
-  };
+    return {
+      url: payload.mediaUrl,
+      id: payload.mediaFileId,
+      name: payload.mediaName || file.name
+    };
+  }
 }
 
 async function fileToMediaItem(file) {
