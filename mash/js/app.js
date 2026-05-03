@@ -190,6 +190,12 @@ function projectCoverSrc(project = {}) {
   return cover || fallbackCoverDataUrl(project);
 }
 
+function projectSummaryText(text, limit = 140) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return '';
+  return clean.length > limit ? `${clean.slice(0, limit).trim()}...` : clean;
+}
+
 function parseProjectLinks(value) {
   return String(value || '')
     .split('\n')
@@ -272,6 +278,7 @@ function getQueryParam(name) {
 }
 
 function projectCard(p) {
+  const summary = projectSummaryText(p.description, 140);
   return `
   <article class="project-card">
     <img src="${projectCoverSrc(p)}" alt="${p.title}">
@@ -281,7 +288,7 @@ function projectCard(p) {
       <p class="meta"><strong>المعلم:</strong> ${p.teacher}</p>
       <p class="meta"><strong>المدرسة:</strong> ${p.school}</p>
       <p class="meta"><strong>النوع:</strong> ${p.category}</p>
-      <p class="project-desc">${p.description}</p>
+      <p class="project-desc">${summary}</p>
       <div class="project-footer">
         <span class="views">${Number(p.views || 0).toLocaleString('ar-EG')} مشاهدة</span>
         <a class="btn btn-dark" href="project.html?id=${p.id}">عرض المشروع</a>
