@@ -463,6 +463,7 @@ async function loadTeacherProjects() {
         <small>اعتماد الإدارة: ${p.adminApproved ? 'معتمد' : 'قيد المراجعة'} | الظهور: ${p.publicInMain ? 'عام' : 'داخل موقعي'}</small>
         <div class="actions" style="margin-top:8px;">
           <button class="btn" style="padding:6px 10px;background:#ecfeff;color:#155e75;" onclick="startEditProject('${p.id}')">تعديل</button>
+          <button class="btn" style="padding:6px 10px;background:#fee2e2;color:#991b1b;" onclick="deleteTeacherProject('${p.id}')">حذف</button>
         </div>
       </div>`).join('') || '<p>لا توجد مشاريع بعد.</p>';
   } catch {
@@ -532,6 +533,29 @@ function startEditProject(projectId) {
     } catch {}
   }
   setEditMode(project);
+}
+
+async function deleteTeacherProject(projectId) {
+  const project = state.teacherProjects.find((item) => String(item.id) === String(projectId));
+  const title = project?.title || 'هذا المشروع';
+  if (!confirm(`هل أنت متأكد من حذف "${title}"؟`)) return;
+  try {
+    const unifiedUser = ensureUnifiedUser();
+    const teacherId = String(unifiedUser?.userId || '').trim();
+    await api(`/api/projects/${projectId}`, {
+      method: 'DELETE',
+      headers: {
+        'x-teacher-slug': toTeacherSlug(unifiedUser?.username || unifiedUser?.name),
+        'x-teacher-id': teacherId,
+        'x-teacher-identity': toTeacherIdentity(unifiedUser)
+      }
+    });
+    alert('تم حذف المشروع بنجاح');
+    if (state.editingProjectId && String(state.editingProjectId) === String(projectId)) clearEditMode(true);
+    loadTeacherProjects();
+  } catch (e) {
+    alert(e.message);
+  }
 }
 
 async function submitProject(ev) {
@@ -819,6 +843,7 @@ function attachEvents() {
 
   window.adminAction = adminAction;
   window.startEditProject = startEditProject;
+  window.deleteTeacherProject = deleteTeacherProject;
 }
 
 async function init() {
