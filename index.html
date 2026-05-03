@@ -100,7 +100,7 @@
       background: #fff;
       border: 1px solid var(--line);
       border-radius: 20px;
-      padding: 22px;
+      padding: 12px;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
       box-shadow: 0 10px 28px rgba(19, 51, 116, 0.08);
     }
@@ -110,29 +110,20 @@
       box-shadow: 0 18px 34px rgba(19, 51, 116, 0.14);
     }
 
-    .icon {
-      width: 54px;
-      height: 54px;
-      border-radius: 14px;
-      display: grid;
-      place-items: center;
-      margin-bottom: 14px;
-      font-size: 24px;
-      background: linear-gradient(135deg, #dbeafe, #e0f2fe);
-    }
-
     .card h2 {
-      margin: 0 0 8px;
-      font-size: clamp(22px, 3vw, 30px);
+      margin: 12px 8px 10px;
+      font-size: clamp(20px, 2.8vw, 28px);
       line-height: 1.2;
+      text-align: center;
     }
 
-    .card p {
-      margin: 0 0 18px;
-      color: var(--muted);
-      font-size: 16px;
-      line-height: 1.7;
-      min-height: 56px;
+    .card-media {
+      width: 100%;
+      display: block;
+      border-radius: 14px;
+      aspect-ratio: 2 / 1;
+      object-fit: cover;
+      border: 1px solid #d9e6ff;
     }
 
     .btn {
@@ -547,43 +538,37 @@
 
       <div class="cards">
         <article class="card">
-          <div class="icon">📘</div>
+          <img class="card-media" src="/assets/home-cards/1.jpeg" alt="التحضير الذكي">
           <h2>تحضير الدروس</h2>
-          <p>منصة مخصّصة لإعداد الدروس بشكل منظم وسريع مع تجربة استخدام مريحة.</p>
           <a class="btn" href="/t">الدخول إلى تحضير الدروس</a>
         </article>
 
         <article class="card">
-          <div class="icon">🎓</div>
+          <img class="card-media" src="/assets/home-cards/2.jpeg" alt="المنصة التعليمية">
           <h2>المنصة التعليمية</h2>
-          <p>مركز تعليمي متكامل للوصول إلى المحتوى والأنشطة التعليمية بسهولة.</p>
           <a class="btn" href="https://altahdir.app/m" target="_blank" rel="noopener noreferrer">الدخول إلى المنصة التعليمية</a>
         </article>
 
         <article class="card">
-          <div class="icon">📁</div>
+          <img class="card-media" src="/assets/home-cards/3.jpeg" alt="ملف الإنجاز الرقمي">
           <h2>ملف الإنجاز الرقمي</h2>
-          <p>استعرض صفحة ملف الإنجاز الرقمي وإدارة عناصر الإنجاز بسهولة.</p>
           <a class="btn" href="/enjazy">الدخول إلى ملف الإنجاز الرقمي</a>
         </article>
 
         <article class="card">
-          <div class="icon">🚀</div>
+          <img class="card-media" src="/assets/home-cards/4.jpeg" alt="تحفيز+">
           <h2>تحفيز+</h2>
-          <p>منصة تحفيزية لإدارة نقاط الطلاب والتحديات والمكافآت للصفوف الدراسية.</p>
           <a class="btn" href="/Motivation+/">الدخول إلى تحفيز+</a>
         </article>
 
 
         <article class="card">
-          <div class="icon">🏆</div>
+          <img class="card-media" src="/assets/home-cards/5.jpeg" alt="منصة مشاريع المعلمين">
           <h2>منصة مشاريع المعلمين</h2>
-          <p>معرض احترافي لمشاريع المعلمين وإنجازاتهم مع صفحة خاصة لكل معلم واعتماد إداري للنشر العام.</p>
           <a class="btn" href="https://altahdir.app/mash/index.html">ابدأ عبر التسجيل الموحد</a>
         </article>        <article class="card">
-          <div class="icon">📝</div>
+          <img class="card-media" src="/assets/home-cards/6.jpeg" alt="نظام الحضور والتسرب المدرسي">
           <h2>نظام الحضور والتسرب المدرسي</h2>
-          <p>متابعة حضور الطلاب ورصد حالات التسرب المدرسي عبر لوحة بيانات واضحة.</p>
           <a class="btn" href="https://gyab-xi.vercel.app/" target="_blank" rel="noopener noreferrer">الدخول إلى نظام الحضور والتسرب المدرسي</a>
         </article>
       </div>
