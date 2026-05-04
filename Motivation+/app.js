@@ -64,6 +64,13 @@ function normalizeCodeToken(v) {
   return normalizeName(v).toUpperCase().replace(/[^A-Z0-9-]/g, "");
 }
 
+function normalizePositivePoints(value, fallback = 10) {
+  const raw = String(value ?? "").replace(/[^\d.-]/g, "");
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return Math.max(1, Number(fallback) || 10);
+  return Math.max(1, Math.round(n));
+}
+
 function buildDefaultTeamNames(count = 3) {
   const safeCount = Math.max(1, Math.min(12, Number(count || 3)));
   const out = [];
@@ -1603,7 +1610,7 @@ async function announceChallengeWinner() {
     return;
   }
 
-  const bonusPoints = Math.max(1, Number(challenge.bonusPoints || 10));
+  const bonusPoints = normalizePositivePoints(challenge.bonusPoints, 10);
   applyPointsChange(winner, bonusPoints, `إعلان فوز التحدي: ${challenge.title}`);
 
   challenge.winnerStudentId = winner.id;
@@ -1762,7 +1769,7 @@ async function finishMiniChallengeWithWinner(cls, winner, reasonText) {
   const mini = getMiniChallenge(cls);
   if (!mini.active) return false;
 
-  const bonusPoints = Math.max(1, Number(mini.bonusPoints || 10));
+  const bonusPoints = normalizePositivePoints(mini.bonusPoints, 10);
   applyPointsChange(winner, bonusPoints, reasonText);
   mini.active = false;
   mini.winnerStudentId = winner.id;
@@ -1785,7 +1792,7 @@ function startMiniChallenge() {
 
   const mini = getMiniChallenge(cls);
   const title = normalizeName(document.getElementById("mini-challenge-title").value) || "تحدي سريع";
-  const bonus = Math.max(1, Number(document.getElementById("mini-challenge-bonus").value || 10));
+  const bonus = normalizePositivePoints(document.getElementById("mini-challenge-bonus").value, 10);
   const duration = Math.max(60, Number(document.getElementById("mini-challenge-duration").value || 300));
   const now = new Date();
   mini.title = title;
@@ -1834,7 +1841,7 @@ async function pickMiniChallengeWinnerNow() {
   if (!ok) return;
   const done = await finishMiniChallengeWithWinner(cls, winner, `فوز فوري في تحدي 5 دقائق: ${mini.title || "تحدي سريع"}`);
   if (done) {
-    const awarded = Math.max(1, Number(mini.bonusPoints || 10));
+    const awarded = normalizePositivePoints(mini.bonusPoints, 10);
     showAuthMessage(`تم اختيار ${winner.name} فائزًا وإضافة ${awarded} نقطة.`);
   }
 }
@@ -3125,7 +3132,7 @@ document.getElementById("save-challenge").addEventListener("click", () => {
   const title = normalizeName(document.getElementById("challenge-title").value);
   const startDate = normalizeName(document.getElementById("challenge-start-date").value);
   const endDate = normalizeName(document.getElementById("challenge-end-date").value);
-  const bonusPoints = Number(document.getElementById("challenge-bonus-points").value || 10);
+  const bonusPoints = normalizePositivePoints(document.getElementById("challenge-bonus-points").value, 10);
 
   if (!title) {
     showAuthMessage("يرجى كتابة عنوان التحدي.", true);
@@ -3144,7 +3151,7 @@ document.getElementById("save-challenge").addEventListener("click", () => {
     title,
     startDate,
     endDate,
-    bonusPoints: Math.max(1, bonusPoints),
+    bonusPoints: normalizePositivePoints(bonusPoints, 10),
     winnerStudentId: "",
     winnerAwardedAt: "",
     announcedByTeacherAt: ""
