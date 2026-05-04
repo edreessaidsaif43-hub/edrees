@@ -704,3 +704,94 @@ body.feature-fullscreen .feature-fullscreen-backdrop {
   .nav-brand-text span { display: none; }
 }
 
+
+/* Professional Teacher Section - Motivation+ */
+.teacher-view {
+  display: grid;
+  gap: 12px;
+}
+.teacher-hero {
+  border-top: 0;
+  border: 1px solid #dbeafe;
+  background:
+    radial-gradient(circle at 90% 12%, rgba(14,165,164,.16), transparent 26%),
+    radial-gradient(circle at 12% 80%, rgba(245,158,11,.14), transparent 30%),
+    linear-gradient(125deg, #ffffff, #f3f9ff 55%, #f0fdfa);
+  padding: 18px;
+}
+.teacher-kicker {
+  margin: 0;
+  color: #0f766e;
+  font-weight: 800;
+  font-size: .9rem;
+}
+.teacher-hero h2 {
+  margin: 6px 0 6px;
+  font-size: clamp(1.15rem, 2.6vw, 1.7rem);
+}
+.teacher-account-card {
+  border-top: 0;
+  border: 1px solid #dbeafe;
+  background: linear-gradient(135deg, #ffffff, #f8fbff);
+}
+.teacher-app .grid {
+  gap: 14px;
+}
+.teacher-app .card {
+  border-top: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+}
+.teacher-app .card h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 1.08rem;
+  color: #0f172a;
+}
+.teacher-app .card h3 {
+  color: #334155;
+  font-weight: 700;
+}
+.teacher-app input,
+.teacher-app select,
+.teacher-app textarea {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 10px;
+}
+.teacher-app input:focus,
+.teacher-app select:focus,
+.teacher-app textarea:focus {
+  outline: none;
+  border-color: #0ea5a4;
+  box-shadow: 0 0 0 3px rgba(14, 165, 164, 0.15);
+}
+.teacher-app .btn {
+  border-radius: 10px;
+}
+.teacher-app .card.wide {
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+.teacher-app #students-table {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 6px;
+  background: #fff;
+}
+.teacher-app #students-table th {
+  background: #f0f9ff;
+  color: #0b4f78;
+}
+.teacher-app #students-table tr:hover td {
+  background: #f8fafc;
+}
+@media (max-width: 700px) {
+  .teacher-hero,
+  .teacher-account-card,
+  .teacher-app .card {
+    border-radius: 14px;
+  }
+}

@@ -108,8 +108,16 @@
   </header>
 
   <main>
-    <section id="teacher" class="view active">
-      <article class="card">
+    <section id="teacher" class="view active teacher-view">
+      <section class="teacher-hero card">
+        <div>
+          <p class="teacher-kicker">لوحة المعلم الاحترافية</p>
+          <h2>إدارة الصف والتحفيز من مكان واحد</h2>
+          <p class="muted">واجهة مطورة لتسهيل إدارة الصفوف والطلاب والتحديات بسرعة ووضوح.</p>
+        </div>
+      </section>
+
+      <article class="card teacher-account-card">
         <h2>حساب المعلم</h2>
         <div class="field-row">
           <a id="open-unified-auth" class="btn" href="/enjazy/auth.html?mode=login&return=%2FMotivation%2B%2F">تسجيل الدخول من البوابة الموحدة</a>
@@ -118,7 +126,7 @@
         <p id="auth-message" class="muted"></p>
       </article>
 
-      <div id="teacher-app" style="display:none">
+      <div id="teacher-app" class="teacher-app" style="display:none">
         <div class="grid">
           <article class="card section-1">
             <h2>1) إدارة الصفوف</h2>
@@ -427,6 +435,8 @@
   <script src="/Motivation+/app.js"></script>
 </body>
 </html>
+
+
 
 
 
