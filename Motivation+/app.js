@@ -1076,6 +1076,8 @@ function renderStudentsTable() {
   const wrap = document.getElementById("students-table");
   const cls = getActiveClass();
   const isManager = canManageStudents(cls);
+  const searchEl = document.getElementById("quick-student-search");
+  const searchTerm = normalizeName(searchEl ? searchEl.value : "").toLowerCase();
 
   if (!currentTeacher) {
     wrap.innerHTML = "<p class='muted'>سجل الدخول لعرض الطلاب.</p>";
@@ -1097,7 +1099,19 @@ function renderStudentsTable() {
     return [...base, ...options].join("");
   };
 
-  const rows = rankStudents(cls).map((s) => {
+  const filteredStudents = rankStudents(cls).filter((s) => {
+    if (!searchTerm) return true;
+    const name = normalizeName(s && s.name ? s.name : "").toLowerCase();
+    const code = normalizeName(s && s.code ? s.code : "").toLowerCase();
+    return name.includes(searchTerm) || code.includes(searchTerm);
+  });
+
+  if (!filteredStudents.length) {
+    wrap.innerHTML = "<p class='muted'>لا يوجد طالب مطابق لكلمة البحث.</p>";
+    return;
+  }
+
+  const rows = filteredStudents.map((s) => {
     const lvl = getStudentLevel(s.points || 0);
     return `
     <tr>
@@ -2906,6 +2920,13 @@ document.getElementById("save-class").addEventListener("click", () => {
 document.getElementById("clear-class").addEventListener("click", () => {
   clearCurrentClassStudents();
 });
+
+const quickStudentSearch = document.getElementById("quick-student-search");
+if (quickStudentSearch) {
+  quickStudentSearch.addEventListener("input", () => {
+    renderStudentsTable();
+  });
+}
 
 // Student and scoring events
 
