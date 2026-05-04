@@ -1607,7 +1607,7 @@ async function announceChallengeWinner() {
     const previousWinner = cls.students.find((s) => s.id === challenge.winnerStudentId);
     const prevBonus = normalizePositivePoints(challenge.bonusPoints, 10);
     if (previousWinner && prevBonus > 0) {
-      applyPointsChange(previousWinner, -prevBonus, `تعديل الفائز في التحدي: ${challenge.title}`, { celebrateLevel: false });
+      addWinnerPointsById(cls, previousWinner.id, -prevBonus, `تعديل الفائز في التحدي: ${challenge.title}`, { celebrateLevel: false });
     }
   }
 
@@ -1618,7 +1618,11 @@ async function announceChallengeWinner() {
   }
 
   const bonusPoints = normalizePositivePoints(challenge.bonusPoints, 10);
-  applyPointsChange(winner, bonusPoints, `إعلان فوز التحدي: ${challenge.title}`);
+  const awardRes = addWinnerPointsById(cls, winner.id, bonusPoints, `إعلان فوز التحدي: ${challenge.title}`);
+  if (!awardRes.ok) {
+    showAuthMessage("تعذر حفظ نقاط الفائز. حاول مرة أخرى.", true);
+    return;
+  }
 
   challenge.winnerStudentId = winner.id;
   challenge.winnerAwardedAt = new Date().toISOString();
@@ -1779,7 +1783,8 @@ async function finishMiniChallengeWithWinner(cls, winner, reasonText) {
   if (!mini.active) return false;
 
   const bonusPoints = normalizePositivePoints(mini.bonusPoints, 10);
-  applyPointsChange(winner, bonusPoints, reasonText);
+  const miniAwardRes = addWinnerPointsById(cls, winner.id, bonusPoints, reasonText);
+  if (!miniAwardRes.ok) return false;
   mini.active = false;
   mini.winnerStudentId = winner.id;
   mini.winnerAnnouncedAt = new Date().toISOString();
@@ -2227,6 +2232,15 @@ function applyPointsChange(student, delta, reasonLabel, opts = {}) {
   return { beforePoints, afterPoints: nextPoints, leveledUp };
 }
 
+function addWinnerPointsById(cls, studentId, delta, reasonLabel, opts = {}) {
+  if (!cls || !studentId) return { ok: false, reason: "missing" };
+  const idx = (cls.students || []).findIndex((s) => s.id === studentId);
+  if (idx < 0) return { ok: false, reason: "not_found" };
+  const student = cls.students[idx];
+  applyPointsChange(student, delta, reasonLabel, opts);
+  cls.students[idx] = student;
+  return { ok: true, student };
+}
 function updateStudentPoints(studentId, reasonKey) {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
@@ -3406,6 +3420,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 
