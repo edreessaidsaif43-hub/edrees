@@ -1721,8 +1721,10 @@ function renderMiniChallenge() {
   if (document.activeElement !== durationInput) {
     durationInput.value = String(mini.durationSeconds || 300);
   }
+  const currentWinnerSelection = normalizeName(winnerInput.value);
+  const selectedWinnerId = mini.winnerStudentId || currentWinnerSelection;
   winnerInput.innerHTML = "<option value=''>اختر الفائز (اختيار المعلم)</option>" +
-    cls.students.map((s) => `<option value="${s.id}" ${mini.winnerStudentId === s.id ? "selected" : ""}>${s.name}</option>`).join("");
+    cls.students.map((s) => `<option value="${s.id}" ${selectedWinnerId === s.id ? "selected" : ""}>${s.name}</option>`).join("");
   const selectedDuration = Math.max(60, Number(durationInput.value || mini.durationSeconds || 300));
   const minsLabel = Math.floor(selectedDuration / 60);
   const secsLabel = selectedDuration % 60;
