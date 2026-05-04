@@ -965,6 +965,60 @@ function playCheer() {
   osc.stop(ctx.currentTime + 0.26);
 }
 
+
+function playEventSound(type = "success") {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  const ctx = new AudioContext();
+  const gain = ctx.createGain();
+  gain.gain.value = 0.0001;
+  gain.connect(ctx.destination);
+
+  const playTone = (freq, start, duration, wave = "sine", peak = 0.12) => {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = wave;
+    osc.frequency.value = freq;
+    g.gain.value = 0.0001;
+    osc.connect(g);
+    g.connect(gain);
+    osc.start(ctx.currentTime + start);
+    g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.001), ctx.currentTime + start + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + duration);
+    osc.stop(ctx.currentTime + start + duration + 0.02);
+  };
+
+  if (type === "start") {
+    playTone(420, 0, 0.12, "triangle", 0.08);
+    playTone(560, 0.12, 0.14, "triangle", 0.1);
+    return;
+  }
+  if (type === "spin") {
+    playTone(360, 0, 0.10, "sawtooth", 0.07);
+    playTone(480, 0.10, 0.10, "sawtooth", 0.08);
+    playTone(620, 0.20, 0.12, "triangle", 0.1);
+    return;
+  }
+  if (type === "winner") {
+    playTone(660, 0, 0.16, "triangle", 0.11);
+    playTone(880, 0.14, 0.18, "triangle", 0.12);
+    playTone(990, 0.30, 0.20, "triangle", 0.1);
+    return;
+  }
+
+  playTone(740, 0, 0.25, "triangle", 0.12);
+}
+
+function pulseFeatureCardById(featureId, mode = "start") {
+  const target = document.getElementById(featureId);
+  if (!target) return;
+  const card = target.classList.contains("card") ? target : (target.closest(".card") || target);
+  card.classList.remove("fx-start", "fx-spin", "fx-winner");
+  const cls = mode === "winner" ? "fx-winner" : mode === "spin" ? "fx-spin" : "fx-start";
+  void card.offsetWidth;
+  card.classList.add(cls);
+  setTimeout(() => card.classList.remove(cls), mode === "winner" ? 1400 : 900);
+}
 function triggerCelebration(title, message) {
   const overlay = document.getElementById("celebration-overlay");
   const titleEl = document.getElementById("celebration-title");
@@ -1630,6 +1684,8 @@ async function announceChallengeWinner() {
   saveTeacherData();
   await flushRemoteSaveNow();
   renderAll();
+  playEventSound("winner");
+  pulseFeatureCardById("challenge-view", "winner");
   triggerCelebration("🏆 فائز التحدي الأسبوعي", `${winner.name} فاز بتحدي: ${challenge.title}`);
   showAuthMessage(`تم إعلان ${winner.name} فائزًا بالتحدي وإضافة ${bonusPoints} نقطة.`);
 }
@@ -1791,6 +1847,8 @@ async function finishMiniChallengeWithWinner(cls, winner, reasonText) {
   saveTeacherData();
   await flushRemoteSaveNow();
   renderAll();
+  playEventSound("winner");
+  pulseFeatureCardById("mini-challenge-progress", "winner");
   triggerCelebration("🏆 فائز التحدي المصغر", `${winner.name} حصل على ${bonusPoints} نقطة`);
   return true;
 }
@@ -1810,6 +1868,8 @@ function startMiniChallenge() {
   const duration = Math.max(60, Number(document.getElementById("mini-challenge-duration").value || 300));
   const now = new Date();
   mini.title = title;
+  playEventSound("start");
+  pulseFeatureCardById("mini-challenge-progress", "start");
   mini.bonusPoints = bonus;
   mini.durationSeconds = duration;
   mini.startedAt = now.toISOString();
@@ -2090,6 +2150,8 @@ function startCountdown() {
   }
 
   countdownRunning = true;
+  playEventSound("start");
+  pulseFeatureCardById("feature-countdown", "start");
   renderCountdown();
 
   countdownInterval = setInterval(() => {
@@ -2102,6 +2164,8 @@ function startCountdown() {
         countdownInterval = null;
       }
       playCheer();
+      playEventSound("winner");
+      pulseFeatureCardById("feature-countdown", "winner");
     }
     renderCountdown();
   }, 1000);
@@ -2152,6 +2216,8 @@ function startLuckyGame() {
   if (!freshCards.length) return;
 
   luckyBusy = true;
+  playEventSound("spin");
+  pulseFeatureCardById("feature-lucky", "spin");
   btn.disabled = true;
   result.textContent = "جاري اختيار الطالب...";
 
@@ -2179,6 +2245,8 @@ function startLuckyGame() {
     btn.disabled = false;
     result.textContent = `فاز: ${winner.name}`;
     playCheer();
+    playEventSound("winner");
+    pulseFeatureCardById("feature-lucky", "winner");
     triggerCelebration("🎲 فائز صندوق الحظ", `الفائز: ${winner.name}`);
 
     // ارجاع العرض إلى وضع المعاينة (5 طلاب) بعد نهاية السحب
@@ -2538,6 +2606,8 @@ function startWheelSpin() {
   }
 
   wheelBusy = true;
+  playEventSound("spin");
+  pulseFeatureCardById("feature-wheel", "spin");
   button.disabled = true;
   result.textContent = "جاري التدوير...";
 
@@ -2572,6 +2642,8 @@ function startWheelSpin() {
     result.textContent = `تم اختيار: ${winner.name}`;
     button.disabled = false;
     playCheer();
+    playEventSound("winner");
+    pulseFeatureCardById("feature-wheel", "winner");
     triggerCelebration("🎡 اختيار عشوائي", `تم اختيار الطالب: ${winner.name}`);
   }, 3300);
 }
@@ -3426,6 +3498,9 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
+
 
 
 

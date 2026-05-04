@@ -211,67 +211,8 @@
             </div>
             <p id="challenge-view" class="muted"></p>
           </article>
-
-          <article class="card section-5">
-            <h2>6) نظام الفرق</h2>
-            <div class="field-row">
-              <input id="teams-count" type="number" min="1" max="12" value="3" placeholder="عدد المجموعات" />
-            </div>
-            <div class="field-row">
-              <textarea id="teams-names" rows="4" placeholder="اسم كل مجموعة في سطر مستقل"></textarea>
-            </div>
-            <div class="field-row">
-              <button id="save-team-settings" class="btn secondary">حفظ إعداد الفرق</button>
-              <button id="auto-teams" class="btn">توزيع تلقائي</button>
-              <button id="clear-teams" class="btn secondary">مسح التوزيع</button>
-            </div>
-            <div id="teams-view" class="muted"></div>
-          </article>
-
-          <article id="feature-wheel" class="card feature-card section-6">
-            <h2>7) لعبة العجلة الدوارة</h2>
-            <div class="wheel-wrap">
-              <div class="wheel-pointer">▼</div>
-              <div id="student-wheel" class="student-wheel">
-                <div id="wheel-center-text" class="wheel-center-text">جاهز</div>
-              </div>
-            </div>
-            <div class="field-row">
-              <button id="spin-wheel" class="btn">تدوير العجلة</button>
-              <button class="btn danger exit-fullscreen" data-feature-exit>خروج من العرض الكامل</button>
-            </div>
-            <p id="wheel-result" class="muted">اضغط تدوير لاختيار طالب عشوائي.</p>
-          </article>
-
-          <article id="feature-lucky" class="card feature-card section-7">
-            <h2>8) لعبة صندوق الحظ</h2>
-            <div id="lucky-grid" class="lucky-grid"></div>
-            <div class="field-row">
-              <button id="start-lucky-game" class="btn secondary">ابدأ اللعبة</button>
-              <button class="btn danger exit-fullscreen" data-feature-exit>خروج من العرض الكامل</button>
-            </div>
-            <p id="lucky-result" class="muted">اضغط ابدأ اللعبة لاختيار طالب عشوائي.</p>
-          </article>
-
-          <article id="feature-countdown" class="card feature-card section-8">
-            <h2>9) التوقيت التنازلي</h2>
-            <p class="muted">هذا المؤقت للوقت فقط ولا يضيف أو يخصم أي نقاط.</p>
-            <div class="field-row">
-              <input id="countdown-minutes" type="number" min="0" max="180" value="5" placeholder="دقائق" />
-              <input id="countdown-seconds" type="number" min="0" max="59" value="0" placeholder="ثواني" />
-            </div>
-            <div id="countdown-display" class="countdown-display">05:00</div>
-            <div class="field-row">
-              <button id="start-countdown" class="btn">بدء</button>
-              <button id="pause-countdown" class="btn secondary">إيقاف</button>
-              <button id="reset-countdown" class="btn danger">إعادة ضبط</button>
-              <button class="btn danger exit-fullscreen" data-feature-exit>خروج من العرض الكامل</button>
-            </div>
-            <p id="countdown-status" class="muted">حدد الوقت ثم اضغط بدء.</p>
-          </article>
-
-          <article class="card section-9">
-            <h2>10) تحدي مصغر (5 دقائق)</h2>
+          <article class="card section-6">
+            <h2>6) تحدي مصغر (5 دقائق)</h2>
             <div class="field-row">
               <input id="mini-challenge-title" placeholder="عنوان التحدي المصغر (مثال: أسرع حل)" />
               <input id="mini-challenge-bonus" type="number" min="1" value="10" placeholder="نقاط الفائز" />
@@ -295,6 +236,66 @@
             <div id="mini-challenge-meta" class="mini-meta muted"></div>
             <p id="mini-challenge-status" class="muted">لا يوجد تحدي مصغر نشط.</p>
           </article>
+
+          <article class="card section-5">
+            <h2>7) نظام الفرق</h2>
+            <div class="field-row">
+              <input id="teams-count" type="number" min="1" max="12" value="3" placeholder="عدد المجموعات" />
+            </div>
+            <div class="field-row">
+              <textarea id="teams-names" rows="4" placeholder="اسم كل مجموعة في سطر مستقل"></textarea>
+            </div>
+            <div class="field-row">
+              <button id="save-team-settings" class="btn secondary">حفظ إعداد الفرق</button>
+              <button id="auto-teams" class="btn">توزيع تلقائي</button>
+              <button id="clear-teams" class="btn secondary">مسح التوزيع</button>
+            </div>
+            <div id="teams-view" class="muted"></div>
+          </article>
+
+          <article id="feature-wheel" class="card feature-card section-8">
+            <h2>8) لعبة العجلة الدوارة</h2>
+            <div class="wheel-wrap">
+              <div class="wheel-pointer">▼</div>
+              <div id="student-wheel" class="student-wheel">
+                <div id="wheel-center-text" class="wheel-center-text">جاهز</div>
+              </div>
+            </div>
+            <div class="field-row">
+              <button id="spin-wheel" class="btn">تدوير العجلة</button>
+              <button class="btn danger exit-fullscreen" data-feature-exit>خروج من العرض الكامل</button>
+            </div>
+            <p id="wheel-result" class="muted">اضغط تدوير لاختيار طالب عشوائي.</p>
+          </article>
+
+          <article id="feature-lucky" class="card feature-card section-9">
+            <h2>9) لعبة صندوق الحظ</h2>
+            <div id="lucky-grid" class="lucky-grid"></div>
+            <div class="field-row">
+              <button id="start-lucky-game" class="btn secondary">ابدأ اللعبة</button>
+              <button class="btn danger exit-fullscreen" data-feature-exit>خروج من العرض الكامل</button>
+            </div>
+            <p id="lucky-result" class="muted">اضغط ابدأ اللعبة لاختيار طالب عشوائي.</p>
+          </article>
+
+          <article id="feature-countdown" class="card feature-card section-10">
+            <h2>10) التوقيت التنازلي</h2>
+            <p class="muted">هذا المؤقت للوقت فقط ولا يضيف أو يخصم أي نقاط.</p>
+            <div class="field-row">
+              <input id="countdown-minutes" type="number" min="0" max="180" value="5" placeholder="دقائق" />
+              <input id="countdown-seconds" type="number" min="0" max="59" value="0" placeholder="ثواني" />
+            </div>
+            <div id="countdown-display" class="countdown-display">05:00</div>
+            <div class="field-row">
+              <button id="start-countdown" class="btn">بدء</button>
+              <button id="pause-countdown" class="btn secondary">إيقاف</button>
+              <button id="reset-countdown" class="btn danger">إعادة ضبط</button>
+              <button class="btn danger exit-fullscreen" data-feature-exit>خروج من العرض الكامل</button>
+            </div>
+            <p id="countdown-status" class="muted">حدد الوقت ثم اضغط بدء.</p>
+          </article>
+
+
         </div>
 
         <article class="card wide">
@@ -438,6 +439,8 @@
   <script src="/Motivation+/app.js"></script>
 </body>
 </html>
+
+
 
 
 
