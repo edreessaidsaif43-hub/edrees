@@ -483,8 +483,11 @@ function mergeState(raw) {
   if (Array.isArray(raw.classes)) {
     const classes = raw.classes.map(normalizeClass);
     if (!classes.length) {
-      const fallback = createDefaultState();
-      return fallback;
+      return {
+        classes: [],
+        activeClassId: "",
+        updatedAt: Number(raw.updatedAt || 0)
+      };
     }
     const activeExists = classes.some((c) => c.id === raw.activeClassId);
     return {
@@ -542,8 +545,15 @@ function accountDataKey(accountId) {
 }
 
 function loadTeacherData(accountId) {
-  void accountId;
-  return createDefaultState();
+  try {
+    const key = accountDataKey(accountId || "");
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return mergeState(parsed);
+    }
+  } catch {}
+  return loadPublicStateCache() || createDefaultState();
 }
 
 function loadPublicStateCache() {
@@ -562,7 +572,6 @@ function loadPublicStateCache() {
 function savePublicStateCache(snapshot) {
   try {
     const merged = mergeState(snapshot);
-    if (!hasMeaningfulStateData(merged)) return;
     localStorage.setItem(PUBLIC_STATE_CACHE_KEY, JSON.stringify({
       state: merged,
       savedAt: Date.now(),
@@ -577,6 +586,9 @@ function saveTeacherData() {
     ensureClassShareMeta(cls, currentTeacher.id);
     ensureClassStudentCodes(cls);
   });
+  try {
+    localStorage.setItem(accountDataKey(currentTeacher.id), JSON.stringify(state));
+  } catch {}
   savePublicStateCache(state);
   scheduleRemoteSave();
 }
@@ -2887,6 +2899,7 @@ document.getElementById("delete-class").addEventListener("click", async () => {
   state.activeClassId = state.classes.length ? state.classes[0].id : "";
   wheelRotation = 0;
   saveTeacherData();
+  await flushRemoteSaveNow();
   renderAll();
   showAuthMessage(state.classes.length ? "تم حذف الصف." : "تم حذف الصف. لا توجد صفوف حاليًا، أنشئ صفًا جديدًا.");
 });
@@ -3331,7 +3344,7 @@ async function bootstrapApp() {
   state = currentTeacher ? loadTeacherData(currentTeacher.id) : (loadPublicStateCache() || createDefaultState());
 
   if (currentTeacher && currentTeacher.userId) {
-    await pullRemoteStateIfNeeded(true);
+    await pullRemoteStateIfNeeded(false);
     const upgraded = upgradeAllStudentCodesIfNeeded();
     if (upgraded) {
       await flushRemoteSaveNow();
