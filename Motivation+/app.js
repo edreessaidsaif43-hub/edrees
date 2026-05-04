@@ -2180,6 +2180,12 @@ function startLuckyGame() {
     result.textContent = `فاز: ${winner.name}`;
     playCheer();
     triggerCelebration("🎲 فائز صندوق الحظ", `الفائز: ${winner.name}`);
+
+    // ارجاع العرض إلى وضع المعاينة (5 طلاب) بعد نهاية السحب
+    luckyShowAllCards = false;
+    setTimeout(() => {
+      renderLuckyGame();
+    }, 900);
   }, 2600);
 }
 
@@ -3420,6 +3426,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 
