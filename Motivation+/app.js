@@ -833,11 +833,9 @@ function getActiveClass() {
 
 function refreshClassesFromShared() {
   if (!currentTeacher) return;
+  if (!Array.isArray(state.classes)) state.classes = [];
   if (!state.classes.length) {
-    const fallback = createDefaultClass();
-    ensureClassShareMeta(fallback, currentTeacher.id);
-    state.classes = [fallback];
-    state.activeClassId = fallback.id;
+    state.activeClassId = "";
   }
 }
 
@@ -2886,16 +2884,11 @@ document.getElementById("delete-class").addEventListener("click", async () => {
     await removeAllClassStudentPhotos(cls);
   } catch {}
   state.classes = state.classes.filter((c) => c.id !== cls.id);
-  if (!state.classes.length) {
-    const fallback = createDefaultClass();
-    ensureClassShareMeta(fallback, currentTeacher.id);
-    state.classes.push(fallback);
-  }
-  state.activeClassId = state.classes[0].id;
+  state.activeClassId = state.classes.length ? state.classes[0].id : "";
   wheelRotation = 0;
   saveTeacherData();
   renderAll();
-  showAuthMessage("تم حذف الصف.");
+  showAuthMessage(state.classes.length ? "تم حذف الصف." : "تم حذف الصف. لا توجد صفوف حاليًا، أنشئ صفًا جديدًا.");
 });
 
 document.getElementById("save-class").addEventListener("click", () => {
