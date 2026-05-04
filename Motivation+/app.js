@@ -1600,8 +1600,15 @@ async function announceChallengeWinner() {
   }
 
   if (challenge.winnerStudentId) {
-    showAuthMessage("تم إعلان الفائز لهذا التحدي مسبقًا.", true);
-    return;
+    if (challenge.winnerStudentId === winnerId) {
+      showAuthMessage("هذا الطالب معلن بالفعل كفائز في التحدي.", true);
+      return;
+    }
+    const previousWinner = cls.students.find((s) => s.id === challenge.winnerStudentId);
+    const prevBonus = normalizePositivePoints(challenge.bonusPoints, 10);
+    if (previousWinner && prevBonus > 0) {
+      applyPointsChange(previousWinner, -prevBonus, `تعديل الفائز في التحدي: ${challenge.title}`, { celebrateLevel: false });
+    }
   }
 
   const winner = cls.students.find((s) => s.id === winnerId);
