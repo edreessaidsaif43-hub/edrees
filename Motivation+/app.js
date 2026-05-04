@@ -1574,7 +1574,7 @@ function renderChallenge() {
   el.textContent = `التحدي: ${challenge.title} | من ${challenge.startDate || "-"} إلى ${challenge.endDate || "-"}${winnerText}`;
 }
 
-function announceChallengeWinner() {
+async function announceChallengeWinner() {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
@@ -1603,15 +1603,17 @@ function announceChallengeWinner() {
     return;
   }
 
-  applyPointsChange(winner, Number(challenge.bonusPoints || 0), `إعلان فوز التحدي: ${challenge.title}`);
+  const bonusPoints = Math.max(1, Number(challenge.bonusPoints || 10));
+  applyPointsChange(winner, bonusPoints, `إعلان فوز التحدي: ${challenge.title}`);
 
   challenge.winnerStudentId = winner.id;
   challenge.winnerAwardedAt = new Date().toISOString();
   challenge.announcedByTeacherAt = new Date().toISOString();
   saveTeacherData();
+  await flushRemoteSaveNow();
   renderAll();
   triggerCelebration("🏆 فائز التحدي الأسبوعي", `${winner.name} فاز بتحدي: ${challenge.title}`);
-  showAuthMessage(`تم إعلان ${winner.name} فائزًا بالتحدي وإضافة ${challenge.bonusPoints} نقطة.`);
+  showAuthMessage(`تم إعلان ${winner.name} فائزًا بالتحدي وإضافة ${bonusPoints} نقطة.`);
 }
 
 function reopenChallenge() {
@@ -1755,18 +1757,20 @@ function renderMiniChallenge() {
   resetBtn.disabled = false;
 }
 
-function finishMiniChallengeWithWinner(cls, winner, reasonText) {
+async function finishMiniChallengeWithWinner(cls, winner, reasonText) {
   if (!cls || !winner) return false;
   const mini = getMiniChallenge(cls);
   if (!mini.active) return false;
 
-  applyPointsChange(winner, Number(mini.bonusPoints || 0), reasonText);
+  const bonusPoints = Math.max(1, Number(mini.bonusPoints || 10));
+  applyPointsChange(winner, bonusPoints, reasonText);
   mini.active = false;
   mini.winnerStudentId = winner.id;
   mini.winnerAnnouncedAt = new Date().toISOString();
   saveTeacherData();
+  await flushRemoteSaveNow();
   renderAll();
-  triggerCelebration("🏆 فائز التحدي المصغر", `${winner.name} حصل على ${mini.bonusPoints} نقطة`);
+  triggerCelebration("🏆 فائز التحدي المصغر", `${winner.name} حصل على ${bonusPoints} نقطة`);
   return true;
 }
 
@@ -1803,7 +1807,7 @@ function startMiniChallenge() {
   showAuthMessage(`تم بدء التحدي المصغر لمدة ${durationText}.`);
 }
 
-function pickMiniChallengeWinnerNow() {
+async function pickMiniChallengeWinnerNow() {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
@@ -1828,9 +1832,10 @@ function pickMiniChallengeWinnerNow() {
   }
   const ok = window.confirm(`اختيار ${winner.name} فائزًا فوريًا بالتحدي المصغر؟`);
   if (!ok) return;
-  const done = finishMiniChallengeWithWinner(cls, winner, `فوز فوري في تحدي 5 دقائق: ${mini.title || "تحدي سريع"}`);
+  const done = await finishMiniChallengeWithWinner(cls, winner, `فوز فوري في تحدي 5 دقائق: ${mini.title || "تحدي سريع"}`);
   if (done) {
-    showAuthMessage(`تم اختيار ${winner.name} فائزًا وإضافة ${mini.bonusPoints} نقطة.`);
+    const awarded = Math.max(1, Number(mini.bonusPoints || 10));
+    showAuthMessage(`تم اختيار ${winner.name} فائزًا وإضافة ${awarded} نقطة.`);
   }
 }
 
