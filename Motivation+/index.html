@@ -297,15 +297,15 @@
 
 
           <article id="feature-points" class="card section-11">
-            <h2>11) إضافة نقاط مباشرة لطالب</h2>
-            <p class="muted">اختر الطالب وحدد عدد النقاط ثم اضغط إضافة.</p>
+            <h2>11) تعديل نقاط الطالب (إضافة / خصم)</h2>
+            <p class="muted">اختر الطالب ثم أدخل عدد النقاط. القيمة الموجبة للإضافة والسالبة للخصم.</p>
             <div class="field-row">
               <select id="bonus-student-select"></select>
-              <input id="bonus-points" type="number" min="1" value="5" placeholder="عدد النقاط" />
+              <input id="bonus-points" type="number" value="5" placeholder="عدد النقاط (+ أو -)" />
               <input id="bonus-reason" placeholder="سبب الإضافة (اختياري)" />
-              <button id="add-bonus-points" class="btn">إضافة النقاط</button>
+              <button id="add-bonus-points" class="btn">تنفيذ التعديل</button>
             </div>
-            <p id="bonus-points-status" class="muted">لن يتم الخصم من أي طالب، فقط إضافة نقاط مباشرة.</p>
+            <p id="bonus-points-status" class="muted">يمكنك إضافة نقاط أو خصم نقاط بالسالب. لن تنزل نقاط الطالب تحت الصفر.</p>
           </article>
 
         </div>
@@ -451,6 +451,7 @@
   <script src="/Motivation+/app.js"></script>
 </body>
 </html>
+
 
 
 

@@ -2939,7 +2939,7 @@ function renderDirectPointsCard() {
 
   if (!currentTeacher) {
     select.innerHTML = "<option value=''>سجل الدخول أولاً</option>";
-    status.textContent = "ميزة إضافة النقاط المباشرة متاحة بعد تسجيل الدخول.";
+    status.textContent = "ميزة تعديل النقاط المباشرة متاحة بعد تسجيل الدخول.";
     return;
   }
 
@@ -2952,7 +2952,7 @@ function renderDirectPointsCard() {
 
   if (!Array.isArray(cls.students) || !cls.students.length) {
     select.innerHTML = "<option value=''>لا يوجد طلاب</option>";
-    status.textContent = "أضف طلابًا أولاً ثم أضف النقاط لهم.";
+    status.textContent = "أضف طلابًا أولاً ثم عدّل النقاط لهم.";
     return;
   }
 
@@ -2963,7 +2963,7 @@ function renderDirectPointsCard() {
     return `<option value="${s.id}" ${selected}>${s.name} (${Number(s.points || 0)} نقطة)</option>`;
   }).join("");
 
-  status.textContent = "لن يتم الخصم من أي طالب، فقط إضافة نقاط مباشرة.";
+  status.textContent = "يمكنك إضافة نقاط (+) أو خصم نقاط (-).";
 }
 function renderAll() {
   refreshClassesFromShared();
@@ -3436,7 +3436,11 @@ document.getElementById("add-bonus-points").addEventListener("click", () => {
   if (!select || !pointsEl || !reasonEl || !status) return;
 
   const studentId = normalizeName(select.value);
-  const delta = Math.max(1, Number(pointsEl.value || 0));
+  const delta = Number(pointsEl.value || 0);
+  if (!Number.isFinite(delta) || delta === 0) {
+    status.textContent = "أدخل قيمة نقاط صحيحة (موجبة أو سالبة، وليس صفر).";
+    return;
+  }
   if (!studentId) {
     status.textContent = "اختر الطالب أولاً.";
     return;
@@ -3449,13 +3453,17 @@ document.getElementById("add-bonus-points").addEventListener("click", () => {
   }
 
   const customReason = normalizeName(reasonEl.value);
-  const reasonLabel = customReason || "إضافة نقاط مباشرة من بطاقة 11";
+  const reasonLabel = customReason || (delta > 0 ? "إضافة نقاط مباشرة من بطاقة 11" : "خصم نقاط مباشرة من بطاقة 11");
   applyPointsChange(student, delta, reasonLabel);
   saveTeacherData();
   renderAll();
-  playEventSound("winner");
-  triggerCelebration("⭐ إضافة نقاط مباشرة", `${student.name} حصل على ${delta} نقطة`);
-  status.textContent = `تمت إضافة ${delta} نقطة للطالب ${student.name}.`;
+  if (delta > 0) {
+    playEventSound("winner");
+    triggerCelebration("⭐ إضافة نقاط مباشرة", `${student.name} حصل على ${Math.abs(delta)} نقطة`);
+    status.textContent = `تمت إضافة ${Math.abs(delta)} نقطة للطالب ${student.name}.`;
+  } else {
+    status.textContent = `تم خصم ${Math.abs(delta)} نقطة من الطالب ${student.name}.`;
+  }
   pointsEl.value = String(delta);
   reasonEl.value = "";
 });
@@ -3669,6 +3677,8 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
 
 
 
