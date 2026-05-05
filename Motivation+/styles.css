@@ -707,8 +707,11 @@ body.feature-fullscreen .feature-fullscreen-backdrop {
 
 /* Professional Teacher Section - Motivation+ */
 .teacher-view {
-  display: grid;
+  display: none;
   gap: 12px;
+}
+.view.active.teacher-view {
+  display: grid;
 }
 .teacher-hero {
   border-top: 0;
@@ -831,4 +834,6 @@ body.feature-fullscreen .feature-fullscreen-backdrop {
 }
 
 .section-11 { background: #f5f3ff; }
+
+
 
