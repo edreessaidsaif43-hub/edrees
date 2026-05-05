@@ -1785,9 +1785,16 @@ function renderMiniChallenge() {
 
   const mini = getMiniChallenge(cls);
 
-  if (document.activeElement !== titleInput) titleInput.value = mini.title || "";
-  if (document.activeElement !== bonusInput) bonusInput.value = String(mini.bonusPoints || 10);
-  if (document.activeElement !== durationInput) durationInput.value = String(mini.durationSeconds || 300);
+  const shouldHydrateInputs = mini.active || !!mini.startedAt || !!mini.winnerStudentId;
+  if (shouldHydrateInputs) {
+    if (document.activeElement !== titleInput) titleInput.value = mini.title || "";
+    if (document.activeElement !== bonusInput) bonusInput.value = String(mini.bonusPoints || 10);
+    if (document.activeElement !== durationInput) durationInput.value = String(mini.durationSeconds || 300);
+  } else {
+    if (!normalizeName(titleInput.value)) titleInput.value = mini.title || "";
+    if (!normalizeName(String(bonusInput.value || ""))) bonusInput.value = String(mini.bonusPoints || 10);
+    if (!normalizeName(String(durationInput.value || ""))) durationInput.value = String(mini.durationSeconds || 300);
+  }
 
   if (!Array.isArray(cls.students) || !cls.students.length) {
     winnerInput.innerHTML = "<option value=''>لا يوجد طلاب</option>";
@@ -1969,7 +1976,6 @@ function ensureMiniChallengeTicker() {
 
     const mini = getMiniChallenge(cls);
     if (!mini.active) {
-      renderMiniChallenge();
       return;
     }
 
@@ -3576,6 +3582,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 
