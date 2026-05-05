@@ -173,10 +173,20 @@ function findStudentInClass(cls, studentId) {
   return (cls.students || []).find((s) => s.id === studentId) || null;
 }
 
-function readFileAsDataUrl(file) {
+function readFileAsDataUrl(file, onProgress) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onprogress = (ev) => {
+      if (!onProgress) return;
+      if (!ev || !ev.lengthComputable) return;
+      const ratio = ev.total > 0 ? (ev.loaded / ev.total) : 0;
+      const percent = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+      onProgress(percent);
+    };
+    reader.onload = () => {
+      if (onProgress) onProgress(100);
+      resolve(String(reader.result || ""));
+    };
     reader.onerror = () => reject(reader.error || new Error("Failed to read image file"));
     reader.readAsDataURL(file);
   });
@@ -207,6 +217,49 @@ async function removeAllClassStudentPhotos(cls) {
   });
 }
 
+function ensurePhotoUploadProgressUI() {
+  const hostMsg = document.getElementById("auth-message");
+  if (!hostMsg) return null;
+  let wrap = document.getElementById("photo-upload-progress");
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "photo-upload-progress";
+    wrap.className = "photo-upload-progress";
+    wrap.style.display = "none";
+    wrap.innerHTML = '<div class="photo-upload-progress-bar"><div id="photo-upload-progress-fill" class="photo-upload-progress-fill"></div></div><div id="photo-upload-progress-text" class="photo-upload-progress-text">0%</div>';
+    hostMsg.insertAdjacentElement("afterend", wrap);
+  }
+  return wrap;
+}
+
+function setPhotoUploadProgress(percent, text) {
+  const wrap = ensurePhotoUploadProgressUI();
+  if (!wrap) return;
+  const fill = document.getElementById("photo-upload-progress-fill");
+  const label = document.getElementById("photo-upload-progress-text");
+  const p = Math.max(0, Math.min(100, Math.round(Number(percent || 0))));
+  wrap.style.display = "block";
+  wrap.classList.remove("is-error");
+  if (fill) fill.style.width = `${p}%`;
+  if (label) label.textContent = text || `${p}%`;
+}
+
+function setPhotoUploadProgressError(message) {
+  const wrap = ensurePhotoUploadProgressUI();
+  if (!wrap) return;
+  const fill = document.getElementById("photo-upload-progress-fill");
+  const label = document.getElementById("photo-upload-progress-text");
+  wrap.style.display = "block";
+  wrap.classList.remove("is-error");
+  wrap.classList.add("is-error");
+  if (fill) fill.style.width = "100%";
+  if (label) label.textContent = message || "فشل رفع الصورة";
+}
+function hidePhotoUploadProgress() {
+  const wrap = document.getElementById("photo-upload-progress");
+  if (!wrap) return;
+  wrap.style.display = "none";
+}
 function renderPhotoCellContent(studentName, dataUrl) {
   const rawName = String(studentName || "");
   const safeName = rawName.replace(/"/g, "&quot;");
@@ -839,6 +892,7 @@ let miniChallengeTicker = null;
 let remoteSaveTimer = null;
 let remoteSyncReady = false;
 let pendingRemoteSave = false;
+let remoteAutoPullTimer = null;
 
 function getActiveClass() {
   if (!state.classes.length) return null;
@@ -2394,16 +2448,26 @@ async function handleStudentPhotoUpload(studentId, event) {
   }
 
   try {
-    const dataUrl = await readFileAsDataUrl(file);
+    setPhotoUploadProgress(0, "جاري تحميل الصورة... 0%");
+    showAuthMessage("جاري تحميل الصورة... 0%");
+    const dataUrl = await readFileAsDataUrl(file, (percent) => {
+      setPhotoUploadProgress(percent, `جاري تحميل الصورة... ${percent}%`);
+      showAuthMessage(`جاري تحميل الصورة... ${percent}%`);
+    });
+    setPhotoUploadProgress(100, "جاري مزامنة الصورة بين الأجهزة...");
+    showAuthMessage("جاري مزامنة الصورة بين الأجهزة...");
     await setStudentPhotoDataUrl(cls, studentId, dataUrl);
     saveTeacherData();
+    await flushRemoteSaveNow();
     const cell = document.getElementById(`photo-${studentId}`);
     if (cell) {
       cell.innerHTML = renderPhotoCellContent(student.name, dataUrl);
     }
-    showAuthMessage(`تم حفظ صورة الطالب ${student.name}.`);
+    showAuthMessage(`تم حفظ صورة الطالب ${student.name} بنجاح.`);
+    setTimeout(() => hidePhotoUploadProgress(), 1200);
   } catch {
-    showAuthMessage("حدث خطأ أثناء حفظ الصورة.", true);
+    showAuthMessage("حدث خطأ أثناء تحميل/حفظ الصورة.", true);
+    setPhotoUploadProgressError("فشل رفع الصورة. تحقق من الاتصال ثم أعد المحاولة.");
   } finally {
     fileInput.value = "";
   }
@@ -2421,6 +2485,7 @@ async function removeStudentPhoto(studentId) {
   try {
     await removeStudentPhotoDataUrl(cls, studentId);
     saveTeacherData();
+    await flushRemoteSaveNow();
     const cell = document.getElementById(`photo-${studentId}`);
     if (cell) {
       cell.innerHTML = renderPhotoCellContent(student.name, "");
@@ -3548,6 +3613,15 @@ document.getElementById("share-whatsapp").addEventListener("click", () => {
 });
 
 // bootstrap
+
+function ensureRemoteAutoPull() {
+  if (remoteAutoPullTimer) return;
+  remoteAutoPullTimer = setInterval(() => {
+    if (!currentTeacher || !currentTeacher.userId) return;
+    if (document.hidden) return;
+    pullRemoteStateIfNeeded(false);
+  }, 12000);
+}
 async function bootstrapApp() {
   currentTeacher = getCurrentTeacher();
   state = currentTeacher ? loadTeacherData(currentTeacher.id) : (loadPublicStateCache() || createDefaultState());
@@ -3564,6 +3638,7 @@ async function bootstrapApp() {
   remoteSyncReady = true;
   if (pendingRemoteSave) scheduleRemoteSave();
   ensureMiniChallengeTicker();
+  ensureRemoteAutoPull();
   renderAll();
 }
 
@@ -3594,6 +3669,10 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
+
+
 
 
 

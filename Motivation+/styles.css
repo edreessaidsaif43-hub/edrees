@@ -837,3 +837,38 @@ body.feature-fullscreen .feature-fullscreen-backdrop {
 
 
 
+
+.photo-upload-progress {
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+.photo-upload-progress-bar {
+  width: min(520px, 100%);
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+}
+.photo-upload-progress-fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #06b6d4, #0ea5a4, #22c55e);
+  transition: width .2s ease;
+}
+.photo-upload-progress-text {
+  margin-top: 6px;
+  font-size: .85rem;
+  color: #334155;
+  font-weight: 700;
+}
+.photo-upload-progress.is-error .photo-upload-progress-bar {
+  border-color: #ef4444;
+  background: #fee2e2;
+}
+.photo-upload-progress.is-error .photo-upload-progress-fill {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+.photo-upload-progress.is-error .photo-upload-progress-text {
+  color: #991b1b;
+}
