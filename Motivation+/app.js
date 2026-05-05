@@ -2673,6 +2673,16 @@ async function hydrateProfilePhotoByElementId(elementId, cls, student) {
   }
 }
 
+function getStudentGiftUsage(cls, student) {
+  const gifts = (cls && Array.isArray(cls.giftStore) ? cls.giftStore : []).map(normalizeGift);
+  const claimedIds = new Set(Array.isArray(student && student.claimedGiftIds) ? student.claimedGiftIds : []);
+  const spent = gifts
+    .filter((g) => claimedIds.has(g.id))
+    .reduce((sum, g) => sum + Math.max(0, Number(g.requiredPoints || 0)), 0);
+  const totalPoints = Math.max(0, Number(student && student.points ? student.points : 0));
+  const remaining = Math.max(0, totalPoints - spent);
+  return { totalPoints, spent, remaining };
+}
 function renderStudentRewardStore(cls, student) {
   const gifts = (cls.giftStore || [])
     .map((g) => normalizeGift(g))
@@ -2682,23 +2692,24 @@ function renderStudentRewardStore(cls, student) {
     return "<p class='muted'>لا توجد هدايا متاحة في المتجر حالياً.</p>";
   }
   const claimed = new Set(Array.isArray(student.claimedGiftIds) ? student.claimedGiftIds : []);
+  const usage = getStudentGiftUsage(cls, student);
 
   return `
     <div class="reward-store-list">
       ${gifts.map((gift) => {
         const required = Number(gift.requiredPoints || 0);
-        const eligible = Number(student.points || 0) >= required;
         const alreadyClaimed = claimed.has(gift.id);
+        const eligibleByRemaining = usage.remaining >= required;
         const buttonLabel = alreadyClaimed ? "تم الاستلام" : "استلام";
         return `
           <div class="reward-store-item">
             <span>🎁 ${gift.name} - يحتاج ${required} نقطة</span>
-            <button class="btn secondary" onclick="claimStudentGiftByCode('${student.code}', '${gift.id}')" ${eligible && !alreadyClaimed ? "" : "disabled"}>${buttonLabel}</button>
+            <button class="btn secondary" onclick="claimStudentGiftByCode('${student.code}', '${gift.id}')" ${eligibleByRemaining && !alreadyClaimed ? "" : "disabled"}>${buttonLabel}</button>
           </div>
         `;
       }).join("")}
     </div>
-    <small>ملاحظة: استلام الهدية لا يخصم النقاط.</small>
+    <small>رصيد الهدايا: ${usage.remaining} من ${usage.totalPoints} نقطة (بدون خصم فعلي من نقاط الطالب).</small>
   `;
 }
 
@@ -2720,8 +2731,9 @@ function claimStudentGiftByCode(code, giftId) {
     return;
   }
   const required = Number(gift.requiredPoints || 0);
-  if (Number(student.points || 0) < required) {
-    showAuthMessage("نقاط الطالب غير كافية لاستلام هذه الهدية.", true);
+  const usage = getStudentGiftUsage(cls, student);
+  if (usage.remaining < required) {
+    showAuthMessage(`الرصيد المتاح للهدايا غير كافٍ. المتاح الآن: ${usage.remaining} نقطة.`, true);
     return;
   }
   if (student.claimedGiftIds.includes(gift.id)) {
@@ -3582,6 +3594,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 
