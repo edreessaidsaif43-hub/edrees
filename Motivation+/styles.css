@@ -829,3 +829,6 @@ body.feature-fullscreen .feature-fullscreen-backdrop {
   30% { transform: scale(1.02); filter: brightness(1.08); }
   100% { transform: scale(1); filter: brightness(1); }
 }
+
+.section-11 { background: #f5f3ff; }
+

@@ -2126,6 +2126,7 @@ function syncCountdownFromInputs() {
   if (!countdownRunning) {
     countdownRemainingSeconds = (mins * 60) + secs;
     renderCountdown();
+  renderDirectPointsCard();
     const status = document.getElementById("countdown-status");
     if (status) status.textContent = "تم تحديث وقت المؤقت.";
   }
@@ -2153,6 +2154,7 @@ function startCountdown() {
   playEventSound("start");
   pulseFeatureCardById("feature-countdown", "start");
   renderCountdown();
+  renderDirectPointsCard();
 
   countdownInterval = setInterval(() => {
     countdownRemainingSeconds -= 1;
@@ -2168,6 +2170,7 @@ function startCountdown() {
       pulseFeatureCardById("feature-countdown", "winner");
     }
     renderCountdown();
+  renderDirectPointsCard();
   }, 1000);
 }
 
@@ -2178,6 +2181,7 @@ function pauseCountdown() {
   }
   countdownRunning = false;
   renderCountdown();
+  renderDirectPointsCard();
 }
 
 function resetCountdown() {
@@ -2185,6 +2189,7 @@ function resetCountdown() {
   countdownRemainingSeconds = getCountdownInputSeconds();
   countdownInputsDirty = false;
   renderCountdown();
+  renderDirectPointsCard();
   const status = document.getElementById("countdown-status");
   if (status) status.textContent = "تمت إعادة ضبط المؤقت.";
 }
@@ -2841,6 +2846,39 @@ function renderParentPanel(found) {
   hydrateProfilePhotoByElementId("parent-panel-photo", cls, student);
 }
 
+function renderDirectPointsCard() {
+  const select = document.getElementById("bonus-student-select");
+  const status = document.getElementById("bonus-points-status");
+  if (!select || !status) return;
+
+  if (!currentTeacher) {
+    select.innerHTML = "<option value=''>سجل الدخول أولاً</option>";
+    status.textContent = "ميزة إضافة النقاط المباشرة متاحة بعد تسجيل الدخول.";
+    return;
+  }
+
+  const cls = getActiveClass();
+  if (!cls) {
+    select.innerHTML = "<option value=''>لا يوجد صف نشط</option>";
+    status.textContent = "أنشئ صفًا أولاً لاستخدام هذه البطاقة.";
+    return;
+  }
+
+  if (!Array.isArray(cls.students) || !cls.students.length) {
+    select.innerHTML = "<option value=''>لا يوجد طلاب</option>";
+    status.textContent = "أضف طلابًا أولاً ثم أضف النقاط لهم.";
+    return;
+  }
+
+  const currentValue = normalizeName(select.value);
+  const ranked = rankStudents(cls);
+  select.innerHTML = "<option value=''>اختر الطالب</option>" + ranked.map((s) => {
+    const selected = currentValue === s.id ? "selected" : "";
+    return `<option value="${s.id}" ${selected}>${s.name} (${Number(s.points || 0)} نقطة)</option>`;
+  }).join("");
+
+  status.textContent = "لن يتم الخصم من أي طالب، فقط إضافة نقاط مباشرة.";
+}
 function renderAll() {
   refreshClassesFromShared();
   updateSessionUI();
@@ -2859,6 +2897,7 @@ function renderAll() {
   renderWheel();
   renderLuckyGame();
   renderCountdown();
+  renderDirectPointsCard();
 }
 
 window.updateStudentPoints = updateStudentPoints;
@@ -3298,6 +3337,42 @@ document.getElementById("reset-mini-challenge").addEventListener("click", () => 
 
 // Student / parent portals
 
+
+document.getElementById("add-bonus-points").addEventListener("click", () => {
+  if (!ensureAuthOrNotify()) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+
+  const select = document.getElementById("bonus-student-select");
+  const pointsEl = document.getElementById("bonus-points");
+  const reasonEl = document.getElementById("bonus-reason");
+  const status = document.getElementById("bonus-points-status");
+  if (!select || !pointsEl || !reasonEl || !status) return;
+
+  const studentId = normalizeName(select.value);
+  const delta = Math.max(1, Number(pointsEl.value || 0));
+  if (!studentId) {
+    status.textContent = "اختر الطالب أولاً.";
+    return;
+  }
+
+  const student = (cls.students || []).find((s) => s.id === studentId);
+  if (!student) {
+    status.textContent = "تعذر العثور على الطالب المختار.";
+    return;
+  }
+
+  const customReason = normalizeName(reasonEl.value);
+  const reasonLabel = customReason || "إضافة نقاط مباشرة من بطاقة 11";
+  applyPointsChange(student, delta, reasonLabel);
+  saveTeacherData();
+  renderAll();
+  playEventSound("winner");
+  triggerCelebration("⭐ إضافة نقاط مباشرة", `${student.name} حصل على ${delta} نقطة`);
+  status.textContent = `تمت إضافة ${delta} نقطة للطالب ${student.name}.`;
+  pointsEl.value = String(delta);
+  reasonEl.value = "";
+});
 document.getElementById("student-login").addEventListener("click", async () => {
   const code = document.getElementById("student-code-input").value;
   let found = findStudentByCodeInLocalState(code);
@@ -3498,6 +3573,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 
