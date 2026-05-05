@@ -1731,14 +1731,17 @@ function getMiniChallenge(cls) {
 
 function getMiniRemainingSeconds(mini) {
   if (!mini || !mini.active) return 0;
-  if (mini.paused) {
-    return Math.max(0, Number(mini.remainingSecondsOnPause || 0));
-  }
-  if (!mini.endsAt) return 0;
-  const end = new Date(mini.endsAt).getTime();
+  if (mini.paused) return Math.max(0, Number(mini.remainingSecondsOnPause || 0));
+  const end = new Date(mini.endsAt || "").getTime();
   if (!Number.isFinite(end)) return 0;
-  const remaining = Math.ceil((end - Date.now()) / 1000);
-  return Math.max(0, remaining);
+  return Math.max(0, Math.ceil((end - Date.now()) / 1000));
+}
+
+function setMiniStatusText(text, isError = false) {
+  const status = document.getElementById("mini-challenge-status");
+  if (!status) return;
+  status.textContent = text;
+  status.style.color = isError ? "#b91c1c" : "";
 }
 
 function renderMiniChallenge() {
@@ -1756,6 +1759,7 @@ function renderMiniChallenge() {
   if (!titleInput || !bonusInput || !durationInput || !winnerInput || !status || !meta || !progressFill || !startBtn || !toggleBtn || !pickBtn || !resetBtn) return;
 
   if (!currentTeacher) {
+    winnerInput.innerHTML = "<option value=''>سجل الدخول أولاً</option>";
     status.textContent = "سجل الدخول أولاً.";
     meta.textContent = "";
     progressFill.style.width = "0%";
@@ -1768,6 +1772,7 @@ function renderMiniChallenge() {
 
   const cls = getActiveClass();
   if (!cls) {
+    winnerInput.innerHTML = "<option value=''>لا يوجد صف نشط</option>";
     status.textContent = "لا يوجد صف نشط.";
     meta.textContent = "";
     progressFill.style.width = "0%";
@@ -1779,27 +1784,13 @@ function renderMiniChallenge() {
   }
 
   const mini = getMiniChallenge(cls);
-  if (document.activeElement !== titleInput) {
-    titleInput.value = mini.title || "";
-  }
-  if (document.activeElement !== bonusInput) {
-    bonusInput.value = mini.bonusPoints || 10;
-  }
-  if (document.activeElement !== durationInput) {
-    durationInput.value = String(mini.durationSeconds || 300);
-  }
-  const currentWinnerSelection = normalizeName(winnerInput.value);
-  const selectedWinnerId = mini.winnerStudentId || currentWinnerSelection;
-  winnerInput.innerHTML = "<option value=''>اختر الفائز (اختيار المعلم)</option>" +
-    cls.students.map((s) => `<option value="${s.id}" ${selectedWinnerId === s.id ? "selected" : ""}>${s.name}</option>`).join("");
-  const selectedDuration = Math.max(60, Number(durationInput.value || mini.durationSeconds || 300));
-  const minsLabel = Math.floor(selectedDuration / 60);
-  const secsLabel = selectedDuration % 60;
-  startBtn.textContent = mini.active
-    ? "التحدي جارٍ"
-    : (secsLabel ? `بدء تحدي ${minsLabel}:${String(secsLabel).padStart(2, "0")}` : `بدء تحدي ${minsLabel} دقائق`);
 
-  if (!cls.students.length) {
+  if (document.activeElement !== titleInput) titleInput.value = mini.title || "";
+  if (document.activeElement !== bonusInput) bonusInput.value = String(mini.bonusPoints || 10);
+  if (document.activeElement !== durationInput) durationInput.value = String(mini.durationSeconds || 300);
+
+  if (!Array.isArray(cls.students) || !cls.students.length) {
+    winnerInput.innerHTML = "<option value=''>لا يوجد طلاب</option>";
     status.textContent = "أضف طلابًا أولاً لاستخدام التحدي المصغر.";
     meta.textContent = "";
     progressFill.style.width = "0%";
@@ -1810,25 +1801,32 @@ function renderMiniChallenge() {
     return;
   }
 
-  const winner = (cls.students || []).find((s) => s.id === mini.winnerStudentId);
+  const currentChoice = normalizeName(winnerInput.value);
+  const selectedWinnerId = mini.winnerStudentId || currentChoice;
+  winnerInput.innerHTML = "<option value=''>اختر الطالب الفائز</option>" +
+    rankStudents(cls).map((s) => `<option value="${s.id}" ${selectedWinnerId === s.id ? "selected" : ""}>${s.name}</option>`).join("");
+
+  const total = Math.max(60, Number(mini.durationSeconds || durationInput.value || 300));
   const remaining = getMiniRemainingSeconds(mini);
-  const total = Math.max(1, Number(mini.durationSeconds || 300));
-  const progressPercent = mini.active ? Math.max(0, Math.min(100, Math.round(((total - remaining) / total) * 100))) : 0;
-  progressFill.style.width = `${progressPercent}%`;
-  meta.textContent = `المشاركون: ${cls.students.length} | اختيار الفائز: المعلم | نقاط الفائز: ${mini.bonusPoints}`;
+  const donePart = mini.active ? Math.max(0, total - remaining) : 0;
+  const progress = mini.active ? Math.round((donePart / total) * 100) : 0;
+  progressFill.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+
+  const winner = cls.students.find((s) => s.id === mini.winnerStudentId);
+  meta.textContent = `المشاركون: ${cls.students.length} | نقاط الفائز: ${mini.bonusPoints}`;
 
   if (mini.active) {
-    const pauseText = mini.paused ? " (موقوف مؤقتًا)" : "";
-    status.innerHTML = `<span class="mini-challenge-live">⏱️ ${formatSeconds(remaining)}${pauseText} | التحدي: ${mini.title || "تحدي سريع"} | جائزة: ${mini.bonusPoints} نقطة</span>`;
+    const pauseLabel = mini.paused ? " (موقوف)" : "";
+    status.innerHTML = `<span class="mini-challenge-live">⏱️ ${formatSeconds(remaining)}${pauseLabel} | ${mini.title || "تحدي سريع"}</span>`;
   } else if (winner) {
-    status.textContent = `آخر فائز في التحدي المصغر: ${winner.name} (+${mini.bonusPoints} نقطة)`;
+    status.textContent = `آخر فائز: ${winner.name} (+${mini.bonusPoints} نقطة)`;
   } else {
     status.textContent = "لا يوجد تحدي مصغر نشط.";
   }
 
   startBtn.disabled = mini.active;
   toggleBtn.disabled = !mini.active;
-  toggleBtn.textContent = mini.paused ? "استئناف التحدي" : "إيقاف مؤقت";
+  toggleBtn.textContent = mini.paused ? "استئناف" : "إيقاف مؤقت";
   pickBtn.disabled = !mini.active;
   resetBtn.disabled = false;
 }
@@ -1839,9 +1837,12 @@ async function finishMiniChallengeWithWinner(cls, winner, reasonText) {
   if (!mini.active) return false;
 
   const bonusPoints = normalizePositivePoints(mini.bonusPoints, 10);
-  const miniAwardRes = addWinnerPointsById(cls, winner.id, bonusPoints, reasonText);
-  if (!miniAwardRes.ok) return false;
+  const award = addWinnerPointsById(cls, winner.id, bonusPoints, reasonText || `فوز في تحدي مصغر: ${mini.title || "تحدي سريع"}`);
+  if (!award.ok) return false;
+
   mini.active = false;
+  mini.paused = false;
+  mini.remainingSecondsOnPause = 0;
   mini.winnerStudentId = winner.id;
   mini.winnerAnnouncedAt = new Date().toISOString();
   saveTeacherData();
@@ -1858,34 +1859,34 @@ function startMiniChallenge() {
   const cls = ensureClassOrNotify();
   if (!cls) return;
   if (!cls.students.length) {
-    showAuthMessage("أضف طلابًا أولاً.");
+    showAuthMessage("أضف طلابًا أولاً.", true);
     return;
   }
 
+  const titleEl = document.getElementById("mini-challenge-title");
+  const bonusEl = document.getElementById("mini-challenge-bonus");
+  const durationEl = document.getElementById("mini-challenge-duration");
+
   const mini = getMiniChallenge(cls);
-  const title = normalizeName(document.getElementById("mini-challenge-title").value) || "تحدي سريع";
-  const bonus = normalizePositivePoints(document.getElementById("mini-challenge-bonus").value, 10);
-  const duration = Math.max(60, Number(document.getElementById("mini-challenge-duration").value || 300));
-  const now = new Date();
-  mini.title = title;
-  playEventSound("start");
-  pulseFeatureCardById("mini-challenge-progress", "start");
-  mini.bonusPoints = bonus;
-  mini.durationSeconds = duration;
-  mini.startedAt = now.toISOString();
-  mini.endsAt = new Date(now.getTime() + duration * 1000).toISOString();
+  mini.title = normalizeName(titleEl ? titleEl.value : "") || "تحدي سريع";
+  mini.bonusPoints = normalizePositivePoints(bonusEl ? bonusEl.value : 10, 10);
+  mini.durationSeconds = Math.max(60, Number(durationEl ? durationEl.value : 300));
+
+  const now = Date.now();
+  mini.startedAt = new Date(now).toISOString();
+  mini.endsAt = new Date(now + mini.durationSeconds * 1000).toISOString();
   mini.active = true;
   mini.paused = false;
   mini.remainingSecondsOnPause = 0;
   mini.winnerStudentId = "";
   mini.winnerAnnouncedAt = "";
+
   saveTeacherData();
   renderAll();
-  const mins = Math.floor(duration / 60);
-  const secs = duration % 60;
-  const durationText = secs ? `${mins} دقيقة و${secs} ثانية` : `${mins} دقيقة`;
-  triggerCelebration("⚡ بدأ التحدي المصغر", `${title} لمدة ${durationText} بدأ الآن`);
-  showAuthMessage(`تم بدء التحدي المصغر لمدة ${durationText}.`);
+  playEventSound("start");
+  pulseFeatureCardById("mini-challenge-progress", "start");
+  triggerCelebration("⚡ بدأ التحدي المصغر", `${mini.title} بدأ الآن`);
+  showAuthMessage("تم بدء التحدي المصغر.");
 }
 
 async function pickMiniChallengeWinnerNow() {
@@ -1894,30 +1895,28 @@ async function pickMiniChallengeWinnerNow() {
   if (!cls) return;
   const mini = getMiniChallenge(cls);
   if (!mini.active) {
-    showAuthMessage("لا يوجد تحدي مصغر نشط.", true);
+    showAuthMessage("لا يوجد تحدي نشط.", true);
     return;
   }
-  if (!cls.students.length) {
-    showAuthMessage("لا يوجد طلاب لاختيار فائز.", true);
-    return;
-  }
-  const winnerId = normalizeName(document.getElementById("mini-challenge-winner").value);
+
+  const select = document.getElementById("mini-challenge-winner");
+  const winnerId = normalizeName(select ? select.value : "");
   if (!winnerId) {
-    showAuthMessage("يرجى اختيار الطالب الفائز من القائمة.", true);
+    setMiniStatusText("اختر الطالب الفائز أولاً.", true);
     return;
   }
+
   const winner = cls.students.find((s) => s.id === winnerId);
   if (!winner) {
-    showAuthMessage("تعذر العثور على الطالب المختار.", true);
+    setMiniStatusText("تعذر العثور على الطالب المختار.", true);
     return;
   }
-  const ok = window.confirm(`اختيار ${winner.name} فائزًا فوريًا بالتحدي المصغر؟`);
+
+  const ok = window.confirm(`اختيار ${winner.name} فائزًا الآن؟`);
   if (!ok) return;
-  const done = await finishMiniChallengeWithWinner(cls, winner, `فوز فوري في تحدي 5 دقائق: ${mini.title || "تحدي سريع"}`);
-  if (done) {
-    const awarded = normalizePositivePoints(mini.bonusPoints, 10);
-    showAuthMessage(`تم اختيار ${winner.name} فائزًا وإضافة ${awarded} نقطة.`);
-  }
+
+  const done = await finishMiniChallengeWithWinner(cls, winner, `فوز فوري في التحدي المصغر: ${mini.title || "تحدي سريع"}`);
+  if (done) showAuthMessage(`تم منح ${winner.name} نقاط الفوز.`);
 }
 
 function toggleMiniChallengePause() {
@@ -1926,7 +1925,7 @@ function toggleMiniChallengePause() {
   if (!cls) return;
   const mini = getMiniChallenge(cls);
   if (!mini.active) {
-    showAuthMessage("لا يوجد تحدي نشط لإيقافه.", true);
+    showAuthMessage("لا يوجد تحدي نشط.", true);
     return;
   }
 
@@ -1939,7 +1938,7 @@ function toggleMiniChallengePause() {
     return;
   }
 
-  const remaining = Math.max(1, Number(mini.remainingSecondsOnPause || 0));
+  const remaining = Math.max(1, Number(mini.remainingSecondsOnPause || 1));
   mini.paused = false;
   mini.endsAt = new Date(Date.now() + remaining * 1000).toISOString();
   mini.remainingSecondsOnPause = 0;
@@ -1952,9 +1951,9 @@ function resetMiniChallenge() {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
-  const mini = getMiniChallenge(cls);
-  const ok = window.confirm("هل تريد إنهاء/إعادة ضبط التحدي المصغر الحالي؟");
+  const ok = window.confirm("هل تريد إنهاء/إعادة ضبط التحدي المصغر؟");
   if (!ok) return;
+
   cls.miniChallenge = createDefaultMiniChallenge();
   saveTeacherData();
   renderAll();
@@ -1967,11 +1966,13 @@ function ensureMiniChallengeTicker() {
     if (!currentTeacher) return;
     const cls = getActiveClass();
     if (!cls) return;
+
     const mini = getMiniChallenge(cls);
     if (!mini.active) {
       renderMiniChallenge();
       return;
     }
+
     if (mini.paused) {
       renderMiniChallenge();
       return;
@@ -1979,17 +1980,19 @@ function ensureMiniChallengeTicker() {
 
     const remaining = getMiniRemainingSeconds(mini);
     if (remaining <= 0) {
-      mini.paused = true;
+      mini.active = false;
+      mini.paused = false;
       mini.remainingSecondsOnPause = 0;
       saveTeacherData();
       renderMiniChallenge();
-      showAuthMessage("انتهى الوقت. اختر الفائز من القائمة ثم اضغط اختيار فائز فوري.");
+      setMiniStatusText("انتهى الوقت. اختر الفائز يدويًا من القائمة.");
+      playEventSound("success");
       return;
     }
+
     renderMiniChallenge();
   }, 1000);
 }
-
 function renderWheel() {
   const wheel = document.getElementById("student-wheel");
   const center = document.getElementById("wheel-center-text");
@@ -3573,6 +3576,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 
