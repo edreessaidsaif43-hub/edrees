@@ -2163,3 +2163,64 @@ main {
     max-width: 100% !important;
   }
 }
+
+/* Mobile bottom navigation: match the provided phone mockup options exactly. */
+@media (max-width: 760px) {
+  .teacher-side-nav {
+    direction: rtl !important;
+    justify-content: space-around !important;
+  }
+
+  .teacher-side-link,
+  .teacher-side-title {
+    display: none !important;
+  }
+
+  .teacher-side-link:nth-of-type(1),
+  .teacher-side-link:nth-of-type(3),
+  .teacher-side-link:nth-of-type(5),
+  .teacher-side-link:nth-of-type(7),
+  .teacher-side-link:nth-of-type(8) {
+    display: flex !important;
+    flex: 1 1 20% !important;
+    width: auto !important;
+    max-width: 86px !important;
+    min-width: 58px !important;
+    font-size: 0 !important;
+  }
+
+  .teacher-side-link:nth-of-type(5) { order: 1 !important; }
+  .teacher-side-link:nth-of-type(8) { order: 2 !important; }
+  .teacher-side-link:nth-of-type(7) { order: 3 !important; }
+  .teacher-side-link:nth-of-type(3) { order: 4 !important; }
+  .teacher-side-link:nth-of-type(1) { order: 5 !important; }
+
+  .teacher-side-link::before {
+    display: block;
+    font-size: 1.35rem;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .teacher-side-link::after {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1.15;
+  }
+
+  .teacher-side-link:nth-of-type(5)::before { content: "👥"; }
+  .teacher-side-link:nth-of-type(5)::after { content: "الطلاب"; }
+
+  .teacher-side-link:nth-of-type(8)::before { content: "🎮"; }
+  .teacher-side-link:nth-of-type(8)::after { content: "الألعاب"; }
+
+  .teacher-side-link:nth-of-type(7)::before { content: "🏆"; }
+  .teacher-side-link:nth-of-type(7)::after { content: "التحديات"; }
+
+  .teacher-side-link:nth-of-type(3)::before { content: "🎁"; }
+  .teacher-side-link:nth-of-type(3)::after { content: "المكافآت"; }
+
+  .teacher-side-link:nth-of-type(1)::before { content: "⚙️"; }
+  .teacher-side-link:nth-of-type(1)::after { content: "الإدارة"; }
+}
