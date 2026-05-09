@@ -1623,3 +1623,18 @@ main {
   background: currentColor;
   box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 14%, transparent);
 }
+
+/* Match setup and reports frames with the in-class title color. */
+.teacher-side-link:first-of-type,
+.teacher-side-title:nth-of-type(2) {
+  border-color: #f59e0b !important;
+  background: linear-gradient(135deg, #fff7ed, #ffffff) !important;
+  color: #9a3412 !important;
+}
+
+.teacher-side-link:first-of-type.active {
+  border-color: #f59e0b !important;
+  background: linear-gradient(135deg, #fff7ed, #ffffff) !important;
+  color: #9a3412 !important;
+  box-shadow: 0 10px 22px rgba(245, 158, 11, 0.16) !important;
+}

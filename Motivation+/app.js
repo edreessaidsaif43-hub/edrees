@@ -836,6 +836,20 @@ function buildUnifiedAuthUrl() {
   }
 }
 
+function buildUnifiedProfileEditUrl() {
+  try {
+    const target = buildUnifiedAuthUrl() || UNIFIED_AUTH_WEB_PATH;
+    const url = new URL(target, window.location.origin);
+    url.searchParams.set("mode", "register");
+    url.searchParams.set("intent", "profile_edit");
+    const returnPath = `${window.location.pathname || "/"}${window.location.search || ""}${window.location.hash || ""}`;
+    url.searchParams.set("return", returnPath);
+    return url.toString();
+  } catch {
+    return "/enjazy/auth.html?mode=register&intent=profile_edit&return=%2FMotivation%2B%2F";
+  }
+}
+
 function getCurrentTeacher() {
   const unified = readUnifiedSession();
   return unified || null;
@@ -3080,15 +3094,7 @@ document.getElementById("open-unified-auth").addEventListener("click", (e) => {
 });
 
 document.getElementById("edit-profile-btn").addEventListener("click", () => {
-  const target = buildUnifiedAuthUrl();
-  try {
-    const url = new URL(target || "/enjazy/auth.html", window.location.origin);
-    url.searchParams.set("mode", "register");
-    url.searchParams.set("intent", "profile_edit");
-    window.location.assign(url.toString());
-  } catch {
-    window.location.assign("/enjazy/auth.html?mode=register&intent=profile_edit&return=%2FMotivation%2B%2F");
-  }
+  window.location.assign(buildUnifiedProfileEditUrl());
 });
 
 document.getElementById("logout-btn").addEventListener("click", async () => {
@@ -3740,6 +3746,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 
