@@ -3023,12 +3023,24 @@ function setupTeacherSidePanels() {
     link.addEventListener("click", (event) => {
       event.preventDefault();
       showTeacherPanel(link.dataset.teacherPanelTrigger || "setup", link);
+      keepTeacherPanelPosition();
     });
   });
 
   showTeacherPanel("setup");
 }
 
+function keepTeacherPanelPosition() {
+  const teacherApp = document.getElementById("teacher-app");
+  if (!teacherApp) return;
+  requestAnimationFrame(() => {
+    const fixedOffset = 150;
+    const targetTop = Math.max(0, teacherApp.getBoundingClientRect().top + window.scrollY - fixedOffset);
+    if (Math.abs(window.scrollY - targetTop) > 20) {
+      window.scrollTo({ top: targetTop, behavior: "auto" });
+    }
+  });
+}
 function showTeacherPanel(panelName, activeLink = null) {
   const normalized = panelName || "setup";
   document.querySelectorAll("[data-teacher-panel]").forEach((node) => {
@@ -3746,6 +3758,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 

@@ -1691,3 +1691,26 @@ main {
     padding: 10px 12px !important;
   }
 }
+
+/* Sidebar position lock: keep the side menu anchored consistently while panels change height. */
+#teacher-app {
+  align-items: start !important;
+  min-height: calc(100vh - 170px) !important;
+}
+
+.teacher-side-nav {
+  grid-row: 1 !important;
+  align-self: start !important;
+  position: sticky !important;
+  top: 150px !important;
+  margin-top: 0 !important;
+  transform: none !important;
+}
+
+@media (max-width: 1100px) {
+  .teacher-side-nav {
+    position: static !important;
+    top: auto !important;
+    margin-top: 0 !important;
+  }
+}
