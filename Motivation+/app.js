@@ -857,6 +857,31 @@ function getCurrentTeacher() {
   return unified || null;
 }
 
+
+function getRecentLiveGameEvents(snapshot) {
+  const now = Date.now();
+  const events = [];
+  const classes = Array.isArray(snapshot?.classes) ? snapshot.classes : [];
+  classes.forEach((cls) => {
+    const liveGames = cls && typeof cls.liveGames === "object" ? cls.liveGames : null;
+    if (!liveGames) return;
+    ["wheel", "lucky", "countdown"].forEach((type) => {
+      const event = liveGames[type];
+      if (!event || !event.id) return;
+      const endsAt = Number(event.endsAt || event.updatedAt || 0);
+      const isRecent = type === "countdown"
+        ? (event.status === "running" || now - endsAt < 60000 || now - Number(event.updatedAt || 0) < 60000)
+        : (endsAt + 20000 > now);
+      if (isRecent) events.push(`${cls.id || ""}:${type}:${event.id}`);
+    });
+  });
+  return events;
+}
+
+function remoteHasNewLiveGame(localSnapshot, remoteSnapshot) {
+  const localEvents = new Set(getRecentLiveGameEvents(localSnapshot));
+  return getRecentLiveGameEvents(remoteSnapshot).some((eventKey) => !localEvents.has(eventKey));
+}
 async function pullRemoteStateIfNeeded(forceRemote = false) {
   const userId = getUnifiedUserId();
   if (!userId) return "noop";
@@ -878,14 +903,18 @@ async function pullRemoteStateIfNeeded(forceRemote = false) {
 
   const localTs = Number(state && state.updatedAt ? state.updatedAt : 0);
   const remoteTs = Number(remoteState.updatedAt || 0);
-  if (remoteTs > localTs) {
+  const hasNewLiveGame = remoteHasNewLiveGame(state, remoteState);
+  if (remoteTs > localTs || hasNewLiveGame) {
     state = remoteState;
     savePublicStateCache(state);
     renderAll();
     return "pulled";
   } else if (localTs > remoteTs) {
-    await saveStateToRemote(userId, JSON.parse(JSON.stringify(state)));
-    return "pushed";
+    const localHasLiveGame = remoteHasNewLiveGame(remoteState, state);
+    if (!localHasLiveGame) {
+      await saveStateToRemote(userId, JSON.parse(JSON.stringify(state)));
+      return "pushed";
+    }
   }
   return "noop";
 }
@@ -3923,6 +3952,8 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
 
 
 
