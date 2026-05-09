@@ -1854,3 +1854,312 @@ main {
   font-size: 1.05rem;
   padding: 14px 24px;
 }
+
+/* ==========================================================
+   Mobile app experience for Motivation+
+   Desktop remains unchanged. Phones get an app-like shell.
+   ========================================================== */
+@media (max-width: 760px) {
+  html,
+  body {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    background: #151816 !important;
+  }
+
+  body {
+    padding: 122px 0 96px !important;
+    color: #0f172a;
+  }
+
+  body #site-navbar {
+    display: none !important;
+  }
+
+  .topbar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 1200 !important;
+    height: 70px !important;
+    min-height: 70px !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
+    border: 0 !important;
+    border-radius: 0 0 22px 22px !important;
+    background: linear-gradient(135deg, #0f766e, #0d9488) !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28) !important;
+  }
+
+  .topbar > div:first-child {
+    order: 2 !important;
+    flex: 0 0 auto !important;
+    margin-inline-start: auto !important;
+  }
+
+  .topbar h1 {
+    color: #ffffff !important;
+    font-size: 1.55rem !important;
+    line-height: 1 !important;
+    letter-spacing: -0.02em;
+  }
+
+  .topbar h1::after {
+    content: " +" !important;
+    color: #fde68a;
+  }
+
+  .topbar > div:first-child p {
+    display: none !important;
+  }
+
+  .topbar-right {
+    order: 1 !important;
+    flex: 1 1 auto !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    overflow: visible !important;
+  }
+
+  #session-info {
+    max-width: 130px !important;
+    padding: 10px 12px !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.18) !important;
+    color: #ffffff !important;
+    font-size: 0.82rem !important;
+    font-weight: 800 !important;
+  }
+
+  #logout-btn,
+  #sync-now-btn,
+  #edit-profile-btn {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+    border: 0 !important;
+    background: rgba(255, 255, 255, 0.18) !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+    font-size: 0 !important;
+  }
+
+  #logout-btn::after { content: "⎋"; font-size: 1.1rem; }
+  #sync-now-btn::after { content: "↻"; font-size: 1.15rem; }
+  #edit-profile-btn::after { content: "✎"; font-size: 1.05rem; }
+
+  .tabs {
+    position: fixed !important;
+    top: 70px !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 1190 !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    padding: 10px 12px 12px !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #d9e7e3 !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  .tabs::-webkit-scrollbar,
+  .teacher-side-nav::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .tab {
+    flex: 0 0 auto !important;
+    min-width: auto !important;
+    padding: 9px 18px !important;
+    border-radius: 999px !important;
+    border: 1px solid #cfe2dc !important;
+    background: #ffffff !important;
+    color: #64748b !important;
+    box-shadow: none !important;
+    white-space: nowrap !important;
+    font-size: 0.92rem !important;
+  }
+
+  .tab.active {
+    background: #0f8f82 !important;
+    border-color: #0f8f82 !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 18px rgba(15, 143, 130, 0.22) !important;
+  }
+
+  main {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 16px 12px 0 !important;
+    margin: 0 !important;
+  }
+
+  .view {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+  }
+
+  #teacher-app {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+  }
+
+  #teacher-app > .grid,
+  #teacher-app > .card.wide,
+  #teacher-app > #reports-panel {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+  }
+
+  #teacher-app > .grid,
+  #reports-panel[data-teacher-panel]:not([hidden]) {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .teacher-app .card,
+  .card,
+  .portal-view > .card,
+  .live-view > .card {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-inline: 0 !important;
+    border-radius: 18px !important;
+    border: 1px solid #dce9e6 !important;
+    background: #f8fbfa !important;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18) !important;
+  }
+
+  .teacher-app .card h2,
+  .card h2 {
+    font-size: 1.15rem !important;
+    line-height: 1.35 !important;
+  }
+
+  .field-row {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  input,
+  select,
+  textarea,
+  .btn,
+  button {
+    width: 100% !important;
+    min-height: 46px !important;
+    border-radius: 14px !important;
+    font-size: 0.98rem !important;
+  }
+
+  .teacher-side-nav {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    z-index: 1300 !important;
+    width: 100% !important;
+    min-height: 74px !important;
+    max-height: 74px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
+    gap: 0 !important;
+    padding: 6px 8px max(6px, env(safe-area-inset-bottom)) !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+    border-radius: 18px 18px 0 0 !important;
+    background: #ffffff !important;
+    box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.28) !important;
+  }
+
+  .teacher-side-title {
+    display: none !important;
+  }
+
+  .teacher-side-link {
+    flex: 0 0 84px !important;
+    width: 84px !important;
+    min-height: 58px !important;
+    height: 58px !important;
+    margin: 0 2px !important;
+    padding: 7px 4px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    border: 0 !important;
+    border-radius: 14px !important;
+    background: transparent !important;
+    color: #6b7b87 !important;
+    box-shadow: none !important;
+    font-size: 0.72rem !important;
+    line-height: 1.15 !important;
+    white-space: normal !important;
+    text-align: center !important;
+  }
+
+  .teacher-side-link.active {
+    background: #e6f6f3 !important;
+    color: #0f8f82 !important;
+    box-shadow: inset 0 -3px 0 #0f8f82 !important;
+  }
+
+  .teacher-account-card.logged-out-auth-card {
+    margin: 18px 12px 0 !important;
+    padding: 28px 18px !important;
+    border-radius: 22px !important;
+    background: #ffffff !important;
+  }
+
+  .auth-cta-icon {
+    width: 64px !important;
+    height: 64px !important;
+    border-radius: 20px !important;
+  }
+
+  #students-table {
+    overflow-x: auto !important;
+  }
+
+  #students-table table {
+    min-width: 680px !important;
+  }
+
+  .portal-view,
+  .live-view {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
