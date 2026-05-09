@@ -1802,3 +1802,55 @@ main {
   color: #9a3412;
   font-weight: 800;
 }
+
+/* Logged-out screen: show only a motivational login/signup invitation. */
+.teacher-account-card.logged-out-auth-card {
+  width: min(100%, 760px);
+  margin: 54px auto 0 !important;
+  padding: clamp(28px, 5vw, 48px) !important;
+  text-align: center;
+  border: 1px solid #dbe7ff !important;
+  border-radius: 28px !important;
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.12), transparent 34%),
+    linear-gradient(135deg, #ffffff, #f8fbff) !important;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.10) !important;
+}
+
+.auth-cta-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #2563eb, #22c55e);
+  color: #ffffff;
+  font-size: 34px;
+  box-shadow: 0 18px 34px rgba(37, 99, 235, 0.22);
+}
+
+.teacher-account-card.logged-out-auth-card h2 {
+  margin: 0 0 12px;
+  font-size: clamp(1.6rem, 4vw, 2.35rem);
+  color: #0f172a;
+}
+
+.teacher-account-card.logged-out-auth-card .muted {
+  max-width: 560px;
+  margin-inline: auto;
+  font-size: 1.05rem;
+  line-height: 1.9;
+}
+
+.auth-cta-actions {
+  justify-content: center !important;
+  margin-top: 24px !important;
+}
+
+.auth-cta-actions .btn {
+  min-width: 240px;
+  justify-content: center;
+  font-size: 1.05rem;
+  padding: 14px 24px;
+}

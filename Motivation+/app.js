@@ -998,6 +998,7 @@ function updateSessionUI() {
   const editProfileBtn = document.getElementById("edit-profile-btn");
   const app = document.getElementById("teacher-app");
   const openAuthBtn = document.getElementById("open-unified-auth");
+  const accountCard = document.querySelector(".teacher-account-card");
 
   if (currentTeacher) {
     info.textContent = `المعلم الحالي: ${currentTeacher.name}`;
@@ -1005,6 +1006,7 @@ function updateSessionUI() {
     if (syncBtn) syncBtn.style.display = "inline-block";
     if (editProfileBtn) editProfileBtn.style.display = "inline-block";
     if (openAuthBtn) openAuthBtn.style.display = "none";
+    if (accountCard) accountCard.style.display = "none";
     app.hidden = false;
     app.classList.remove("logged-out-preview");
     app.style.display = "grid";
@@ -1014,9 +1016,10 @@ function updateSessionUI() {
     if (syncBtn) syncBtn.style.display = "none";
     if (editProfileBtn) editProfileBtn.style.display = "none";
     if (openAuthBtn) openAuthBtn.style.display = "inline-block";
-    app.hidden = false;
-    app.classList.add("logged-out-preview");
-    app.style.display = "grid";
+    if (accountCard) accountCard.style.display = "block";
+    app.hidden = true;
+    app.classList.remove("logged-out-preview");
+    app.style.display = "none";
   }
 }
 
@@ -3762,6 +3765,8 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
 
 
 

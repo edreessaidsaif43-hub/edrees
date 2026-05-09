@@ -109,12 +109,14 @@
 
   <main>
     <section id="teacher" class="view active teacher-view">
-<article class="card teacher-account-card">
-        <h2>حساب المعلم</h2>
-        <div class="field-row">
-          <a id="open-unified-auth" class="btn" href="/enjazy/auth.html?mode=login&return=%2FMotivation%2B%2F">تسجيل الدخول من البوابة الموحدة</a>
+<article class="card teacher-account-card logged-out-auth-card">
+        <div class="auth-cta-icon">🚀</div>
+        <h2>ابدأ رحلة التحفيز مع طلابك</h2>
+        <p class="muted">سجّل دخولك أو أنشئ حسابك لتدير الصفوف، وتمنح النقاط، وتتابع إنجاز الطلاب بطريقة ممتعة ومنظمة.</p>
+        <div class="field-row auth-cta-actions">
+          <a id="open-unified-auth" class="btn" href="/enjazy/auth.html?mode=login&return=%2FMotivation%2B%2F">تسجيل الدخول أو إنشاء حساب</a>
         </div>
-        <small>يتم استخدام نفس حساب التسجيل الموحد (auth.html) لهذا المشروع.</small>
+        <small>سيتم تحويلك إلى صفحة التسجيل الموحد ثم العودة تلقائيًا إلى تحفيز+.</small>
         <p id="auth-message" class="muted"></p>
       </article>
 
@@ -456,6 +458,7 @@
   <script src="/Motivation+/app.js"></script>
 </body>
 </html>
+
 
 
 
