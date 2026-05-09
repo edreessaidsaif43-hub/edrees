@@ -1006,6 +1006,7 @@ function updateSessionUI() {
     if (editProfileBtn) editProfileBtn.style.display = "inline-block";
     if (openAuthBtn) openAuthBtn.style.display = "none";
     app.hidden = false;
+    app.classList.remove("logged-out-preview");
     app.style.display = "grid";
   } else {
     info.textContent = "غير مسجل";
@@ -1013,8 +1014,9 @@ function updateSessionUI() {
     if (syncBtn) syncBtn.style.display = "none";
     if (editProfileBtn) editProfileBtn.style.display = "none";
     if (openAuthBtn) openAuthBtn.style.display = "inline-block";
-    app.hidden = true;
-    app.style.display = "none";
+    app.hidden = false;
+    app.classList.add("logged-out-preview");
+    app.style.display = "grid";
   }
 }
 
@@ -3760,6 +3762,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 

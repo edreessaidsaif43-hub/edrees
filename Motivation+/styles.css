@@ -1757,3 +1757,48 @@ main {
 #teacher-app[hidden] {
   display: none !important;
 }
+
+/* Logged-out teacher preview: show login plus basic setup only. */
+#teacher-app.logged-out-preview {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  width: min(100%, 900px) !important;
+  margin-inline: auto !important;
+  min-height: 0 !important;
+}
+
+#teacher-app.logged-out-preview .teacher-side-nav,
+#teacher-app.logged-out-preview > .card.wide,
+#teacher-app.logged-out-preview > #reports-panel {
+  display: none !important;
+}
+
+#teacher-app.logged-out-preview > .grid {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  width: 100% !important;
+}
+
+#teacher-app.logged-out-preview > .grid > * {
+  display: none !important;
+}
+
+#teacher-app.logged-out-preview #class-management {
+  display: block !important;
+  grid-column: 1 !important;
+  width: 100% !important;
+}
+
+#teacher-app.logged-out-preview #class-management::before {
+  content: "سجّل دخولك لإدارة بياناتك وحفظها تلقائيًا";
+  display: block;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-weight: 800;
+}
