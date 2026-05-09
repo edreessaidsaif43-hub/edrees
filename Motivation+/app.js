@@ -1159,8 +1159,12 @@ function triggerCelebration(title, message) {
 }
 
 function enterFeatureFullscreen(featureId) {
+  if (["feature-wheel", "feature-lucky", "feature-countdown"].includes(featureId)) {
+    try { showTeacherPanel("games"); } catch {}
+  }
   const feature = document.getElementById(featureId);
   if (!feature) return;
+  feature.hidden = false;
 
   if (activeFullscreenFeature) {
     const prev = document.getElementById(activeFullscreenFeature);
@@ -2131,6 +2135,17 @@ function renderWheel() {
   }
 
   wheel.style.background = buildWheelGradient(cls.students.length);
+  const wheelEvent = cls.liveGames && cls.liveGames.wheel ? cls.liveGames.wheel : null;
+  const winnerName = wheelEvent && wheelEvent.winnerStudentId ? findStudentNameById(cls, wheelEvent.winnerStudentId) : "";
+  if (!wheelBusy && wheelEvent && winnerName && Number(wheelEvent.endsAt || 0) + 60000 > Date.now()) {
+    wheelRotation = Number(wheelEvent.finalRotation || wheelRotation || 0) % 360;
+    wheel.style.transform = `rotate(${wheelRotation}deg)`;
+    center.textContent = winnerName;
+    result.textContent = Date.now() < Number(wheelEvent.endsAt || 0)
+      ? "جاري التدوير على الأجهزة..."
+      : `تم اختيار: ${winnerName}`;
+    return;
+  }
   if (!wheelBusy) {
     center.textContent = "تدوير";
     result.textContent = "اضغط تدوير لاختيار طالب عشوائي.";
@@ -2187,6 +2202,17 @@ function renderLuckyGame() {
     grid.innerHTML = luckyStudents
       .map((student) => `<div class="lucky-card" data-student-id="${student.id}">${student.name}</div>`)
       .join("");
+  }
+
+  const luckyEvent = cls.liveGames && cls.liveGames.lucky ? cls.liveGames.lucky : null;
+  const winnerName = luckyEvent && luckyEvent.winnerStudentId ? findStudentNameById(cls, luckyEvent.winnerStudentId) : "";
+  if (!luckyBusy && luckyEvent && winnerName && Number(luckyEvent.endsAt || 0) + 60000 > Date.now()) {
+    const winnerCard = grid.querySelector(`[data-student-id="${luckyEvent.winnerStudentId}"]`);
+    if (winnerCard) winnerCard.classList.add("winner");
+    result.textContent = Date.now() < Number(luckyEvent.endsAt || 0)
+      ? "جاري اختيار الطالب على الأجهزة..."
+      : `فاز: ${winnerName}`;
+    return;
   }
 
   if (!luckyBusy) {
@@ -3952,6 +3978,8 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
 
 
 

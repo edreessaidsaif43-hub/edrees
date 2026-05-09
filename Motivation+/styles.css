@@ -2293,3 +2293,33 @@ main {
     font-size: 1.1rem;
   }
 }
+
+/* Strong fullscreen layer for synced games on desktop and mobile. */
+body.feature-fullscreen .feature-card.fullscreen-feature {
+  display: block !important;
+  position: fixed !important;
+  inset: 12px !important;
+  z-index: 2400 !important;
+  width: auto !important;
+  max-width: none !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: auto !important;
+}
+
+body.feature-fullscreen .feature-fullscreen-backdrop {
+  display: block !important;
+  z-index: 2390 !important;
+}
+
+@media (max-width: 760px) {
+  body.feature-fullscreen {
+    padding: 0 !important;
+  }
+
+  body.feature-fullscreen .feature-card.fullscreen-feature {
+    inset: 8px !important;
+    border-radius: 22px !important;
+    padding: 18px !important;
+  }
+}
