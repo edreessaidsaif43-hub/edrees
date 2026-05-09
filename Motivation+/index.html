@@ -11,439 +11,622 @@
 </head>
 <body>
 
-  <!-- ── NAVBAR ── -->
-  <nav id="site-navbar">
-    <a href="/" class="nav-brand">
-      <div class="nav-brand-icon">🎓</div>
-      <div class="nav-brand-text">
-        التحضير الذكي
-        <span>منصة المعلم الذكي</span>
+<!-- ══ GLOBAL NAV ══ -->
+<nav id="site-navbar">
+  <a href="/" class="nav-brand">
+    <div class="nav-brand-icon">🎓</div>
+    <div class="nav-brand-text">التحضير الذكي<span>منصة المعلم الذكي</span></div>
+  </a>
+  <ul class="nav-links">
+    <li><a href="/" class="nav-link-item" data-page="home"><span class="nav-icon">🏠</span>الرئيسية</a></li>
+    <li><a href="/t" class="nav-link-item" data-page="t"><span class="nav-icon">📚</span>تحضير الدروس</a></li>
+    <li><a href="/m" class="nav-link-item" data-page="m"><span class="nav-icon">🎮</span>المنصة التعليمية</a></li>
+    <li><a href="/enjazy" class="nav-link-item" data-page="enjazy"><span class="nav-icon">📁</span>ملف الإنجاز</a></li>
+    <li><a href="https://altahdir.app/mash/index.html" class="nav-link-item" data-page="mash" target="_blank" rel="noopener"><span class="nav-icon">🏆</span>مشاريع المعلمين</a></li>
+    <li><a href="https://gyab-xi.vercel.app/" class="nav-link-item" data-page="gyab" target="_blank" rel="noopener"><span class="nav-icon">📊</span>نظام الحضور</a></li>
+  </ul>
+  <button id="nav-toggle" onclick="toggleMobileNav()" aria-label="القائمة">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<div id="nav-mobile">
+  <a href="/" class="nav-link-item" data-page="home"><span>🏠</span>الرئيسية</a>
+  <a href="/t" class="nav-link-item" data-page="t"><span>📚</span>تحضير الدروس</a>
+  <a href="/m" class="nav-link-item" data-page="m"><span>🎮</span>المنصة التعليمية</a>
+  <a href="/enjazy" class="nav-link-item" data-page="enjazy"><span>📁</span>ملف الإنجاز الرقمي</a>
+  <a href="/Motivation+/" class="nav-link-item" data-page="motivation"><span>🚀</span>تحفيز+</a>
+  <a href="https://altahdir.app/mash/index.html" class="nav-link-item" data-page="mash" target="_blank" rel="noopener"><span>🏆</span>مشاريع المعلمين</a>
+  <a href="https://gyab-xi.vercel.app/" class="nav-link-item" data-page="gyab" target="_blank" rel="noopener"><span>📊</span>نظام الحضور</a>
+</div>
+
+<!-- ══ PAGE SHELL ══ -->
+<div class="page-shell">
+
+  <!-- TOP ROLE TABS BAR -->
+  <div class="role-tabs-bar">
+    <div class="role-tabs-inner">
+      <div class="app-logo"><span>🚀</span><strong>تحفيز+</strong></div>
+      <div class="role-tabs-center">
+        <button class="rtab active" data-tab="teacher">👨‍🏫 المعلم</button>
+        <button class="rtab" data-tab="student">🎒 الطالب</button>
+        <button class="rtab" data-tab="parent">👨‍👧 ولي الأمر</button>
+        <button class="rtab" data-tab="live">📡 مباشر</button>
       </div>
-    </a>
-
-    <ul class="nav-links">
-      <li><a href="/" class="nav-link-item" data-page="home"><span class="nav-icon">🏠</span> الرئيسية</a></li>
-      <li><a href="/t" class="nav-link-item" data-page="t"><span class="nav-icon">📚</span> تحضير الدروس</a></li>
-      <li><a href="/m" class="nav-link-item" data-page="m"><span class="nav-icon">🎮</span> المنصة التعليمية</a></li>
-      <li><a href="/enjazy" class="nav-link-item" data-page="enjazy"><span class="nav-icon">📁</span> ملف الإنجاز</a></li>
-      <li><a href="https://altahdir.app/mash/index.html" class="nav-link-item" data-page="mash" target="_blank" rel="noopener"><span class="nav-icon">🏆</span> مشاريع المعلمين</a></li>
-      <li><a href="https://gyab-xi.vercel.app/" class="nav-link-item" data-page="gyab" target="_blank" rel="noopener"><span class="nav-icon">📊</span> نظام الحضور</a></li>
-    </ul>
-
-    <button id="nav-toggle" onclick="toggleMobileNav()" aria-label="القائمة">
-      <span></span><span></span><span></span>
-    </button>
-  </nav>
-
-  <div id="nav-mobile">
-    <a href="/" class="nav-link-item" data-page="home"><span>🏠</span> الرئيسية</a>
-    <a href="/t" class="nav-link-item" data-page="t"><span>📚</span> تحضير الدروس</a>
-    <a href="/m" class="nav-link-item" data-page="m"><span>🎮</span> المنصة التعليمية</a>
-    <a href="/enjazy" class="nav-link-item" data-page="enjazy"><span>📁</span> ملف الإنجاز الرقمي</a>
-    <a href="/Motivation+/" class="nav-link-item" data-page="motivation"><span>🚀</span> تحفيز+</a>
-    <a href="https://altahdir.app/mash/index.html" class="nav-link-item" data-page="mash" target="_blank" rel="noopener"><span>🏆</span> مشاريع المعلمين</a>
-    <a href="https://gyab-xi.vercel.app/" class="nav-link-item" data-page="gyab" target="_blank" rel="noopener"><span>📊</span> نظام الحضور</a>
+      <div class="role-tabs-actions">
+        <div id="session-info" class="session-pill">غير مسجل</div>
+        <button id="logout-btn"      class="tbtn tbtn-ghost" style="display:none">خروج</button>
+        <button id="sync-now-btn"    class="tbtn tbtn-ghost" style="display:none">🔄</button>
+        <button id="edit-profile-btn" class="tbtn tbtn-ghost" style="display:none">✏️</button>
+      </div>
+    </div>
   </div>
 
-  <!-- ── MAIN ── -->
-  <main>
+  <!-- ══ VIEW: المعلم ══ -->
+  <div id="teacher" class="role-view active">
 
-    <!-- TOP BAR -->
-    <header class="topbar">
-      <div>
-        <h1>🚀 تحفيز+</h1>
-        <p>منصة تحفيز ذكية للمعلم والطالب وولي الأمر</p>
-      </div>
-      <div class="topbar-right">
-        <div id="session-info" class="session-info">غير مسجل</div>
-        <button id="logout-btn" class="btn secondary" style="display:none">خروج</button>
-        <button id="sync-now-btn" class="btn secondary" style="display:none">🔄 مزامنة</button>
-        <button id="edit-profile-btn" class="btn secondary" style="display:none">✏️ الملف</button>
-        <nav class="tabs">
-          <button class="tab active" data-tab="teacher">👨‍🏫 المعلم</button>
-          <button class="tab" data-tab="student">🎒 الطالب</button>
-          <button class="tab" data-tab="parent">👨‍👧 ولي الأمر</button>
-          <button class="tab" data-tab="live">📡 العرض المباشر</button>
-        </nav>
-      </div>
-    </header>
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="teacher-sidebar">
+      <div class="snav-group-label">الإعداد الأساسي</div>
+      <button class="snav-btn active" data-panel="panel-setup">
+        <span class="snav-icon">🏫</span><span class="snav-text">الصف والطلاب</span>
+      </button>
+      <button class="snav-btn" data-panel="panel-rewards">
+        <span class="snav-icon">🎁</span><span class="snav-text">المكافآت والهدايا</span>
+      </button>
 
-    <!-- ════════════════════════════════════
-         TAB: المعلم
-    ════════════════════════════════════ -->
-    <section id="teacher" class="view active teacher-view">
+      <div class="snav-group-label">داخل الحصة</div>
+      <button class="snav-btn" data-panel="panel-points">
+        <span class="snav-icon">⭐</span><span class="snav-text">تعديل النقاط</span>
+      </button>
+      <button class="snav-btn" data-panel="panel-students">
+        <span class="snav-icon">📋</span><span class="snav-text">قائمة الطلاب</span>
+      </button>
+      <button class="snav-btn" data-panel="panel-teams">
+        <span class="snav-icon">👥</span><span class="snav-text">الفرق</span>
+      </button>
+      <button class="snav-btn" data-panel="panel-challenges">
+        <span class="snav-icon">🏅</span><span class="snav-text">التحديات</span>
+      </button>
+      <button class="snav-btn" data-panel="panel-games">
+        <span class="snav-icon">🎮</span><span class="snav-text">الألعاب والمؤقت</span>
+      </button>
 
-      <!-- HERO -->
-      <section class="teacher-hero">
-        <div>
-          <p class="teacher-kicker">لوحة المعلم الاحترافية</p>
-          <h2>إدارة الصف والتحفيز من مكان واحد</h2>
-          <p class="muted">واجهة مطوّرة لتسهيل إدارة الصفوف والطلاب والتحديات بسرعة ووضوح.</p>
+      <div class="snav-group-label">التقارير</div>
+      <button class="snav-btn" data-panel="panel-reports">
+        <span class="snav-icon">📊</span><span class="snav-text">التقارير والرسائل</span>
+      </button>
+    </aside>
+
+    <!-- CONTENT AREA -->
+    <div class="content-area">
+
+      <!-- AUTH NOTICE -->
+      <div class="auth-notice" id="auth-notice-block">
+        <div class="an-icon">🔐</div>
+        <div class="an-body">
+          <strong>سجّل دخولك لبدء العمل</strong>
+          <span>يحفظ بياناتك ويزامنها تلقائياً.</span>
         </div>
-        <div class="hero-badge">
-          <span class="badge-num">🏆</span>
-          <span class="badge-label">نظام النقاط الذكي</span>
+        <a id="open-unified-auth" class="tbtn tbtn-primary" href="/enjazy/auth.html?mode=login&return=%2FMotivation%2B%2F">
+          تسجيل الدخول
+        </a>
+        <p id="auth-message" class="muted" style="display:none;margin:0;font-size:.82rem"></p>
+      </div>
+
+      <!-- ─ PANEL: الصف والطلاب ─ -->
+      <section class="panel active" id="panel-setup">
+        <div class="panel-hdr">
+          <h2>🏫 الصف والطلاب</h2>
+          <p>ابدأ هنا — أنشئ صفك أولاً ثم أضف الطلاب.</p>
+        </div>
+        <div class="two-col">
+
+          <div class="pcard">
+            <div class="pcard-top c-blue">🏫 إدارة الصفوف</div>
+            <div class="pcard-body">
+              <label class="flabel">إضافة صف جديد</label>
+              <div class="irow">
+                <input id="new-class-name"    placeholder="اسم الصف (مثال: 8B)" />
+                <input id="new-class-subject" placeholder="المادة (اختياري)" />
+                <button id="new-class" class="tbtn tbtn-primary">+ إضافة</button>
+              </div>
+              <label class="flabel">اختيار الصف الحالي</label>
+              <div class="irow">
+                <select id="class-selector" style="flex:1"></select>
+                <button id="delete-class" class="tbtn tbtn-danger" title="حذف الصف">🗑️ حذف</button>
+              </div>
+              <label class="flabel">الانضمام لصف مشترك بكود</label>
+              <div class="irow">
+                <input id="join-class-code" placeholder="أدخل كود الصف" />
+                <button id="join-class" class="tbtn tbtn-ghost">انضمام</button>
+              </div>
+              <p id="class-share-info" class="muted-note"></p>
+              <label class="flabel">تعديل اسم أو مادة الصف المختار</label>
+              <div class="irow">
+                <input id="class-name"   placeholder="اسم الصف" />
+                <input id="subject-name" placeholder="المادة" />
+                <button id="save-class"  class="tbtn tbtn-primary">💾 حفظ</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="pcard">
+            <div class="pcard-top c-green">👥 إضافة الطلاب</div>
+            <div class="pcard-body">
+              <label class="flabel">إضافة طالب واحد يدوياً</label>
+              <div class="irow">
+                <input id="student-name" placeholder="الاسم الكامل للطالب" />
+                <button id="add-student" class="tbtn tbtn-primary">+ إضافة</button>
+              </div>
+              <div class="or-divider"><span>أو</span></div>
+              <label class="flabel">استيراد من ملف Excel / CSV</label>
+              <label class="upload-zone">
+                <div class="uz-icon">📂</div>
+                <div class="uz-label">انقر لاختيار ملف Excel أو CSV</div>
+                <div class="uz-sub">يُؤخذ اسم الطالب من العمود الأول تلقائياً</div>
+                <input id="csv-file" type="file" accept=".csv,.xlsx,.xls" />
+              </label>
+              <button id="import-csv" class="tbtn tbtn-ghost" style="width:100%;margin-top:8px">📂 استيراد الملف</button>
+            </div>
+          </div>
+
         </div>
       </section>
 
-      <!-- AUTH CARD -->
-      <article class="card teacher-account-card">
-        <h2>🔐 حساب المعلم</h2>
-        <div class="field-row">
-          <a id="open-unified-auth" class="btn" href="/enjazy/auth.html?mode=login&return=%2FMotivation%2B%2F">
-            تسجيل الدخول من البوابة الموحدة
-          </a>
+      <!-- ─ PANEL: المكافآت والهدايا ─ -->
+      <section class="panel" id="panel-rewards">
+        <div class="panel-hdr">
+          <h2>🎁 المكافآت والهدايا</h2>
+          <p>ما الذي يحصل عليه الطالب عند بلوغ النقاط؟</p>
         </div>
-        <small>يتم استخدام نفس حساب التسجيل الموحد (auth.html) لهذا المشروع.</small>
-        <p id="auth-message" class="muted"></p>
-      </article>
+        <div class="two-col">
 
-      <!-- TEACHER APP (shown after login) -->
-      <div id="teacher-app" class="teacher-app" style="display:none">
-
-        <!-- ROW 1: إدارة الصفوف + إضافة الطلاب + نظام المكافآت -->
-        <div class="grid">
-
-          <!-- 1) إدارة الصفوف -->
-          <article class="card section-1">
-            <h2>🏫 إدارة الصفوف</h2>
-
-            <h3>أ) إضافة صف جديد</h3>
-            <div class="field-row">
-              <input id="new-class-name" placeholder="اسم الصف (مثال: 8B)" />
-              <input id="new-class-subject" placeholder="المادة (اختياري)" />
-              <button id="new-class" class="btn secondary">+ إضافة</button>
-            </div>
-
-            <h3>ب) اختيار الصف الحالي</h3>
-            <div class="field-row">
-              <select id="class-selector"></select>
-              <button id="delete-class" class="btn danger">🗑️ حذف</button>
-            </div>
-            <div class="field-row">
-              <input id="join-class-code" placeholder="كود الصف للانضمام" />
-              <button id="join-class" class="btn secondary">انضمام</button>
-            </div>
-            <p id="class-share-info" class="muted"></p>
-
-            <h3>ج) تعديل بيانات الصف</h3>
-            <div class="field-row">
-              <input id="class-name" placeholder="اسم الصف" />
-              <input id="subject-name" placeholder="المادة" />
-              <button id="save-class" class="btn">💾 حفظ</button>
-            </div>
-          </article>
-
-          <!-- 2) إضافة الطلاب -->
-          <article class="card section-2">
-            <h2>👥 إضافة الطلاب</h2>
-            <div class="field-row">
-              <input id="student-name" placeholder="اسم الطالب" />
-              <button id="add-student" class="btn">+ إضافة</button>
-            </div>
-            <div class="field-row">
-              <input id="csv-file" type="file" accept=".csv,.xlsx,.xls" />
-              <button id="import-csv" class="btn secondary">📂 استيراد Excel</button>
-            </div>
-            <small>ارفع ملف Excel أو CSV — يُأخذ اسم الطالب من العمود الأول تلقائياً.</small>
-          </article>
-
-          <!-- 3) نظام المكافآت -->
-          <article class="card section-3">
-            <h2>🎖️ مكافآت الإنجاز</h2>
-            <div id="rewards-list"></div>
-            <div class="field-row">
-              <input id="reward-points" type="number" placeholder="النقاط" />
-              <input id="reward-name" placeholder="اسم المكافأة" />
-              <button id="add-reward" class="btn">+ إضافة</button>
-            </div>
-          </article>
-
-          <!-- 4) هدايا المتجر -->
-          <article class="card section-4">
-            <h2>🎁 هدايا المتجر</h2>
-            <div id="gift-store-list"></div>
-            <div class="field-row">
-              <input id="gift-points" type="number" placeholder="الحد الأدنى للنقاط" />
-              <input id="gift-name" placeholder="اسم الهدية" />
-              <button id="add-gift" class="btn secondary">+ هدية</button>
-            </div>
-            <small>الطالب يستلم الهدية دون خصم نقاطه.</small>
-          </article>
-
-          <!-- 5) التحدي الأسبوعي -->
-          <article class="card section-5">
-            <h2>🏅 التحدي الأسبوعي</h2>
-            <div class="field-row">
-              <input id="challenge-title" placeholder="عنوان التحدي" />
-              <input id="challenge-start-date" type="date" />
-              <input id="challenge-end-date" type="date" />
-              <input id="challenge-bonus-points" type="number" min="1" placeholder="نقاط الفائز" />
-              <button id="save-challenge" class="btn">💾 حفظ</button>
-            </div>
-            <div class="field-row">
-              <select id="challenge-winner-student"></select>
-              <button id="announce-winner" class="btn secondary">🏆 إعلان الفائز</button>
-              <button id="reopen-challenge" class="btn danger">🔄 إعادة فتح</button>
-            </div>
-            <p id="challenge-view" class="muted"></p>
-          </article>
-
-          <!-- 6) تحدي مصغر -->
-          <article class="card section-6">
-            <h2>⚡ تحدي مصغر</h2>
-            <div class="field-row">
-              <input id="mini-challenge-title" placeholder="عنوان التحدي المصغر" />
-              <input id="mini-challenge-bonus" type="number" min="1" value="10" placeholder="نقاط الفائز" />
-              <select id="mini-challenge-duration">
-                <option value="180">3 دقائق</option>
-                <option value="300" selected>5 دقائق</option>
-                <option value="420">7 دقائق</option>
-                <option value="600">10 دقائق</option>
-              </select>
-              <select id="mini-challenge-winner"></select>
-            </div>
-            <div class="field-row">
-              <button id="start-mini-challenge" class="btn">▶ بدء</button>
-              <button id="toggle-mini-challenge" class="btn secondary">⏸ إيقاف</button>
-              <button id="pick-mini-winner" class="btn secondary">🎯 فائز فوري</button>
-              <button id="reset-mini-challenge" class="btn danger">🔄 إنهاء</button>
-            </div>
-            <div id="mini-challenge-progress" class="mini-progress">
-              <div id="mini-challenge-progress-fill" class="mini-progress-fill"></div>
-            </div>
-            <div id="mini-challenge-meta" class="mini-meta muted"></div>
-            <p id="mini-challenge-status" class="muted">لا يوجد تحدي مصغر نشط.</p>
-          </article>
-
-          <!-- 7) نظام الفرق -->
-          <article class="card section-5">
-            <h2>👥 نظام الفرق</h2>
-            <div class="field-row">
-              <input id="teams-count" type="number" min="1" max="12" value="3" placeholder="عدد الفرق" />
-            </div>
-            <div class="field-row">
-              <textarea id="teams-names" rows="4" placeholder="اسم كل فريق في سطر منفصل"></textarea>
-            </div>
-            <div class="field-row">
-              <button id="save-team-settings" class="btn secondary">💾 حفظ</button>
-              <button id="auto-teams" class="btn">🔀 توزيع تلقائي</button>
-              <button id="clear-teams" class="btn secondary">✖ مسح</button>
-            </div>
-            <div id="teams-view" class="muted"></div>
-          </article>
-
-          <!-- 8) العجلة الدوارة -->
-          <article id="feature-wheel" class="card feature-card section-8">
-            <h2>🎡 العجلة الدوارة</h2>
-            <div class="wheel-wrap">
-              <div class="wheel-pointer">▼</div>
-              <div id="student-wheel" class="student-wheel">
-                <div id="wheel-center-text" class="wheel-center-text">جاهز</div>
+          <div class="pcard">
+            <div class="pcard-top c-yellow">🎖️ مكافآت الإنجاز</div>
+            <div class="pcard-body">
+              <p class="muted-note">تُمنح تلقائياً عندما يصل الطالب للنقاط المحددة.</p>
+              <div id="rewards-list" style="margin:10px 0"></div>
+              <label class="flabel">إضافة مكافأة جديدة</label>
+              <div class="irow">
+                <input id="reward-points" type="number" placeholder="النقاط" style="max-width:110px" />
+                <input id="reward-name"   placeholder="اسم المكافأة" />
+                <button id="add-reward"   class="tbtn tbtn-primary">+ إضافة</button>
               </div>
             </div>
-            <div class="field-row">
-              <button id="spin-wheel" class="btn">🎡 تدوير العجلة</button>
-              <button class="btn danger exit-fullscreen" data-feature-exit>↙ خروج</button>
-            </div>
-            <p id="wheel-result" class="muted">اضغط تدوير لاختيار طالب عشوائي.</p>
-          </article>
-
-          <!-- 9) صندوق الحظ -->
-          <article id="feature-lucky" class="card feature-card section-9">
-            <h2>🎲 صندوق الحظ</h2>
-            <div id="lucky-grid" class="lucky-grid"></div>
-            <div class="field-row">
-              <button id="start-lucky-game" class="btn secondary">▶ ابدأ اللعبة</button>
-              <button class="btn danger exit-fullscreen" data-feature-exit>↙ خروج</button>
-            </div>
-            <p id="lucky-result" class="muted">اضغط ابدأ لاختيار طالب عشوائي.</p>
-          </article>
-
-          <!-- 10) التوقيت التنازلي -->
-          <article id="feature-countdown" class="card feature-card section-10">
-            <h2>⏱️ المؤقت التنازلي</h2>
-            <p class="muted">مؤقت للوقت فقط — لا يؤثر على النقاط.</p>
-            <div class="field-row">
-              <input id="countdown-minutes" type="number" min="0" max="180" value="5" placeholder="دقائق" />
-              <input id="countdown-seconds" type="number" min="0" max="59" value="0" placeholder="ثواني" />
-            </div>
-            <div id="countdown-display" class="countdown-display">05:00</div>
-            <div class="field-row">
-              <button id="start-countdown" class="btn">▶ بدء</button>
-              <button id="pause-countdown" class="btn secondary">⏸ إيقاف</button>
-              <button id="reset-countdown" class="btn danger">🔄 إعادة ضبط</button>
-              <button class="btn danger exit-fullscreen" data-feature-exit>↙ خروج</button>
-            </div>
-            <p id="countdown-status" class="muted">حدد الوقت ثم اضغط بدء.</p>
-          </article>
-
-          <!-- 11) تعديل النقاط -->
-          <article id="feature-points" class="card section-11">
-            <h2>✏️ تعديل نقاط الطالب</h2>
-            <p class="muted">قيمة موجبة = إضافة | قيمة سالبة = خصم</p>
-            <div class="field-row">
-              <select id="bonus-student-select"></select>
-              <input id="bonus-points" type="number" value="5" placeholder="النقاط (+ أو -)" />
-              <input id="bonus-reason" placeholder="السبب (اختياري)" />
-              <button id="add-bonus-points" class="btn">✔ تنفيذ</button>
-            </div>
-            <p id="bonus-points-status" class="muted">لن تنزل نقاط الطالب تحت الصفر.</p>
-          </article>
-
-        </div><!-- /grid -->
-
-        <!-- لوحة الطلاب -->
-        <article class="card wide">
-          <div class="field-row" style="align-items:center">
-            <h2 style="margin:0; border:none; padding:0; flex:1">📋 لوحة الطلاب السريعة</h2>
-            <input id="quick-student-search" placeholder="🔍 بحث بالاسم أو الكود" style="max-width:260px" />
-            <button id="clear-class" class="btn danger">🗑️ مسح الصف</button>
           </div>
+
+          <div class="pcard">
+            <div class="pcard-top c-purple">🎁 هدايا المتجر</div>
+            <div class="pcard-body">
+              <p class="muted-note">الطالب يستلم الهدية بدون خصم نقاطه.</p>
+              <div id="gift-store-list" style="margin:10px 0"></div>
+              <label class="flabel">إضافة هدية جديدة</label>
+              <div class="irow">
+                <input id="gift-points" type="number" placeholder="الحد الأدنى" style="max-width:130px" />
+                <input id="gift-name"   placeholder="اسم الهدية" />
+                <button id="add-gift"   class="tbtn tbtn-primary">+ إضافة</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ─ PANEL: تعديل النقاط ─ -->
+      <section class="panel" id="panel-points">
+        <div class="panel-hdr">
+          <h2>⭐ تعديل نقاط الطلاب</h2>
+          <p>أضف نقاطاً أو اخصم بضغطة واحدة.</p>
+        </div>
+
+        <div class="pcard" style="max-width:700px">
+          <div class="pcard-top c-blue">⭐ تعديل النقاط</div>
+          <div class="pcard-body">
+
+            <div class="points-form-grid">
+              <div>
+                <label class="flabel">اختر الطالب</label>
+                <select id="bonus-student-select" style="width:100%"></select>
+              </div>
+              <div>
+                <label class="flabel">النقاط <em class="hint-em">(+ إضافة / − خصم)</em></label>
+                <input id="bonus-points" type="number" value="5" style="width:100%" />
+              </div>
+              <div style="grid-column:1/-1">
+                <label class="flabel">السبب <em class="hint-em">(اختياري)</em></label>
+                <input id="bonus-reason" placeholder="مثال: مشاركة ممتازة" style="width:100%" />
+              </div>
+            </div>
+
+            <div class="quick-btns">
+              <span class="qb-label">أزرار سريعة:</span>
+              <button class="qb qb-p" data-pts="5"  data-rsn="مشاركة ممتازة">+5 مشاركة</button>
+              <button class="qb qb-p" data-pts="3"  data-rsn="حل الواجب">+3 واجب</button>
+              <button class="qb qb-p" data-pts="4"  data-rsn="سلوك إيجابي">+4 سلوك</button>
+              <button class="qb qb-p" data-pts="5"  data-rsn="تفوق في اختبار">+5 اختبار</button>
+              <button class="qb qb-m" data-pts="-2" data-rsn="إزعاج">−2 إزعاج</button>
+              <button class="qb qb-m" data-pts="-3" data-rsn="عدم حل الواجب">−3 واجب</button>
+              <button class="qb qb-m" data-pts="-1" data-rsn="تأخر عن الحصة">−1 تأخر</button>
+            </div>
+
+            <button id="add-bonus-points" class="tbtn tbtn-primary execute-btn">✔ تنفيذ التعديل</button>
+            <p id="bonus-points-status" class="muted-note" style="text-align:center;margin-top:8px"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─ PANEL: قائمة الطلاب ─ -->
+      <section class="panel" id="panel-students">
+        <div class="panel-hdr">
+          <h2>📋 قائمة الطلاب</h2>
+          <p>عرض كامل لجميع الطلاب ونقاطهم ومستوياتهم.</p>
+        </div>
+        <div class="students-bar">
+          <input id="quick-student-search" placeholder="🔍 ابحث بالاسم أو الكود" class="search-input" />
+          <button id="clear-class" class="tbtn tbtn-danger">🗑️ مسح الصف كامل</button>
+        </div>
+        <div class="pcard" style="padding:0;overflow:hidden">
           <div id="students-table"></div>
-        </article>
+        </div>
+      </section>
 
-        <!-- الصف الأخير: تحليل + رسائل + تقرير -->
-        <div class="grid">
-
-          <article class="card">
-            <h2>📊 التحليل الذكي</h2>
-            <ul id="insights"></ul>
-          </article>
-
-          <article class="card">
-            <h2>💬 رسالة لولي الأمر</h2>
-            <div class="field-row">
-              <input id="parent-code" placeholder="كود الطالب" />
-              <input id="parent-message" placeholder="رسالة قصيرة" />
+      <!-- ─ PANEL: الفرق ─ -->
+      <section class="panel" id="panel-teams">
+        <div class="panel-hdr">
+          <h2>👥 نظام الفرق</h2>
+          <p>وزّع الطلاب على مجموعات وتابع ترتيبها.</p>
+        </div>
+        <div class="pcard" style="max-width:580px">
+          <div class="pcard-top c-green">👥 إعداد الفرق</div>
+          <div class="pcard-body">
+            <label class="flabel">عدد الفرق</label>
+            <input id="teams-count" type="number" min="1" max="12" value="3" style="max-width:90px" />
+            <label class="flabel" style="margin-top:12px">أسماء الفرق <em class="hint-em">(سطر لكل فريق)</em></label>
+            <textarea id="teams-names" rows="5" placeholder="الفريق الأحمر&#10;الفريق الأزرق&#10;الفريق الذهبي" style="width:100%"></textarea>
+            <div class="irow" style="margin-top:12px">
+              <button id="auto-teams"         class="tbtn tbtn-primary">🔀 توزيع تلقائي</button>
+              <button id="save-team-settings" class="tbtn tbtn-ghost">💾 حفظ الإعداد</button>
+              <button id="clear-teams"        class="tbtn tbtn-danger">✖ مسح</button>
             </div>
-            <button id="send-parent-msg" class="btn">📤 إرسال</button>
-          </article>
+            <div id="teams-view" class="muted-note" style="margin-top:10px"></div>
+          </div>
+        </div>
+      </section>
 
-          <article class="card">
-            <h2>📄 التقرير الأسبوعي</h2>
-            <div class="field-row">
-              <button id="generate-report" class="btn">📝 إنشاء</button>
-              <button id="print-report" class="btn secondary">🖨️ طباعة PDF</button>
-              <button id="share-whatsapp" class="btn secondary">📱 واتساب</button>
+      <!-- ─ PANEL: التحديات ─ -->
+      <section class="panel" id="panel-challenges">
+        <div class="panel-hdr">
+          <h2>🏅 التحديات</h2>
+          <p>تحدٍّ أسبوعي طويل المدى + تحدٍّ مصغر داخل الحصة.</p>
+        </div>
+        <div class="two-col">
+
+          <div class="pcard">
+            <div class="pcard-top c-yellow">🏅 التحدي الأسبوعي</div>
+            <div class="pcard-body">
+              <label class="flabel">عنوان التحدي</label>
+              <input id="challenge-title" placeholder="مثال: أفضل سلوك الأسبوع" style="width:100%" />
+              <div class="irow" style="margin-top:10px;align-items:flex-end">
+                <div style="flex:1">
+                  <label class="flabel">من</label>
+                  <input id="challenge-start-date" type="date" style="width:100%" />
+                </div>
+                <div style="flex:1">
+                  <label class="flabel">إلى</label>
+                  <input id="challenge-end-date" type="date" style="width:100%" />
+                </div>
+                <div style="max-width:110px">
+                  <label class="flabel">نقاط الفائز</label>
+                  <input id="challenge-bonus-points" type="number" min="1" placeholder="10" style="width:100%" />
+                </div>
+              </div>
+              <button id="save-challenge" class="tbtn tbtn-primary" style="width:100%;margin-top:10px">💾 حفظ التحدي</button>
+              <hr class="pcard-hr" />
+              <label class="flabel">إعلان الفائز</label>
+              <div class="irow">
+                <select id="challenge-winner-student" style="flex:1"></select>
+                <button id="announce-winner"  class="tbtn tbtn-primary">🏆 إعلان</button>
+                <button id="reopen-challenge" class="tbtn tbtn-danger">🔄 إعادة</button>
+              </div>
+              <p id="challenge-view" class="muted-note"></p>
             </div>
-            <pre id="report-output"></pre>
+          </div>
+
+          <div class="pcard">
+            <div class="pcard-top c-purple">⚡ تحدي مصغر داخل الحصة</div>
+            <div class="pcard-body">
+              <label class="flabel">عنوان التحدي</label>
+              <input id="mini-challenge-title" placeholder="مثال: أسرع حل" style="width:100%" />
+              <div class="irow" style="margin-top:10px;align-items:flex-end">
+                <div style="flex:1">
+                  <label class="flabel">المدة</label>
+                  <select id="mini-challenge-duration" style="width:100%">
+                    <option value="180">3 دقائق</option>
+                    <option value="300" selected>5 دقائق</option>
+                    <option value="420">7 دقائق</option>
+                    <option value="600">10 دقائق</option>
+                  </select>
+                </div>
+                <div style="max-width:110px">
+                  <label class="flabel">نقاط الفائز</label>
+                  <input id="mini-challenge-bonus" type="number" min="1" value="10" style="width:100%" />
+                </div>
+              </div>
+              <label class="flabel" style="margin-top:10px">اختيار الفائز يدوياً</label>
+              <select id="mini-challenge-winner" style="width:100%"></select>
+              <div id="mini-challenge-progress" class="mini-prog" style="margin-top:12px">
+                <div id="mini-challenge-progress-fill" class="mini-prog-fill"></div>
+              </div>
+              <div id="mini-challenge-meta" class="muted-note"></div>
+              <p id="mini-challenge-status" class="muted-note">لا يوجد تحدي مصغر نشط.</p>
+              <div class="irow" style="margin-top:10px;flex-wrap:wrap">
+                <button id="start-mini-challenge"  class="tbtn tbtn-primary">▶ بدء</button>
+                <button id="toggle-mini-challenge" class="tbtn tbtn-ghost">⏸ إيقاف</button>
+                <button id="pick-mini-winner"      class="tbtn tbtn-ghost">🎯 فائز فوري</button>
+                <button id="reset-mini-challenge"  class="tbtn tbtn-danger">🔄 إنهاء</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ─ PANEL: الألعاب والمؤقت ─ -->
+      <section class="panel" id="panel-games">
+        <div class="panel-hdr">
+          <h2>🎮 الألعاب والمؤقت</h2>
+          <p>أدوات تفاعلية لتنشيط الصف وإدارة الوقت.</p>
+        </div>
+        <div class="games-grid">
+
+          <article id="feature-wheel" class="pcard feature-card">
+            <div class="pcard-top c-blue">🎡 العجلة الدوارة</div>
+            <div class="pcard-body" style="text-align:center">
+              <p class="muted-note" style="margin-bottom:12px">تختار طالباً عشوائياً من الصف الحالي.</p>
+              <div class="wheel-wrap">
+                <div class="wheel-pointer">▼</div>
+                <div id="student-wheel" class="student-wheel">
+                  <div id="wheel-center-text" class="wheel-center-text">جاهز</div>
+                </div>
+              </div>
+              <div class="irow" style="justify-content:center;margin-top:12px">
+                <button id="spin-wheel" class="tbtn tbtn-primary">🎡 تدوير</button>
+                <button class="tbtn tbtn-danger exit-fullscreen" data-feature-exit>↙ خروج</button>
+              </div>
+              <p id="wheel-result" class="muted-note" style="margin-top:8px"></p>
+            </div>
+          </article>
+
+          <article id="feature-lucky" class="pcard feature-card">
+            <div class="pcard-top c-yellow">🎲 صندوق الحظ</div>
+            <div class="pcard-body">
+              <p class="muted-note" style="margin-bottom:10px">صناديق متحركة — الفائز هو الصندوق المتوقف الأخير.</p>
+              <div id="lucky-grid" class="lucky-grid"></div>
+              <div class="irow" style="margin-top:10px">
+                <button id="start-lucky-game" class="tbtn tbtn-primary">▶ ابدأ اللعبة</button>
+                <button class="tbtn tbtn-danger exit-fullscreen" data-feature-exit>↙ خروج</button>
+              </div>
+              <p id="lucky-result" class="muted-note" style="margin-top:6px"></p>
+            </div>
+          </article>
+
+          <article id="feature-countdown" class="pcard feature-card">
+            <div class="pcard-top c-green">⏱️ المؤقت التنازلي</div>
+            <div class="pcard-body">
+              <p class="muted-note" style="margin-bottom:12px">مؤقت للوقت فقط — لا يؤثر على النقاط.</p>
+              <div class="irow" style="justify-content:center;gap:4px">
+                <div style="text-align:center">
+                  <label class="flabel" style="display:block;text-align:center">دقائق</label>
+                  <input id="countdown-minutes" type="number" min="0" max="180" value="5" style="width:80px;text-align:center;font-size:1.1rem" />
+                </div>
+                <div style="align-self:flex-end;padding-bottom:8px;font-size:1.6rem;font-weight:900;color:#64748b">:</div>
+                <div style="text-align:center">
+                  <label class="flabel" style="display:block;text-align:center">ثواني</label>
+                  <input id="countdown-seconds" type="number" min="0" max="59" value="0" style="width:80px;text-align:center;font-size:1.1rem" />
+                </div>
+              </div>
+              <div id="countdown-display" class="countdown-display">05:00</div>
+              <div class="irow" style="margin-top:10px;flex-wrap:wrap">
+                <button id="start-countdown"  class="tbtn tbtn-primary">▶ بدء</button>
+                <button id="pause-countdown"  class="tbtn tbtn-ghost">⏸ إيقاف</button>
+                <button id="reset-countdown"  class="tbtn tbtn-danger">🔄 إعادة</button>
+                <button class="tbtn tbtn-danger exit-fullscreen" data-feature-exit>↙ خروج</button>
+              </div>
+              <p id="countdown-status" class="muted-note" style="margin-top:8px">حدد الوقت ثم اضغط بدء.</p>
+            </div>
           </article>
 
         </div>
+      </section>
 
-      </div><!-- /teacher-app -->
-    </section>
-
-    <!-- ════════════════════════════════════
-         TAB: الطالب
-    ════════════════════════════════════ -->
-    <section id="student" class="view">
-      <article class="card" style="max-width:560px; margin:0 auto">
-        <h2>🎒 بوابة الطالب</h2>
-        <div class="field-row">
-          <input id="student-code-input" placeholder="أدخل الكود" />
-          <button id="student-login" class="btn">دخول</button>
+      <!-- ─ PANEL: التقارير والرسائل ─ -->
+      <section class="panel" id="panel-reports">
+        <div class="panel-hdr">
+          <h2>📊 التقارير والرسائل</h2>
+          <p>تحليل أداء الصف وإرسال رسائل لأولياء الأمور.</p>
         </div>
-        <div id="student-panel"></div>
-      </article>
-    </section>
+        <div class="two-col">
 
-    <!-- ════════════════════════════════════
-         TAB: ولي الأمر
-    ════════════════════════════════════ -->
-    <section id="parent" class="view">
-      <article class="card" style="max-width:560px; margin:0 auto">
-        <h2>👨‍👧 بوابة ولي الأمر</h2>
-        <div class="field-row">
-          <input id="parent-code-input" placeholder="كود الطالب" />
-          <button id="parent-login" class="btn">عرض</button>
+          <div class="pcard">
+            <div class="pcard-top c-blue">📊 التحليل الذكي</div>
+            <div class="pcard-body">
+              <ul id="insights" style="padding-right:18px;line-height:2"></ul>
+            </div>
+          </div>
+
+          <div class="pcard">
+            <div class="pcard-top c-green">💬 رسالة لولي الأمر</div>
+            <div class="pcard-body">
+              <label class="flabel">كود الطالب</label>
+              <input id="parent-code" placeholder="أدخل كود الطالب" style="width:100%" />
+              <label class="flabel" style="margin-top:10px">الرسالة</label>
+              <input id="parent-message" placeholder="اكتب رسالتك هنا" style="width:100%" />
+              <button id="send-parent-msg" class="tbtn tbtn-primary" style="width:100%;margin-top:12px">📤 إرسال الرسالة</button>
+            </div>
+          </div>
+
+          <div class="pcard" style="grid-column:1/-1">
+            <div class="pcard-top c-yellow">📄 التقرير الأسبوعي</div>
+            <div class="pcard-body">
+              <div class="irow">
+                <button id="generate-report" class="tbtn tbtn-primary">📝 إنشاء التقرير</button>
+                <button id="print-report"    class="tbtn tbtn-ghost">🖨️ طباعة PDF</button>
+                <button id="share-whatsapp"  class="tbtn tbtn-ghost">📱 واتساب</button>
+              </div>
+              <pre id="report-output"></pre>
+            </div>
+          </div>
+
         </div>
-        <div id="parent-panel"></div>
-      </article>
-    </section>
+      </section>
 
-    <!-- ════════════════════════════════════
-         TAB: العرض المباشر
-    ════════════════════════════════════ -->
-    <section id="live" class="view">
-      <article class="card leaderboard">
-        <h2>📡 شاشة Leaderboard المباشرة</h2>
-        <div id="live-class-head" class="live-class-head"></div>
-        <div id="live-summary-cards" class="live-summary-cards"></div>
-        <div id="live-board"></div>
-        <h3 style="margin:14px 0 8px">🏆 ترتيب الفرق</h3>
-        <div id="live-teams"></div>
-        <div class="live-detail-grid">
-          <section class="live-detail-card">
-            <h3>🥇 أفضل 3 طلاب</h3>
-            <div id="live-top3"></div>
-          </section>
-          <section class="live-detail-card">
-            <h3>⚡ حالة التحدي</h3>
-            <div id="live-challenge"></div>
-          </section>
-          <section class="live-detail-card">
-            <h3>🕓 آخر الأحداث</h3>
-            <div id="live-recent-events"></div>
-          </section>
-          <section class="live-detail-card">
-            <h3>🎁 المكافآت المحققة</h3>
-            <div id="live-rewards-progress"></div>
-          </section>
+    </div><!-- /content-area -->
+  </div><!-- /teacher view -->
+
+  <!-- ══ VIEW: الطالب ══ -->
+  <div id="student" class="role-view">
+    <div class="portal-wrap">
+      <div class="portal-card">
+        <div class="portal-emoji">🎒</div>
+        <h2>بوابة الطالب</h2>
+        <p class="muted-note">أدخل كودك لعرض نقاطك ومستواك وإنجازاتك.</p>
+        <div class="irow" style="margin-top:16px">
+          <input id="student-code-input" placeholder="أدخل كودك هنا" style="flex:1;font-size:1rem" />
+          <button id="student-login" class="tbtn tbtn-primary" style="padding:10px 22px">دخول</button>
         </div>
-      </article>
-    </section>
-
-  </main>
-
-  <!-- OVERLAYS (keep as-is for app.js) -->
-  <div id="feature-fullscreen-backdrop" class="feature-fullscreen-backdrop"></div>
-  <div id="celebration-overlay" class="celebration-overlay" aria-hidden="true">
-    <div class="celebration-card">
-      <h2 id="celebration-title">🎉 إنجاز جديد</h2>
-      <p id="celebration-message">أحسنت!</p>
+        <div id="student-panel" style="margin-top:16px"></div>
+      </div>
     </div>
-    <div id="celebration-confetti" class="celebration-confetti"></div>
   </div>
 
-  <!-- SCRIPTS -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script>
-    (function(){
-      const rawPath = window.location.pathname.replace(/\/$/, "") || "/";
-      const normalizedPath = rawPath.toLowerCase();
-      const pageMap = {
-        "/": "home", "/index": "home", "/index.html": "home",
-        "/t": "t", "/t.html": "t",
-        "/m": "m", "/m.html": "m",
-        "/enjazy": "enjazy", "/enjazy/index.html": "enjazy",
-        "/motivation+": "motivation", "/motivation+/": "motivation", "/motivation+/index.html": "motivation"
-      };
-      const activePage = pageMap[normalizedPath] || "home";
-      document.querySelectorAll(".nav-link-item").forEach(function(a){
-        if(a.dataset.page === activePage) a.classList.add("nav-active");
-      });
-    })();
+  <!-- ══ VIEW: ولي الأمر ══ -->
+  <div id="parent" class="role-view">
+    <div class="portal-wrap">
+      <div class="portal-card">
+        <div class="portal-emoji">👨‍👧</div>
+        <h2>بوابة ولي الأمر</h2>
+        <p class="muted-note">أدخل كود ابنك / ابنتك لعرض التقرير والرسائل.</p>
+        <div class="irow" style="margin-top:16px">
+          <input id="parent-code-input" placeholder="كود الطالب" style="flex:1;font-size:1rem" />
+          <button id="parent-login" class="tbtn tbtn-primary" style="padding:10px 22px">عرض</button>
+        </div>
+        <div id="parent-panel" style="margin-top:16px"></div>
+      </div>
+    </div>
+  </div>
 
-    function toggleMobileNav() {
-      var btn = document.getElementById("nav-toggle");
-      var menu = document.getElementById("nav-mobile");
-      if (!btn || !menu) return;
-      btn.classList.toggle("open");
-      menu.classList.toggle("open");
-    }
+  <!-- ══ VIEW: مباشر ══ -->
+  <div id="live" class="role-view">
+    <div class="live-page">
+      <div class="pcard leaderboard">
+        <div class="pcard-top c-blue" style="border-radius:0">📡 شاشة Leaderboard المباشرة</div>
+        <div class="pcard-body">
+          <div id="live-class-head" class="live-class-head"></div>
+          <div id="live-summary-cards" class="live-summary-cards"></div>
+          <div id="live-board"></div>
+          <h3 style="margin:16px 0 8px">🏆 ترتيب الفرق</h3>
+          <div id="live-teams"></div>
+          <div class="live-detail-grid">
+            <section class="live-detail-card"><h3>🥇 أفضل 3 طلاب</h3><div id="live-top3"></div></section>
+            <section class="live-detail-card"><h3>⚡ حالة التحدي</h3><div id="live-challenge"></div></section>
+            <section class="live-detail-card"><h3>🕓 آخر الأحداث</h3><div id="live-recent-events"></div></section>
+            <section class="live-detail-card"><h3>🎁 المكافآت المحققة</h3><div id="live-rewards-progress"></div></section>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    document.addEventListener("click", function(e){
-      var menu = document.getElementById("nav-mobile");
-      var btn = document.getElementById("nav-toggle");
-      if (!menu || !btn) return;
-      if(menu.classList.contains("open") && !menu.contains(e.target) && !btn.contains(e.target)){
-        menu.classList.remove("open");
-        btn.classList.remove("open");
-      }
-    });
-  </script>
-  <script src="/Motivation+/app.js"></script>
+</div><!-- /page-shell -->
+
+<!-- ── OVERLAYS ── -->
+<div id="sidebar-overlay" class="sidebar-overlay"></div>
+<div id="feature-fullscreen-backdrop" class="feature-fullscreen-backdrop"></div>
+<div id="celebration-overlay" class="celebration-overlay" aria-hidden="true">
+  <div class="celebration-card">
+    <h2 id="celebration-title">🎉 إنجاز جديد</h2>
+    <p id="celebration-message">أحسنت!</p>
+  </div>
+  <div id="celebration-confetti" class="celebration-confetti"></div>
+</div>
+
+<!-- ── SCRIPTS ── -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+/* Nav active */
+(function(){
+  const p=(window.location.pathname.replace(/\/$/,"")||"/").toLowerCase();
+  const map={"/":"home","/index":"home","/index.html":"home","/t":"t","/t.html":"t","/m":"m","/m.html":"m","/enjazy":"enjazy","/enjazy/index.html":"enjazy","/motivation+":"motivation","/motivation+/":"motivation","/motivation+/index.html":"motivation"};
+  document.querySelectorAll(".nav-link-item").forEach(a=>{if(a.dataset.page===(map[p]||"home"))a.classList.add("nav-active");});
+})();
+
+function toggleMobileNav(){
+  document.getElementById("nav-toggle").classList.toggle("open");
+  document.getElementById("nav-mobile").classList.toggle("open");
+}
+document.addEventListener("click",e=>{
+  const m=document.getElementById("nav-mobile"),b=document.getElementById("nav-toggle");
+  if(m&&b&&m.classList.contains("open")&&!m.contains(e.target)&&!b.contains(e.target)){m.classList.remove("open");b.classList.remove("open");}
+});
+
+/* Role tabs */
+document.querySelectorAll(".rtab").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".rtab").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".role-view").forEach(v=>v.classList.remove("active"));
+    const v=document.getElementById(btn.dataset.tab);
+    if(v)v.classList.add("active");
+  });
+});
+
+/* Sidebar panel nav */
+function activatePanel(panelId){
+  document.querySelectorAll(".snav-btn").forEach(b=>{
+    b.classList.toggle("active", b.dataset.panel===panelId);
+  });
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+  const panel=document.getElementById(panelId);
+  if(panel){panel.classList.add("active");panel.scrollIntoView({behavior:"smooth",block:"start"});}
+  closeSidebar();
+}
+document.querySelectorAll(".snav-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>activatePanel(btn.dataset.panel));
+});
+
+/* Mobile sidebar */
+function openSidebar(){
+  document.getElementById("teacher-sidebar").classList.add("open");
+  document.getElementById("sidebar-overlay").classList.add("show");
+}
+function closeSidebar(){
+  document.getElementById("teacher-sidebar").classList.remove("open");
+  document.getElementById("sidebar-overlay").classList.remove("show");
+}
+document.getElementById("sidebar-overlay").addEventListener("click",closeSidebar);
+
+/* Quick point buttons */
+document.querySelectorAll(".qb").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.getElementById("bonus-points").value=btn.dataset.pts;
+    document.getElementById("bonus-reason").value=btn.dataset.rsn;
+  });
+});
+
+/* Mobile sidebar toggle — inject button */
+(function(){
+  const bar=document.querySelector(".role-tabs-inner");
+  if(!bar)return;
+  const btn=document.createElement("button");
+  btn.className="tbtn tbtn-ghost sidebar-toggle-mobile";
+  btn.innerHTML="☰";
+  btn.title="القائمة الجانبية";
+  btn.onclick=openSidebar;
+  bar.insertBefore(btn,bar.firstChild);
+})();
+</script>
+
+<script src="/Motivation+/app.js"></script>
 </body>
 </html>
