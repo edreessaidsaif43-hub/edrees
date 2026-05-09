@@ -2732,3 +2732,41 @@ body.feature-fullscreen #feature-wheel.fullscreen-feature .wheel-label {
     max-width: 72px;
   }
 }
+
+/* Fullscreen games isolation: hide app chrome so game data is never covered by top bars. */
+body.feature-fullscreen #site-navbar,
+body.feature-fullscreen .topbar,
+body.feature-fullscreen .teacher-side-nav {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.feature-fullscreen main,
+body.feature-fullscreen .view,
+body.feature-fullscreen #teacher-app,
+body.feature-fullscreen #teacher-app > .grid {
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+}
+
+body.feature-fullscreen .feature-fullscreen-backdrop {
+  z-index: 9998 !important;
+}
+
+body.feature-fullscreen .feature-card.fullscreen-feature {
+  z-index: 9999 !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  max-height: 100dvh !important;
+}
+
+body.feature-fullscreen .celebration-overlay {
+  z-index: 10000 !important;
+}
