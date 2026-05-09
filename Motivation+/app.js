@@ -842,6 +842,8 @@ function buildUnifiedProfileEditUrl() {
     const url = new URL(target, window.location.origin);
     url.searchParams.set("mode", "register");
     url.searchParams.set("intent", "profile_edit");
+    if (currentTeacher?.name) url.searchParams.set("name", currentTeacher.name);
+    if (currentTeacher?.email) url.searchParams.set("email", currentTeacher.email);
     const returnPath = `${window.location.pathname || "/"}${window.location.search || ""}${window.location.hash || ""}`;
     url.searchParams.set("return", returnPath);
     return url.toString();
@@ -3765,6 +3767,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 
