@@ -1752,3 +1752,8 @@ main {
   align-self: start !important;
   margin-top: 0 !important;
 }
+
+/* Auth visibility guard: when logged out, hide the whole teacher workspace despite display overrides. */
+#teacher-app[hidden] {
+  display: none !important;
+}

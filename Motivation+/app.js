@@ -1005,13 +1005,15 @@ function updateSessionUI() {
     if (syncBtn) syncBtn.style.display = "inline-block";
     if (editProfileBtn) editProfileBtn.style.display = "inline-block";
     if (openAuthBtn) openAuthBtn.style.display = "none";
-    app.style.display = "block";
+    app.hidden = false;
+    app.style.display = "grid";
   } else {
     info.textContent = "غير مسجل";
     logoutBtn.style.display = "none";
     if (syncBtn) syncBtn.style.display = "none";
     if (editProfileBtn) editProfileBtn.style.display = "none";
     if (openAuthBtn) openAuthBtn.style.display = "inline-block";
+    app.hidden = true;
     app.style.display = "none";
   }
 }
@@ -3758,6 +3760,8 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
 
 
 
