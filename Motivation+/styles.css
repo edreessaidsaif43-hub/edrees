@@ -1737,3 +1737,18 @@ main {
   align-self: start !important;
   margin-top: 0 !important;
 }
+
+/* Align standalone teacher panels with the sidebar.
+   Students list and reports live outside the main cards grid, so force them
+   into the same grid row as the side menu when they are visible. */
+#teacher-app > .grid,
+#teacher-app > .card.wide,
+#teacher-app > #reports-panel {
+  grid-row: 1 !important;
+}
+
+#teacher-app > .card.wide:not([hidden]),
+#teacher-app > #reports-panel:not([hidden]) {
+  align-self: start !important;
+  margin-top: 0 !important;
+}
