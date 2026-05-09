@@ -2323,3 +2323,102 @@ body.feature-fullscreen .feature-fullscreen-backdrop {
     padding: 18px !important;
   }
 }
+
+/* Fullscreen bounds fix: keep wheel, lucky box, and countdown inside viewport. */
+body.feature-fullscreen .feature-card.fullscreen-feature {
+  box-sizing: border-box !important;
+  inset: clamp(8px, 2vw, 18px) !important;
+  width: auto !important;
+  max-width: calc(100vw - clamp(16px, 4vw, 36px)) !important;
+  max-height: calc(100vh - clamp(16px, 4vw, 36px)) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  overflow: auto !important;
+  overscroll-behavior: contain !important;
+}
+
+body.feature-fullscreen .feature-card.fullscreen-feature > * {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+body.feature-fullscreen .feature-card.fullscreen-feature .wheel-wrap {
+  width: min(64vh, 72vw, 460px) !important;
+  max-width: 100% !important;
+  flex: 0 0 auto !important;
+  margin: 0 auto 8px !important;
+}
+
+body.feature-fullscreen .feature-card.fullscreen-feature .student-wheel {
+  width: min(64vh, 72vw, 460px) !important;
+  height: min(64vh, 72vw, 460px) !important;
+  max-width: 100% !important;
+  max-height: calc(100vh - 230px) !important;
+}
+
+body.feature-fullscreen .feature-card.fullscreen-feature .wheel-center-text {
+  width: min(28vh, 28vw, 150px) !important;
+  height: min(28vh, 28vw, 150px) !important;
+  max-width: 38% !important;
+  max-height: 38% !important;
+  font-size: clamp(0.78rem, 2vw, 1.05rem) !important;
+  padding: 8px !important;
+  overflow-wrap: anywhere !important;
+}
+
+body.feature-fullscreen .feature-card.fullscreen-feature .lucky-grid {
+  width: min(100%, 920px) !important;
+  max-height: calc(100vh - 230px) !important;
+  overflow: auto !important;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)) !important;
+  gap: 10px !important;
+  padding: 2px !important;
+}
+
+body.feature-fullscreen .feature-card.fullscreen-feature .lucky-card {
+  min-height: 52px !important;
+  padding: 10px 8px !important;
+  font-size: clamp(0.78rem, 1.6vw, 0.95rem) !important;
+  overflow-wrap: anywhere !important;
+}
+
+body.feature-fullscreen .feature-card.fullscreen-feature .countdown-display {
+  width: min(100%, 760px) !important;
+  max-width: 100% !important;
+  font-size: min(15vw, 18vh, 7rem) !important;
+  line-height: 1 !important;
+  padding: clamp(14px, 3vh, 28px) 10px !important;
+  margin: 4px auto !important;
+}
+
+body.feature-fullscreen .feature-card.fullscreen-feature .field-row {
+  width: min(100%, 760px) !important;
+}
+
+@media (max-width: 760px) {
+  body.feature-fullscreen .feature-card.fullscreen-feature {
+    inset: 8px !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    padding: 14px !important;
+    gap: 10px !important;
+  }
+
+  body.feature-fullscreen .feature-card.fullscreen-feature .wheel-wrap,
+  body.feature-fullscreen .feature-card.fullscreen-feature .student-wheel {
+    width: min(78vw, 48vh, 340px) !important;
+    height: min(78vw, 48vh, 340px) !important;
+  }
+
+  body.feature-fullscreen .feature-card.fullscreen-feature .lucky-grid {
+    max-height: calc(100dvh - 220px) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  body.feature-fullscreen .feature-card.fullscreen-feature .countdown-display {
+    font-size: min(18vw, 15vh, 4.8rem) !important;
+  }
+}
