@@ -909,6 +909,8 @@ let remoteSaveTimer = null;
 let remoteSyncReady = false;
 let pendingRemoteSave = false;
 let remoteAutoPullTimer = null;
+let syncedGameSeen = { wheel: "", lucky: "" };
+let syncedCountdownTicker = null;
 
 function getActiveClass() {
   if (!state.classes.length) return null;
@@ -2220,6 +2222,8 @@ function syncCountdownFromInputs() {
 
 function startCountdown() {
   if (!ensureAuthOrNotify()) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
   enterFeatureFullscreen("feature-countdown");
   if (countdownRunning) return;
 
@@ -2236,28 +2240,20 @@ function startCountdown() {
     return;
   }
 
-  countdownRunning = true;
+  const startsAt = Date.now() + 1200;
+  const endsAt = startsAt + (countdownRemainingSeconds * 1000);
+  const liveGames = ensureLiveGames(cls);
+  liveGames.countdown = {
+    id: syncedGameId("countdown"),
+    status: "running",
+    startsAt,
+    endsAt,
+    durationSeconds: countdownRemainingSeconds
+  };
+  saveSyncedGameState();
   playEventSound("start");
   pulseFeatureCardById("feature-countdown", "start");
-  renderCountdown();
-  renderDirectPointsCard();
-
-  countdownInterval = setInterval(() => {
-    countdownRemainingSeconds -= 1;
-    if (countdownRemainingSeconds <= 0) {
-      countdownRemainingSeconds = 0;
-      countdownRunning = false;
-      if (countdownInterval) {
-        clearInterval(countdownInterval);
-        countdownInterval = null;
-      }
-      playCheer();
-      playEventSound("winner");
-      pulseFeatureCardById("feature-countdown", "winner");
-    }
-    renderCountdown();
-  renderDirectPointsCard();
-  }, 1000);
+  setTimeout(() => syncCountdownFromLiveGame(liveGames.countdown), Math.max(0, startsAt - Date.now()));
 }
 
 function pauseCountdown() {
@@ -2265,16 +2261,50 @@ function pauseCountdown() {
     clearInterval(countdownInterval);
     countdownInterval = null;
   }
+  if (syncedCountdownTicker) {
+    clearInterval(syncedCountdownTicker);
+    syncedCountdownTicker = null;
+  }
   countdownRunning = false;
+  const cls = getActiveClass();
+  if (cls) {
+    const liveGames = ensureLiveGames(cls);
+    liveGames.countdown = {
+      id: syncedGameId("countdown-pause"),
+      status: "paused",
+      remainingSeconds: countdownRemainingSeconds,
+      updatedAt: Date.now()
+    };
+    saveSyncedGameState();
+  }
   renderCountdown();
   renderDirectPointsCard();
   setupTeacherSidePanels();
 }
 
 function resetCountdown() {
-  pauseCountdown();
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+  if (syncedCountdownTicker) {
+    clearInterval(syncedCountdownTicker);
+    syncedCountdownTicker = null;
+  }
+  countdownRunning = false;
   countdownRemainingSeconds = getCountdownInputSeconds();
   countdownInputsDirty = false;
+  const cls = getActiveClass();
+  if (cls) {
+    const liveGames = ensureLiveGames(cls);
+    liveGames.countdown = {
+      id: syncedGameId("countdown-reset"),
+      status: "idle",
+      remainingSeconds: countdownRemainingSeconds,
+      updatedAt: Date.now()
+    };
+    saveSyncedGameState();
+  }
   renderCountdown();
   renderDirectPointsCard();
   const status = document.getElementById("countdown-status");
@@ -2285,68 +2315,27 @@ function startLuckyGame() {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
-  enterFeatureFullscreen("feature-lucky");
-
-  const btn = document.getElementById("start-lucky-game");
-  const result = document.getElementById("lucky-result");
-  const cards = Array.from(document.querySelectorAll(".lucky-card"));
-  if (!btn || !result || !cards.length) return;
   if (luckyBusy) return;
-
+  const result = document.getElementById("lucky-result");
   const luckyStudents = getLuckyGameStudents(cls);
   if (!luckyStudents.length) {
-    result.textContent = "أضف طلابًا أولًا ثم ابدأ اللعبة.";
+    if (result) result.textContent = "أضف طلابًا أولًا ثم ابدأ اللعبة.";
     return;
   }
-  if (!luckyShowAllCards) {
-    luckyShowAllCards = true;
-    renderLuckyGame();
-  } else if (cards.length !== luckyStudents.length) {
-    renderLuckyGame();
-  }
-  const freshCards = Array.from(document.querySelectorAll(".lucky-card"));
-  if (!freshCards.length) return;
-
-  luckyBusy = true;
-  playEventSound("spin");
-  pulseFeatureCardById("feature-lucky", "spin");
-  btn.disabled = true;
-  result.textContent = "جاري اختيار الطالب...";
-
-  let activeIndex = 0;
-  freshCards.forEach((c) => c.classList.remove("active", "winner"));
-  if (luckyTicker) clearInterval(luckyTicker);
-  luckyTicker = setInterval(() => {
-    freshCards.forEach((c) => c.classList.remove("active"));
-    activeIndex = Math.floor(Math.random() * freshCards.length);
-    freshCards[activeIndex].classList.add("active");
-  }, 110);
-
   const winnerIndex = Math.floor(Math.random() * luckyStudents.length);
   const winner = luckyStudents[winnerIndex];
-  const winnerCard = freshCards.find((c) => c.dataset.studentId === winner.id);
-
-  setTimeout(() => {
-    if (luckyTicker) {
-      clearInterval(luckyTicker);
-      luckyTicker = null;
-    }
-    freshCards.forEach((c) => c.classList.remove("active", "winner"));
-    if (winnerCard) winnerCard.classList.add("winner");
-    luckyBusy = false;
-    btn.disabled = false;
-    result.textContent = `فاز: ${winner.name}`;
-    playCheer();
-    playEventSound("winner");
-    pulseFeatureCardById("feature-lucky", "winner");
-    triggerCelebration("🎲 فائز صندوق الحظ", `الفائز: ${winner.name}`);
-
-    // ارجاع العرض إلى وضع المعاينة (5 طلاب) بعد نهاية السحب
-    luckyShowAllCards = false;
-    setTimeout(() => {
-      renderLuckyGame();
-    }, 900);
-  }, 2600);
+  const startsAt = Date.now() + 1800;
+  const endsAt = startsAt + 2600;
+  const liveGames = ensureLiveGames(cls);
+  liveGames.lucky = {
+    id: syncedGameId("lucky"),
+    startsAt,
+    endsAt,
+    winnerStudentId: winner.id
+  };
+  syncedGameSeen.lucky = liveGames.lucky.id;
+  saveSyncedGameState();
+  runSyncedLuckyEvent(liveGames.lucky);
 }
 
 function generateReportText(cls) {
@@ -2689,39 +2678,212 @@ function renderStudentAccessControls() {
   });
 }
 
+
+function ensureLiveGames(cls) {
+  if (!cls) return null;
+  if (!cls.liveGames || typeof cls.liveGames !== "object") cls.liveGames = {};
+  if (!cls.liveGames.wheel || typeof cls.liveGames.wheel !== "object") cls.liveGames.wheel = {};
+  if (!cls.liveGames.lucky || typeof cls.liveGames.lucky !== "object") cls.liveGames.lucky = {};
+  if (!cls.liveGames.countdown || typeof cls.liveGames.countdown !== "object") cls.liveGames.countdown = {};
+  return cls.liveGames;
+}
+
+function syncedGameId(type) {
+  return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function saveSyncedGameState() {
+  saveTeacherData();
+  flushRemoteSaveNow();
+}
+
+function findStudentNameById(cls, studentId) {
+  const student = (cls && Array.isArray(cls.students) ? cls.students : []).find((s) => s.id === studentId);
+  return student ? normalizeName(student.name) : "";
+}
+
+function runSyncedWheelEvent(event) {
+  const cls = getActiveClass();
+  const wheel = document.getElementById("student-wheel");
+  const center = document.getElementById("wheel-center-text");
+  const result = document.getElementById("wheel-result");
+  const button = document.getElementById("spin-wheel");
+  if (!cls || !wheel || !center || !result || !event || !event.id) return;
+  const winnerName = findStudentNameById(cls, event.winnerStudentId);
+  if (!winnerName) return;
+
+  const startsAt = Number(event.startsAt || 0);
+  const endsAt = Number(event.endsAt || 0);
+  const finalRotation = Number(event.finalRotation || wheelRotation || 0);
+  const now = Date.now();
+
+  enterFeatureFullscreen("feature-wheel");
+  wheelBusy = true;
+  if (button) button.disabled = true;
+  result.textContent = now < startsAt ? "استعد... سيبدأ التدوير الآن" : "جاري التدوير...";
+
+  const names = (cls.students || []).map((s) => s.name).filter(Boolean);
+  const beginSpin = () => {
+    playEventSound("spin");
+    pulseFeatureCardById("feature-wheel", "spin");
+    let idx = 0;
+    if (wheelTicker) clearInterval(wheelTicker);
+    wheelTicker = setInterval(() => {
+      center.textContent = names.length ? names[idx % names.length] : "...";
+      idx += 1;
+    }, 90);
+    requestAnimationFrame(() => {
+      wheel.style.transform = `rotate(${finalRotation}deg)`;
+    });
+  };
+
+  const finishSpin = () => {
+    if (wheelTicker) {
+      clearInterval(wheelTicker);
+      wheelTicker = null;
+    }
+    wheelBusy = false;
+    wheelRotation = finalRotation % 360;
+    center.textContent = winnerName;
+    result.textContent = `تم اختيار: ${winnerName}`;
+    if (button) button.disabled = false;
+    playCheer();
+    playEventSound("winner");
+    pulseFeatureCardById("feature-wheel", "winner");
+    triggerCelebration("🎡 اختيار عشوائي", `تم اختيار الطالب: ${winnerName}`);
+  };
+
+  if (now >= endsAt) {
+    finishSpin();
+    return;
+  }
+  setTimeout(beginSpin, Math.max(0, startsAt - now));
+  setTimeout(finishSpin, Math.max(0, endsAt - now));
+}
+
+function runSyncedLuckyEvent(event) {
+  const cls = getActiveClass();
+  const result = document.getElementById("lucky-result");
+  const btn = document.getElementById("start-lucky-game");
+  if (!cls || !result || !event || !event.id) return;
+  const luckyStudents = getLuckyGameStudents(cls);
+  const winnerName = findStudentNameById(cls, event.winnerStudentId);
+  if (!winnerName || !luckyStudents.length) return;
+
+  luckyShowAllCards = true;
+  renderLuckyGame();
+  const freshCards = Array.from(document.querySelectorAll(".lucky-card"));
+  const startsAt = Number(event.startsAt || 0);
+  const endsAt = Number(event.endsAt || 0);
+  const now = Date.now();
+  const winnerCard = freshCards.find((c) => c.dataset.studentId === event.winnerStudentId);
+
+  enterFeatureFullscreen("feature-lucky");
+  luckyBusy = true;
+  if (btn) btn.disabled = true;
+  result.textContent = now < startsAt ? "استعد... سيبدأ صندوق الحظ الآن" : "جاري اختيار الطالب...";
+
+  const beginLucky = () => {
+    playEventSound("spin");
+    pulseFeatureCardById("feature-lucky", "spin");
+    if (luckyTicker) clearInterval(luckyTicker);
+    luckyTicker = setInterval(() => {
+      freshCards.forEach((c) => c.classList.remove("active"));
+      const activeIndex = Math.floor(Math.random() * Math.max(1, freshCards.length));
+      if (freshCards[activeIndex]) freshCards[activeIndex].classList.add("active");
+    }, 110);
+  };
+
+  const finishLucky = () => {
+    if (luckyTicker) {
+      clearInterval(luckyTicker);
+      luckyTicker = null;
+    }
+    freshCards.forEach((c) => c.classList.remove("active", "winner"));
+    if (winnerCard) winnerCard.classList.add("winner");
+    luckyBusy = false;
+    if (btn) btn.disabled = false;
+    result.textContent = `فاز: ${winnerName}`;
+    playCheer();
+    playEventSound("winner");
+    pulseFeatureCardById("feature-lucky", "winner");
+    triggerCelebration("🎲 فائز صندوق الحظ", `الفائز: ${winnerName}`);
+    luckyShowAllCards = false;
+    setTimeout(() => renderLuckyGame(), 900);
+  };
+
+  if (now >= endsAt) {
+    finishLucky();
+    return;
+  }
+  setTimeout(beginLucky, Math.max(0, startsAt - now));
+  setTimeout(finishLucky, Math.max(0, endsAt - now));
+}
+
+function syncCountdownFromLiveGame(event) {
+  if (!event || !event.id) return false;
+  if (event.status === "paused" || event.status === "idle") {
+    if (syncedCountdownTicker) {
+      clearInterval(syncedCountdownTicker);
+      syncedCountdownTicker = null;
+    }
+    countdownRunning = false;
+    countdownRemainingSeconds = Math.max(0, Number(event.remainingSeconds || countdownRemainingSeconds || 0));
+    renderCountdown();
+    return true;
+  }
+  if (event.status !== "running") return false;
+  const endsAt = Number(event.endsAt || 0);
+  const now = Date.now();
+  countdownRunning = now < endsAt;
+  countdownRemainingSeconds = Math.max(0, Math.ceil((endsAt - now) / 1000));
+  renderCountdown();
+  if (syncedCountdownTicker) clearInterval(syncedCountdownTicker);
+  if (countdownRunning) {
+    syncedCountdownTicker = setInterval(() => {
+      countdownRemainingSeconds = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+      countdownRunning = countdownRemainingSeconds > 0;
+      renderCountdown();
+      if (!countdownRunning && syncedCountdownTicker) {
+        clearInterval(syncedCountdownTicker);
+        syncedCountdownTicker = null;
+        playCheer();
+        playEventSound("winner");
+        pulseFeatureCardById("feature-countdown", "winner");
+      }
+    }, 250);
+  }
+  return true;
+}
+
+function syncLiveGamesFromState() {
+  const cls = getActiveClass();
+  if (!currentTeacher || !cls || !cls.liveGames) return;
+  const now = Date.now();
+  const wheelEvent = cls.liveGames.wheel || {};
+  if (wheelEvent.id && wheelEvent.id !== syncedGameSeen.wheel && Number(wheelEvent.endsAt || 0) + 15000 > now) {
+    syncedGameSeen.wheel = wheelEvent.id;
+    runSyncedWheelEvent(wheelEvent);
+  }
+  const luckyEvent = cls.liveGames.lucky || {};
+  if (luckyEvent.id && luckyEvent.id !== syncedGameSeen.lucky && Number(luckyEvent.endsAt || 0) + 15000 > now) {
+    syncedGameSeen.lucky = luckyEvent.id;
+    runSyncedLuckyEvent(luckyEvent);
+  }
+  syncCountdownFromLiveGame(cls.liveGames.countdown || {});
+}
 function startWheelSpin() {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
-  enterFeatureFullscreen("feature-wheel");
-
-  const button = document.getElementById("spin-wheel");
-  const wheel = document.getElementById("student-wheel");
-  const center = document.getElementById("wheel-center-text");
   const result = document.getElementById("wheel-result");
-  if (!button || !wheel || !center || !result) return;
+  const center = document.getElementById("wheel-center-text");
   if (wheelBusy) return;
-
   if (!cls.students.length) {
-    result.textContent = "أضف طلابا أولا ثم ابدأ التدوير.";
-    center.textContent = "لا يوجد طلاب";
+    if (result) result.textContent = "أضف طلابا أولا ثم ابدأ التدوير.";
+    if (center) center.textContent = "لا يوجد طلاب";
     return;
   }
-
-  wheelBusy = true;
-  playEventSound("spin");
-  pulseFeatureCardById("feature-wheel", "spin");
-  button.disabled = true;
-  result.textContent = "جاري التدوير...";
-
-  const names = cls.students.map((s) => s.name);
-  let idx = 0;
-  if (wheelTicker) clearInterval(wheelTicker);
-  wheelTicker = setInterval(() => {
-    center.textContent = names[idx % names.length];
-    idx += 1;
-  }, 90);
-
   const winnerIndex = Math.floor(Math.random() * cls.students.length);
   const winner = cls.students[winnerIndex];
   const segment = 360 / cls.students.length;
@@ -2729,26 +2891,19 @@ function startWheelSpin() {
   const rounds = 6 + Math.floor(Math.random() * 3);
   const settleOffset = (360 - winnerAngle) + (Math.random() * segment * 0.4 - segment * 0.2);
   const finalRotation = wheelRotation + rounds * 360 + settleOffset;
-
-  requestAnimationFrame(() => {
-    wheel.style.transform = `rotate(${finalRotation}deg)`;
-  });
-
-  setTimeout(() => {
-    if (wheelTicker) {
-      clearInterval(wheelTicker);
-      wheelTicker = null;
-    }
-    wheelBusy = false;
-    wheelRotation = finalRotation % 360;
-    center.textContent = winner.name;
-    result.textContent = `تم اختيار: ${winner.name}`;
-    button.disabled = false;
-    playCheer();
-    playEventSound("winner");
-    pulseFeatureCardById("feature-wheel", "winner");
-    triggerCelebration("🎡 اختيار عشوائي", `تم اختيار الطالب: ${winner.name}`);
-  }, 3300);
+  const startsAt = Date.now() + 1800;
+  const endsAt = startsAt + 3300;
+  const liveGames = ensureLiveGames(cls);
+  liveGames.wheel = {
+    id: syncedGameId("wheel"),
+    startsAt,
+    endsAt,
+    winnerStudentId: winner.id,
+    finalRotation
+  };
+  syncedGameSeen.wheel = liveGames.wheel.id;
+  saveSyncedGameState();
+  runSyncedWheelEvent(liveGames.wheel);
 }
 
 async function hydrateProfilePhotoByElementId(elementId, cls, student) {
@@ -3082,6 +3237,7 @@ function renderAll() {
   renderCountdown();
   renderDirectPointsCard();
   setupTeacherSidePanels();
+  syncLiveGamesFromState();
 }
 
 window.updateStudentPoints = updateStudentPoints;
@@ -3718,7 +3874,7 @@ function ensureRemoteAutoPull() {
     if (!currentTeacher || !currentTeacher.userId) return;
     if (document.hidden) return;
     pullRemoteStateIfNeeded(false);
-  }, 12000);
+  }, 1000);
 }
 async function bootstrapApp() {
   currentTeacher = getCurrentTeacher();
@@ -3767,6 +3923,14 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
+
+
+
+
+
+
 
 
 

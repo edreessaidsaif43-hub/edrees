@@ -2224,3 +2224,72 @@ main {
   .teacher-side-link:nth-of-type(1)::before { content: "⚙️"; }
   .teacher-side-link:nth-of-type(1)::after { content: "الإدارة"; }
 }
+
+/* Mobile quick students panel: replace headings with icons for app-like browsing. */
+@media (max-width: 760px) {
+  #students-table table thead th {
+    font-size: 0 !important;
+    text-align: center !important;
+    padding: 10px 8px !important;
+  }
+
+  #students-table table thead th::after {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: #e6f6f3;
+    color: #0f8f82;
+    font-size: 1.15rem;
+    line-height: 1;
+  }
+
+  #students-table table thead th:nth-child(1)::after { content: "👤"; }
+  #students-table table thead th:nth-child(2)::after { content: "🎒"; }
+  #students-table table thead th:nth-child(3)::after { content: "#"; font-weight: 900; }
+  #students-table table thead th:nth-child(4)::after { content: "⭐"; }
+  #students-table table thead th:nth-child(5)::after { content: "▣"; font-weight: 900; }
+  #students-table table thead th:nth-child(6)::after { content: "⚡"; }
+
+  #teacher-app > .card.wide > .field-row:first-child {
+    grid-template-columns: auto 1fr auto !important;
+    align-items: center !important;
+  }
+
+  #teacher-app > .card.wide > .field-row:first-child h2 {
+    width: 46px !important;
+    height: 46px !important;
+    margin: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    border-radius: 16px !important;
+    background: #e6f6f3 !important;
+    color: #0f8f82 !important;
+    font-size: 0 !important;
+  }
+
+  #teacher-app > .card.wide > .field-row:first-child h2::after {
+    content: "👥";
+    font-size: 1.35rem;
+  }
+
+  #quick-student-search {
+    min-width: 0 !important;
+    padding-inline: 14px !important;
+  }
+
+  #clear-class {
+    width: 46px !important;
+    min-width: 46px !important;
+    height: 46px !important;
+    padding: 0 !important;
+    font-size: 0 !important;
+  }
+
+  #clear-class::after {
+    content: "🗑️";
+    font-size: 1.1rem;
+  }
+}
