@@ -1200,15 +1200,53 @@ function studentBadges(student) {
 }
 
 function buildWheelGradient(count) {
-  const angle = 360 / count;
+  const safeCount = Math.max(1, Number(count || 1));
+  const angle = 360 / safeCount;
+  const colors = [
+    "#14b8a6", "#38bdf8", "#6366f1", "#a855f7", "#ec4899",
+    "#f97316", "#facc15", "#22c55e", "#06b6d4", "#3b82f6"
+  ];
   const slices = [];
-  for (let i = 0; i < count; i += 1) {
+  for (let i = 0; i < safeCount; i += 1) {
     const start = Math.round(i * angle * 100) / 100;
     const end = Math.round((i + 1) * angle * 100) / 100;
-    const hue = Math.round((i / count) * 360);
-    slices.push(`hsl(${hue} 78% 68%) ${start}deg ${end}deg`);
+    const gap = Math.min(0.75, angle * 0.08);
+    const color = colors[i % colors.length];
+    slices.push(`#ffffff ${start}deg ${Math.min(end, start + gap)}deg`);
+    slices.push(`${color} ${Math.min(end, start + gap)}deg ${Math.max(start, end - gap)}deg`);
+    slices.push(`#ffffff ${Math.max(start, end - gap)}deg ${end}deg`);
   }
   return `conic-gradient(${slices.join(",")})`;
+}
+
+function buildWheelShortName(name, index, total) {
+  const clean = normalizeName(name || "");
+  if (!clean) return String(index + 1);
+  if (total > 24) return String(index + 1);
+  if (total > 14) return clean.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("");
+  return clean.length > 12 ? `${clean.slice(0, 11)}…` : clean;
+}
+
+function renderProfessionalWheelLabels(wheel, center, students) {
+  if (!wheel || !center) return;
+  const oldLayer = wheel.querySelector(".wheel-labels");
+  if (oldLayer) oldLayer.remove();
+  const list = Array.isArray(students) ? students.filter((s) => s && s.name) : [];
+  if (!list.length) return;
+  const layer = document.createElement("div");
+  layer.className = "wheel-labels";
+  const total = list.length;
+  const visible = list.slice(0, Math.min(total, 32));
+  visible.forEach((student, index) => {
+    const label = document.createElement("span");
+    const angle = ((index + 0.5) / total) * 360;
+    label.className = "wheel-label";
+    label.textContent = buildWheelShortName(student.name, index, total);
+    label.style.setProperty("--wheel-angle", `${angle}deg`);
+    label.style.setProperty("--wheel-label-scale", total > 18 ? "0.72" : total > 10 ? "0.84" : "1");
+    layer.appendChild(label);
+  });
+  wheel.insertBefore(layer, center);
 }
 
 function renderClassSelector() {
@@ -2135,6 +2173,7 @@ function renderWheel() {
   }
 
   wheel.style.background = buildWheelGradient(cls.students.length);
+  renderProfessionalWheelLabels(wheel, center, cls.students);
   const wheelEvent = cls.liveGames && cls.liveGames.wheel ? cls.liveGames.wheel : null;
   const winnerName = wheelEvent && wheelEvent.winnerStudentId ? findStudentNameById(cls, wheelEvent.winnerStudentId) : "";
   if (!wheelBusy && wheelEvent && winnerName && Number(wheelEvent.endsAt || 0) + 60000 > Date.now()) {
@@ -3978,6 +4017,8 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
 
 
 
