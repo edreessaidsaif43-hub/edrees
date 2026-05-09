@@ -351,17 +351,34 @@
     }
 
     function readBackendSessionProfile() {
-      try {
-        const rawBackend = localStorage.getItem(M_BACKEND_SESSION_STORAGE_KEY);
-        const parsedBackend = rawBackend ? JSON.parse(rawBackend) : null;
-        return {
-          userId: String(parsedBackend?.userId || "").trim(),
-          name: String(parsedBackend?.full_name || "").trim(),
-          email: normalizeEmail(parsedBackend?.email || "")
-        };
-      } catch (e) {
-        return { userId: "", name: "", email: "" };
-      }
+      const readJson = (key) => {
+        try {
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+          return null;
+        }
+      };
+      const backend = readJson(M_BACKEND_SESSION_STORAGE_KEY);
+      const authSession = readJson(SESSION_KEY);
+      const currentUser = readJson("lesson_platform_current_user_v1");
+      return {
+        userId: String(backend?.userId || authSession?.userId || currentUser?.userId || "").trim(),
+        name: String(
+          backend?.full_name ||
+          currentUser?.name ||
+          currentUser?.full_name ||
+          query.get("name") ||
+          ""
+        ).trim(),
+        email: normalizeEmail(
+          backend?.email ||
+          currentUser?.contact ||
+          currentUser?.email ||
+          query.get("email") ||
+          ""
+        )
+      };
     }
 
     function autoRedirectIfLoggedIn() {
@@ -451,6 +468,10 @@
       }
       if (password && password.length < 6) {
         showMessage("كلمة المرور يجب ألا تقل عن 6 أحرف.", false);
+        return;
+      }
+      if (!password && confirm) {
+        showMessage("اكتب كلمة المرور الجديدة أو اترك حقلي كلمة المرور فارغين للإبقاء على القديمة.", false);
         return;
       }
       if (password && password !== confirm) {
@@ -549,9 +570,17 @@
       if (passwordLabel) passwordLabel.textContent = "كلمة مرور جديدة (اختياري)";
       if (confirmLabel) confirmLabel.textContent = "تأكيد كلمة المرور الجديدة";
       const sessionProfile = readBackendSessionProfile();
-      if (sessionProfile.name) document.getElementById("register-name").value = sessionProfile.name;
-      if (sessionProfile.email) document.getElementById("register-contact").value = sessionProfile.email;
-      showMessage("يمكنك الآن تعديل بياناتك الشخصية ثم الضغط على حفظ التعديلات.", true);
+      const nameInput = document.getElementById("register-name");
+      const contactInput = document.getElementById("register-contact");
+      const passwordInput = document.getElementById("register-password");
+      const confirmInput = document.getElementById("register-password-confirm");
+      if (nameInput) nameInput.value = sessionProfile.name || "";
+      if (contactInput) contactInput.value = sessionProfile.email || "";
+      if (passwordInput) passwordInput.value = "";
+      if (confirmInput) confirmInput.value = "";
+      if (passwordInput) passwordInput.placeholder = "اتركها فارغة للإبقاء على كلمة المرور القديمة";
+      if (confirmInput) confirmInput.placeholder = "اكتب التأكيد فقط عند تغيير كلمة المرور";
+      showMessage("عدّل الاسم أو البريد. اترك كلمة المرور فارغة إذا كنت تريد الإبقاء على القديمة.", true);
     }
 
     if (!autoRedirectIfLoggedIn()) {
@@ -572,3 +601,4 @@
   </script>
 </body>
 </html>
+
