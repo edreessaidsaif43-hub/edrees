@@ -1638,3 +1638,56 @@ main {
   color: #9a3412 !important;
   box-shadow: 0 10px 22px rgba(245, 158, 11, 0.16) !important;
 }
+
+/* Sidebar stability: active/hover states must not change item size or push items down. */
+.teacher-side-nav,
+.teacher-side-nav * {
+  box-sizing: border-box !important;
+}
+
+.teacher-side-link,
+.teacher-side-title {
+  width: calc(100% - 20px) !important;
+  min-height: 48px !important;
+  border: 2px solid transparent !important;
+  padding: 10px 12px !important;
+  margin: 6px 10px !important;
+  transform: none !important;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.teacher-side-link:hover,
+.teacher-side-link.active,
+.teacher-side-link:first-of-type,
+.teacher-side-link:first-of-type.active,
+.teacher-side-title,
+.teacher-side-title:nth-of-type(1),
+.teacher-side-title:nth-of-type(2) {
+  min-height: 48px !important;
+  border-width: 2px !important;
+  padding: 10px 12px !important;
+  margin: 6px 10px !important;
+  transform: none !important;
+}
+
+.teacher-side-title:first-of-type {
+  margin: 6px 10px !important;
+}
+
+.teacher-side-link:active,
+.teacher-side-link:focus,
+.teacher-side-link:focus-visible {
+  transform: none !important;
+  outline: none !important;
+}
+
+@media (max-width: 1100px) {
+  .teacher-side-link,
+  .teacher-side-title,
+  .teacher-side-title:first-of-type {
+    width: auto !important;
+    min-height: 46px !important;
+    margin: 6px !important;
+    padding: 10px 12px !important;
+  }
+}
