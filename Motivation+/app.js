@@ -940,6 +940,29 @@ let pendingRemoteSave = false;
 let remoteAutoPullTimer = null;
 let syncedGameSeen = { wheel: "", lucky: "" };
 let syncedCountdownTicker = null;
+let clientInstanceId = "";
+try {
+  clientInstanceId = sessionStorage.getItem("motivationClientInstanceId") || "";
+  if (!clientInstanceId) {
+    clientInstanceId = `client-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    sessionStorage.setItem("motivationClientInstanceId", clientInstanceId);
+  }
+} catch {
+  clientInstanceId = `client-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function isMobileViewport() {
+  return window.matchMedia && window.matchMedia("(max-width: 760px)").matches;
+}
+
+function shouldRunDisplayGameLocally(options) {
+  return !(options && options.displayScreenOnly && isMobileViewport());
+}
+
+function showDisplayLaunchMessage(resultId, message) {
+  const result = document.getElementById(resultId);
+  if (result) result.textContent = message || "تم إرسال التشغيل إلى شاشة العرض.";
+}
 
 function getActiveClass() {
   if (!state.classes.length) return null;
@@ -2234,12 +2257,12 @@ function renderLuckyGame() {
   if (!luckyShowAllCards && luckyStudents.length > 5) {
     const preview = luckyStudents.slice(0, 5);
     grid.innerHTML = [
-      ...preview.map((student) => `<div class="lucky-card" data-student-id="${student.id}">${student.name}</div>`),
+      ...preview.map((student, index) => `<div class="lucky-card" data-student-id="${student.id}" data-student-name="${student.name.replace(/"/g, "&quot;")}">${luckyBusy ? `🎁 ${index + 1}` : student.name}</div>`),
       `<div class="lucky-card lucky-more" data-student-id="">آخرون...</div>`
     ].join("");
   } else {
     grid.innerHTML = luckyStudents
-      .map((student) => `<div class="lucky-card" data-student-id="${student.id}">${student.name}</div>`)
+      .map((student, index) => `<div class="lucky-card" data-student-id="${student.id}" data-student-name="${student.name.replace(/"/g, "&quot;")}">${luckyBusy ? `🎁 ${index + 1}` : student.name}</div>`)
       .join("");
   }
 
@@ -2247,7 +2270,10 @@ function renderLuckyGame() {
   const winnerName = luckyEvent && luckyEvent.winnerStudentId ? findStudentNameById(cls, luckyEvent.winnerStudentId) : "";
   if (!luckyBusy && luckyEvent && winnerName && Number(luckyEvent.endsAt || 0) + 60000 > Date.now()) {
     const winnerCard = grid.querySelector(`[data-student-id="${luckyEvent.winnerStudentId}"]`);
-    if (winnerCard) winnerCard.classList.add("winner");
+    if (winnerCard) {
+      winnerCard.textContent = winnerName;
+      winnerCard.classList.add("winner");
+    }
     result.textContent = Date.now() < Number(luckyEvent.endsAt || 0)
       ? "جاري اختيار الطالب على الأجهزة..."
       : `فاز: ${winnerName}`;
@@ -2314,11 +2340,10 @@ function syncCountdownFromInputs() {
   }
 }
 
-function startCountdown() {
+function startCountdown(options = {}) {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
-  enterFeatureFullscreen("feature-countdown");
   if (countdownRunning) return;
 
   if (countdownInputsDirty) {
@@ -2342,12 +2367,19 @@ function startCountdown() {
     status: "running",
     startsAt,
     endsAt,
-    durationSeconds: countdownRemainingSeconds
+    durationSeconds: countdownRemainingSeconds,
+    displayScreenOnly: !!options.displayScreenOnly,
+    originClientId: clientInstanceId
   };
   saveSyncedGameState();
-  playEventSound("start");
-  pulseFeatureCardById("feature-countdown", "start");
-  setTimeout(() => syncCountdownFromLiveGame(liveGames.countdown), Math.max(0, startsAt - Date.now()));
+  if (shouldRunDisplayGameLocally(options)) {
+    enterFeatureFullscreen("feature-countdown");
+    playEventSound("start");
+    pulseFeatureCardById("feature-countdown", "start");
+    setTimeout(() => syncCountdownFromLiveGame(liveGames.countdown), Math.max(0, startsAt - Date.now()));
+  } else {
+    showDisplayLaunchMessage("countdown-status", "تم إرسال المؤقت إلى شاشة العرض وسيبدأ هناك الآن.");
+  }
 }
 
 function pauseCountdown() {
@@ -2405,7 +2437,7 @@ function resetCountdown() {
   if (status) status.textContent = "تمت إعادة ضبط المؤقت.";
 }
 
-function startLuckyGame() {
+function startLuckyGame(options = {}) {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
@@ -2425,11 +2457,17 @@ function startLuckyGame() {
     id: syncedGameId("lucky"),
     startsAt,
     endsAt,
-    winnerStudentId: winner.id
+    winnerStudentId: winner.id,
+    displayScreenOnly: !!options.displayScreenOnly,
+    originClientId: clientInstanceId
   };
   syncedGameSeen.lucky = liveGames.lucky.id;
   saveSyncedGameState();
-  runSyncedLuckyEvent(liveGames.lucky);
+  if (shouldRunDisplayGameLocally(options)) {
+    runSyncedLuckyEvent(liveGames.lucky);
+  } else {
+    showDisplayLaunchMessage("lucky-result", "تم إرسال صندوق الحظ إلى شاشة العرض وسيظهر الفائز هناك.");
+  }
 }
 
 function generateReportText(cls) {
@@ -2865,6 +2903,7 @@ function runSyncedLuckyEvent(event) {
   if (!winnerName || !luckyStudents.length) return;
 
   luckyShowAllCards = true;
+  luckyBusy = true;
   renderLuckyGame();
   const freshCards = Array.from(document.querySelectorAll(".lucky-card"));
   const startsAt = Number(event.startsAt || 0);
@@ -2873,7 +2912,6 @@ function runSyncedLuckyEvent(event) {
   const winnerCard = freshCards.find((c) => c.dataset.studentId === event.winnerStudentId);
 
   enterFeatureFullscreen("feature-lucky");
-  luckyBusy = true;
   if (btn) btn.disabled = true;
   result.textContent = now < startsAt ? "استعد... سيبدأ صندوق الحظ الآن" : "جاري اختيار الطالب...";
 
@@ -2894,7 +2932,10 @@ function runSyncedLuckyEvent(event) {
       luckyTicker = null;
     }
     freshCards.forEach((c) => c.classList.remove("active", "winner"));
-    if (winnerCard) winnerCard.classList.add("winner");
+    if (winnerCard) {
+      winnerCard.textContent = winnerName;
+      winnerCard.classList.add("winner");
+    }
     luckyBusy = false;
     if (btn) btn.disabled = false;
     result.textContent = `فاز: ${winnerName}`;
@@ -2927,6 +2968,7 @@ function syncCountdownFromLiveGame(event) {
     return true;
   }
   if (event.status !== "running") return false;
+  enterFeatureFullscreen("feature-countdown");
   const endsAt = Number(event.endsAt || 0);
   const now = Date.now();
   countdownRunning = now < endsAt;
@@ -2966,7 +3008,7 @@ function syncLiveGamesFromState() {
   }
   syncCountdownFromLiveGame(cls.liveGames.countdown || {});
 }
-function startWheelSpin() {
+function startWheelSpin(options = {}) {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
@@ -2993,11 +3035,17 @@ function startWheelSpin() {
     startsAt,
     endsAt,
     winnerStudentId: winner.id,
-    finalRotation
+    finalRotation,
+    displayScreenOnly: !!options.displayScreenOnly,
+    originClientId: clientInstanceId
   };
   syncedGameSeen.wheel = liveGames.wheel.id;
   saveSyncedGameState();
-  runSyncedWheelEvent(liveGames.wheel);
+  if (shouldRunDisplayGameLocally(options)) {
+    runSyncedWheelEvent(liveGames.wheel);
+  } else {
+    showDisplayLaunchMessage("wheel-result", "تم إرسال العجلة إلى شاشة العرض وستظهر النتيجة هناك.");
+  }
 }
 
 async function hydrateProfilePhotoByElementId(elementId, cls, student) {
@@ -3652,12 +3700,24 @@ document.getElementById("spin-wheel").addEventListener("click", () => {
   startWheelSpin();
 });
 
+document.getElementById("display-spin-wheel").addEventListener("click", () => {
+  startWheelSpin({ displayScreenOnly: true });
+});
+
 document.getElementById("start-lucky-game").addEventListener("click", () => {
   startLuckyGame();
 });
 
+document.getElementById("display-start-lucky-game").addEventListener("click", () => {
+  startLuckyGame({ displayScreenOnly: true });
+});
+
 document.getElementById("start-countdown").addEventListener("click", () => {
   startCountdown();
+});
+
+document.getElementById("display-start-countdown").addEventListener("click", () => {
+  startCountdown({ displayScreenOnly: true });
 });
 
 document.getElementById("pause-countdown").addEventListener("click", () => {
@@ -4017,6 +4077,10 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
+
+
 
 
 
