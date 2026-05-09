@@ -1214,3 +1214,22 @@ main {
   .portal-view > .card { padding: 36px 18px; min-height: 280px; }
   .portal-view .field-row { flex-direction: column; }
 }
+
+/* Teacher side-panel behavior based on provided design files */
+.teacher-app [hidden] {
+  display: none !important;
+}
+#teacher-app > .grid {
+  align-items: start;
+}
+#teacher-app > .grid > [data-teacher-panel]:not([hidden]) {
+  min-height: 220px;
+}
+#reports-panel[data-teacher-panel]:not([hidden]) {
+  display: grid;
+}
+.teacher-side-link.active {
+  color: var(--blue);
+  background: var(--blue-soft);
+  border: 1px solid #c7ddff;
+}

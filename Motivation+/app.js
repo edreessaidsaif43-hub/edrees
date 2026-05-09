@@ -2245,6 +2245,7 @@ function pauseCountdown() {
   countdownRunning = false;
   renderCountdown();
   renderDirectPointsCard();
+  setupTeacherSidePanels();
 }
 
 function resetCountdown() {
@@ -2965,6 +2966,67 @@ function renderDirectPointsCard() {
 
   status.textContent = "يمكنك إضافة نقاط (+) أو خصم نقاط (-).";
 }
+
+function setupTeacherSidePanels() {
+  const teacherApp = document.getElementById("teacher-app");
+  if (!teacherApp || teacherApp.dataset.panelsReady === "1") return;
+  teacherApp.dataset.panelsReady = "1";
+
+  const panelTargets = {
+    setup: [
+      document.getElementById("class-management"),
+      document.getElementById("student-name")?.closest("article")
+    ],
+    rewards: [
+      document.getElementById("rewards-panel"),
+      document.getElementById("gift-panel")
+    ],
+    points: [document.getElementById("feature-points")],
+    students: [document.getElementById("students-table")?.closest("article")],
+    teams: [document.getElementById("teams-panel")],
+    challenges: [
+      document.getElementById("challenge-panel"),
+      document.getElementById("mini-challenge-panel")
+    ],
+    games: [
+      document.getElementById("feature-wheel"),
+      document.getElementById("feature-lucky"),
+      document.getElementById("feature-countdown")
+    ],
+    reports: [document.getElementById("reports-panel")]
+  };
+
+  Object.entries(panelTargets).forEach(([name, nodes]) => {
+    nodes.filter(Boolean).forEach((node) => {
+      node.dataset.teacherPanel = name;
+    });
+  });
+
+  const links = Array.from(document.querySelectorAll(".teacher-side-link"));
+  const orderedPanels = ["setup", "setup", "rewards", "points", "students", "teams", "challenges", "games", "reports"];
+  links.forEach((link, index) => {
+    link.dataset.teacherPanelTrigger = orderedPanels[index] || "setup";
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      showTeacherPanel(link.dataset.teacherPanelTrigger || "setup", link);
+    });
+  });
+
+  showTeacherPanel("setup");
+}
+
+function showTeacherPanel(panelName, activeLink = null) {
+  const normalized = panelName || "setup";
+  document.querySelectorAll("[data-teacher-panel]").forEach((node) => {
+    node.hidden = node.dataset.teacherPanel !== normalized;
+  });
+  const links = Array.from(document.querySelectorAll(".teacher-side-link"));
+  const fallback = links.find((link) => link.dataset.teacherPanelTrigger === normalized) || null;
+  const selected = activeLink || fallback;
+  links.forEach((link) => {
+    link.classList.toggle("active", link === selected);
+  });
+}
 function renderAll() {
   refreshClassesFromShared();
   updateSessionUI();
@@ -2984,6 +3046,7 @@ function renderAll() {
   renderLuckyGame();
   renderCountdown();
   renderDirectPointsCard();
+  setupTeacherSidePanels();
 }
 
 window.updateStudentPoints = updateStudentPoints;
@@ -3677,6 +3740,10 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
+
+
 
 
 
