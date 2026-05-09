@@ -1714,3 +1714,26 @@ main {
     margin-top: 0 !important;
   }
 }
+
+/* Sidebar alignment: keep the side menu at the same vertical level as the visible panel. */
+#teacher-app {
+  align-items: start !important;
+}
+
+.teacher-side-nav {
+  position: static !important;
+  top: auto !important;
+  grid-row: 1 !important;
+  align-self: start !important;
+  height: auto !important;
+  min-height: 100% !important;
+  margin-top: 0 !important;
+  transform: none !important;
+}
+
+#teacher-app > .grid,
+#teacher-app > .card.wide,
+#teacher-app > #reports-panel {
+  align-self: start !important;
+  margin-top: 0 !important;
+}
