@@ -3382,14 +3382,10 @@ function setupTeacherSidePanels() {
   teacherApp.dataset.panelsReady = "1";
 
   const panelTargets = {
-    setup: [
-      document.getElementById("class-management"),
-      document.getElementById("student-name")?.closest("article")
-    ],
-    rewards: [
-      document.getElementById("rewards-panel"),
-      document.getElementById("gift-panel")
-    ],
+    setup: [document.getElementById("class-management")],
+    addStudents: [document.getElementById("student-name")?.closest("article")],
+    rewards: [document.getElementById("rewards-panel")],
+    gifts: [document.getElementById("gift-panel")],
     points: [document.getElementById("feature-points")],
     students: [document.getElementById("students-table")?.closest("article")],
     teams: [document.getElementById("teams-panel")],
@@ -3397,11 +3393,11 @@ function setupTeacherSidePanels() {
       document.getElementById("challenge-panel"),
       document.getElementById("mini-challenge-panel")
     ],
-    games: [
+    random: [
       document.getElementById("feature-wheel"),
-      document.getElementById("feature-lucky"),
-      document.getElementById("feature-countdown")
+      document.getElementById("feature-lucky")
     ],
+    timer: [document.getElementById("feature-countdown")],
     reports: [document.getElementById("reports-panel")]
   };
 
@@ -3417,9 +3413,12 @@ function setupTeacherSidePanels() {
     "#feature-points": "points",
     "#teams-panel": "teams",
     "#challenge-panel": "challenges",
-    "#feature-wheel": "games",
+    "#feature-wheel": "random",
+    "#feature-countdown": "timer",
     "#class-management": "setup",
+    "#student-name": "addStudents",
     "#rewards-panel": "rewards",
+    "#gift-panel": "gifts",
     "#reports-panel": "reports"
   };
   links.forEach((link) => {
@@ -4185,6 +4184,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 

@@ -3216,3 +3216,67 @@ body.feature-fullscreen #feature-wheel.fullscreen-feature > #wheel-result {
     box-shadow: inset 0 -4px 0 #0f766e !important;
   }
 }
+
+/* Sidebar: make "Student list" button match the other buttons unless it is active. */
+@media (min-width: 761px) {
+  .teacher-side-link:first-of-type:not(.active) {
+    border-color: rgba(148, 163, 184, 0.20) !important;
+    background: rgba(255, 255, 255, 0.74) !important;
+    color: #334155 !important;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.045) !important;
+  }
+
+  .teacher-side-link:first-of-type:not(.active):hover {
+    border-color: rgba(20, 184, 166, 0.32) !important;
+    background: #ffffff !important;
+    color: #0f766e !important;
+    box-shadow: 0 12px 28px rgba(15, 118, 110, 0.10) !important;
+  }
+}
+
+/* Sidebar split buttons: mobile uses explicit classes instead of fragile item order. */
+@media (max-width: 760px) {
+  .teacher-side-link,
+  .teacher-side-title {
+    display: none !important;
+  }
+
+  .teacher-side-link.side-students,
+  .teacher-side-link.side-random,
+  .teacher-side-link.side-timer,
+  .teacher-side-link.side-challenges,
+  .teacher-side-link.side-rewards,
+  .teacher-side-link.side-class {
+    display: flex !important;
+    flex: 1 1 16.66% !important;
+    width: auto !important;
+    max-width: 78px !important;
+    min-width: 48px !important;
+    font-size: 0 !important;
+  }
+
+  .teacher-side-link.side-students { order: 1 !important; }
+  .teacher-side-link.side-random { order: 2 !important; }
+  .teacher-side-link.side-timer { order: 3 !important; }
+  .teacher-side-link.side-challenges { order: 4 !important; }
+  .teacher-side-link.side-rewards { order: 5 !important; }
+  .teacher-side-link.side-class { order: 6 !important; }
+
+  .teacher-side-link.side-students::before { content: "👥" !important; }
+  .teacher-side-link.side-students::after { content: "الطلبة" !important; }
+
+  .teacher-side-link.side-random::before { content: "🎲" !important; }
+  .teacher-side-link.side-random::after { content: "اختيار" !important; }
+
+  .teacher-side-link.side-timer::before { content: "⏱️" !important; }
+  .teacher-side-link.side-timer::after { content: "المؤقت" !important; }
+
+  .teacher-side-link.side-challenges::before { content: "🏆" !important; }
+  .teacher-side-link.side-challenges::after { content: "تحديات" !important; }
+
+  .teacher-side-link.side-rewards::before { content: "🎁" !important; }
+  .teacher-side-link.side-rewards::after { content: "مكافآت" !important; }
+
+  .teacher-side-link.side-class::before { content: "🏫" !important; }
+  .teacher-side-link.side-class::after { content: "الصف" !important; }
+}
