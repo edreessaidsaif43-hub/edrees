@@ -3405,9 +3405,19 @@ function setupTeacherSidePanels() {
   });
 
   const links = Array.from(document.querySelectorAll(".teacher-side-link"));
-  const orderedPanels = ["setup", "setup", "rewards", "points", "students", "teams", "challenges", "games", "reports"];
-  links.forEach((link, index) => {
-    link.dataset.teacherPanelTrigger = orderedPanels[index] || "setup";
+  const panelByHref = {
+    "#students-table": "students",
+    "#feature-points": "points",
+    "#teams-panel": "teams",
+    "#challenge-panel": "challenges",
+    "#feature-wheel": "games",
+    "#class-management": "setup",
+    "#rewards-panel": "rewards",
+    "#reports-panel": "reports"
+  };
+  links.forEach((link) => {
+    const href = link.getAttribute("href") || "";
+    link.dataset.teacherPanelTrigger = panelByHref[href] || "setup";
     link.addEventListener("click", (event) => {
       event.preventDefault();
       showTeacherPanel(link.dataset.teacherPanelTrigger || "setup", link);
@@ -3415,7 +3425,7 @@ function setupTeacherSidePanels() {
     });
   });
 
-  showTeacherPanel("setup");
+  showTeacherPanel("students");
 }
 
 function keepTeacherPanelPosition() {
@@ -4164,6 +4174,8 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
 
 
 
