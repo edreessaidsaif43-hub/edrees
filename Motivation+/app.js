@@ -537,6 +537,38 @@ async function findStudentByCodeUsingInviteJoin(code) {
   }
 }
 
+function repairOldChallengePointDeductions(stateObj, rawVersion = 0) {
+  if (!stateObj || Number(rawVersion || 0) >= 1) return stateObj;
+  let repairedCount = 0;
+  (stateObj.classes || []).forEach((cls) => {
+    (cls.students || []).forEach((student) => {
+      const history = Array.isArray(student.history) ? student.history : [];
+      const restore = history.reduce((sum, item) => {
+        const reason = normalizeName(item && item.reason ? item.reason : "");
+        const delta = Number(item && item.delta ? item.delta : 0);
+        const isOldAutoChallengeDeduction = delta < 0 && (
+          reason.startsWith("تعديل الفائز في التحدي") ||
+          reason.startsWith("إعادة فتح التحدي: سحب مكافأة")
+        );
+        return isOldAutoChallengeDeduction ? sum + Math.abs(delta) : sum;
+      }, 0);
+
+      if (restore > 0) {
+        student.points = Number(student.points || 0) + restore;
+        student.history = history;
+        student.history.push({
+          delta: restore,
+          reason: "استعادة نقاط خصم تلقائي قديم من التحدي الأسبوعي",
+          at: new Date().toISOString()
+        });
+        repairedCount += 1;
+      }
+    });
+  });
+  stateObj.pointsRepairVersion = 1;
+  if (repairedCount > 0) stateObj.updatedAt = Date.now();
+  return stateObj;
+}
 function mergeState(raw) {
   if (!raw || typeof raw !== "object") return createDefaultState();
 
@@ -550,11 +582,12 @@ function mergeState(raw) {
       };
     }
     const activeExists = classes.some((c) => c.id === raw.activeClassId);
-    return {
+    return repairOldChallengePointDeductions({
       classes,
       activeClassId: activeExists ? raw.activeClassId : classes[0].id,
-      updatedAt: Number(raw.updatedAt || 0)
-    };
+      updatedAt: Number(raw.updatedAt || 0),
+      pointsRepairVersion: Number(raw.pointsRepairVersion || 0)
+    }, raw.pointsRepairVersion);
   }
 
   const legacy = normalizeClass({
@@ -569,11 +602,12 @@ function mergeState(raw) {
     teams: raw.teams
   });
 
-  return {
+  return repairOldChallengePointDeductions({
     classes: [legacy],
     activeClassId: legacy.id,
-    updatedAt: Number(raw.updatedAt || 0)
-  };
+    updatedAt: Number(raw.updatedAt || 0),
+    pointsRepairVersion: Number(raw.pointsRepairVersion || 0)
+  }, raw.pointsRepairVersion);
 }
 
 function loadAccounts() {
@@ -610,7 +644,11 @@ function loadTeacherData(accountId) {
     const raw = localStorage.getItem(key);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return mergeState(parsed);
+      const merged = mergeState(parsed);
+      if (Number(parsed.pointsRepairVersion || 0) < 1 && Number(merged.pointsRepairVersion || 0) >= 1) {
+        localStorage.setItem(key, JSON.stringify(merged));
+      }
+      return merged;
     }
   } catch {}
   return loadPublicStateCache() || createDefaultState();
@@ -936,6 +974,7 @@ let countdownRemainingSeconds = 300;
 let countdownTotalSeconds = 300;
 let countdownRunning = false;
 let countdownInputsDirty = false;
+let countdownMode = "hourglass";
 let activeFullscreenFeature = "";
 let celebrationHideTimer = null;
 let miniChallengeTicker = null;
@@ -1934,11 +1973,7 @@ async function announceChallengeWinner() {
       showAuthMessage("هذا الطالب معلن بالفعل كفائز في التحدي.", true);
       return;
     }
-    const previousWinner = cls.students.find((s) => s.id === challenge.winnerStudentId);
-    const prevBonus = normalizePositivePoints(challenge.bonusPoints, 10);
-    if (previousWinner && prevBonus > 0) {
-      addWinnerPointsById(cls, previousWinner.id, -prevBonus, `تعديل الفائز في التحدي: ${challenge.title}`, { celebrateLevel: false });
-    }
+    // لا نسحب نقاط الفائز السابق عند تغيير الفائز، حتى لا تنقص نقاط الطلاب بدون قصد.
   }
 
   const winner = cls.students.find((s) => s.id === winnerId);
@@ -1982,14 +2017,8 @@ function reopenChallenge() {
     return;
   }
 
-  const ok = window.confirm("هل تريد إعادة فتح التحدي؟ سيتم سحب نقاط المكافأة من الفائز الحالي.");
+  const ok = window.confirm("هل تريد إعادة فتح التحدي؟ لن يتم خصم أي نقاط من الفائز الحالي.");
   if (!ok) return;
-
-  const winner = cls.students.find((s) => s.id === challenge.winnerStudentId);
-  const bonus = Number(challenge.bonusPoints || 0);
-  if (winner && bonus > 0) {
-    applyPointsChange(winner, -bonus, `إعادة فتح التحدي: سحب مكافأة ${challenge.title}`, { celebrateLevel: false });
-  }
 
   challenge.winnerStudentId = "";
   challenge.winnerAwardedAt = "";
@@ -2380,6 +2409,20 @@ function formatSeconds(totalSeconds) {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
+function setCountdownMode(mode) {
+  countdownMode = mode === "digital" ? "digital" : "hourglass";
+  const countdownCard = document.getElementById("feature-countdown");
+  if (countdownCard) {
+    countdownCard.classList.toggle("countdown-mode-digital", countdownMode === "digital");
+    countdownCard.classList.toggle("countdown-mode-hourglass", countdownMode === "hourglass");
+  }
+
+  document.querySelectorAll("[data-countdown-mode]").forEach((btn) => {
+    const isActive = btn.dataset.countdownMode === countdownMode;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
 function updateHourglassTimer() {
   const topSand = document.getElementById("countdown-sand-top");
   const bottomSand = document.getElementById("countdown-sand-bottom");
@@ -2410,6 +2453,7 @@ function renderCountdown() {
   const display = document.getElementById("countdown-display");
   const status = document.getElementById("countdown-status");
   if (!display || !status) return;
+  setCountdownMode(countdownMode);
   display.textContent = formatSeconds(countdownRemainingSeconds);
   display.classList.toggle("done", countdownRemainingSeconds === 0);
   updateHourglassTimer();
@@ -2607,6 +2651,11 @@ function updateStudentPoints(studentId, reasonKey) {
   if (!student) return;
 
   const r = reasons[reasonKey];
+  if (!r) return;
+  if (Number(r.delta || 0) < 0) {
+    const ok = window.confirm(`سيتم خصم ${Math.abs(Number(r.delta || 0))} نقطة من الطالب ${student.name} بسبب: ${r.label}. هل تريد المتابعة؟`);
+    if (!ok) return;
+  }
   const before = Number(student.points || 0);
   applyPointsChange(student, r.delta, r.label);
 
@@ -3867,6 +3916,12 @@ document.getElementById("reset-countdown").addEventListener("click", () => {
   resetCountdown();
 });
 
+document.querySelectorAll("[data-countdown-mode]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    setCountdownMode(btn.dataset.countdownMode);
+    renderCountdown();
+  });
+});
 ["countdown-minutes", "countdown-seconds"].forEach((id) => {
   const el = document.getElementById(id);
   if (!el) return;
@@ -3993,6 +4048,10 @@ document.getElementById("add-bonus-points").addEventListener("click", () => {
 
   const customReason = normalizeName(reasonEl.value);
   const reasonLabel = customReason || (delta > 0 ? "إضافة نقاط مباشرة من بطاقة 11" : "خصم نقاط مباشرة من بطاقة 11");
+  if (delta < 0) {
+    const ok = window.confirm(`سيتم خصم ${Math.abs(delta)} نقطة من الطالب ${student.name}. هل تريد المتابعة؟`);
+    if (!ok) return;
+  }
   applyPointsChange(student, delta, reasonLabel);
   saveTeacherData();
   renderAll();
@@ -4216,6 +4275,9 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
+
 
 
 

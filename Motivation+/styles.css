@@ -3464,3 +3464,80 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   .hourglass-frame-bottom { bottom: 22px; }
   .hourglass-pillar { top: 24px; bottom: 24px; }
 }
+
+/* Countdown type switcher: digital or hourglass. */
+.countdown-mode-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px auto 14px;
+}
+
+.countdown-mode-btn {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  min-height: 44px;
+  padding: 0 18px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.countdown-mode-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 184, 166, 0.34);
+  color: #0f766e;
+}
+
+.countdown-mode-btn.active {
+  border-color: rgba(20, 184, 166, 0.55);
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(15, 118, 110, 0.20);
+}
+
+#feature-countdown.countdown-mode-digital .hourglass-stage {
+  display: none !important;
+}
+
+#feature-countdown.countdown-mode-digital .countdown-display {
+  max-width: 520px;
+  margin: 18px auto 20px;
+  padding: 28px 18px;
+  border-radius: 28px;
+  font-size: clamp(3rem, 9vw, 6rem);
+  background: radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.22), transparent 35%), linear-gradient(135deg, #0f172a, #1e3a8a);
+  color: #f8fafc;
+  box-shadow: 0 24px 55px rgba(15, 23, 42, 0.18);
+}
+
+#feature-countdown.countdown-mode-hourglass .countdown-display {
+  max-width: 340px;
+  margin-inline: auto;
+}
+
+@media (max-width: 760px) {
+  .countdown-mode-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .countdown-mode-btn {
+    width: 100% !important;
+    min-height: 42px !important;
+    padding: 0 8px !important;
+    font-size: 0.84rem !important;
+  }
+
+  #feature-countdown.countdown-mode-digital .countdown-display {
+    font-size: clamp(2.5rem, 16vw, 4.5rem) !important;
+    padding: 24px 12px !important;
+  }
+}

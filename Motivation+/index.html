@@ -296,6 +296,10 @@
               <input id="countdown-minutes" type="number" min="0" max="180" value="5" placeholder="دقائق" />
               <input id="countdown-seconds" type="number" min="0" max="59" value="0" placeholder="ثواني" />
             </div>
+            <div class="countdown-mode-switch" role="group" aria-label="اختيار نوع المؤقت">
+              <button type="button" class="countdown-mode-btn active" data-countdown-mode="hourglass">⏳ ساعة رملية</button>
+              <button type="button" class="countdown-mode-btn" data-countdown-mode="digital">🔢 مؤقت رقمي</button>
+            </div>
             <div id="countdown-display" class="countdown-display">05:00</div>
             <div class="hourglass-stage" aria-label="ساعة رملية للمؤقت">
               <div class="hourglass-frame-top"></div>
@@ -496,6 +500,7 @@
   <script src="/Motivation+/app.js"></script>
 </body>
 </html>
+
 
 
 
