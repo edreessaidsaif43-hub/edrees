@@ -2280,17 +2280,6 @@ function renderWheel() {
 
   wheel.style.background = "transparent";
   drawProfessionalWheelCanvas(cls.students);
-  const wheelEvent = cls.liveGames && cls.liveGames.wheel ? cls.liveGames.wheel : null;
-  const winnerName = wheelEvent && wheelEvent.winnerStudentId ? findStudentNameById(cls, wheelEvent.winnerStudentId) : "";
-  if (!wheelBusy && wheelEvent && winnerName && Number(wheelEvent.endsAt || 0) + 60000 > Date.now()) {
-    wheelRotation = Number(wheelEvent.finalRotation || wheelRotation || 0) % 360;
-    wheel.style.transform = `rotate(${wheelRotation}deg)`;
-    center.textContent = winnerName;
-    result.textContent = Date.now() < Number(wheelEvent.endsAt || 0)
-      ? "جاري التدوير على الأجهزة..."
-      : `تم اختيار: ${winnerName}`;
-    return;
-  }
   if (!wheelBusy) {
     center.textContent = "تدوير";
     result.textContent = "اضغط تدوير لاختيار طالب عشوائي.";
@@ -2348,20 +2337,6 @@ function renderLuckyGame(forceRender = false) {
     grid.innerHTML = luckyStudents
       .map((student, index) => `<div class="lucky-card" data-student-id="${student.id}" data-student-name="${student.name.replace(/"/g, "&quot;")}">${luckyBusy ? `🎁 ${index + 1}` : student.name}</div>`)
       .join("");
-  }
-
-  const luckyEvent = cls.liveGames && cls.liveGames.lucky ? cls.liveGames.lucky : null;
-  const winnerName = luckyEvent && luckyEvent.winnerStudentId ? findStudentNameById(cls, luckyEvent.winnerStudentId) : "";
-  if (!luckyBusy && luckyEvent && winnerName && Number(luckyEvent.endsAt || 0) + 60000 > Date.now()) {
-    const winnerCard = grid.querySelector(`[data-student-id="${luckyEvent.winnerStudentId}"]`);
-    if (winnerCard) {
-      winnerCard.textContent = winnerName;
-      winnerCard.classList.add("winner");
-    }
-    result.textContent = Date.now() < Number(luckyEvent.endsAt || 0)
-      ? "جاري اختيار الطالب على الأجهزة..."
-      : `فاز: ${winnerName}`;
-    return;
   }
 
   if (!luckyBusy) {
@@ -2424,7 +2399,7 @@ function syncCountdownFromInputs() {
   }
 }
 
-function startCountdown(options = {}) {
+function startCountdown() {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
@@ -2443,27 +2418,24 @@ function startCountdown(options = {}) {
     return;
   }
 
-  const startsAt = Date.now() + 1200;
-  const endsAt = startsAt + (countdownRemainingSeconds * 1000);
-  const liveGames = ensureLiveGames(cls);
-  liveGames.countdown = {
-    id: syncedGameId("countdown"),
-    status: "running",
-    startsAt,
-    endsAt,
-    durationSeconds: countdownRemainingSeconds,
-    displayScreenOnly: !!options.displayScreenOnly,
-    originClientId: clientInstanceId
-  };
-  saveSyncedGameState();
-  if (shouldRunDisplayGameLocally(options)) {
-    enterFeatureFullscreen("feature-countdown");
-    playEventSound("start");
-    pulseFeatureCardById("feature-countdown", "start");
-    setTimeout(() => syncCountdownFromLiveGame(liveGames.countdown), Math.max(0, startsAt - Date.now()));
-  } else {
-    showDisplayLaunchMessage("countdown-status", "تم إرسال المؤقت إلى شاشة العرض وسيبدأ هناك الآن.");
-  }
+  enterFeatureFullscreen("feature-countdown");
+  countdownRunning = true;
+  playEventSound("start");
+  pulseFeatureCardById("feature-countdown", "start");
+  renderCountdown();
+  if (countdownInterval) clearInterval(countdownInterval);
+  countdownInterval = setInterval(() => {
+    countdownRemainingSeconds = Math.max(0, countdownRemainingSeconds - 1);
+    countdownRunning = countdownRemainingSeconds > 0;
+    renderCountdown();
+    if (!countdownRunning) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      playCheer();
+      playEventSound("winner");
+      pulseFeatureCardById("feature-countdown", "winner");
+    }
+  }, 1000);
 }
 
 function pauseCountdown() {
@@ -2471,22 +2443,7 @@ function pauseCountdown() {
     clearInterval(countdownInterval);
     countdownInterval = null;
   }
-  if (syncedCountdownTicker) {
-    clearInterval(syncedCountdownTicker);
-    syncedCountdownTicker = null;
-  }
   countdownRunning = false;
-  const cls = getActiveClass();
-  if (cls) {
-    const liveGames = ensureLiveGames(cls);
-    liveGames.countdown = {
-      id: syncedGameId("countdown-pause"),
-      status: "paused",
-      remainingSeconds: countdownRemainingSeconds,
-      updatedAt: Date.now()
-    };
-    saveSyncedGameState();
-  }
   renderCountdown();
   renderDirectPointsCard();
   setupTeacherSidePanels();
@@ -2497,31 +2454,16 @@ function resetCountdown() {
     clearInterval(countdownInterval);
     countdownInterval = null;
   }
-  if (syncedCountdownTicker) {
-    clearInterval(syncedCountdownTicker);
-    syncedCountdownTicker = null;
-  }
   countdownRunning = false;
   countdownRemainingSeconds = getCountdownInputSeconds();
   countdownInputsDirty = false;
-  const cls = getActiveClass();
-  if (cls) {
-    const liveGames = ensureLiveGames(cls);
-    liveGames.countdown = {
-      id: syncedGameId("countdown-reset"),
-      status: "idle",
-      remainingSeconds: countdownRemainingSeconds,
-      updatedAt: Date.now()
-    };
-    saveSyncedGameState();
-  }
   renderCountdown();
   renderDirectPointsCard();
   const status = document.getElementById("countdown-status");
   if (status) status.textContent = "تمت إعادة ضبط المؤقت.";
 }
 
-function startLuckyGame(options = {}) {
+function startLuckyGame() {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
@@ -2534,26 +2476,14 @@ function startLuckyGame(options = {}) {
   }
   const winnerIndex = Math.floor(Math.random() * luckyStudents.length);
   const winner = luckyStudents[winnerIndex];
-  const startsAt = Date.now() + 900;
-  const endsAt = startsAt + 2800;
-  const liveGames = ensureLiveGames(cls);
-  liveGames.lucky = {
-    id: syncedGameId("lucky"),
+  const event = {
+    id: syncedGameId("lucky-local"),
     type: "lucky",
-    createdAt: Date.now(),
-    startsAt,
-    endsAt,
-    winnerStudentId: winner.id,
-    displayScreenOnly: !!options.displayScreenOnly,
-    originClientId: clientInstanceId
+    startsAt: Date.now() + 500,
+    endsAt: Date.now() + 3300,
+    winnerStudentId: winner.id
   };
-  syncedGameSeen.lucky = liveGames.lucky.id;
-  saveSyncedGameState();
-  if (shouldRunDisplayGameLocally(options)) {
-    runSyncedLuckyEvent(liveGames.lucky);
-  } else {
-    showDisplayLaunchMessage("lucky-result", "تم إرسال صندوق الحظ إلى شاشة العرض وسيظهر الفائز هناك.");
-  }
+  runSyncedLuckyEvent(event);
 }
 
 function generateReportText(cls) {
@@ -2936,7 +2866,7 @@ function scheduleWheelTimer(fn, delay) {
 }
 
 function setWheelButtonsDisabled(disabled) {
-  ["spin-wheel", "display-spin-wheel", "wheel-center-text"].forEach((id) => {
+  ["spin-wheel", "wheel-center-text"].forEach((id) => {
     const btn = document.getElementById(id);
     if (btn) btn.disabled = !!disabled;
   });
@@ -3037,7 +2967,7 @@ function scheduleLuckyTimer(fn, delay) {
 }
 
 function setLuckyButtonsDisabled(disabled) {
-  ["start-lucky-game", "display-start-lucky-game"].forEach((id) => {
+  ["start-lucky-game"].forEach((id) => {
     const btn = document.getElementById(id);
     if (btn) btn.disabled = !!disabled;
   });
@@ -3152,22 +3082,10 @@ function syncCountdownFromLiveGame(event) {
 }
 
 function syncLiveGamesFromState() {
-  const cls = getActiveClass();
-  if (!currentTeacher || !cls || !cls.liveGames) return;
-  const now = Date.now();
-  const wheelEvent = cls.liveGames.wheel || {};
-  if (wheelEvent.id && wheelEvent.id !== syncedGameSeen.wheel && Number(wheelEvent.endsAt || 0) + 15000 > now) {
-    syncedGameSeen.wheel = wheelEvent.id;
-    runSyncedWheelEvent(wheelEvent);
-  }
-  const luckyEvent = cls.liveGames.lucky || {};
-  if (luckyEvent.id && luckyEvent.id !== syncedGameSeen.lucky && Number(luckyEvent.endsAt || 0) + 15000 > now) {
-    syncedGameSeen.lucky = luckyEvent.id;
-    runSyncedLuckyEvent(luckyEvent);
-  }
-  syncCountdownFromLiveGame(cls.liveGames.countdown || {});
+  return;
 }
-function startWheelSpin(options = {}) {
+
+function startWheelSpin() {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
@@ -3187,28 +3105,16 @@ function startWheelSpin(options = {}) {
   const settleOffset = (360 - winnerAngle) + (Math.random() * segment * 0.4 - segment * 0.2);
   const startRotation = wheelRotation % 360;
   const finalRotation = startRotation + rounds * 360 + settleOffset;
-  const startsAt = Date.now() + 900;
-  const endsAt = startsAt + 3600;
-  const liveGames = ensureLiveGames(cls);
-  liveGames.wheel = {
-    id: syncedGameId("wheel"),
+  const event = {
+    id: syncedGameId("wheel-local"),
     type: "wheel",
-    createdAt: Date.now(),
-    startsAt,
-    endsAt,
+    startsAt: Date.now() + 500,
+    endsAt: Date.now() + 4100,
     winnerStudentId: winner.id,
     startRotation,
-    finalRotation,
-    displayScreenOnly: !!options.displayScreenOnly,
-    originClientId: clientInstanceId
+    finalRotation
   };
-  syncedGameSeen.wheel = liveGames.wheel.id;
-  saveSyncedGameState();
-  if (shouldRunDisplayGameLocally(options)) {
-    runSyncedWheelEvent(liveGames.wheel);
-  } else {
-    showDisplayLaunchMessage("wheel-result", "تم إرسال العجلة إلى شاشة العرض وستظهر النتيجة هناك.");
-  }
+  runSyncedWheelEvent(event);
 }
 
 async function hydrateProfilePhotoByElementId(elementId, cls, student) {
@@ -3542,7 +3448,6 @@ function renderAll() {
   renderCountdown();
   renderDirectPointsCard();
   setupTeacherSidePanels();
-  syncLiveGamesFromState();
 }
 
 window.updateStudentPoints = updateStudentPoints;
@@ -3570,7 +3475,7 @@ function activateMainTab(tabName) {
 
 tabs.forEach((tab) => {
   tab.addEventListener("click", () => {
-    if (tab.dataset.tab === "live" && isMobileViewport()) {
+    if (tab.dataset.tab === "live") {
       activateMainTab("teacher");
       return;
     }
@@ -3878,25 +3783,16 @@ document.getElementById("wheel-center-text").addEventListener("click", () => {
   startWheelSpin();
 });
 
-document.getElementById("display-spin-wheel").addEventListener("click", () => {
-  startWheelSpin({ displayScreenOnly: true });
-});
 
 document.getElementById("start-lucky-game").addEventListener("click", () => {
   startLuckyGame();
 });
 
-document.getElementById("display-start-lucky-game").addEventListener("click", () => {
-  startLuckyGame({ displayScreenOnly: true });
-});
 
 document.getElementById("start-countdown").addEventListener("click", () => {
   startCountdown();
 });
 
-document.getElementById("display-start-countdown").addEventListener("click", () => {
-  startCountdown({ displayScreenOnly: true });
-});
 
 document.getElementById("pause-countdown").addEventListener("click", () => {
   pauseCountdown();
@@ -4255,6 +4151,8 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
 
 
 

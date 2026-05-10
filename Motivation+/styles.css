@@ -2897,3 +2897,10 @@ body.feature-fullscreen #feature-wheel.fullscreen-feature .wheel-canvas-wrap .st
     display: none !important;
   }
 }
+
+
+/* Live display and cross-device game sync are disabled. */
+.tab[data-tab="live"],
+#live.live-view {
+  display: none !important;
+}
