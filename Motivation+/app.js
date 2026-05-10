@@ -1154,7 +1154,7 @@ function pulseFeatureCardById(featureId, mode = "start") {
   card.classList.add(cls);
   setTimeout(() => card.classList.remove(cls), mode === "winner" ? 1400 : 900);
 }
-function triggerCelebration(title, message) {
+function triggerCelebration(title, message, duration = 2200) {
   const overlay = document.getElementById("celebration-overlay");
   const titleEl = document.getElementById("celebration-title");
   const msgEl = document.getElementById("celebration-message");
@@ -1182,7 +1182,7 @@ function triggerCelebration(title, message) {
   celebrationHideTimer = setTimeout(() => {
     overlay.classList.remove("show");
     confetti.innerHTML = "";
-  }, 2200);
+  }, duration);
 }
 
 function enterFeatureFullscreen(featureId) {
@@ -1286,7 +1286,7 @@ function drawProfessionalWheelCanvas(students) {
   const cy = size / 2;
   const radius = size * 0.462;
   ctx.clearRect(0, 0, size, size);
-  const list = Array.isArray(students) ? students.filter((s) => s && s.name) : [];
+  const list = Array.isArray(students) ? students.filter((s) => s && s.id && normalizeName(s.name)) : [];
   if (!list.length) {
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
@@ -1349,7 +1349,7 @@ function renderProfessionalWheelLabels(wheel, center, students) {
   if (!wheel || !center) return;
   const oldLayer = wheel.querySelector(".wheel-labels");
   if (oldLayer) oldLayer.remove();
-  const list = Array.isArray(students) ? students.filter((s) => s && s.name) : [];
+  const list = Array.isArray(students) ? students.filter((s) => s && s.id && normalizeName(s.name)) : [];
   if (!list.length) return;
   const layer = document.createElement("div");
   layer.className = "wheel-labels";
@@ -2936,7 +2936,7 @@ function runSyncedWheelEvent(event) {
     playCheer();
     playEventSound("winner");
     pulseFeatureCardById("feature-wheel", "winner");
-    triggerCelebration("🎡 اختيار عشوائي", "تم اختيار الطالب: " + winnerName);
+    triggerCelebration("🎡 اختيار عشوائي", "تم اختيار الطالب: " + winnerName, 7000);
   };
   if (now >= endsAt) {
     finishSpin();
@@ -3036,7 +3036,7 @@ function runSyncedLuckyEvent(event) {
     playCheer();
     playEventSound("winner");
     pulseFeatureCardById("feature-lucky", "winner");
-    triggerCelebration("🎲 فائز صندوق الحظ", "الفائز: " + winnerName);
+    triggerCelebration("🎲 فائز صندوق الحظ", "الفائز: " + winnerName, 7000);
   };
   hideCardNames();
   if (now >= endsAt) {
@@ -3099,19 +3099,25 @@ function startWheelSpin() {
   const result = document.getElementById("wheel-result");
   const center = document.getElementById("wheel-center-text");
   if (wheelBusy) return;
-  if (!cls.students.length) {
+  const validWheelStudents = (cls.students || []).filter((student) => student && student.id && normalizeName(student.name));
+  if (!validWheelStudents.length) {
     if (result) result.textContent = "أضف طلابا أولا ثم ابدأ التدوير.";
     if (center) center.textContent = "لا يوجد طلاب";
     return;
   }
-  const winnerIndex = Math.floor(Math.random() * cls.students.length);
-  const winner = cls.students[winnerIndex];
-  const segment = 360 / cls.students.length;
+  const wheelStudents = validWheelStudents;
+  const winnerIndex = Math.floor(Math.random() * wheelStudents.length);
+  const winner = wheelStudents[winnerIndex];
+  const segment = 360 / wheelStudents.length;
   const winnerAngle = winnerIndex * segment + segment / 2;
+  const pointerAngle = 270; // المؤشر أعلى العجلة.
   const rounds = 6 + Math.floor(Math.random() * 3);
-  const settleOffset = (360 - winnerAngle) + (Math.random() * segment * 0.4 - segment * 0.2);
   const startRotation = wheelRotation;
-  const finalRotation = startRotation + rounds * 360 + settleOffset;
+  const currentRotation = ((startRotation % 360) + 360) % 360;
+  const jitter = Math.random() * segment * 0.32 - segment * 0.16;
+  const targetRotation = ((pointerAngle - winnerAngle + jitter) % 360 + 360) % 360;
+  const deltaRotation = (targetRotation - currentRotation + 360) % 360;
+  const finalRotation = startRotation + rounds * 360 + deltaRotation;
   const event = {
     id: syncedGameId("wheel-local"),
     type: "wheel",
@@ -4158,6 +4164,9 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
+
 
 
 
