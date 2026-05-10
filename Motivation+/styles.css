@@ -2931,3 +2931,23 @@ body.feature-fullscreen #feature-wheel.fullscreen-feature .wheel-canvas {
   max-inline-size: var(--wheel-size) !important;
   max-block-size: var(--wheel-size) !important;
 }
+
+/* Final wheel center and labels correction. */
+.wheel-canvas-wrap {
+  display: block !important;
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.wheel-canvas-wrap .wheel-center-text,
+body.feature-fullscreen #feature-wheel.fullscreen-feature .wheel-canvas-wrap .wheel-center-text {
+  position: absolute !important;
+  top: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: 50% !important;
+  margin: 0 !important;
+  transform: translate(-50%, -50%) !important;
+  transform-origin: center center !important;
+  z-index: 30 !important;
+}

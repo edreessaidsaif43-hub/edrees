@@ -1254,10 +1254,19 @@ function buildWheelGradient(count) {
 
 function buildWheelShortName(name, index, total) {
   const clean = normalizeName(name || "");
-  if (!clean) return String(index + 1);
-  if (total > 24) return String(index + 1);
-  if (total > 14) return clean.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("");
-  return clean.length > 12 ? `${clean.slice(0, 11)}…` : clean;
+  const firstName = clean.split(/\s+/).filter(Boolean)[0] || "طالب";
+  const maxNameLength = total > 24 ? 5 : total > 14 ? 6 : 9;
+  const shortName = firstName.length > maxNameLength ? `${firstName.slice(0, maxNameLength)}…` : firstName;
+  return `${index + 1} ${shortName}`;
+}
+
+function getProfessionalWheelColor(index, total) {
+  const safeTotal = Math.max(1, Number(total || 1));
+  const hue = Math.round((index * 360) / safeTotal);
+  return [
+    `hsl(${hue} 82% 48%)`,
+    `hsl(${(hue + 18) % 360} 90% 66%)`
+  ];
 }
 
 
@@ -1292,7 +1301,7 @@ function drawProfessionalWheelCanvas(students) {
   list.forEach((student, index) => {
     const start = index * slice;
     const end = start + slice;
-    const colors = professionalWheelColors[index % professionalWheelColors.length];
+    const colors = getProfessionalWheelColor(index, list.length);
     const grad = ctx.createRadialGradient(cx, cy, radius * 0.1, cx, cy, radius);
     grad.addColorStop(0, colors[1]);
     grad.addColorStop(1, colors[0]);
@@ -4149,6 +4158,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 
