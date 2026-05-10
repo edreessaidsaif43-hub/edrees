@@ -1203,12 +1203,18 @@ function enterFeatureFullscreen(featureId) {
 }
 
 function exitFeatureFullscreen() {
+  const closingFeature = activeFullscreenFeature;
   if (activeFullscreenFeature) {
     const feature = document.getElementById(activeFullscreenFeature);
     if (feature) feature.classList.remove("fullscreen-feature");
   }
   activeFullscreenFeature = "";
   document.body.classList.remove("feature-fullscreen");
+  if (closingFeature === "feature-lucky") {
+    luckyShowAllCards = false;
+    luckyBusy = false;
+    renderLuckyGame(true);
+  }
 }
 
 function rankStudents(cls) {
@@ -2907,13 +2913,7 @@ function runSyncedWheelEvent(event) {
     playEventSound("spin");
     pulseFeatureCardById("feature-wheel", "spin");
     result.textContent = "جاري التدوير...";
-    const names = (cls.students || []).map((s) => normalizeName(s.name)).filter(Boolean);
-    let idx = 0;
-    if (wheelTicker) clearInterval(wheelTicker);
-    wheelTicker = setInterval(() => {
-      center.textContent = names.length ? names[idx % names.length] : "...";
-      idx += 1;
-    }, 95);
+    center.textContent = "يدور";
   };
   const finishSpin = () => {
     clearWheelPlayback();
@@ -2921,8 +2921,8 @@ function runSyncedWheelEvent(event) {
     activeWheelEventId = "";
     wheelRotation = finalRotation % 360;
     setRotation(wheelRotation, 0);
-    center.textContent = winnerName;
-    result.textContent = "تم اختيار: " + winnerName;
+    center.textContent = "فائز";
+    result.textContent = "الطالب المختار: " + winnerName;
     setWheelButtonsDisabled(false);
     playCheer();
     playEventSound("winner");
@@ -3028,8 +3028,6 @@ function runSyncedLuckyEvent(event) {
     playEventSound("winner");
     pulseFeatureCardById("feature-lucky", "winner");
     triggerCelebration("🎲 فائز صندوق الحظ", "الفائز: " + winnerName);
-    luckyShowAllCards = false;
-    scheduleLuckyTimer(() => renderLuckyGame(), 900);
   };
   hideCardNames();
   if (now >= endsAt) {
@@ -4151,6 +4149,8 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
 
 
 

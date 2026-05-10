@@ -2904,3 +2904,30 @@ body.feature-fullscreen #feature-wheel.fullscreen-feature .wheel-canvas-wrap .st
 #live.live-view {
   display: none !important;
 }
+
+/* Final wheel shape fix: keep the spinning wheel perfectly circular. */
+.wheel-canvas-wrap,
+.wheel-canvas-wrap .student-wheel,
+.wheel-canvas {
+  aspect-ratio: 1 / 1 !important;
+  inline-size: var(--wheel-size) !important;
+  block-size: var(--wheel-size) !important;
+  min-inline-size: var(--wheel-size) !important;
+  min-block-size: var(--wheel-size) !important;
+  max-inline-size: var(--wheel-size) !important;
+  max-block-size: var(--wheel-size) !important;
+  flex: 0 0 var(--wheel-size) !important;
+  border-radius: 50% !important;
+}
+
+body.feature-fullscreen #feature-wheel.fullscreen-feature .wheel-canvas-wrap,
+body.feature-fullscreen #feature-wheel.fullscreen-feature .wheel-canvas-wrap .student-wheel,
+body.feature-fullscreen #feature-wheel.fullscreen-feature .wheel-canvas {
+  aspect-ratio: 1 / 1 !important;
+  inline-size: var(--wheel-size) !important;
+  block-size: var(--wheel-size) !important;
+  min-inline-size: var(--wheel-size) !important;
+  min-block-size: var(--wheel-size) !important;
+  max-inline-size: var(--wheel-size) !important;
+  max-block-size: var(--wheel-size) !important;
+}
