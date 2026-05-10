@@ -3348,3 +3348,119 @@ body.feature-fullscreen #feature-wheel.fullscreen-feature > #wheel-result {
     max-width: 100% !important;
   }
 }
+
+/* Hourglass countdown timer. */
+.hourglass-stage {
+  position: relative;
+  width: min(280px, 72vw);
+  height: min(500px, 58vh);
+  min-height: 330px;
+  margin: 18px auto 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 28px;
+  background: radial-gradient(circle at 50% 18%, rgba(251, 191, 36, 0.20), transparent 28%), linear-gradient(145deg, #0f172a, #1e293b 58%, #78350f);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  overflow: visible;
+}
+
+.hourglass-svg {
+  width: min(230px, 58vw);
+  height: min(410px, 50vh);
+  min-height: 300px;
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35));
+  overflow: visible;
+}
+
+.hourglass-frame-top,
+.hourglass-frame-bottom {
+  position: absolute;
+  left: 50%;
+  width: 82%;
+  height: 16px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #facc15, #a16207 60%, #713f12);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+}
+
+.hourglass-frame-top { top: 28px; }
+.hourglass-frame-bottom { bottom: 28px; }
+
+.hourglass-pillar {
+  position: absolute;
+  top: 30px;
+  bottom: 30px;
+  width: 9px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #713f12, #facc15, #854d0e);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+  z-index: 1;
+}
+
+.hourglass-pillar-left { left: 12%; }
+.hourglass-pillar-right { right: 12%; }
+
+#countdown-sand-top,
+#countdown-sand-bottom {
+  transition: y 0.45s linear, height 0.45s linear;
+}
+
+#countdown-sand-stream {
+  transition: opacity 0.2s ease;
+  animation: hourglass-stream 0.34s ease-in-out infinite;
+}
+
+.hourglass-particle {
+  fill: #f59e0b;
+  opacity: 0.9;
+  animation: hourglass-fall 0.9s linear infinite;
+}
+
+.hourglass-particle.delay-1 { animation-delay: 0.16s; }
+.hourglass-particle.delay-2 { animation-delay: 0.32s; }
+
+@keyframes hourglass-stream {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+
+@keyframes hourglass-fall {
+  0% { transform: translateY(-8px); opacity: 0.95; }
+  100% { transform: translateY(16px); opacity: 0.08; }
+}
+
+#feature-countdown.fullscreen-feature .hourglass-stage,
+body.feature-fullscreen #feature-countdown .hourglass-stage {
+  width: min(300px, 78vw) !important;
+  height: min(480px, 54vh) !important;
+  min-height: 300px !important;
+  margin-block: 10px 14px !important;
+}
+
+#feature-countdown.fullscreen-feature .hourglass-svg,
+body.feature-fullscreen #feature-countdown .hourglass-svg {
+  width: min(220px, 58vw) !important;
+  height: min(390px, 46vh) !important;
+  min-height: 270px !important;
+}
+
+@media (max-width: 760px) {
+  .hourglass-stage {
+    width: min(240px, 88vw) !important;
+    height: 360px !important;
+    min-height: 320px !important;
+    margin: 14px auto !important;
+  }
+
+  .hourglass-svg {
+    width: 190px !important;
+    height: 330px !important;
+    min-height: 300px !important;
+  }
+
+  .hourglass-frame-top { top: 22px; }
+  .hourglass-frame-bottom { bottom: 22px; }
+  .hourglass-pillar { top: 24px; bottom: 24px; }
+}

@@ -933,6 +933,7 @@ let activeLuckyEventId = "";
 let luckyShowAllCards = false;
 let countdownInterval = null;
 let countdownRemainingSeconds = 300;
+let countdownTotalSeconds = 300;
 let countdownRunning = false;
 let countdownInputsDirty = false;
 let activeFullscreenFeature = "";
@@ -2379,12 +2380,39 @@ function formatSeconds(totalSeconds) {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
+function updateHourglassTimer() {
+  const topSand = document.getElementById("countdown-sand-top");
+  const bottomSand = document.getElementById("countdown-sand-bottom");
+  const stream = document.getElementById("countdown-sand-stream");
+  const particles = document.getElementById("countdown-sand-particles");
+  if (!topSand || !bottomSand || !stream) return;
+
+  const total = Math.max(1, Number(countdownTotalSeconds || getCountdownInputSeconds() || countdownRemainingSeconds || 1));
+  const remaining = Math.max(0, Math.min(total, Number(countdownRemainingSeconds || 0)));
+  const progress = Math.max(0, Math.min(1, 1 - (remaining / total)));
+  const topHeight = 175 * (1 - progress);
+  const bottomHeight = 175 * progress;
+
+  topSand.setAttribute("y", String(15 + (175 - topHeight)));
+  topSand.setAttribute("height", String(topHeight));
+  bottomSand.setAttribute("y", String(212 + (175 - bottomHeight)));
+  bottomSand.setAttribute("height", String(bottomHeight));
+  stream.setAttribute("opacity", countdownRunning && remaining > 0 ? "1" : "0");
+
+  if (particles) {
+    particles.innerHTML = countdownRunning && remaining > 0
+      ? '<circle class="hourglass-particle" cx="99" cy="194" r="1.6"></circle><circle class="hourglass-particle delay-1" cx="102" cy="202" r="1.4"></circle><circle class="hourglass-particle delay-2" cx="98" cy="208" r="1.2"></circle>'
+      : "";
+  }
+}
+
 function renderCountdown() {
   const display = document.getElementById("countdown-display");
   const status = document.getElementById("countdown-status");
   if (!display || !status) return;
   display.textContent = formatSeconds(countdownRemainingSeconds);
   display.classList.toggle("done", countdownRemainingSeconds === 0);
+  updateHourglassTimer();
 
   if (countdownRemainingSeconds === 0) {
     status.textContent = "انتهى الوقت.";
@@ -2414,6 +2442,7 @@ function syncCountdownFromInputs() {
   countdownInputsDirty = true;
   if (!countdownRunning) {
     countdownRemainingSeconds = (mins * 60) + secs;
+    countdownTotalSeconds = Math.max(1, countdownRemainingSeconds);
     renderCountdown();
   renderDirectPointsCard();
     const status = document.getElementById("countdown-status");
@@ -2429,10 +2458,12 @@ function startCountdown() {
 
   if (countdownInputsDirty) {
     countdownRemainingSeconds = getCountdownInputSeconds();
+    countdownTotalSeconds = Math.max(1, countdownRemainingSeconds);
     countdownInputsDirty = false;
   }
   if (countdownRemainingSeconds <= 0) {
     countdownRemainingSeconds = getCountdownInputSeconds();
+    countdownTotalSeconds = Math.max(1, countdownRemainingSeconds);
   }
   if (countdownRemainingSeconds <= 0) {
     const status = document.getElementById("countdown-status");
@@ -2478,6 +2509,7 @@ function resetCountdown() {
   }
   countdownRunning = false;
   countdownRemainingSeconds = getCountdownInputSeconds();
+  countdownTotalSeconds = Math.max(1, countdownRemainingSeconds);
   countdownInputsDirty = false;
   renderCountdown();
   renderDirectPointsCard();
@@ -4184,6 +4216,10 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
+
+
 
 
 

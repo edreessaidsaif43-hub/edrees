@@ -297,6 +297,40 @@
               <input id="countdown-seconds" type="number" min="0" max="59" value="0" placeholder="ثواني" />
             </div>
             <div id="countdown-display" class="countdown-display">05:00</div>
+            <div class="hourglass-stage" aria-label="ساعة رملية للمؤقت">
+              <div class="hourglass-frame-top"></div>
+              <div class="hourglass-frame-bottom"></div>
+              <div class="hourglass-pillar hourglass-pillar-left"></div>
+              <div class="hourglass-pillar hourglass-pillar-right"></div>
+              <svg class="hourglass-svg" viewBox="0 0 200 400" role="img" aria-label="ساعة رملية متحركة">
+                <path d="M30,10 L170,10 L170,22 Q170,22 105,190 L95,190 Q30,22 30,22 Z" fill="rgba(219,234,254,0.16)" stroke="#b8860b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M95,210 L105,210 Q170,378 170,378 L170,390 L30,390 L30,378 Q30,378 95,210 Z" fill="rgba(219,234,254,0.16)" stroke="#b8860b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+                <ellipse cx="100" cy="26" rx="38" ry="8" fill="rgba(255,255,255,0.18)"></ellipse>
+                <ellipse cx="100" cy="376" rx="38" ry="8" fill="rgba(255,255,255,0.10)"></ellipse>
+                <clipPath id="countdownHourglassTopClip">
+                  <path d="M35,15 L165,15 L165,22 Q165,22 103,188 L97,188 Q35,22 35,22 Z"></path>
+                </clipPath>
+                <clipPath id="countdownHourglassBottomClip">
+                  <path d="M97,212 L103,212 Q165,378 165,378 L165,385 L35,385 L35,378 Q35,378 97,212 Z"></path>
+                </clipPath>
+                <defs>
+                  <linearGradient id="countdownSandTopGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#facc15"></stop>
+                    <stop offset="48%" stop-color="#f59e0b"></stop>
+                    <stop offset="100%" stop-color="#b45309"></stop>
+                  </linearGradient>
+                  <linearGradient id="countdownSandBottomGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#b45309"></stop>
+                    <stop offset="48%" stop-color="#f59e0b"></stop>
+                    <stop offset="100%" stop-color="#fde68a"></stop>
+                  </linearGradient>
+                </defs>
+                <rect id="countdown-sand-top" x="30" y="15" width="140" height="175" fill="url(#countdownSandTopGradient)" clip-path="url(#countdownHourglassTopClip)"></rect>
+                <rect id="countdown-sand-bottom" x="30" y="387" width="140" height="0" fill="url(#countdownSandBottomGradient)" clip-path="url(#countdownHourglassBottomClip)"></rect>
+                <rect id="countdown-sand-stream" x="98.5" y="188" width="3" height="24" rx="1.5" fill="#d4912a" opacity="0"></rect>
+                <g id="countdown-sand-particles"></g>
+              </svg>
+            </div>
             <div class="field-row">
               <button id="start-countdown" class="btn">بدء</button>
               <button id="pause-countdown" class="btn secondary">إيقاف</button>
@@ -462,6 +496,7 @@
   <script src="/Motivation+/app.js"></script>
 </body>
 </html>
+
 
 
 
