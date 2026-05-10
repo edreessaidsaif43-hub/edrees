@@ -3280,3 +3280,71 @@ body.feature-fullscreen #feature-wheel.fullscreen-feature > #wheel-result {
   .teacher-side-link.side-class::before { content: "🏫" !important; }
   .teacher-side-link.side-class::after { content: "الصف" !important; }
 }
+
+/* Teacher panels full-width fix after sidebar redesign. */
+@media (min-width: 761px) {
+  #teacher-app {
+    display: grid !important;
+    grid-template-columns: 264px minmax(0, 1fr) !important;
+    gap: 22px !important;
+    width: min(100%, 1540px) !important;
+    max-width: 1540px !important;
+    padding-inline-end: 0 !important;
+    padding-inline-start: 0 !important;
+    margin-inline: auto !important;
+    align-items: start !important;
+  }
+
+  #teacher-app > .grid,
+  #teacher-app > .card.wide,
+  #teacher-app > #reports-panel {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    align-self: start !important;
+  }
+
+  #teacher-app > .grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 18px !important;
+  }
+
+  #teacher-app > .grid > [data-teacher-panel]:not([hidden]) {
+    display: block !important;
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+
+  #teacher-app > .grid > [data-teacher-panel][hidden] {
+    display: none !important;
+  }
+
+  #reports-panel[data-teacher-panel]:not([hidden]) {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  #students-table.card.wide:not([hidden]),
+  #reports-panel:not([hidden]) {
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
+
+@media (max-width: 760px) {
+  #teacher-app > .grid,
+  #teacher-app > .card.wide,
+  #teacher-app > #reports-panel,
+  #teacher-app > .grid > [data-teacher-panel]:not([hidden]) {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
