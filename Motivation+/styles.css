@@ -2951,3 +2951,12 @@ body.feature-fullscreen #feature-wheel.fullscreen-feature .wheel-canvas-wrap .wh
   transform-origin: center center !important;
   z-index: 30 !important;
 }
+
+/* Hard center lock for the wheel button. */
+.wheel-canvas-wrap .wheel-center-text,
+body.feature-fullscreen #feature-wheel.fullscreen-feature .wheel-canvas-wrap .wheel-center-text {
+  top: calc(var(--wheel-size) / 2) !important;
+  left: calc(var(--wheel-size) / 2) !important;
+  translate: -50% -50% !important;
+  transform: none !important;
+}

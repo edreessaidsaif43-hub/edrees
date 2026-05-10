@@ -1327,7 +1327,7 @@ function drawProfessionalWheelCanvas(students) {
     const fontSize = list.length <= 4 ? 17 : list.length <= 8 ? 14 : list.length <= 14 ? 12 : 10;
     ctx.save();
     ctx.translate(tx, ty);
-    ctx.rotate(mid + Math.PI / 2);
+    ctx.rotate(mid + Math.PI);
     ctx.font = "900 " + fontSize + "px Tajawal, Cairo, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -2928,8 +2928,8 @@ function runSyncedWheelEvent(event) {
     clearWheelPlayback();
     wheelBusy = false;
     activeWheelEventId = "";
-    wheelRotation = finalRotation % 360;
-    setRotation(wheelRotation, 0);
+    wheelRotation = finalRotation;
+    setRotation(finalRotation, 0);
     center.textContent = "فائز";
     result.textContent = "الطالب المختار: " + winnerName;
     setWheelButtonsDisabled(false);
@@ -3110,7 +3110,7 @@ function startWheelSpin() {
   const winnerAngle = winnerIndex * segment + segment / 2;
   const rounds = 6 + Math.floor(Math.random() * 3);
   const settleOffset = (360 - winnerAngle) + (Math.random() * segment * 0.4 - segment * 0.2);
-  const startRotation = wheelRotation % 360;
+  const startRotation = wheelRotation;
   const finalRotation = startRotation + rounds * 360 + settleOffset;
   const event = {
     id: syncedGameId("wheel-local"),
@@ -4158,6 +4158,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 
