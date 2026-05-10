@@ -1369,19 +1369,26 @@ function renderProfessionalWheelLabels(wheel, center, students) {
 
 function renderClassSelector() {
   const selector = document.getElementById("class-selector");
+  const topSelector = document.getElementById("top-class-selector");
   const shareInfo = document.getElementById("class-share-info");
   const cls = getActiveClass();
 
   selector.innerHTML = "";
+  if (topSelector) topSelector.innerHTML = "";
   state.classes.forEach((c) => {
     const option = document.createElement("option");
     option.value = c.id;
     option.textContent = `${c.name}${c.subject ? ` - ${c.subject}` : ""}`;
     if (c.id === state.activeClassId) option.selected = true;
     selector.appendChild(option);
+    if (topSelector) topSelector.appendChild(option.cloneNode(true));
   });
   if (cls && cls.id) {
     selector.value = cls.id;
+    if (topSelector) topSelector.value = cls.id;
+  }
+  if (topSelector) {
+    topSelector.style.display = currentTeacher && state.classes.length ? "inline-flex" : "none";
   }
 
   document.getElementById("class-name").value = cls ? cls.name : "";
@@ -3559,15 +3566,19 @@ document.getElementById("sync-now-btn").addEventListener("click", async () => {
 
 // Class events
 
-document.getElementById("class-selector").addEventListener("change", (e) => {
+function handleClassSelectorChange(e) {
   if (!ensureAuthOrNotify()) return;
   const cls = setActiveClassById(e.target.value, true);
   if (!cls) {
     showAuthMessage("تعذر التبديل إلى الصف المحدد.", true);
     return;
   }
-  showAuthMessage(`تم التحويل إلى الصف: ${cls ? cls.name : "-"} (${cls ? cls.students.length : 0} طالب).`);
-});
+  showAuthMessage(`تم التحويل إلى الصف: ${cls.name} (${cls.students.length} طالب).`);
+}
+
+document.getElementById("class-selector").addEventListener("change", handleClassSelectorChange);
+const topClassSelector = document.getElementById("top-class-selector");
+if (topClassSelector) topClassSelector.addEventListener("change", handleClassSelectorChange);
 
 document.getElementById("new-class").addEventListener("click", () => {
   if (!ensureAuthOrNotify()) return;
@@ -4174,6 +4185,8 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
 
 
 
