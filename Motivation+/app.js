@@ -1250,6 +1250,82 @@ function buildWheelShortName(name, index, total) {
   return clean.length > 12 ? `${clean.slice(0, 11)}…` : clean;
 }
 
+
+const professionalWheelColors = [
+  ["#6c63ff", "#8b84ff"], ["#ff6b9d", "#ff90b8"], ["#00c9a7", "#33d9be"],
+  ["#ffd700", "#ffe44d"], ["#ff6b35", "#ff8c61"], ["#48cae4", "#76d7ea"],
+  ["#c77dff", "#da9eff"], ["#ff9f1c", "#ffb84d"], ["#06d6a0", "#38e4b8"],
+  ["#ef476f", "#f47a96"], ["#118ab2", "#43a8c8"], ["#ffd166", "#ffe08a"]
+];
+
+function drawProfessionalWheelCanvas(students) {
+  const canvas = document.getElementById("wheel-canvas");
+  if (!canvas || !canvas.getContext) return;
+  const ctx = canvas.getContext("2d");
+  const size = canvas.width || 380;
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = size * 0.462;
+  ctx.clearRect(0, 0, size, size);
+  const list = Array.isArray(students) ? students.filter((s) => s && s.name) : [];
+  if (!list.length) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#1f2937";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    return;
+  }
+  const slice = (Math.PI * 2) / list.length;
+  list.forEach((student, index) => {
+    const start = index * slice;
+    const end = start + slice;
+    const colors = professionalWheelColors[index % professionalWheelColors.length];
+    const grad = ctx.createRadialGradient(cx, cy, radius * 0.1, cx, cy, radius);
+    grad.addColorStop(0, colors[1]);
+    grad.addColorStop(1, colors[0]);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, start, end);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = "#0f1117";
+    ctx.lineWidth = Math.max(1.5, size * 0.005);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 0.82, start, end);
+    ctx.strokeStyle = "rgba(255,255,255,0.24)";
+    ctx.lineWidth = Math.max(1, size * 0.004);
+    ctx.stroke();
+    const mid = start + slice / 2;
+    const textRadius = radius * (list.length > 18 ? 0.67 : 0.62);
+    const tx = cx + Math.cos(mid) * textRadius;
+    const ty = cy + Math.sin(mid) * textRadius;
+    const label = buildWheelShortName(student.name, index, list.length);
+    const fontSize = list.length <= 4 ? 17 : list.length <= 8 ? 14 : list.length <= 14 ? 12 : 10;
+    ctx.save();
+    ctx.translate(tx, ty);
+    ctx.rotate(mid + Math.PI / 2);
+    ctx.font = "900 " + fontSize + "px Tajawal, Cairo, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#ffffff";
+    ctx.shadowColor = "rgba(0,0,0,0.55)";
+    ctx.shadowBlur = 5;
+    ctx.fillText(label, 0, 0);
+    ctx.restore();
+  });
+  ctx.beginPath();
+  ctx.arc(cx, cy, size * 0.095, 0, Math.PI * 2);
+  ctx.fillStyle = "#0f1117";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(108,99,255,0.68)";
+  ctx.lineWidth = size * 0.008;
+  ctx.stroke();
+}
 function renderProfessionalWheelLabels(wheel, center, students) {
   if (!wheel || !center) return;
   const oldLayer = wheel.querySelector(".wheel-labels");
@@ -2182,21 +2258,23 @@ function renderWheel() {
   wheel.style.transform = `rotate(${wheelRotation}deg)`;
 
   if (!currentTeacher) {
-    wheel.style.background = "#e2e8f0";
+    wheel.style.background = "transparent";
+    drawProfessionalWheelCanvas([]);
     center.textContent = "سجل الدخول";
     result.textContent = "ميزة العجلة متاحة بعد تسجيل الدخول.";
     return;
   }
 
   if (!cls || !cls.students.length) {
-    wheel.style.background = "#e2e8f0";
+    wheel.style.background = "transparent";
+    drawProfessionalWheelCanvas([]);
     center.textContent = "لا يوجد طلاب";
     result.textContent = "أضف طلابا أولا ثم ابدأ التدوير.";
     return;
   }
 
-  wheel.style.background = buildWheelGradient(cls.students.length);
-  renderProfessionalWheelLabels(wheel, center, cls.students);
+  wheel.style.background = "transparent";
+  drawProfessionalWheelCanvas(cls.students);
   const wheelEvent = cls.liveGames && cls.liveGames.wheel ? cls.liveGames.wheel : null;
   const winnerName = wheelEvent && wheelEvent.winnerStudentId ? findStudentNameById(cls, wheelEvent.winnerStudentId) : "";
   if (!wheelBusy && wheelEvent && winnerName && Number(wheelEvent.endsAt || 0) + 60000 > Date.now()) {
@@ -3700,6 +3778,10 @@ document.getElementById("spin-wheel").addEventListener("click", () => {
   startWheelSpin();
 });
 
+document.getElementById("wheel-center-text").addEventListener("click", () => {
+  startWheelSpin();
+});
+
 document.getElementById("display-spin-wheel").addEventListener("click", () => {
   startWheelSpin({ displayScreenOnly: true });
 });
@@ -4077,6 +4159,7 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
 
 
 

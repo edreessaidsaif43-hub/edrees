@@ -262,11 +262,12 @@
 
           <article id="feature-wheel" class="card feature-card section-8">
             <h2>لعبة العجلة الدوارة</h2>
-            <div class="wheel-wrap">
-              <div class="wheel-pointer">▼</div>
+            <div class="wheel-wrap wheel-canvas-wrap">
+              <div class="wheel-pointer" aria-hidden="true"></div>
               <div id="student-wheel" class="student-wheel">
-                <div id="wheel-center-text" class="wheel-center-text">جاهز</div>
+                <canvas id="wheel-canvas" class="wheel-canvas" width="380" height="380"></canvas>
               </div>
+              <button id="wheel-center-text" class="wheel-center-text" type="button" title="تدوير العجلة">▶</button>
             </div>
             <div class="field-row">
               <button id="spin-wheel" class="btn">تدوير العجلة</button>
