@@ -924,8 +924,12 @@ let state = createDefaultState();
 let wheelRotation = 0;
 let wheelBusy = false;
 let wheelTicker = null;
+let wheelTimers = [];
+let activeWheelEventId = "";
 let luckyBusy = false;
 let luckyTicker = null;
+let luckyTimers = [];
+let activeLuckyEventId = "";
 let luckyShowAllCards = false;
 let countdownInterval = null;
 let countdownRemainingSeconds = 300;
@@ -2249,6 +2253,7 @@ function ensureMiniChallengeTicker() {
   }, 1000);
 }
 function renderWheel() {
+  if (wheelBusy) return;
   const wheel = document.getElementById("student-wheel");
   const center = document.getElementById("wheel-center-text");
   const result = document.getElementById("wheel-result");
@@ -2309,7 +2314,8 @@ function getLuckyGameStudents(cls) {
   return unique;
 }
 
-function renderLuckyGame() {
+function renderLuckyGame(forceRender = false) {
+  if (luckyBusy && !forceRender) return;
   const grid = document.getElementById("lucky-grid");
   const result = document.getElementById("lucky-result");
   const cls = getActiveClass();
@@ -2528,11 +2534,13 @@ function startLuckyGame(options = {}) {
   }
   const winnerIndex = Math.floor(Math.random() * luckyStudents.length);
   const winner = luckyStudents[winnerIndex];
-  const startsAt = Date.now() + 1800;
-  const endsAt = startsAt + 2600;
+  const startsAt = Date.now() + 900;
+  const endsAt = startsAt + 2800;
   const liveGames = ensureLiveGames(cls);
   liveGames.lucky = {
     id: syncedGameId("lucky"),
+    type: "lucky",
+    createdAt: Date.now(),
     startsAt,
     endsAt,
     winnerStudentId: winner.id,
@@ -2912,127 +2920,200 @@ function findStudentNameById(cls, studentId) {
   return student ? normalizeName(student.name) : "";
 }
 
+function clearWheelPlayback() {
+  if (wheelTicker) {
+    clearInterval(wheelTicker);
+    wheelTicker = null;
+  }
+  wheelTimers.forEach((timer) => clearTimeout(timer));
+  wheelTimers = [];
+}
+
+function scheduleWheelTimer(fn, delay) {
+  const timer = setTimeout(fn, Math.max(0, delay));
+  wheelTimers.push(timer);
+  return timer;
+}
+
+function setWheelButtonsDisabled(disabled) {
+  ["spin-wheel", "display-spin-wheel", "wheel-center-text"].forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = !!disabled;
+  });
+}
+
+function easeOutQuart(t) {
+  const safe = Math.max(0, Math.min(1, Number(t) || 0));
+  return 1 - Math.pow(1 - safe, 4);
+}
+
 function runSyncedWheelEvent(event) {
   const cls = getActiveClass();
   const wheel = document.getElementById("student-wheel");
   const center = document.getElementById("wheel-center-text");
   const result = document.getElementById("wheel-result");
-  const button = document.getElementById("spin-wheel");
   if (!cls || !wheel || !center || !result || !event || !event.id) return;
+  if (activeWheelEventId === event.id && wheelBusy) return;
   const winnerName = findStudentNameById(cls, event.winnerStudentId);
   if (!winnerName) return;
-
+  clearWheelPlayback();
+  activeWheelEventId = event.id;
   const startsAt = Number(event.startsAt || 0);
   const endsAt = Number(event.endsAt || 0);
-  const finalRotation = Number(event.finalRotation || wheelRotation || 0);
+  const duration = Math.max(1, endsAt - startsAt);
+  const startRotation = Number.isFinite(Number(event.startRotation)) ? Number(event.startRotation) : wheelRotation;
+  const finalRotation = Number.isFinite(Number(event.finalRotation)) ? Number(event.finalRotation) : startRotation + 2160;
   const now = Date.now();
-
   enterFeatureFullscreen("feature-wheel");
   wheelBusy = true;
-  if (button) button.disabled = true;
-  result.textContent = now < startsAt ? "استعد... سيبدأ التدوير الآن" : "جاري التدوير...";
-
-  const names = (cls.students || []).map((s) => s.name).filter(Boolean);
+  setWheelButtonsDisabled(true);
+  drawProfessionalWheelCanvas(cls.students || []);
+  wheel.style.transition = "none";
+  const setRotation = (value, transitionMs = 0) => {
+    wheel.style.transition = transitionMs > 0 ? "transform " + transitionMs + "ms cubic-bezier(.12,.78,.08,1)" : "none";
+    wheel.style.transform = "rotate(" + value + "deg)";
+  };
   const beginSpin = () => {
     playEventSound("spin");
     pulseFeatureCardById("feature-wheel", "spin");
+    result.textContent = "جاري التدوير...";
+    const names = (cls.students || []).map((s) => normalizeName(s.name)).filter(Boolean);
     let idx = 0;
     if (wheelTicker) clearInterval(wheelTicker);
     wheelTicker = setInterval(() => {
       center.textContent = names.length ? names[idx % names.length] : "...";
       idx += 1;
-    }, 90);
-    requestAnimationFrame(() => {
-      wheel.style.transform = `rotate(${finalRotation}deg)`;
-    });
+    }, 95);
   };
-
   const finishSpin = () => {
-    if (wheelTicker) {
-      clearInterval(wheelTicker);
-      wheelTicker = null;
-    }
+    clearWheelPlayback();
     wheelBusy = false;
+    activeWheelEventId = "";
     wheelRotation = finalRotation % 360;
+    setRotation(wheelRotation, 0);
     center.textContent = winnerName;
-    result.textContent = `تم اختيار: ${winnerName}`;
-    if (button) button.disabled = false;
+    result.textContent = "تم اختيار: " + winnerName;
+    setWheelButtonsDisabled(false);
     playCheer();
     playEventSound("winner");
     pulseFeatureCardById("feature-wheel", "winner");
-    triggerCelebration("🎡 اختيار عشوائي", `تم اختيار الطالب: ${winnerName}`);
+    triggerCelebration("🎡 اختيار عشوائي", "تم اختيار الطالب: " + winnerName);
   };
-
   if (now >= endsAt) {
     finishSpin();
     return;
   }
-  setTimeout(beginSpin, Math.max(0, startsAt - now));
-  setTimeout(finishSpin, Math.max(0, endsAt - now));
+  if (now < startsAt) {
+    setRotation(startRotation, 0);
+    center.textContent = "استعد";
+    result.textContent = "استعد... سيبدأ التدوير الآن";
+    scheduleWheelTimer(() => {
+      beginSpin();
+      requestAnimationFrame(() => setRotation(finalRotation, duration));
+    }, startsAt - now);
+    scheduleWheelTimer(finishSpin, endsAt - now);
+    return;
+  }
+  const progress = (now - startsAt) / duration;
+  const currentRotation = startRotation + (finalRotation - startRotation) * easeOutQuart(progress);
+  setRotation(currentRotation, 0);
+  beginSpin();
+  requestAnimationFrame(() => setRotation(finalRotation, Math.max(80, endsAt - now)));
+  scheduleWheelTimer(finishSpin, endsAt - now);
+}
+function clearLuckyPlayback() {
+  if (luckyTicker) {
+    clearInterval(luckyTicker);
+    luckyTicker = null;
+  }
+  luckyTimers.forEach((timer) => clearTimeout(timer));
+  luckyTimers = [];
+}
+
+function scheduleLuckyTimer(fn, delay) {
+  const timer = setTimeout(fn, Math.max(0, delay));
+  luckyTimers.push(timer);
+  return timer;
+}
+
+function setLuckyButtonsDisabled(disabled) {
+  ["start-lucky-game", "display-start-lucky-game"].forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = !!disabled;
+  });
 }
 
 function runSyncedLuckyEvent(event) {
   const cls = getActiveClass();
   const result = document.getElementById("lucky-result");
-  const btn = document.getElementById("start-lucky-game");
   if (!cls || !result || !event || !event.id) return;
+  if (activeLuckyEventId === event.id && luckyBusy) return;
   const luckyStudents = getLuckyGameStudents(cls);
   const winnerName = findStudentNameById(cls, event.winnerStudentId);
   if (!winnerName || !luckyStudents.length) return;
-
+  clearLuckyPlayback();
+  activeLuckyEventId = event.id;
   luckyShowAllCards = true;
   luckyBusy = true;
-  renderLuckyGame();
-  const freshCards = Array.from(document.querySelectorAll(".lucky-card"));
+  renderLuckyGame(true);
+  const grid = document.getElementById("lucky-grid");
+  const cards = grid ? Array.from(grid.querySelectorAll(".lucky-card[data-student-id]")) : [];
+  const winnerCard = cards.find((card) => card.dataset.studentId === event.winnerStudentId);
   const startsAt = Number(event.startsAt || 0);
   const endsAt = Number(event.endsAt || 0);
   const now = Date.now();
-  const winnerCard = freshCards.find((c) => c.dataset.studentId === event.winnerStudentId);
-
   enterFeatureFullscreen("feature-lucky");
-  if (btn) btn.disabled = true;
+  setLuckyButtonsDisabled(true);
   result.textContent = now < startsAt ? "استعد... سيبدأ صندوق الحظ الآن" : "جاري اختيار الطالب...";
-
+  const hideCardNames = () => {
+    cards.forEach((card, index) => {
+      card.textContent = "🎁 " + (index + 1);
+      card.classList.remove("active", "winner");
+    });
+  };
   const beginLucky = () => {
+    hideCardNames();
     playEventSound("spin");
     pulseFeatureCardById("feature-lucky", "spin");
+    result.textContent = "جاري اختيار الطالب...";
     if (luckyTicker) clearInterval(luckyTicker);
     luckyTicker = setInterval(() => {
-      freshCards.forEach((c) => c.classList.remove("active"));
-      const activeIndex = Math.floor(Math.random() * Math.max(1, freshCards.length));
-      if (freshCards[activeIndex]) freshCards[activeIndex].classList.add("active");
-    }, 110);
+      cards.forEach((card) => card.classList.remove("active"));
+      const activeIndex = Math.floor(Math.random() * Math.max(1, cards.length));
+      if (cards[activeIndex]) cards[activeIndex].classList.add("active");
+    }, 95);
   };
-
   const finishLucky = () => {
-    if (luckyTicker) {
-      clearInterval(luckyTicker);
-      luckyTicker = null;
-    }
-    freshCards.forEach((c) => c.classList.remove("active", "winner"));
+    clearLuckyPlayback();
+    cards.forEach((card) => card.classList.remove("active", "winner"));
     if (winnerCard) {
       winnerCard.textContent = winnerName;
       winnerCard.classList.add("winner");
     }
     luckyBusy = false;
-    if (btn) btn.disabled = false;
-    result.textContent = `فاز: ${winnerName}`;
+    activeLuckyEventId = "";
+    setLuckyButtonsDisabled(false);
+    result.textContent = "فاز: " + winnerName;
     playCheer();
     playEventSound("winner");
     pulseFeatureCardById("feature-lucky", "winner");
-    triggerCelebration("🎲 فائز صندوق الحظ", `الفائز: ${winnerName}`);
+    triggerCelebration("🎲 فائز صندوق الحظ", "الفائز: " + winnerName);
     luckyShowAllCards = false;
-    setTimeout(() => renderLuckyGame(), 900);
+    scheduleLuckyTimer(() => renderLuckyGame(), 900);
   };
-
+  hideCardNames();
   if (now >= endsAt) {
     finishLucky();
     return;
   }
-  setTimeout(beginLucky, Math.max(0, startsAt - now));
-  setTimeout(finishLucky, Math.max(0, endsAt - now));
+  if (now < startsAt) {
+    scheduleLuckyTimer(beginLucky, startsAt - now);
+    scheduleLuckyTimer(finishLucky, endsAt - now);
+    return;
+  }
+  beginLucky();
+  scheduleLuckyTimer(finishLucky, endsAt - now);
 }
-
 function syncCountdownFromLiveGame(event) {
   if (!event || !event.id) return false;
   if (event.status === "paused" || event.status === "idle") {
@@ -3104,15 +3185,19 @@ function startWheelSpin(options = {}) {
   const winnerAngle = winnerIndex * segment + segment / 2;
   const rounds = 6 + Math.floor(Math.random() * 3);
   const settleOffset = (360 - winnerAngle) + (Math.random() * segment * 0.4 - segment * 0.2);
-  const finalRotation = wheelRotation + rounds * 360 + settleOffset;
-  const startsAt = Date.now() + 1800;
-  const endsAt = startsAt + 3300;
+  const startRotation = wheelRotation % 360;
+  const finalRotation = startRotation + rounds * 360 + settleOffset;
+  const startsAt = Date.now() + 900;
+  const endsAt = startsAt + 3600;
   const liveGames = ensureLiveGames(cls);
   liveGames.wheel = {
     id: syncedGameId("wheel"),
+    type: "wheel",
+    createdAt: Date.now(),
     startsAt,
     endsAt,
     winnerStudentId: winner.id,
+    startRotation,
     finalRotation,
     displayScreenOnly: !!options.displayScreenOnly,
     originClientId: clientInstanceId
@@ -3473,12 +3558,23 @@ window.setStudentTeam = setStudentTeam;
 
 const tabs = document.querySelectorAll(".tab");
 const views = document.querySelectorAll(".view");
+function activateMainTab(tabName) {
+  const targetTab = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  const targetView = document.getElementById(tabName);
+  if (!targetTab || !targetView) return;
+  tabs.forEach((t) => t.classList.remove("active"));
+  views.forEach((v) => v.classList.remove("active"));
+  targetTab.classList.add("active");
+  targetView.classList.add("active");
+}
+
 tabs.forEach((tab) => {
   tab.addEventListener("click", () => {
-    tabs.forEach((t) => t.classList.remove("active"));
-    views.forEach((v) => v.classList.remove("active"));
-    tab.classList.add("active");
-    document.getElementById(tab.dataset.tab).classList.add("active");
+    if (tab.dataset.tab === "live" && isMobileViewport()) {
+      activateMainTab("teacher");
+      return;
+    }
+    activateMainTab(tab.dataset.tab);
   });
 });
 
@@ -4159,6 +4255,8 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
 
 
 

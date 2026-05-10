@@ -2890,3 +2890,10 @@ body.feature-fullscreen #feature-wheel.fullscreen-feature .wheel-canvas-wrap .st
     font-size: 0.75rem !important;
   }
 }
+
+/* Phone is a controller only: hide live display tab on mobile. */
+@media (max-width: 760px) {
+  .tab[data-tab="live"] {
+    display: none !important;
+  }
+}
