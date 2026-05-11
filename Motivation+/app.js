@@ -191,6 +191,63 @@ function readFileAsDataUrl(file, onProgress) {
     reader.readAsDataURL(file);
   });
 }
+function compressStudentPhotoFile(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    if (onProgress) onProgress(5);
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error("Failed to read image file"));
+    reader.onload = () => {
+      if (onProgress) onProgress(45);
+      const img = new Image();
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.onload = () => {
+        try {
+          const maxSide = 520;
+          const ratio = Math.min(1, maxSide / Math.max(img.width || 1, img.height || 1));
+          const width = Math.max(1, Math.round((img.width || 1) * ratio));
+          const height = Math.max(1, Math.round((img.height || 1) * ratio));
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          if (onProgress) onProgress(82);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.78);
+          if (onProgress) onProgress(100);
+          resolve(dataUrl);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.src = String(reader.result || "");
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function copyStudentPhotosBetweenStates(targetState, sourceState) {
+  if (!targetState || !sourceState) return targetState;
+  const sourcePhotos = new Map();
+  (sourceState.classes || []).forEach((cls) => {
+    (cls.students || []).forEach((student) => {
+      const photo = String(student && student.photoDataUrl ? student.photoDataUrl : "");
+      if (!photo) return;
+      const keys = [student.id, student.code].map((v) => normalizeName(v)).filter(Boolean);
+      keys.forEach((key) => sourcePhotos.set(key, photo));
+    });
+  });
+  if (!sourcePhotos.size) return targetState;
+  (targetState.classes || []).forEach((cls) => {
+    (cls.students || []).forEach((student) => {
+      if (student.photoDataUrl) return;
+      const keys = [student.id, student.code].map((v) => normalizeName(v)).filter(Boolean);
+      const found = keys.map((key) => sourcePhotos.get(key)).find(Boolean);
+      if (found) student.photoDataUrl = found;
+    });
+  });
+  return targetState;
+}
+
 
 async function setStudentPhotoDataUrl(cls, studentId, dataUrl) {
   const student = findStudentInClass(cls, studentId);
@@ -677,7 +734,7 @@ function savePublicStateCache(snapshot) {
   } catch {}
 }
 
-function saveTeacherData() {
+function saveTeacherData(options = {}) {
   if (!currentTeacher) return;
   state.updatedAt = Date.now();
   (state.classes || []).forEach((cls) => {
@@ -687,7 +744,7 @@ function saveTeacherData() {
   try {
     localStorage.setItem(accountDataKey(currentTeacher.id), JSON.stringify(state));
   } catch {}
-  savePublicStateCache(state);
+  if (!options.skipPublicCache) savePublicStateCache(state);
   scheduleRemoteSave();
 }
 
@@ -792,7 +849,7 @@ function scheduleRemoteSave() {
   if (!userId) return;
   if (remoteSaveTimer) clearTimeout(remoteSaveTimer);
   remoteSaveTimer = setTimeout(async () => {
-    const snapshot = JSON.parse(JSON.stringify(state));
+    const snapshot = copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state);
     await saveStateToRemote(userId, snapshot);
   }, 450);
 }
@@ -804,7 +861,7 @@ async function flushRemoteSaveNow() {
     remoteSaveTimer = null;
   }
   pendingRemoteSave = false;
-  const snapshot = JSON.parse(JSON.stringify(state));
+  const snapshot = copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state);
   return saveStateToRemote(String(currentTeacher.userId), snapshot);
 }
 
@@ -926,14 +983,14 @@ async function pullRemoteStateIfNeeded(forceRemote = false) {
   const remoteState = await loadStateFromRemote(userId);
   if (!remoteState) {
     if (hasMeaningfulStateData(state)) {
-      await saveStateToRemote(userId, JSON.parse(JSON.stringify(state)));
+      await saveStateToRemote(userId, copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state));
       return "pushed";
     }
     return "noop";
   }
 
   if (forceRemote) {
-    state = remoteState;
+    state = copyStudentPhotosBetweenStates(remoteState, state);
     savePublicStateCache(state);
     renderAll();
     return "pulled";
@@ -943,14 +1000,14 @@ async function pullRemoteStateIfNeeded(forceRemote = false) {
   const remoteTs = Number(remoteState.updatedAt || 0);
   const hasNewLiveGame = remoteHasNewLiveGame(state, remoteState);
   if (remoteTs > localTs || hasNewLiveGame) {
-    state = remoteState;
+    state = copyStudentPhotosBetweenStates(remoteState, state);
     savePublicStateCache(state);
     renderAll();
     return "pulled";
   } else if (localTs > remoteTs) {
     const localHasLiveGame = remoteHasNewLiveGame(remoteState, state);
     if (!localHasLiveGame) {
-      await saveStateToRemote(userId, JSON.parse(JSON.stringify(state)));
+      await saveStateToRemote(userId, copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state));
       return "pushed";
     }
   }
@@ -2666,8 +2723,8 @@ function updateStudentPoints(studentId, reasonKey) {
       triggerCelebration("⭐ إنجاز جديد", `${student.name} تجاوز 100 نقطة!`);
     }
   }
-  saveTeacherData();
-  renderAll();
+  saveTeacherData({ skipPublicCache: true });
+  renderAfterPointsChange();
 }
 
 
@@ -2714,14 +2771,14 @@ async function handleStudentPhotoUpload(studentId, event) {
   try {
     setPhotoUploadProgress(0, "جاري تحميل الصورة... 0%");
     showAuthMessage("جاري تحميل الصورة... 0%");
-    const dataUrl = await readFileAsDataUrl(file, (percent) => {
+    const dataUrl = await compressStudentPhotoFile(file, (percent) => {
       setPhotoUploadProgress(percent, `جاري تحميل الصورة... ${percent}%`);
       showAuthMessage(`جاري تحميل الصورة... ${percent}%`);
     });
     setPhotoUploadProgress(100, "جاري مزامنة الصورة بين الأجهزة...");
     showAuthMessage("جاري مزامنة الصورة بين الأجهزة...");
     await setStudentPhotoDataUrl(cls, studentId, dataUrl);
-    saveTeacherData();
+    saveTeacherData({ skipPublicCache: true });
     await flushRemoteSaveNow();
     const cell = document.getElementById(`photo-${studentId}`);
     if (cell) {
@@ -3560,6 +3617,17 @@ function renderAll() {
   setupTeacherSidePanels();
 }
 
+
+function renderAfterPointsChange() {
+  renderStudentsTable();
+  renderInsights();
+  renderLiveBoard();
+  renderLiveTeams();
+  renderLiveDetails();
+  renderTeams();
+  renderDirectPointsCard();
+  setupTeacherSidePanels();
+}
 window.updateStudentPoints = updateStudentPoints;
 window.applySelectedReason = applySelectedReason;
 window.deleteStudent = deleteStudent;
@@ -4053,8 +4121,8 @@ document.getElementById("add-bonus-points").addEventListener("click", () => {
     if (!ok) return;
   }
   applyPointsChange(student, delta, reasonLabel);
-  saveTeacherData();
-  renderAll();
+  saveTeacherData({ skipPublicCache: true });
+  renderAfterPointsChange();
   if (delta > 0) {
     playEventSound("winner");
     triggerCelebration("⭐ إضافة نقاط مباشرة", `${student.name} حصل على ${Math.abs(delta)} نقطة`);
@@ -4185,7 +4253,7 @@ document.getElementById("send-parent-msg").addEventListener("click", () => {
   cls.parentMessages[code] = prev;
   document.getElementById("parent-code").value = "";
   document.getElementById("parent-message").value = "";
-  saveTeacherData();
+  saveTeacherData({ skipPublicCache: true });
   showAuthMessage("تم حفظ رسالة ولي الأمر مع التاريخ.");
 });
 
@@ -4275,6 +4343,12 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
+
+
+
+
 
 
 
