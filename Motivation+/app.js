@@ -227,22 +227,32 @@ function compressStudentPhotoFile(file, onProgress) {
 
 function copyStudentPhotosBetweenStates(targetState, sourceState) {
   if (!targetState || !sourceState) return targetState;
-  const sourcePhotos = new Map();
+  const sourcePhotoState = new Map();
   (sourceState.classes || []).forEach((cls) => {
     (cls.students || []).forEach((student) => {
       const photo = String(student && student.photoDataUrl ? student.photoDataUrl : "");
-      if (!photo) return;
+      const deletedAt = Number(student && student.photoDeletedAt ? student.photoDeletedAt : 0);
+      if (!photo && !deletedAt) return;
       const keys = [student.id, student.code].map((v) => normalizeName(v)).filter(Boolean);
-      keys.forEach((key) => sourcePhotos.set(key, photo));
+      keys.forEach((key) => sourcePhotoState.set(key, { photo, deletedAt }));
     });
   });
-  if (!sourcePhotos.size) return targetState;
+  if (!sourcePhotoState.size) return targetState;
   (targetState.classes || []).forEach((cls) => {
     (cls.students || []).forEach((student) => {
-      if (student.photoDataUrl) return;
       const keys = [student.id, student.code].map((v) => normalizeName(v)).filter(Boolean);
-      const found = keys.map((key) => sourcePhotos.get(key)).find(Boolean);
-      if (found) student.photoDataUrl = found;
+      const found = keys.map((key) => sourcePhotoState.get(key)).find(Boolean);
+      if (!found) return;
+      const targetDeletedAt = Number(student.photoDeletedAt || 0);
+      if (found.deletedAt && found.deletedAt >= targetDeletedAt && !found.photo) {
+        student.photoDataUrl = "";
+        student.photoDeletedAt = found.deletedAt;
+        return;
+      }
+      if (!student.photoDataUrl && found.photo && !targetDeletedAt) {
+        student.photoDataUrl = found.photo;
+        student.photoDeletedAt = 0;
+      }
     });
   });
   return targetState;
@@ -253,6 +263,7 @@ async function setStudentPhotoDataUrl(cls, studentId, dataUrl) {
   const student = findStudentInClass(cls, studentId);
   if (!student) return;
   student.photoDataUrl = String(dataUrl || "");
+  student.photoDeletedAt = dataUrl ? 0 : Date.now();
 }
 
 async function getStudentPhotoDataUrl(cls, studentId) {
@@ -265,12 +276,15 @@ async function removeStudentPhotoDataUrl(cls, studentId) {
   const student = findStudentInClass(cls, studentId);
   if (!student) return;
   student.photoDataUrl = "";
+  student.photoDeletedAt = Date.now();
 }
 
 async function removeAllClassStudentPhotos(cls) {
   if (!cls || !Array.isArray(cls.students) || !cls.students.length) return;
+  const deletedAt = Date.now();
   (cls.students || []).forEach((s) => {
     s.photoDataUrl = "";
+    s.photoDeletedAt = deletedAt;
   });
 }
 
@@ -4343,6 +4357,8 @@ window.addEventListener("focus", () => {
     pullRemoteStateIfNeeded(false);
   }
 });
+
+
 
 
 
