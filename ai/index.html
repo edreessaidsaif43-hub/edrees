@@ -82,6 +82,39 @@
   .logo-text { font-size: 20px; font-weight: 700; color: var(--primary); line-height: 1.1; }
   .logo-sub { font-size: 11px; color: var(--accent); font-weight: 500; }
   .nav-tabs { display: flex; gap: 4px; }
+  .auth-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .auth-user {
+    background: #eefaf7;
+    color: var(--accent-dark);
+    border: 1px solid rgba(22,160,133,0.18);
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .auth-btn {
+    border: 1.5px solid var(--border);
+    background: var(--bg-card);
+    color: var(--primary);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .auth-btn:hover { border-color: var(--primary); background: var(--bg); }
+  .auth-btn.danger { color: var(--danger); }
   .nav-tab {
     padding: 8px 20px;
     border-radius: 8px;
@@ -795,9 +828,14 @@
         <div class="logo-sub">AI • سلطنة عُمان</div>
       </div>
     </div>
-    <div class="nav-tabs">
-      <button class="nav-tab active" onclick="showPage('teacher')" id="tab-teacher">📚 صفحة المعلم</button>
-      <button class="nav-tab" onclick="showPage('admin')" id="tab-admin">⚙️ لوحة الإدارة</button>
+    <div class="auth-bar">
+      <div class="nav-tabs">
+        <button class="nav-tab active" onclick="showPage('teacher')" id="tab-teacher">📚 صفحة المعلم</button>
+        <button class="nav-tab" onclick="showPage('admin')" id="tab-admin">⚙️ لوحة الإدارة</button>
+      </div>
+      <span class="auth-user" id="unified-auth-label">جارٍ التحقق...</span>
+      <button class="auth-btn" id="unified-login-btn" onclick="goToUnifiedAuth('login')">تسجيل الدخول الموحد</button>
+      <button class="auth-btn danger" id="unified-logout-btn" onclick="logoutUnifiedAuth()" style="display:none;">تسجيل خروج</button>
     </div>
   </div>
 </nav>
@@ -1353,9 +1391,88 @@ const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:3000' 
 let editingId = null;
 let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
+const CURRENT_USER_STORAGE_KEY = 'lesson_platform_current_user_v1';
+const BACKEND_SESSION_STORAGE_KEY = 'lesson_platform_backend_session_v1';
+const ENJAZY_AUTH_BRIDGE_KEY = 'enjazy_auth_bridge_v1';
+const ENJAZY_AUTH_URL = window.location.protocol === 'file:' ? '../enjazy/auth.html' : '/enjazy/auth.html';
+
+// ========== UNIFIED AUTH ==========
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function normalizeUserRecord(user) {
+  if (!user || typeof user !== 'object') return null;
+  const email = normalizeEmail(user.email || user.contact || user.username || '');
+  const fullName = String(user.full_name || user.name || user.displayName || email.split('@')[0] || 'مستخدم').trim();
+  return { ...user, email, full_name: fullName };
+}
+
+function getCurrentUser() {
+  try {
+    const raw = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+    if (!raw) return null;
+    return normalizeUserRecord(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+function getReturnPath() {
+  if (window.location.protocol === 'file:') return window.location.href;
+  return (window.location.pathname || '/ai/index.html') + (window.location.search || '') + (window.location.hash || '');
+}
+
+function goToUnifiedAuth(mode = 'login', payload = null) {
+  try {
+    if (payload && typeof payload === 'object') sessionStorage.setItem(ENJAZY_AUTH_BRIDGE_KEY, JSON.stringify(payload));
+    else sessionStorage.removeItem(ENJAZY_AUTH_BRIDGE_KEY);
+  } catch {}
+  const backPath = getReturnPath();
+  window.location.href = ENJAZY_AUTH_URL + '?mode=' + encodeURIComponent(mode) + '&return=' + encodeURIComponent(backPath);
+}
+
+function logoutUnifiedAuth() {
+  try {
+    localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
+    localStorage.removeItem(BACKEND_SESSION_STORAGE_KEY);
+  } catch {}
+  updateUnifiedAuthUI();
+  showToast('تم تسجيل الخروج');
+}
+
+function requireUnifiedAuth(message = 'يرجى تسجيل الدخول الموحد أولًا') {
+  const user = getCurrentUser();
+  if (user) return user;
+  showToast(message, true);
+  setTimeout(() => goToUnifiedAuth('login'), 450);
+  return null;
+}
+
+function updateUnifiedAuthUI() {
+  const user = getCurrentUser();
+  const label = document.getElementById('unified-auth-label');
+  const loginBtn = document.getElementById('unified-login-btn');
+  const logoutBtn = document.getElementById('unified-logout-btn');
+  if (!label || !loginBtn || !logoutBtn) return;
+  if (user) {
+    label.textContent = 'مرحبًا، ' + (user.full_name || user.email || 'مستخدم');
+    loginBtn.style.display = 'none';
+    logoutBtn.style.display = '';
+  } else {
+    label.textContent = 'غير مسجل الدخول';
+    loginBtn.style.display = '';
+    logoutBtn.style.display = 'none';
+  }
+}
+
+window.addEventListener('storage', event => {
+  if (event.key === CURRENT_USER_STORAGE_KEY || event.key === BACKEND_SESSION_STORAGE_KEY) updateUnifiedAuthUI();
+});
 
 // ========== NAV ==========
 function showPage(p) {
+  if (p === 'admin' && !requireUnifiedAuth('سجّل الدخول أولًا للوصول إلى لوحة الإدارة')) return;
   document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));
   document.getElementById('page-' + p).classList.add('active');
@@ -1504,6 +1621,8 @@ function loadLessons() { populateTeacherFilters('t-unit'); }
 });
 
 async function generateLesson() {
+  const currentUser = requireUnifiedAuth('سجّل الدخول أولًا لتوليد التحضير');
+  if (!currentUser) return;
   const grade = document.getElementById('t-grade').value;
   const subject = document.getElementById('t-subject').value;
   const semester = document.getElementById('t-semester').value;
@@ -1739,6 +1858,8 @@ function hideError() { document.getElementById('teacher-error').classList.remove
 
 // ========== ADMIN PAGE ==========
 function doLogin() {
+  const currentUser = requireUnifiedAuth('سجّل الدخول الموحد أولًا ثم أدخل كلمة مرور الإدارة');
+  if (!currentUser) return;
   const pass = document.getElementById('admin-pass').value;
   if (pass === 'admin123') {
     document.getElementById('admin-login').style.display = 'none';
@@ -1799,6 +1920,8 @@ function formatSize(bytes) {
 
 // SAVE SINGLE
 async function saveSingleLesson() {
+  const currentUser = requireUnifiedAuth('سجّل الدخول أولًا لحفظ الدروس');
+  if (!currentUser) return;
   const grade = document.getElementById('a-grade').value;
   const subject = document.getElementById('a-subject').value;
   const semester = document.getElementById('a-semester').value;
@@ -1834,6 +1957,8 @@ async function saveSingleLesson() {
 
 // SAVE MULTI
 async function saveMultiLessons() {
+  const currentUser = requireUnifiedAuth('سجّل الدخول أولًا لحفظ الدروس');
+  if (!currentUser) return;
   const grade = document.getElementById('m-grade').value;
   const subject = document.getElementById('m-subject').value;
   const semester = document.getElementById('m-semester').value;
@@ -2054,6 +2179,7 @@ function loadDemoData() {
 updateStats();
 populateTeacherFilters();
 loadAiSettings();
+updateUnifiedAuthUI();
 loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
