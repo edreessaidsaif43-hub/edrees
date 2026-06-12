@@ -1,6 +1,29 @@
 {
-  "nextLessonId": 2,
-  "nextAttachmentId": 2,
-  "lessons": [],
-  "attachments": []
+  "nextLessonId": 3,
+  "nextAttachmentId": 3,
+  "lessons": [
+    {
+      "id": 2,
+      "grade": "الصف الأول",
+      "subject": "التربية الإسلامية",
+      "semester": "الفصل الأول",
+      "unit": "الاولى",
+      "title": "سورة الفاتحة",
+      "attachmentId": 2,
+      "status": "active",
+      "createdAt": "١٣‏/٦‏/٢٠٢٦"
+    }
+  ],
+  "attachments": [
+    {
+      "id": 2,
+      "title": "الاولى",
+      "fileName": "dini_hiati_cls1_p1_f2.pdf",
+      "fileType": "application/pdf",
+      "fileSize": 65767588,
+      "filePath": "uploads\\1781303549384-487315327-dini_hiati_cls1_p1_f2.pdf",
+      "extractedText": "[محتوى المرفق: dini_hiati_cls1_p1_f2.pdf]\\nتم حفظ الملف في قاعدة البيانات بنجاح.\\nحجم الملف: 62.7 MB\\nالوحدة: الاولى\\nالمادة: التربية الإسلامية\\nالصف: الصف الأول\\n\\nملاحظة: لاستخراج نصوص PDF/DOCX كبيرة بدقة يمكن إضافة خدمة استخراج نصوص لاحقًا.",
+      "createdAt": "2026-06-12T22:32:29.679Z"
+    }
+  ]
 }

@@ -1654,16 +1654,29 @@ async function generateLesson() {
 
   try {
     const settings = getAiSettings();
-    const result = settings.apiKey
-      ? await callGemini(prompt, settings)
-      : localGenerateLesson(lesson, attachment);
+    let result;
+    let usedFallback = false;
+
+    if (settings.apiKey) {
+      try {
+        result = await callGemini(prompt, settings);
+      } catch (aiErr) {
+        if (!isGeminiQuotaError(aiErr)) throw aiErr;
+        console.warn('Gemini quota exceeded, using local fallback.', aiErr);
+        result = localGenerateLesson(lesson, attachment);
+        usedFallback = true;
+      }
+    } else {
+      result = localGenerateLesson(lesson, attachment);
+      usedFallback = true;
+    }
 
     lastResult = normalizeAiResult(result);
     showResults(lastResult, lesson);
-    if (!settings.apiKey) showToast('تم التوليد بالمولّد المحلي الاحتياطي. أضف مفتاح Gemini من إعدادات AI للتوليد الحقيقي.');
+    if (usedFallback) showToast(settings.apiKey ? 'انتهت حصة Gemini لهذا النموذج، تم التوليد بالمولّد المحلي الاحتياطي.' : 'تم التوليد بالمولّد المحلي الاحتياطي. أضف مفتاح Gemini من إعدادات AI للتوليد الحقيقي.');
   } catch (err) {
     console.error(err);
-    showError(err.message || 'حدث خطأ أثناء توليد التحضير، يرجى المحاولة مرة أخرى.');
+    showError(formatAiError(err));
   } finally {
     document.getElementById('loading-state').classList.remove('show');
     btn.disabled = false;
@@ -1737,6 +1750,23 @@ ${attachment.extractedText}
 {"objectives":"","intro":"","procedures":"","formativeAssessment":"","closingAssessment":"","finalAssessment":"","parentNotes":""}`;
 }
 
+function isGeminiQuotaError(err) {
+  const message = String(err?.message || err || '').toLowerCase();
+  return message.includes('quota') ||
+    message.includes('rate limit') ||
+    message.includes('rate-limit') ||
+    message.includes('resource_exhausted') ||
+    message.includes('429') ||
+    message.includes('free_tier');
+}
+
+function formatAiError(err) {
+  if (isGeminiQuotaError(err)) {
+    return 'انتهت حصة Gemini الحالية. جرّب تغيير النموذج إلى Gemini 2.5 Flash من إعدادات AI، أو فعّل الفوترة/انتظر تجدد الحصة.';
+  }
+  return err?.message || 'حدث خطأ أثناء توليد التحضير، يرجى المحاولة مرة أخرى.';
+}
+
 async function callGemini(prompt, settings) {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
   const response = await fetch(endpoint, {
@@ -1753,7 +1783,11 @@ async function callGemini(prompt, settings) {
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.error?.message || 'تعذر الاتصال بخدمة Gemini.');
+    const message = data.error?.message || data.error?.status || 'تعذر الاتصال بخدمة Gemini.';
+    const err = new Error(message);
+    err.status = response.status;
+    err.geminiError = data.error || null;
+    throw err;
   }
 
   const text = data.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || '';
