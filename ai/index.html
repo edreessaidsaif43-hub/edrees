@@ -1213,7 +1213,7 @@
             <div class="upload-area" onclick="document.getElementById('a-file').click()" id="upload-area-single" ondragover="handleDragOver(event,'single')" ondrop="handleDrop(event,'single')">
               <div class="upload-icon">📄</div>
               <div class="upload-title">اضغط لرفع الملف أو اسحبه هنا</div>
-              <div class="upload-sub">يدعم: PDF, Word, صور, نصي (حجم أقصى 10MB)</div>
+              <div class="upload-sub">يدعم: PDF, Word, صور, نصي (حجم أقصى 600MB)</div>
             </div>
             <input type="file" id="a-file" class="upload-file" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleFile(this,'single')">
             <div class="file-preview" id="file-preview-single">
@@ -1221,6 +1221,12 @@
               <span class="file-name" id="file-name-single"></span>
               <span class="file-size" id="file-size-single"></span>
             </div>
+          </div>
+
+          <div class="field" style="margin-bottom:1.5rem;">
+            <label>نص المرفق أو نص الدرس لتحسين الدقة</label>
+            <textarea id="a-extracted-text" rows="7" placeholder="الصق هنا نص الدرس من ملف PDF أو Word إذا لم يكن الملف نصيًا. كلما كان النص أوضح كانت الإجابة أدق." style="background-image:none !important; resize:vertical;"></textarea>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px;line-height:1.6;">مهم: ملفات PDF وWord لا يُستخرج نصها تلقائيًا على كل الاستضافات. لصق النص هنا يجعل التحضير دقيقًا.</div>
           </div>
 
           <button class="btn btn-primary" onclick="saveSingleLesson()" style="min-width:180px;justify-content:center;">
@@ -1286,6 +1292,12 @@
               <span class="file-name" id="file-name-multi"></span>
               <span class="file-size" id="file-size-multi"></span>
             </div>
+          </div>
+
+          <div class="field" style="margin-bottom:1.5rem;">
+            <label>نص المرفق أو نص الوحدة لتحسين الدقة</label>
+            <textarea id="m-extracted-text" rows="7" placeholder="الصق هنا نص الوحدة أو نصوص الدروس من ملف PDF أو Word إذا لم يكن الملف نصيًا." style="background-image:none !important; resize:vertical;"></textarea>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px;line-height:1.6;">سيستخدم هذا النص لجميع الدروس المرتبطة بهذا المرفق.</div>
           </div>
 
           <div class="field" style="margin-bottom:1.5rem;">
@@ -1640,8 +1652,12 @@ async function generateLesson() {
 
   const attachment = attachments.find(a => a.id == lesson.attachmentId);
   if (!attachment) { showError('لا يوجد مرفق مرتبط بهذا الدرس. يرجى التواصل مع الإدارة.'); return; }
-  if (!attachment.extractedText || attachment.extractedText.trim().length < 10) {
-    showError('لا يوجد نص كافٍ داخل المرفق لتوليد التحضير.'); return;
+
+  const settings = getAiSettings();
+  const canReadPdfWithAi = settings.apiKey && isPdfAttachment(attachment);
+  if (!hasUsableAttachmentText(attachment) && !canReadPdfWithAi) {
+    showError('لا يوجد نص درسي كافٍ داخل المرفق. إذا كان الملف PDF فأضف مفتاح Gemini ليقرأه الذكاء الاصطناعي، أو الصق نص الدرس في خانة "نص المرفق" داخل لوحة الإدارة ثم احفظ الدرس مرة أخرى.');
+    return;
   }
 
   const btn = document.getElementById('btn-generate');
@@ -1653,13 +1669,14 @@ async function generateLesson() {
   const prompt = buildLessonPrompt(lesson, attachment);
 
   try {
-    const settings = getAiSettings();
     let result;
     let usedFallback = false;
 
     if (settings.apiKey) {
       try {
-        result = await callGemini(prompt, settings);
+        result = (!hasUsableAttachmentText(attachment) && isPdfAttachment(attachment))
+          ? await callGeminiWithPdf(buildPdfLessonPrompt(lesson), settings, attachment)
+          : await callGemini(prompt, settings);
       } catch (aiErr) {
         if (!isGeminiQuotaError(aiErr)) throw aiErr;
         console.warn('Gemini quota exceeded, using local fallback.', aiErr);
@@ -1722,6 +1739,29 @@ function updateAiStatus() {
   status.textContent = settings.apiKey ? `متصل عبر ${settings.model}` : 'يعمل الآن بالمولّد المحلي الاحتياطي';
 }
 
+function buildPdfLessonPrompt(lesson) {
+  return `أنت مساعد تعليمي لإعداد تحضير درس للمعلمين في سلطنة عُمان.
+
+المطلوب: اقرأ ملف PDF المرفق بصريًا ونصيًا، ثم أعد تحضير درس واحد فقط.
+
+بيانات الدرس:
+الصف: ${lesson.grade}
+المادة: ${lesson.subject}
+الفصل الدراسي: ${lesson.semester}
+الوحدة: ${lesson.unit}
+الدرس المطلوب: ${lesson.title}
+
+قواعد الإجابة الصارمة:
+- استخدم ملف PDF المرفق فقط.
+- ركز فقط على الدرس المطلوب: "${lesson.title}".
+- تجاهل الدروس الأخرى الموجودة في نفس الملف.
+- لا تضف معلومات خارج الملف.
+- إذا لم تجد معلومة واضحة لأي قسم، اكتب: غير مذكور في المرفق.
+
+أخرج النتيجة بصيغة JSON فقط بالشكل التالي بدون أي نص إضافي:
+{"objectives":"","intro":"","procedures":"","formativeAssessment":"","closingAssessment":"","finalAssessment":"","parentNotes":""}`;
+}
+
 function buildLessonPrompt(lesson, attachment) {
   return `أنت مساعد تعليمي لإعداد تحضير درس للمعلمين في سلطنة عُمان.
 
@@ -1765,6 +1805,53 @@ function formatAiError(err) {
     return 'انتهت حصة Gemini الحالية. جرّب تغيير النموذج إلى Gemini 2.5 Flash من إعدادات AI، أو فعّل الفوترة/انتظر تجدد الحصة.';
   }
   return err?.message || 'حدث خطأ أثناء توليد التحضير، يرجى المحاولة مرة أخرى.';
+}
+
+async function callGeminiWithPdf(prompt, settings, attachment) {
+  const pdfUrl = getAttachmentUrl(attachment);
+  if (!pdfUrl) throw new Error('لم يتم العثور على رابط ملف PDF.');
+
+  const pdfResponse = await fetch(pdfUrl);
+  if (!pdfResponse.ok) throw new Error('تعذر قراءة ملف PDF المرفوع.');
+
+  const pdfBlob = await pdfResponse.blob();
+  const maxInlinePdfSize = 20 * 1024 * 1024;
+  if (pdfBlob.size > maxInlinePdfSize) {
+    throw new Error('ملف PDF أكبر من 20MB. لاستخراجه بالذكاء الاصطناعي مباشرة، استخدم ملفًا أصغر أو الصق نص الدرس في خانة نص المرفق.');
+  }
+
+  const base64Pdf = await blobToBase64(pdfBlob);
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        role: 'user',
+        parts: [
+          { inline_data: { mime_type: 'application/pdf', data: base64Pdf } },
+          { text: prompt }
+        ]
+      }],
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: 'application/json'
+      }
+    })
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    const message = data.error?.message || data.error?.status || 'تعذر قراءة ملف PDF عبر Gemini.';
+    const err = new Error(message);
+    err.status = response.status;
+    err.geminiError = data.error || null;
+    throw err;
+  }
+
+  const text = data.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || '';
+  if (!text.trim()) throw new Error('لم يرجع Gemini نتيجة صالحة من ملف PDF.');
+  return parseAiJson(text);
 }
 
 async function callGemini(prompt, settings) {
@@ -1812,6 +1899,42 @@ function normalizeAiResult(result) {
   return { ...fallback, ...(result || {}) };
 }
 
+function isPdfAttachment(attachment) {
+  const type = String(attachment?.fileType || '').toLowerCase();
+  const name = String(attachment?.fileName || attachment?.filePath || '').toLowerCase();
+  return type.includes('pdf') || name.endsWith('.pdf');
+}
+
+function getAttachmentUrl(attachment) {
+  const filePath = String(attachment?.filePath || '').replace(/\\/g, '/');
+  if (!filePath) return '';
+  if (/^https?:\/\//i.test(filePath)) return filePath;
+  if (window.location.protocol === 'file:') return 'http://localhost:3000/' + filePath.replace(/^\/+/, '');
+  const base = window.location.pathname.replace(/\/[^\/]*$/, '/');
+  return base + filePath.replace(/^\/+/, '');
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function hasUsableAttachmentText(attachment) {
+  const text = String(attachment?.extractedText || '').trim();
+  if (text.length < 40) return false;
+  const weakMarkers = [
+    'تم حفظ الملف في قاعدة البيانات بنجاح',
+    'ملاحظة: لاستخراج نصوص PDF/DOCX',
+    'عنوان الملف:',
+    'النص سيُستخرج عند التوليد'
+  ];
+  return !weakMarkers.some(marker => text.includes(marker)) || text.length > 500;
+}
+
 function pickLessonText(text, title) {
   const normalizedTitle = title.trim();
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
@@ -1828,11 +1951,12 @@ function pickLessonText(text, title) {
 function localGenerateLesson(lesson, attachment) {
   const lessonText = pickLessonText(attachment.extractedText, lesson.title);
   const unavailable = 'غير مذكور في المرفق';
-  if (!lessonText) return fallbackParse('');
+  if (!hasUsableAttachmentText(attachment) || !lessonText) return fallbackParse('');
+  const compactText = lessonText.replace(/\s+/g, ' ').trim();
   return {
     objectives: `يتوقع من الطالب أن يحدد الأفكار الأساسية في درس "${lesson.title}" اعتمادًا على المرفق، وأن يشرح المفاهيم الواردة فيه، وأن يطبقها في نشاط قصير داخل الصف.`,
     intro: `يمهد المعلم للدرس بسؤال قصير مرتبط بعنوان "${lesson.title}"، ثم يعرض مقتطفًا من المرفق لمناقشة المعرفة السابقة لدى الطلاب.`,
-    procedures: `1. عرض عنوان الدرس والوحدة: ${lesson.unit}.\n2. قراءة موجزة من المرفق: ${lessonText}\n3. مناقشة المفاهيم الرئيسة مع الطلاب.\n4. تنفيذ نشاط جماعي قصير لاستخراج النقاط المهمة من النص.\n5. تلخيص ما توصل إليه الطلاب في نهاية الحصة.`,
+    procedures: `1. عرض عنوان الدرس والوحدة: ${lesson.unit}.\n2. قراءة النص المعتمد من المرفق: ${compactText}\n3. استخراج المفاهيم والأفكار الواردة في النص فقط.\n4. تنفيذ نشاط قصير يطلب من الطلاب تحديد دليل من النص لكل إجابة.\n5. تلخيص ما ورد في المرفق دون إضافة معلومات خارجية.`,
     formativeAssessment: 'أسئلة شفوية أثناء الشرح، وملاحظة مشاركة الطلاب في استخراج المعلومات من المرفق.',
     closingAssessment: 'يطلب من الطلاب تلخيص أهم فكرة وردت في الدرس في جملة واحدة.',
     finalAssessment: `سؤال ختامي: اشرح باختصار ما تعلمته من درس "${lesson.title}" اعتمادًا على النص المرفق.`,
@@ -1885,10 +2009,14 @@ function copyAll() {
 
 function showError(msg) {
   const box = document.getElementById('teacher-error');
-  document.getElementById('teacher-error-text').textContent = msg;
-  box.classList.add('show');
+  const text = document.getElementById('teacher-error-text');
+  if (text) text.textContent = msg;
+  if (box) box.classList.add('show');
 }
-function hideError() { document.getElementById('teacher-error').classList.remove('show'); }
+function hideError() {
+  const box = document.getElementById('teacher-error');
+  if (box) box.classList.remove('show');
+}
 
 // ========== ADMIN PAGE ==========
 function doLogin() {
@@ -1973,7 +2101,8 @@ async function saveSingleLesson() {
 
   try {
     await uploadLessonFile('/api/lessons/single', {
-      grade, subject, semester, unit, title, status
+      grade, subject, semester, unit, title, status,
+      extractedText: document.getElementById('a-extracted-text').value.trim()
     }, fileInput.files[0]);
     await loadDatabase();
     document.getElementById('a-grade').value = '';
@@ -1982,6 +2111,7 @@ async function saveSingleLesson() {
     document.getElementById('a-unit').value = '';
     document.getElementById('a-lesson-title').value = '';
     document.getElementById('a-file').value = '';
+    document.getElementById('a-extracted-text').value = '';
     document.getElementById('file-preview-single').classList.remove('show');
     showToast('تم حفظ الدرس في قاعدة البيانات بنجاح!');
   } catch (err) {
@@ -2014,7 +2144,8 @@ async function saveMultiLessons() {
 
   try {
     await uploadLessonFile('/api/lessons/multi', {
-      grade, subject, semester, unit, titles
+      grade, subject, semester, unit, titles,
+      extractedText: document.getElementById('m-extracted-text').value.trim()
     }, fileInput.files[0]);
     await loadDatabase();
     document.getElementById('m-grade').value = '';
@@ -2022,6 +2153,7 @@ async function saveMultiLessons() {
     document.getElementById('m-semester').value = '';
     document.getElementById('m-unit').value = '';
     document.getElementById('m-file').value = '';
+    document.getElementById('m-extracted-text').value = '';
     document.getElementById('file-preview-multi').classList.remove('show');
     const list = document.getElementById('multi-lessons-list');
     list.innerHTML = `
@@ -2185,10 +2317,10 @@ async function exportData() {
 // TOAST
 function showToast(msg, isWarning = false) {
   const toast = document.getElementById('toast');
-  const toastMsg = document.getElementById('toast-msg');
-  toastMsg.textContent = msg.replace(/^[✅⚠️🗑️🔴🟢📋]/,'').trim();
+  if (!toast) return;
+  const safeMsg = String(msg || '').replace(/^[✅⚠️🗑️🔴🟢📋]\s*/,'').trim();
   toast.style.background = isWarning ? '#e67e22' : 'var(--success)';
-  toast.innerHTML = (isWarning ? '⚠️ ' : '✅ ') + msg;
+  toast.textContent = (isWarning ? '⚠️ ' : '✅ ') + safeMsg;
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 2500);
 }

@@ -75,6 +75,8 @@ function today_arabic(): string {
 }
 
 function extract_text(string $filePath, string $fileName, string $fileType, int $fileSize, array $fields): string {
+    $manualText = trim((string)($fields['extractedText'] ?? ''));
+    if ($manualText !== '') return $manualText;
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
     if (($ext === 'txt' || strpos($fileType, 'text/') === 0) && $fileSize <= 2 * 1024 * 1024) {
         return file_get_contents($filePath) ?: '';

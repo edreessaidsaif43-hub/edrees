@@ -82,6 +82,8 @@ function todayArabic() {
 }
 
 function readExtractedText(filePath, fileName, fileType, fileSize, fields) {
+  const manualText = String(fields.extractedText || '').trim();
+  if (manualText) return manualText;
   const ext = path.extname(fileName).toLowerCase();
   if ((ext === '.txt' || String(fileType).startsWith('text/')) && fileSize <= 2 * 1024 * 1024) {
     return fs.readFileSync(filePath, 'utf8');
