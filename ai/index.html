@@ -1385,6 +1385,7 @@ async function apiRequest(path, options = {}) {
   let data = null;
   try { data = await response.json(); } catch {}
   if (!response.ok) throw new Error(data?.error || 'تعذر الاتصال بقاعدة البيانات');
+  if (data === null) throw new Error('رد قاعدة البيانات غير صالح. تأكد من رفع api.php ومن صلاحيات مجلد data.');
   return data;
 }
 
@@ -1411,8 +1412,8 @@ async function uploadLessonFile(path, meta, file) {
 
 async function loadDatabase() {
   const data = await apiRequest('/api/lessons');
-  lessons = data.lessons || [];
-  attachments = data.attachments || [];
+  lessons = Array.isArray(data?.lessons) ? data.lessons : [];
+  attachments = Array.isArray(data?.attachments) ? data.attachments : [];
   updateStats();
   populateTeacherFilters();
   renderTable();
