@@ -442,6 +442,25 @@
     margin-bottom: 1.5rem;
   }
   @media (max-width: 680px) { .sections-grid { grid-template-columns: 1fr; } }
+  .result-section-title {
+    grid-column: 1 / -1;
+    margin: 0.4rem 0 0.2rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: linear-gradient(90deg, rgba(26,86,160,0.08), rgba(34,197,94,0.08));
+    color: var(--text);
+    font-size: 17px;
+    font-weight: 900;
+  }
+  .result-section-title span {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
   .section-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -993,6 +1012,11 @@
       </div>
 
       <div class="sections-grid">
+        <div class="result-section-title">
+          أقسام التحضير في منصة نور
+          <span>هذه الحقول تعتمد على المرفق، مع ملاحظات ولي الأمر وفق الدرس والمرحلة الدراسية في سلطنة عمان</span>
+        </div>
+
         <div class="section-card s-blue" id="card-objectives">
           <div class="section-head">
             <div class="section-label">
@@ -1053,18 +1077,6 @@
           <div class="section-footer">📎 مستخرج من المرفق فقط</div>
         </div>
 
-        <div class="section-card s-rose wide" id="card-final">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">✅</div>
-              التقويم النهائي
-            </div>
-            <button class="btn-copy" onclick="copySection('finalAssessment', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-finalAssessment"></div>
-          <div class="section-footer">📎 مستخرج من المرفق فقط</div>
-        </div>
-
         <div class="section-card s-indigo wide" id="card-parent">
           <div class="section-head">
             <div class="section-label">
@@ -1075,6 +1087,95 @@
           </div>
           <div class="section-body" id="sec-parentNotes"></div>
           <div class="section-footer">📎 مستخرج من المرفق فقط</div>
+        </div>
+
+        <div class="result-section-title">
+          القسم الإثرائي
+          <span>يولد حسب اسم الدرس والمرحلة الدراسية والمعلومات الموجودة في المرفق</span>
+        </div>
+
+        <div class="section-card s-blue" id="card-homework1">
+          <div class="section-head">
+            <div class="section-label">
+              <div class="section-icon">📝</div>
+              الواجب الأول
+            </div>
+            <button class="btn-copy" onclick="copySection('homework1', this)">📋 نسخ</button>
+          </div>
+          <div class="section-body" id="sec-homework1"></div>
+          <div class="section-footer">✨ إثرائي حسب الدرس والمرحلة</div>
+        </div>
+
+        <div class="section-card s-green" id="card-homework2">
+          <div class="section-head">
+            <div class="section-label">
+              <div class="section-icon">📌</div>
+              الواجب الثاني
+            </div>
+            <button class="btn-copy" onclick="copySection('homework2', this)">📋 نسخ</button>
+          </div>
+          <div class="section-body" id="sec-homework2"></div>
+          <div class="section-footer">✨ إثرائي حسب الدرس والمرحلة</div>
+        </div>
+
+        <div class="section-card s-purple wide" id="card-classroomGames">
+          <div class="section-head">
+            <div class="section-label">
+              <div class="section-icon">🎲</div>
+              ألعاب صفية
+            </div>
+            <button class="btn-copy" onclick="copySection('classroomGames', this)">📋 نسخ</button>
+          </div>
+          <div class="section-body" id="sec-classroomGames"></div>
+          <div class="section-footer">✨ إثرائي حسب الدرس والمرحلة</div>
+        </div>
+
+        <div class="section-card s-amber" id="card-citizenship">
+          <div class="section-head">
+            <div class="section-label">
+              <div class="section-icon">🏛️</div>
+              المواطنة
+            </div>
+            <button class="btn-copy" onclick="copySection('citizenship', this)">📋 نسخ</button>
+          </div>
+          <div class="section-body" id="sec-citizenship"></div>
+          <div class="section-footer">✨ ربط تربوي مناسب لسلطنة عمان</div>
+        </div>
+
+        <div class="section-card s-teal" id="card-motivation">
+          <div class="section-head">
+            <div class="section-label">
+              <div class="section-icon">🚀</div>
+              التحفيز
+            </div>
+            <button class="btn-copy" onclick="copySection('motivation', this)">📋 نسخ</button>
+          </div>
+          <div class="section-body" id="sec-motivation"></div>
+          <div class="section-footer">✨ إثرائي حسب الدرس والمرحلة</div>
+        </div>
+
+        <div class="section-card s-rose" id="card-attendance">
+          <div class="section-head">
+            <div class="section-label">
+              <div class="section-icon">✅</div>
+              الانتظام الطلابي
+            </div>
+            <button class="btn-copy" onclick="copySection('attendance', this)">📋 نسخ</button>
+          </div>
+          <div class="section-body" id="sec-attendance"></div>
+          <div class="section-footer">✨ دعم الحضور والمشاركة</div>
+        </div>
+
+        <div class="section-card s-indigo wide" id="card-boardPlan">
+          <div class="section-head">
+            <div class="section-label">
+              <div class="section-icon">🧩</div>
+              تقسيم السبورة
+            </div>
+            <button class="btn-copy" onclick="copySection('boardPlan', this)">📋 نسخ</button>
+          </div>
+          <div class="section-body" id="sec-boardPlan"></div>
+          <div class="section-footer">✨ توزيع عملي للحصة</div>
         </div>
       </div>
 
@@ -1803,14 +1904,16 @@ function buildPdfLessonPrompt(lesson) {
 الدرس المطلوب: ${lesson.title}
 
 قواعد الإجابة الصارمة:
-- استخدم ملف PDF المرفق فقط.
+- الحقول الخمسة الأولى لمنصة نور يجب أن تكون من ملف PDF المرفق فقط: objectives, intro, procedures, formativeAssessment, closingAssessment.
 - ركز فقط على الدرس المطلوب: "${lesson.title}".
 - تجاهل الدروس الأخرى الموجودة في نفس الملف.
-- لا تضف معلومات خارج الملف.
-- إذا لم تجد معلومة واضحة لأي قسم، اكتب: غير مذكور في المرفق.
+- لا تضف معلومات خارج الملف في حقول منصة نور، وإذا لم تجد معلومة واضحة اكتب: غير مذكور في المرفق.
+- parentNotes يولد حسب الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويكون مناسبًا لولي الأمر.
+- القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية والمعلومات الموجودة في المرفق.
+- اجعل كل حقل عمليًا ومباشرًا وجاهزًا للنسخ في منصة المعلم.
 
 أخرج النتيجة بصيغة JSON فقط بالشكل التالي بدون أي نص إضافي:
-{"objectives":"","intro":"","procedures":"","formativeAssessment":"","closingAssessment":"","finalAssessment":"","parentNotes":""}`;
+{"objectives":"","intro":"","procedures":"","formativeAssessment":"","closingAssessment":"","parentNotes":"","homework1":"","homework2":"","classroomGames":"","citizenship":"","motivation":"","attendance":"","boardPlan":""}`;
 }
 
 function buildLessonPrompt(lesson, attachment) {
@@ -1829,16 +1932,16 @@ function buildLessonPrompt(lesson, attachment) {
 ${attachment.extractedText}
 
 قواعد الإجابة الصارمة:
-- استخدم النص المرفق فقط.
+- الحقول الخمسة الأولى لمنصة نور يجب أن تكون من النص المرفق فقط: objectives, intro, procedures, formativeAssessment, closingAssessment.
 - ركز فقط على الدرس المطلوب: "${lesson.title}".
 - لا تستخدم أجزاء تخص دروسًا أخرى في نفس المرفق.
-- لا تستخدم أي معلومة خارج المرفق.
-- لا تؤلف ولا تخمن.
-- لا تضف معلومات عامة من معرفتك.
-- إذا لم تجد معلومة واضحة لأي قسم، اكتب: غير مذكور في المرفق.
+- لا تضف معلومات خارج المرفق في حقول منصة نور، وإذا لم تجد معلومة واضحة اكتب: غير مذكور في المرفق.
+- parentNotes يولد حسب الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويكون مناسبًا لولي الأمر.
+- القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية والمعلومات الموجودة في المرفق.
+- اجعل كل حقل عمليًا ومباشرًا وجاهزًا للنسخ في منصة المعلم.
 
 أخرج النتيجة بصيغة JSON فقط بالشكل التالي بدون أي نص إضافي:
-{"objectives":"","intro":"","procedures":"","formativeAssessment":"","closingAssessment":"","finalAssessment":"","parentNotes":""}`;
+{"objectives":"","intro":"","procedures":"","formativeAssessment":"","closingAssessment":"","parentNotes":"","homework1":"","homework2":"","classroomGames":"","citizenship":"","motivation":"","attendance":"","boardPlan":""}`;
 }
 
 function isGeminiQuotaError(err) {
@@ -1966,21 +2069,29 @@ function localGenerateLesson(lesson, attachment) {
     procedures: `1. عرض عنوان الدرس والوحدة: ${lesson.unit}.\n2. قراءة النص المعتمد من المرفق: ${compactText}\n3. استخراج المفاهيم والأفكار الواردة في النص فقط.\n4. تنفيذ نشاط قصير يطلب من الطلاب تحديد دليل من النص لكل إجابة.\n5. تلخيص ما ورد في المرفق دون إضافة معلومات خارجية.`,
     formativeAssessment: 'أسئلة شفوية أثناء الشرح، وملاحظة مشاركة الطلاب في استخراج المعلومات من المرفق.',
     closingAssessment: 'يطلب من الطلاب تلخيص أهم فكرة وردت في الدرس في جملة واحدة.',
-    finalAssessment: `سؤال ختامي: اشرح باختصار ما تعلمته من درس "${lesson.title}" اعتمادًا على النص المرفق.`,
-    parentNotes: lessonText.length > 40 ? 'يمكن لولي الأمر مراجعة عنوان الدرس مع الطالب وطلب شرح أهم نقطتين من المرفق.' : unavailable
+    parentNotes: lessonText.length > 40 ? `يراجع ولي الأمر مع الطالب عنوان درس "${lesson.title}"، ويطلب منه شرح فكرة واحدة تعلمها بلغة بسيطة مناسبة للمرحلة الدراسية في سلطنة عمان.` : unavailable,
+    homework1: `اكتب ثلاث نقاط تعلمتها من درس "${lesson.title}" مع مثال واحد من المرفق.`,
+    homework2: `أجب عن سؤالين قصيرين يصوغهما المعلم من مفاهيم درس "${lesson.title}"، ثم اكتب سؤالًا ترغب في مناقشته في الحصة القادمة.`,
+    classroomGames: `لعبة بطاقات سريعة: يوزع المعلم مفاهيم من درس "${lesson.title}" ويطلب من الطلاب مطابقة المفهوم بالشرح المناسب من المرفق.`,
+    citizenship: `ربط الدرس بقيمة المسؤولية وخدمة المجتمع في سلطنة عمان من خلال مثال مناسب لموضوع "${lesson.title}".`,
+    motivation: 'تعزيز لفظي فوري للطلاب عند الاستدلال من المرفق، مع منح نقاط مشاركة للمجموعات الأكثر دقة.',
+    attendance: 'ربط الانتظام الطلابي بالمشاركة في بداية الحصة ونشاط قصير لا يكتمل إلا بحضور الطالب ومتابعته.',
+    boardPlan: `يمين السبورة: عنوان الدرس والأهداف. وسط السبورة: المفاهيم والأفكار الرئيسة. يسار السبورة: التقويم والواجب. أسفل السبورة: كلمات مفتاحية من درس "${lesson.title}".`
   };
 }
 
+function getResultKeys() {
+  return ['objectives','intro','procedures','formativeAssessment','closingAssessment','parentNotes','homework1','homework2','classroomGames','citizenship','motivation','attendance','boardPlan'];
+}
+
 function fallbackParse(text) {
-  const keys = ['objectives','intro','procedures','formativeAssessment','closingAssessment','finalAssessment','parentNotes'];
   const result = {};
-  keys.forEach(k => { result[k] = 'غير مذكور في المرفق'; });
+  getResultKeys().forEach(k => { result[k] = 'غير مذكور في المرفق'; });
   return result;
 }
 
 function showResults(result, lesson) {
-  const keys = ['objectives','intro','procedures','formativeAssessment','closingAssessment','finalAssessment','parentNotes'];
-  keys.forEach(k => {
+  getResultKeys().forEach(k => {
     const el = document.getElementById('sec-' + k);
     if (el) el.textContent = result[k] || 'غير مذكور في المرفق';
   });
@@ -2001,13 +2112,30 @@ function copySection(key, btn) {
 }
 
 function copyAll() {
-  const labels = {
-    objectives: 'أهداف الدرس', intro: 'التمهيد', procedures: 'إجراءات تنفيذ الدرس',
-    formativeAssessment: 'التقويم التكويني', closingAssessment: 'التقويم الختامي',
-    finalAssessment: 'التقويم النهائي', parentNotes: 'ملاحظات ولي الأمر'
+  const noorLabels = {
+    objectives: 'أهداف الدرس من المرفق',
+    intro: 'التمهيد من المرفق',
+    procedures: 'إجراءات تنفيذ الدرس من المرفق',
+    formativeAssessment: 'التقويم التكويني من المرفق',
+    closingAssessment: 'التقويم الختامي من المرفق',
+    parentNotes: 'ملاحظات ولي الأمر'
   };
-  let text = '';
-  Object.entries(labels).forEach(([k, label]) => {
+  const enrichmentLabels = {
+    homework1: 'الواجب الأول',
+    homework2: 'الواجب الثاني',
+    classroomGames: 'ألعاب صفية',
+    citizenship: 'المواطنة',
+    motivation: 'التحفيز',
+    attendance: 'الانتظام الطلابي',
+    boardPlan: 'تقسيم السبورة'
+  };
+  let text = '【 أقسام التحضير في منصة نور 】\n\n';
+  Object.entries(noorLabels).forEach(([k, label]) => {
+    const el = document.getElementById('sec-' + k);
+    if (el) text += `【 ${label} 】\n${el.textContent}\n\n`;
+  });
+  text += '【 القسم الإثرائي 】\n\n';
+  Object.entries(enrichmentLabels).forEach(([k, label]) => {
     const el = document.getElementById('sec-' + k);
     if (el) text += `【 ${label} 】\n${el.textContent}\n\n`;
   });
