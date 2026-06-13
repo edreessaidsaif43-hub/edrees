@@ -1423,7 +1423,7 @@ if (window.location.protocol === 'file:') {
 }
 let lessons = [];
 let attachments = [];
-const API_BASE = 'api.php';
+const API_BASE = '/api/ai';
 let editingId = null;
 let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
@@ -1532,8 +1532,8 @@ async function apiRequest(path, options = {}) {
   const response = await fetch(apiUrl(path), options);
   let data = null;
   try { data = await response.json(); } catch {}
-  if (!response.ok) throw new Error(data?.error || 'تعذر الاتصال بقاعدة البيانات');
-  if (data === null) throw new Error('رد قاعدة البيانات غير صالح. تأكد من رفع api.php ومن صلاحيات مجلد data.');
+  if (!response.ok) throw new Error(data?.message || data?.error || 'تعذر الاتصال بقاعدة البيانات');
+  if (data === null) throw new Error('رد قاعدة البيانات غير صالح. تأكد من رفع api/ai.js وإضافة قاعدة البيانات في Vercel.');
   return data;
 }
 
@@ -1825,7 +1825,7 @@ function formatAiError(err) {
   }
   const message = String(err?.message || '');
   if (message === 'Failed to fetch' || message.includes('NetworkError')) {
-    return 'تعذر الاتصال بخدمة التوليد. تأكد من رفع api.php، ومن اتصال الخادم بالإنترنت، ثم افتح النسخة المنشورة من الموقع.';
+    return 'تعذر الاتصال بخدمة التوليد. تأكد من رفع api/ai.js، وإضافة قاعدة البيانات وBlob في Vercel، ومن اتصال الخادم بالإنترنت.';
   }
   return err?.message || 'حدث خطأ أثناء توليد التحضير، يرجى المحاولة مرة أخرى.';
 }
