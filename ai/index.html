@@ -1543,19 +1543,50 @@ function encodeUploadMeta(meta) {
 }
 
 async function uploadLessonFile(path, meta, file) {
-  const response = await fetch(apiUrl(path, { meta: encodeUploadMeta(meta) }), {
+  let uploaded = null;
+  try {
+    const blobClient = await import('https://esm.sh/@vercel/blob@0.27.0/client');
+    uploaded = await blobClient.upload(file.name, file, {
+      access: 'public',
+      handleUploadUrl: '/api/ai-upload',
+      contentType: file.type || 'application/octet-stream'
+    });
+  } catch (err) {
+    throw new Error(formatUploadError(err));
+  }
+
+  const response = await fetch(apiUrl(path), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      'X-File-Name': encodeURIComponent(file.name),
-      'X-File-Type': encodeURIComponent(file.type || 'application/octet-stream')
-    },
-    body: file
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      meta,
+      upload: {
+        url: uploaded.url,
+        pathname: uploaded.pathname,
+        fileName: file.name,
+        fileType: file.type || 'application/octet-stream',
+        fileSize: file.size
+      }
+    })
   });
   let data = null;
   try { data = await response.json(); } catch {}
-  if (!response.ok) throw new Error(data?.error || 'تعذر رفع الملف');
+  if (!response.ok) throw new Error(data?.message || data?.error || 'تعذر حفظ بيانات الملف في قاعدة البيانات');
   return data;
+}
+
+function formatUploadError(err) {
+  const message = String(err?.message || err || '');
+  if (message.includes('413') || message.includes('too large') || message.includes('maximum')) {
+    return 'حجم الملف أكبر من الحد المسموح. الحد الحالي 600 MB.';
+  }
+  if (message.includes('BLOB_READ_WRITE_TOKEN') || message.includes('token')) {
+    return 'تعذر رفع الملف: تأكد من وجود BLOB_READ_WRITE_TOKEN في Vercel ثم أعد النشر.';
+  }
+  if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
+    return 'تعذر رفع الملف: تحقق من الاتصال بالإنترنت ومن رفع api/ai-upload.js إلى Vercel.';
+  }
+  return message || 'تعذر رفع الملف';
 }
 
 async function loadDatabase() {
