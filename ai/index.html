@@ -1840,7 +1840,9 @@ async function generateLesson() {
       usedFallback = true;
     }
 
+    window.__currentLessonForNormalize = lesson;
     lastResult = normalizeAiResult(result);
+    delete window.__currentLessonForNormalize;
     showResults(lastResult, lesson);
     if (usedFallback) showToast(settings.apiKey ? 'انتهت حصة Gemini لهذا النموذج، تم التوليد بالمولّد المحلي الاحتياطي.' : 'تم التوليد بالمولّد المحلي الاحتياطي. أضف مفتاح Gemini من إعدادات AI للتوليد الحقيقي.');
   } catch (err) {
@@ -1909,7 +1911,7 @@ function buildPdfLessonPrompt(lesson) {
 - تجاهل الدروس الأخرى الموجودة في نفس الملف.
 - لا تضف معلومات خارج الملف في حقول منصة نور، وإذا لم تجد معلومة واضحة اكتب: غير مذكور في المرفق.
 - parentNotes يولد حسب الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويكون مناسبًا لولي الأمر.
-- القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية والمعلومات الموجودة في المرفق.
+- القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويستفيد من معلومات المرفق إن وجدت. إذا لم توجد تفاصيل كافية في المرفق فلا تكتب "غير مذكور في المرفق" في حقول الإثراء، بل ولّد محتوى تربويًا مناسبًا للدرس والمرحلة.
 - اجعل كل حقل عمليًا ومباشرًا وجاهزًا للنسخ في منصة المعلم.
 
 أخرج النتيجة بصيغة JSON فقط بالشكل التالي بدون أي نص إضافي:
@@ -1937,7 +1939,7 @@ ${attachment.extractedText}
 - لا تستخدم أجزاء تخص دروسًا أخرى في نفس المرفق.
 - لا تضف معلومات خارج المرفق في حقول منصة نور، وإذا لم تجد معلومة واضحة اكتب: غير مذكور في المرفق.
 - parentNotes يولد حسب الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويكون مناسبًا لولي الأمر.
-- القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية والمعلومات الموجودة في المرفق.
+- القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويستفيد من معلومات المرفق إن وجدت. إذا لم توجد تفاصيل كافية في المرفق فلا تكتب "غير مذكور في المرفق" في حقول الإثراء، بل ولّد محتوى تربويًا مناسبًا للدرس والمرحلة.
 - اجعل كل حقل عمليًا ومباشرًا وجاهزًا للنسخ في منصة المعلم.
 
 أخرج النتيجة بصيغة JSON فقط بالشكل التالي بدون أي نص إضافي:
@@ -2002,7 +2004,7 @@ function parseAiJson(text) {
 }
 
 function normalizeAiResult(result) {
-  const fallback = fallbackParse('');
+  const fallback = fallbackParse('', window.__currentLessonForNormalize || {});
   return { ...fallback, ...(result || {}) };
 }
 
@@ -2061,7 +2063,7 @@ function pickLessonText(text, title) {
 function localGenerateLesson(lesson, attachment) {
   const lessonText = pickLessonText(attachment.extractedText, lesson.title);
   const unavailable = 'غير مذكور في المرفق';
-  if (!hasUsableAttachmentText(attachment) || !lessonText) return fallbackParse('');
+  if (!hasUsableAttachmentText(attachment) || !lessonText) return fallbackParse('', lesson);
   const compactText = lessonText.replace(/\s+/g, ' ').trim();
   return {
     objectives: `يتوقع من الطالب أن يحدد الأفكار الأساسية في درس "${lesson.title}" اعتمادًا على المرفق، وأن يشرح المفاهيم الواردة فيه، وأن يطبقها في نشاط قصير داخل الصف.`,
@@ -2084,10 +2086,24 @@ function getResultKeys() {
   return ['objectives','intro','procedures','formativeAssessment','closingAssessment','parentNotes','homework1','homework2','classroomGames','citizenship','motivation','attendance','boardPlan'];
 }
 
-function fallbackParse(text) {
+function buildEnrichmentFallback(lesson = {}) {
+  const title = String(lesson.title || 'الدرس').trim() || 'الدرس';
+  const grade = String(lesson.grade || 'المرحلة الدراسية').trim() || 'المرحلة الدراسية';
+  return {
+    homework1: `واجب مناسب لـ ${grade}: اكتب ثلاث أفكار تعلمتها من درس "${title}"، ثم اختر فكرة واحدة ووضحها بأسلوبك.`,
+    homework2: `واجب تطبيقي: صمم سؤالين عن درس "${title}" مع إجابة نموذجية مختصرة، ثم شارك أحد السؤالين في الحصة القادمة.`,
+    classroomGames: `لعبة صفية: يقسم المعلم الطلاب إلى مجموعات، وتتنافس كل مجموعة في ترتيب بطاقات المفاهيم المرتبطة بدرس "${title}" مع شرح السبب.`,
+    citizenship: `ربط المواطنة: يناقش الطلاب كيف يمكن تطبيق قيمة المسؤولية أو التعاون في سلطنة عمان من خلال فكرة مناسبة من درس "${title}".`,
+    motivation: `تحفيز: يمنح المعلم نقاط تميز للطالب الذي يربط إجابة دقيقة من درس "${title}" بمثال واضح، مع تشجيع المشاركة الهادئة والمنظمة.`,
+    attendance: `الانتظام الطلابي: يبدأ الدرس بسؤال حضور قصير مرتبط بـ "${title}"، وتحتسب مشاركة الطالب في بداية الحصة ضمن نقاط المتابعة.`,
+    boardPlan: `تقسيم السبورة: يمين السبورة: عنوان درس "${title}" والأهداف. الوسط: المفاهيم الرئيسة والأمثلة. اليسار: التقويم والواجب. أسفل السبورة: كلمات مفتاحية للدرس.`
+  };
+}
+
+function fallbackParse(text, lesson = {}) {
   const result = {};
   getResultKeys().forEach(k => { result[k] = 'غير مذكور في المرفق'; });
-  return result;
+  return { ...result, ...buildEnrichmentFallback(lesson) };
 }
 
 function showResults(result, lesson) {
