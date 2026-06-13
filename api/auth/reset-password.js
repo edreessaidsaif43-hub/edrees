@@ -1,2 +1,3 @@
-export { default } from '../../enjazy/api/auth/reset-password.js';
+﻿export { default } from '../../enjazy/server_api/auth/reset-password.js';
+
 

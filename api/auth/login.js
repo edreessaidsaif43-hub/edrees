@@ -1,2 +1,3 @@
-export { default } from '../../enjazy/api/auth/login.js';
+﻿export { default } from '../../enjazy/server_api/auth/login.js';
+
 

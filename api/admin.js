@@ -1,2 +1,3 @@
-export { default } from '../enjazy/api/admin.js';
+﻿export { default } from '../enjazy/server_api/admin.js';
+
 

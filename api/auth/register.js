@@ -1,2 +1,3 @@
-export { default } from '../../enjazy/api/auth/register.js';
+﻿export { default } from '../../enjazy/server_api/auth/register.js';
+
 

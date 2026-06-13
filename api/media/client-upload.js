@@ -1,2 +1,3 @@
-export { default } from '../../enjazy/api/media/client-upload.js';
+﻿export { default } from '../../enjazy/server_api/media/client-upload.js';
+
 

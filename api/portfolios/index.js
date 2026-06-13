@@ -1,2 +1,3 @@
-export { default } from '../../enjazy/api/portfolios/index.js';
+﻿export { default } from '../../enjazy/server_api/portfolios/index.js';
+
 
