@@ -673,6 +673,46 @@
 
   /* LESSONS LIST */
   .lessons-list { display: flex; flex-direction: column; gap: 10px; margin-top: 1rem; }
+  .unit-batch-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: #fff;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  .unit-batch-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .unit-batch-title { font-weight: 900; color: var(--primary); }
+  .unit-files-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-top: 0.65rem;
+  }
+  .unit-file-pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .unit-file-pill span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .lesson-item {
     display: flex;
     align-items: center;
@@ -1254,8 +1294,10 @@
           </div>
           <div class="form-grid">
             <div class="field">
-              <label>مفتاح Gemini API</label>
-              <input type="password" id="ai-api-key" placeholder="AIza..." autocomplete="off">
+              <label>حماية مفتاح Gemini</label>
+              <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text-secondary);font-size:13px;line-height:1.7;">
+                المفتاح محفوظ في Vercel فقط عبر <strong>GEMINI_API_KEY</strong> ولا يظهر أو يُحفظ في المتصفح.
+              </div>
             </div>
             <div class="field">
               <label>النموذج</label>
@@ -1267,12 +1309,12 @@
             </div>
           </div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px;">
-            <button class="btn btn-primary" onclick="saveAiSettings()">💾 حفظ الإعدادات</button>
-            <button class="btn btn-outline" onclick="clearAiSettings()">مسح المفتاح</button>
-            <span class="ai-status" id="ai-status">يعمل الآن بالمولّد المحلي الاحتياطي</span>
+            <button class="btn btn-primary" onclick="saveAiSettings()">💾 حفظ النموذج</button>
+            <button class="btn btn-outline" onclick="clearAiSettings()">استعادة النموذج الافتراضي</button>
+            <span class="ai-status" id="ai-status">Gemini محمي من الخادم</span>
           </div>
           <div class="settings-note">
-            عند حفظ مفتاح Gemini سيتم توليد التحضير عبر الذكاء الاصطناعي مباشرة. عند عدم وجود مفتاح سيستخدم الموقع مولّدًا محليًا احتياطيًا من نص المرفق حتى تبقى الصفحة قابلة للتجربة.
+للحماية لا يتم إدخال مفتاح Gemini هنا. أضف المفتاح في Vercel باسم GEMINI_API_KEY، ويمكنك اختيار النموذج فقط من هذه الصفحة.
           </div>
         </div>
       </div>
@@ -1361,10 +1403,10 @@
         <div class="form-card">
           <div class="form-card-title">
             <div class="icon">📚</div>
-            إضافة عدة دروس لنفس المرفق
+            إضافة عدة وحدات ودروس وملفات دفعة واحدة
           </div>
           <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.5rem;background:rgba(26,86,160,0.04);padding:10px 14px;border-radius:8px;border-right:3px solid var(--primary-light);">
-            📌 ارفع المرفق مرة واحدة فقط، ثم أضف جميع الدروس المرتبطة به. كل درس سيُنشأ كسجل مستقل مرتبط بنفس المرفق.
+            📌 يمكنك إضافة أكثر من وحدة، ولكل وحدة عدة دروس وعدة مرفقات. سيُنشأ كل درس كسجل مستقل مرتبط بمرفقات وحدته.
           </p>
           <div class="form-grid">
             <div class="field">
@@ -1394,48 +1436,13 @@
                 <option>الفصل الأول</option><option>الفصل الثاني</option><option>الفصل الثالث</option>
               </select>
             </div>
-            <div class="field">
-              <label>الوحدة <span>*</span></label>
-              <input type="text" id="m-unit" placeholder="مثال: وحدة الكهرباء" style="background-image:none !important;">
-            </div>
           </div>
 
           <div class="field" style="margin-bottom:1.5rem;">
-            <label>رفع المرفق (مرة واحدة فقط) <span>*</span></label>
-            <div class="upload-area" onclick="document.getElementById('m-file').click()" id="upload-area-multi">
-              <div class="upload-icon">📦</div>
-              <div class="upload-title">اسحب الملف هنا أو اضغط للاختيار</div>
-              <div class="upload-sub">هذا المرفق سيُستخدم لجميع الدروس التالية</div>
-            </div>
-            <input type="file" id="m-file" class="upload-file" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleFile(this,'multi')">
-            <div class="file-preview" id="file-preview-multi">
-              <span style="font-size:20px">📎</span>
-              <span class="file-name" id="file-name-multi"></span>
-              <span class="file-size" id="file-size-multi"></span>
-            </div>
-          </div>
-
-          <div class="field" style="margin-bottom:1.5rem;">
-            <label>نص المرفق أو نص الوحدة لتحسين الدقة</label>
-            <textarea id="m-extracted-text" rows="7" placeholder="الصق هنا نص الوحدة أو نصوص الدروس من ملف PDF أو Word إذا لم يكن الملف نصيًا." style="background-image:none !important; resize:vertical;"></textarea>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:6px;line-height:1.6;">سيستخدم هذا النص لجميع الدروس المرتبطة بهذا المرفق.</div>
-          </div>
-
-          <div class="field" style="margin-bottom:1.5rem;">
-            <label>قائمة الدروس <span>*</span></label>
-            <div class="lessons-list" id="multi-lessons-list">
-              <div class="lesson-item">
-                <div class="lesson-num">1</div>
-                <input type="text" placeholder="اسم الدرس الأول" style="background-image:none !important;">
-              </div>
-              <div class="lesson-item">
-                <div class="lesson-num">2</div>
-                <input type="text" placeholder="اسم الدرس الثاني" style="background-image:none !important;">
-                <button class="remove-lesson" onclick="removeLessonRow(this)">×</button>
-              </div>
-            </div>
-            <button class="btn btn-outline btn-sm" onclick="addLessonRow()" style="margin-top:10px;">
-              + إضافة درس آخر
+            <label>الوحدات والدروس والمرفقات <span>*</span></label>
+            <div id="multi-units-list"></div>
+            <button class="btn btn-outline btn-sm" onclick="addUnitBlock()" style="margin-top:10px;">
+              + إضافة وحدة أخرى
             </button>
           </div>
 
@@ -1643,7 +1650,7 @@ function encodeUploadMeta(meta) {
   return btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-async function uploadLessonFile(path, meta, file) {
+async function uploadFileToBlob(file) {
   let uploaded = null;
   try {
     const blobClient = await import('https://esm.sh/@vercel/blob@0.27.0/client');
@@ -1655,19 +1662,24 @@ async function uploadLessonFile(path, meta, file) {
   } catch (err) {
     throw new Error(formatUploadError(err));
   }
+  return {
+    url: uploaded.url,
+    pathname: uploaded.pathname,
+    fileName: file.name,
+    fileType: file.type || 'application/octet-stream',
+    fileSize: file.size
+  };
+}
+
+async function uploadLessonFile(path, meta, file) {
+  const uploaded = await uploadFileToBlob(file);
 
   const response = await fetch(apiUrl(path), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       meta,
-      upload: {
-        url: uploaded.url,
-        pathname: uploaded.pathname,
-        fileName: file.name,
-        fileType: file.type || 'application/octet-stream',
-        fileSize: file.size
-      }
+      upload: uploaded
     })
   });
   let data = null;
@@ -1778,6 +1790,13 @@ function loadSubjects() { populateTeacherFilters('t-grade'); }
 function loadSemesters() { populateTeacherFilters('t-subject'); }
 function loadLessons() { populateTeacherFilters('t-unit'); }
 
+function getLessonAttachments(lesson) {
+  const ids = Array.isArray(lesson?.attachmentIds) && lesson.attachmentIds.length
+    ? lesson.attachmentIds
+    : (lesson?.attachmentId ? [lesson.attachmentId] : []);
+  return ids.map(id => attachments.find(a => a.id == id)).filter(Boolean);
+}
+
 ['t-grade','t-subject','t-semester','t-unit'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('change', () => populateTeacherFilters(id));
@@ -1801,12 +1820,13 @@ async function generateLesson() {
   if (!lesson) { showError('لم يتم العثور على الدرس.'); return; }
   if (lesson.status !== 'active') { showError('هذا الدرس غير متاح حاليًا.'); return; }
 
-  const attachment = attachments.find(a => a.id == lesson.attachmentId);
+  const lessonAttachments = getLessonAttachments(lesson);
+  const attachment = lessonAttachments[0];
   if (!attachment) { showError('لا يوجد مرفق مرتبط بهذا الدرس. يرجى التواصل مع الإدارة.'); return; }
 
   const settings = getAiSettings();
-  const hasText = hasUsableAttachmentText(attachment);
-  const isPdf = isPdfAttachment(attachment);
+  const hasText = lessonAttachments.some(hasUsableAttachmentText);
+  const isPdf = lessonAttachments.some(isPdfAttachment);
   if (!hasText && !isPdf) {
     showError('لا يوجد نص درسي كافٍ داخل المرفق. الصق نص الدرس في خانة "نص المرفق" داخل لوحة الإدارة ثم احفظ الدرس مرة أخرى.');
     return;
@@ -1818,16 +1838,21 @@ async function generateLesson() {
   document.getElementById('loading-state').classList.add('show');
   document.getElementById('results-area').classList.remove('show');
 
-  const prompt = buildLessonPrompt(lesson, attachment);
+  const combinedAttachment = {
+    ...attachment,
+    extractedText: lessonAttachments.map(a => a.extractedText || '').filter(Boolean).join('\n\n'),
+    fileName: lessonAttachments.map(a => a.fileName || '').filter(Boolean).join('، ')
+  };
+  const prompt = buildLessonPrompt(lesson, combinedAttachment);
 
   try {
     let result;
     let usedFallback = false;
 
-    if (settings.apiKey || (!hasText && isPdf)) {
+    if (true) {
       try {
         result = (!hasText && isPdf)
-          ? await callGeminiWithPdf(buildPdfLessonPrompt(lesson), settings, attachment)
+          ? await callGeminiWithPdf(buildPdfLessonPrompt(lesson), settings, attachment, lessonAttachments)
           : await callGemini(prompt, settings);
       } catch (aiErr) {
         if (!isGeminiQuotaError(aiErr)) throw aiErr;
@@ -1844,7 +1869,7 @@ async function generateLesson() {
     lastResult = normalizeAiResult(result);
     delete window.__currentLessonForNormalize;
     showResults(lastResult, lesson);
-    if (usedFallback) showToast(settings.apiKey ? 'انتهت حصة Gemini لهذا النموذج، تم التوليد بالمولّد المحلي الاحتياطي.' : 'تم التوليد بالمولّد المحلي الاحتياطي. أضف مفتاح Gemini من إعدادات AI للتوليد الحقيقي.');
+    if (usedFallback) showToast('تعذر استخدام Gemini من الخادم، تم التوليد بالمولّد المحلي الاحتياطي.');
   } catch (err) {
     console.error(err);
     showError(formatAiError(err));
@@ -1857,40 +1882,40 @@ async function generateLesson() {
 
 function getAiSettings() {
   const saved = JSON.parse(localStorage.getItem(AI_SETTINGS_KEY) || '{}');
+  if (saved.apiKey) {
+    delete saved.apiKey;
+    localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(saved));
+  }
   return {
-    apiKey: (saved.apiKey || '').trim(),
     model: saved.model || 'gemini-2.5-flash'
   };
 }
 
 function loadAiSettings() {
   const settings = getAiSettings();
-  const keyInput = document.getElementById('ai-api-key');
   const modelInput = document.getElementById('ai-model');
-  if (keyInput) keyInput.value = settings.apiKey;
   if (modelInput) modelInput.value = settings.model;
   updateAiStatus();
 }
 
 function saveAiSettings() {
-  const apiKey = document.getElementById('ai-api-key').value.trim();
   const model = document.getElementById('ai-model').value;
-  localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ apiKey, model }));
+  localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ model }));
   updateAiStatus();
-  showToast(apiKey ? 'تم حفظ إعدادات الذكاء الاصطناعي' : 'تم الحفظ بدون مفتاح، سيبقى المولّد الاحتياطي فعالًا');
+  showToast('تم حفظ نموذج Gemini. المفتاح محمي في Vercel ولا يُحفظ في المتصفح.');
 }
 
 function clearAiSettings() {
   localStorage.removeItem(AI_SETTINGS_KEY);
   loadAiSettings();
-  showToast('تم مسح مفتاح الذكاء الاصطناعي');
+  showToast('تمت استعادة النموذج الافتراضي');
 }
 
 function updateAiStatus() {
   const status = document.getElementById('ai-status');
   if (!status) return;
   const settings = getAiSettings();
-  status.textContent = settings.apiKey ? `متصل عبر ${settings.model}` : 'يعمل الآن بالمولّد المحلي الاحتياطي';
+  status.textContent = `Gemini محمي من الخادم عبر ${settings.model}`;
 }
 
 function buildPdfLessonPrompt(lesson) {
@@ -1968,8 +1993,9 @@ function formatAiError(err) {
   return err?.message || 'حدث خطأ أثناء توليد التحضير، يرجى المحاولة مرة أخرى.';
 }
 
-async function callGeminiWithPdf(prompt, settings, attachment) {
-  return callGeminiBackend(prompt, settings, { attachmentId: attachment.id, includePdf: true });
+async function callGeminiWithPdf(prompt, settings, attachment, attachmentList = null) {
+  const ids = (attachmentList || [attachment]).map(item => item?.id).filter(Boolean);
+  return callGeminiBackend(prompt, settings, { attachmentId: attachment.id, attachmentIds: ids, includePdf: true });
 }
 
 async function callGemini(prompt, settings) {
@@ -1981,10 +2007,10 @@ async function callGeminiBackend(prompt, settings, extra = {}) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      apiKey: settings.apiKey,
       model: settings.model,
       prompt,
       attachmentId: extra.attachmentId || null,
+      attachmentIds: Array.isArray(extra.attachmentIds) ? extra.attachmentIds : [],
       includePdf: !!extra.includePdf
     })
   });
@@ -2194,14 +2220,20 @@ function switchAdminTab(tab) {
 
 // FILE HANDLING
 function handleFile(input, type) {
-  const file = input.files[0];
-  if (!file) return;
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
   const maxSize = 600 * 1024 * 1024;
-  if (file.size > maxSize) {
+  const oversized = files.find(file => file.size > maxSize);
+  if (oversized) {
     input.value = '';
-    showToast('حجم الملف أكبر من 600 MB', true);
+    showToast('حجم الملف أكبر من 600 MB: ' + oversized.name, true);
     return;
   }
+  if (type && type.startsWith('unit-')) {
+    renderUnitFiles(input.closest('.unit-batch-card'));
+    return;
+  }
+  const file = files[0];
   const preview = document.getElementById('file-preview-' + type);
   document.getElementById('file-name-' + type).textContent = file.name;
   document.getElementById('file-size-' + type).textContent = formatSize(file.size);
@@ -2215,11 +2247,11 @@ function handleDragOver(e, type) {
 function handleDrop(e, type) {
   e.preventDefault();
   document.getElementById('upload-area-' + type).classList.remove('over');
-  const file = e.dataTransfer.files[0];
-  if (file) {
+  const files = Array.from(e.dataTransfer.files || []);
+  if (files.length) {
     const input = document.getElementById(type === 'single' ? 'a-file' : 'm-file');
     const dt = new DataTransfer();
-    dt.items.add(file);
+    files.forEach(file => dt.items.add(file));
     input.files = dt.files;
     handleFile(input, type);
   }
@@ -2229,6 +2261,93 @@ function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
   return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+
+function createUnitBlock(unitNumber = 1) {
+  const block = document.createElement('div');
+  block.className = 'unit-batch-card';
+  block.innerHTML = `
+    <div class="unit-batch-head">
+      <div class="unit-batch-title">وحدة <span class="unit-number">${unitNumber}</span></div>
+      <button class="remove-lesson" onclick="removeUnitBlock(this)" title="حذف الوحدة">×</button>
+    </div>
+    <div class="field" style="margin-bottom:1rem;">
+      <label>اسم الوحدة <span>*</span></label>
+      <input type="text" class="unit-name-input" placeholder="مثال: وحدة الكهرباء" style="background-image:none !important;">
+    </div>
+    <div class="field" style="margin-bottom:1rem;">
+      <label>ملفات الوحدة <span>*</span></label>
+      <div class="upload-area" onclick="this.parentElement.querySelector('.unit-files-input').click()">
+        <div class="upload-icon">📦</div>
+        <div class="upload-title">اضغط لاختيار ملفات الوحدة</div>
+        <div class="upload-sub">يمكن رفع أكثر من ملف PDF أو Word أو صورة أو نص</div>
+      </div>
+      <input type="file" class="upload-file unit-files-input" multiple accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleFile(this,'unit-' + ${unitNumber})">
+      <div class="unit-files-list"></div>
+    </div>
+    <div class="field" style="margin-bottom:1rem;">
+      <label>نص الوحدة أو نصوص الدروس لتحسين الدقة</label>
+      <textarea class="unit-extracted-text" rows="5" placeholder="اختياري: الصق نص الوحدة أو نصوص دروسها هنا إذا احتجت دقة أعلى." style="background-image:none !important; resize:vertical;"></textarea>
+    </div>
+    <div class="field">
+      <label>دروس الوحدة <span>*</span></label>
+      <div class="lessons-list unit-lessons-list">
+        <div class="lesson-item">
+          <div class="lesson-num">1</div>
+          <input type="text" placeholder="اسم الدرس الأول" style="background-image:none !important;">
+        </div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="addLessonRow(this.closest('.unit-batch-card'))" style="margin-top:10px;">
+        + إضافة درس في هذه الوحدة
+      </button>
+    </div>`;
+  return block;
+}
+
+function resetMultiUnits() {
+  const list = document.getElementById('multi-units-list');
+  if (!list) return;
+  list.innerHTML = '';
+  list.appendChild(createUnitBlock(1));
+  renumberUnits();
+}
+
+function addUnitBlock() {
+  const list = document.getElementById('multi-units-list');
+  list.appendChild(createUnitBlock(list.children.length + 1));
+  renumberUnits();
+}
+
+function removeUnitBlock(btn) {
+  const list = document.getElementById('multi-units-list');
+  if (list.children.length <= 1) { showToast('يجب أن تبقى وحدة واحدة على الأقل', true); return; }
+  btn.closest('.unit-batch-card').remove();
+  renumberUnits();
+}
+
+function renumberUnits() {
+  document.querySelectorAll('#multi-units-list .unit-batch-card').forEach((block, idx) => {
+    const num = idx + 1;
+    const label = block.querySelector('.unit-number');
+    if (label) label.textContent = num;
+    block.querySelectorAll('.unit-lessons-list .lesson-item').forEach((row, rIdx) => {
+      const n = row.querySelector('.lesson-num');
+      if (n) n.textContent = rIdx + 1;
+    });
+  });
+}
+
+function renderUnitFiles(block) {
+  if (!block) return;
+  const input = block.querySelector('.unit-files-input');
+  const list = block.querySelector('.unit-files-list');
+  const files = Array.from(input?.files || []);
+  list.innerHTML = files.map(file => `
+    <div class="unit-file-pill">
+      <span>📎 ${file.name}</span>
+      <span>${formatSize(file.size)}</span>
+    </div>`).join('');
 }
 
 // SAVE SINGLE
@@ -2277,64 +2396,85 @@ async function saveMultiLessons() {
   const grade = document.getElementById('m-grade').value;
   const subject = document.getElementById('m-subject').value;
   const semester = document.getElementById('m-semester').value;
-  const unit = document.getElementById('m-unit').value.trim();
-  const fileInput = document.getElementById('m-file');
-  const inputs = document.querySelectorAll('#multi-lessons-list .lesson-item input');
 
-  if (!grade || !subject || !semester || !unit) {
-    showToast('يرجى تعبئة بيانات الصف والمادة والفصل والوحدة', true); return;
-  }
-  if (!fileInput.files[0]) {
-    showToast('يرجى رفع المرفق', true); return;
+  if (!grade || !subject || !semester) {
+    showToast('يرجى تعبئة بيانات الصف والمادة والفصل', true); return;
   }
 
-  const titles = Array.from(inputs).map(i => i.value.trim()).filter(Boolean);
-  if (titles.length === 0) {
-    showToast('يرجى إدخال اسم درس واحد على الأقل', true); return;
+  const unitBlocks = Array.from(document.querySelectorAll('#multi-units-list .unit-batch-card'));
+  const units = unitBlocks.map((block, index) => {
+    const unit = block.querySelector('.unit-name-input')?.value.trim() || '';
+    const titles = Array.from(block.querySelectorAll('.unit-lessons-list .lesson-item input')).map(i => i.value.trim()).filter(Boolean);
+    const extractedText = block.querySelector('.unit-extracted-text')?.value.trim() || '';
+    const files = Array.from(block.querySelector('.unit-files-input')?.files || []);
+    return { index, unit, titles, extractedText, files };
+  });
+
+  if (!units.length) { showToast('أضف وحدة واحدة على الأقل', true); return; }
+  const invalidUnit = units.find(item => !item.unit || item.titles.length === 0 || item.files.length === 0);
+  if (invalidUnit) {
+    showToast('كل وحدة تحتاج اسم وحدة ودرس واحد على الأقل وملف واحد على الأقل', true); return;
   }
+
+  const totalLessons = units.reduce((sum, item) => sum + item.titles.length, 0);
+  const totalFiles = units.reduce((sum, item) => sum + item.files.length, 0);
 
   try {
-    await uploadLessonFile('/api/lessons/multi', {
-      grade, subject, semester, unit, titles,
-      extractedText: document.getElementById('m-extracted-text').value.trim()
-    }, fileInput.files[0]);
+    const payloadUnits = [];
+    for (const item of units) {
+      const uploads = [];
+      for (const file of item.files) {
+        uploads.push(await uploadFileToBlob(file));
+      }
+      payloadUnits.push({
+        unit: item.unit,
+        titles: item.titles,
+        extractedText: item.extractedText,
+        uploads
+      });
+    }
+
+    const response = await fetch(apiUrl('/api/lessons/multi'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ meta: { grade, subject, semester, units: payloadUnits } })
+    });
+    let data = null;
+    try { data = await response.json(); } catch {}
+    if (!response.ok) throw new Error(data?.message || data?.error || 'تعذر حفظ الدروس');
+
     await loadDatabase();
     document.getElementById('m-grade').value = '';
     document.getElementById('m-subject').value = '';
     document.getElementById('m-semester').value = '';
-    document.getElementById('m-unit').value = '';
-    document.getElementById('m-file').value = '';
-    document.getElementById('m-extracted-text').value = '';
-    document.getElementById('file-preview-multi').classList.remove('show');
-    const list = document.getElementById('multi-lessons-list');
-    list.innerHTML = `
-    <div class="lesson-item"><div class="lesson-num">1</div><input type="text" placeholder="اسم الدرس الأول" style="background-image:none !important;"></div>
-    <div class="lesson-item"><div class="lesson-num">2</div><input type="text" placeholder="اسم الدرس الثاني" style="background-image:none !important;"><button class="remove-lesson" onclick="removeLessonRow(this)">×</button></div>`;
-    showToast(`تم حفظ ${titles.length} درس في قاعدة البيانات بنجاح!`);
+    resetMultiUnits();
+    showToast(`تم حفظ ${totalLessons} درس مع ${totalFiles} ملف بنجاح!`);
   } catch (err) {
     showToast(err.message, true);
   }
 }
 
-function addLessonRow() {
-  const list = document.getElementById('multi-lessons-list');
+function addLessonRow(unitBlock = null) {
+  const list = unitBlock ? unitBlock.querySelector('.unit-lessons-list') : document.getElementById('multi-lessons-list');
   const count = list.children.length + 1;
   const div = document.createElement('div');
   div.className = 'lesson-item';
   div.innerHTML = `<div class="lesson-num">${count}</div><input type="text" placeholder="اسم الدرس ${count}" style="background-image:none !important;"><button class="remove-lesson" onclick="removeLessonRow(this)">×</button>`;
   list.appendChild(div);
-  renumberLessons();
+  renumberLessons(list);
 }
 
 function removeLessonRow(btn) {
-  const list = document.getElementById('multi-lessons-list');
+  const list = btn.closest('.lessons-list') || document.getElementById('multi-lessons-list');
   if (list.children.length <= 1) { showToast('⚠️ يجب أن يكون هناك درس واحد على الأقل', true); return; }
   btn.closest('.lesson-item').remove();
-  renumberLessons();
+  renumberLessons(list);
 }
 
-function renumberLessons() {
-  document.querySelectorAll('#multi-lessons-list .lesson-num').forEach((n, i) => n.textContent = i + 1);
+function renumberLessons(list = null) {
+  const target = list || document.getElementById('multi-lessons-list');
+  if (!target) return;
+  target.querySelectorAll('.lesson-num').forEach((n, i) => n.textContent = i + 1);
 }
 
 // TABLE
@@ -2497,6 +2637,7 @@ updateStats();
 populateTeacherFilters();
 loadAiSettings();
 updateUnifiedAuthUI();
+resetMultiUnits();
 loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
