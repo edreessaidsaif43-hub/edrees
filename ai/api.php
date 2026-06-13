@@ -131,6 +131,106 @@ function receive_upload(string $uploadDir, string $root, array $meta): array {
     ];
 }
 
+
+function find_attachment(array $db, int $id): ?array {
+    foreach ($db['attachments'] as $attachment) {
+        if ((int)($attachment['id'] ?? 0) === $id) return $attachment;
+    }
+    return null;
+}
+
+function gemini_upload_file(string $apiKey, string $filePath, string $mimeType, string $displayName): string {
+    if (!function_exists('curl_init')) fail(500, 'خدمة cURL غير مفعلة على الخادم، ولا يمكن رفع PDF كبير إلى Gemini.');
+    $size = filesize($filePath);
+    $start = curl_init('https://generativelanguage.googleapis.com/upload/v1beta/files?key=' . rawurlencode($apiKey));
+    curl_setopt_array($start, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_HEADER => true,
+        CURLOPT_HTTPHEADER => [
+            'X-Goog-Upload-Protocol: resumable',
+            'X-Goog-Upload-Command: start',
+            'X-Goog-Upload-Header-Content-Length: ' . $size,
+            'X-Goog-Upload-Header-Content-Type: ' . $mimeType,
+            'Content-Type: application/json'
+        ],
+        CURLOPT_POSTFIELDS => json_encode(['file' => ['display_name' => $displayName]], JSON_UNESCAPED_UNICODE),
+        CURLOPT_TIMEOUT => 120
+    ]);
+    $raw = curl_exec($start);
+    $status = (int)curl_getinfo($start, CURLINFO_HTTP_CODE);
+    $headerSize = (int)curl_getinfo($start, CURLINFO_HEADER_SIZE);
+    $err = curl_error($start);
+    curl_close($start);
+    if ($raw === false || $status < 200 || $status >= 300) fail(502, 'تعذر بدء رفع PDF إلى Gemini: ' . $err);
+    $headers = substr($raw, 0, $headerSize);
+    if (!preg_match('/x-goog-upload-url:\s*(.+)\r?/i', $headers, $m)) fail(502, 'لم يرجع Gemini رابط رفع الملف.');
+    $uploadUrl = trim($m[1]);
+
+    $bytes = file_get_contents($filePath);
+    if ($bytes === false) fail(500, 'تعذر قراءة ملف PDF من الخادم.');
+    $upload = curl_init($uploadUrl);
+    curl_setopt_array($upload, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_HTTPHEADER => [
+            'Content-Length: ' . strlen($bytes),
+            'X-Goog-Upload-Offset: 0',
+            'X-Goog-Upload-Command: upload, finalize'
+        ],
+        CURLOPT_POSTFIELDS => $bytes,
+        CURLOPT_TIMEOUT => 300
+    ]);
+    $body = curl_exec($upload);
+    $status = (int)curl_getinfo($upload, CURLINFO_HTTP_CODE);
+    $err = curl_error($upload);
+    curl_close($upload);
+    if ($body === false || $status < 200 || $status >= 300) fail(502, 'تعذر رفع PDF إلى Gemini: ' . $err);
+    $data = json_decode($body, true);
+    $uri = $data['file']['uri'] ?? '';
+    if ($uri === '') fail(502, 'لم يرجع Gemini رابط الملف بعد الرفع.');
+    return $uri;
+}
+
+function gemini_http_json(string $url, array $payload): array {
+    $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_TIMEOUT => 120
+        ]);
+        $raw = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = curl_error($ch);
+        curl_close($ch);
+        if ($raw === false) fail(502, 'تعذر الاتصال بخدمة Gemini: ' . $err);
+    } else {
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => "Content-Type: application/json\r\n",
+                'content' => $body,
+                'timeout' => 120,
+                'ignore_errors' => true
+            ]
+        ]);
+        $raw = file_get_contents($url, false, $context);
+        $status = 200;
+        if (isset($http_response_header[0]) && preg_match('/\s(\d{3})\s/', $http_response_header[0], $m)) $status = (int)$m[1];
+        if ($raw === false) fail(502, 'تعذر الاتصال بخدمة Gemini من الخادم.');
+    }
+    $data = json_decode($raw ?: '{}', true);
+    if ($status < 200 || $status >= 300) {
+        $message = $data['error']['message'] ?? $data['error']['status'] ?? 'تعذر الاتصال بخدمة Gemini.';
+        fail($status ?: 500, $message);
+    }
+    return is_array($data) ? $data : [];
+}
+
 $path = $_GET['path'] ?? ($_GET['route'] ?? '');
 $method = $_SERVER['REQUEST_METHOD'];
 $db = load_db($dbFile);
@@ -207,6 +307,40 @@ try {
         }
         save_db($dbFile, $db);
         respond(200, ['ok' => true]);
+    }
+
+    if ($method === 'POST' && $path === '/api/gemini/generate') {
+        $body = read_json_body();
+        $apiKey = trim((string)($body['apiKey'] ?? ''));
+        $model = trim((string)($body['model'] ?? 'gemini-2.5-flash'));
+        $prompt = (string)($body['prompt'] ?? '');
+        if ($apiKey === '' || $prompt === '') fail(400, 'مفتاح Gemini أو نص الطلب غير موجود.');
+
+        $parts = [];
+        if (!empty($body['includePdf']) && !empty($body['attachmentId'])) {
+            $attachment = find_attachment($db, (int)$body['attachmentId']);
+            if (!$attachment) fail(404, 'لم يتم العثور على ملف PDF.');
+            $filePath = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$attachment['filePath']);
+            if (!is_file($filePath)) fail(404, 'ملف PDF غير موجود على الخادم.');
+            $mimeType = (string)($attachment['fileType'] ?? 'application/pdf');
+            if (filesize($filePath) > 20 * 1024 * 1024) {
+                $fileUri = gemini_upload_file($apiKey, $filePath, $mimeType, (string)($attachment['fileName'] ?? basename($filePath)));
+                $parts[] = ['file_data' => ['mime_type' => $mimeType, 'file_uri' => $fileUri]];
+            } else {
+                $parts[] = ['inline_data' => ['mime_type' => $mimeType, 'data' => base64_encode(file_get_contents($filePath) ?: '')]];
+            }
+        }
+        $parts[] = ['text' => $prompt];
+
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($model) . ':generateContent?key=' . rawurlencode($apiKey);
+        $out = gemini_http_json($url, [
+            'contents' => [[ 'role' => 'user', 'parts' => $parts ]],
+            'generationConfig' => [ 'temperature' => !empty($body['includePdf']) ? 0.1 : 0.2, 'responseMimeType' => 'application/json' ]
+        ]);
+        $text = '';
+        foreach (($out['candidates'][0]['content']['parts'] ?? []) as $part) $text .= (string)($part['text'] ?? '');
+        if (trim($text) === '') fail(500, 'لم يرجع Gemini نتيجة صالحة.');
+        respond(200, ['text' => $text]);
     }
 
     if (preg_match('#^/api/lessons/(\d+)$#', $path, $m)) {

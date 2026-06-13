@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>التحضير الذكي AI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;900&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
@@ -804,15 +804,35 @@
   .modal-field label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
 
   @media (max-width: 768px) {
+    html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+    body { -webkit-text-size-adjust: 100%; }
+    nav { position: sticky; top: 0; z-index: 100; }
     .hero { padding: 2.5rem 1rem 2rem; }
-    .container { padding: 1rem; }
-    .form-card { padding: 1.25rem; }
+    .container { width: 100%; max-width: 100%; padding: 1rem; }
+    .form-card, .result-card, .admin-card { padding: 1.25rem; border-radius: 16px; }
     .hero-features { gap: 0.5rem; }
-    .nav-inner { flex-wrap: wrap; height: auto; padding: 0.75rem 0; }
-    .nav-tabs { flex-wrap: wrap; }
-    .sections-grid { grid-template-columns: 1fr; }
-    .form-grid { grid-template-columns: 1fr; }
+    .nav-inner { flex-wrap: wrap; height: auto; padding: 0.75rem 0; gap: 0.75rem; }
+    .logo { min-width: 0; }
+    .logo-text, .logo-sub { white-space: normal; }
+    .auth-bar { width: 100%; justify-content: stretch; gap: 0.5rem; }
+    .auth-user { width: 100%; text-align: center; }
+    .auth-btn { flex: 1 1 140px; min-height: 42px; }
+    .nav-tabs { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .nav-tab { min-height: 44px; white-space: normal; }
+    .sections-grid, .form-grid, .admin-grid { grid-template-columns: 1fr; }
     .admin-tabs-bar { flex-wrap: wrap; }
+    .btn-row, .actions-row, .lesson-actions { flex-direction: column; align-items: stretch; }
+    .btn, button, select, input, textarea { max-width: 100%; }
+    .modal { max-height: calc(100dvh - 2rem); overflow: auto; padding: 1.25rem; }
+    table { display: block; width: 100%; overflow-x: auto; white-space: nowrap; }
+  }
+
+  @media (max-width: 480px) {
+    .hero h1 { font-size: 32px; line-height: 1.2; }
+    .hero-badge { font-size: 12px; }
+    .stat-num { font-size: 24px; }
+    .nav-tabs { grid-template-columns: 1fr; }
+    .auth-btn { flex-basis: 100%; }
   }
 </style>
 </head>
@@ -1397,16 +1417,20 @@
 
 <script>
 // ========== DATA STORE ==========
+const PRODUCTION_URL = 'https://altahdir.app/ai/index.html';
+if (window.location.protocol === 'file:') {
+  window.location.replace(PRODUCTION_URL);
+}
 let lessons = [];
 let attachments = [];
-const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:3000' : 'api.php';
+const API_BASE = 'api.php';
 let editingId = null;
 let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
 const CURRENT_USER_STORAGE_KEY = 'lesson_platform_current_user_v1';
 const BACKEND_SESSION_STORAGE_KEY = 'lesson_platform_backend_session_v1';
 const ENJAZY_AUTH_BRIDGE_KEY = 'enjazy_auth_bridge_v1';
-const ENJAZY_AUTH_URL = window.location.protocol === 'file:' ? '../enjazy/auth.html' : '/enjazy/auth.html';
+const ENJAZY_AUTH_URL = '/enjazy/auth.html';
 
 // ========== UNIFIED AUTH ==========
 function normalizeEmail(email) {
@@ -1431,7 +1455,6 @@ function getCurrentUser() {
 }
 
 function getReturnPath() {
-  if (window.location.protocol === 'file:') return window.location.href;
   return (window.location.pathname || '/ai/index.html') + (window.location.search || '') + (window.location.hash || '');
 }
 
@@ -1501,10 +1524,6 @@ const teacherPlaceholders = {
 };
 
 function apiUrl(path, params = {}) {
-  if (window.location.protocol === 'file:') {
-    const query = new URLSearchParams(params).toString();
-    return API_BASE + path + (query ? (path.includes('?') ? '&' : '?') + query : '');
-  }
   const query = new URLSearchParams({ path, ...params }).toString();
   return API_BASE + '?' + query;
 }
@@ -1804,82 +1823,34 @@ function formatAiError(err) {
   if (isGeminiQuotaError(err)) {
     return 'انتهت حصة Gemini الحالية. جرّب تغيير النموذج إلى Gemini 2.5 Flash من إعدادات AI، أو فعّل الفوترة/انتظر تجدد الحصة.';
   }
+  const message = String(err?.message || '');
+  if (message === 'Failed to fetch' || message.includes('NetworkError')) {
+    return 'تعذر الاتصال بخدمة التوليد. تأكد من رفع api.php، ومن اتصال الخادم بالإنترنت، ثم افتح النسخة المنشورة من الموقع.';
+  }
   return err?.message || 'حدث خطأ أثناء توليد التحضير، يرجى المحاولة مرة أخرى.';
 }
 
 async function callGeminiWithPdf(prompt, settings, attachment) {
-  const pdfUrl = getAttachmentUrl(attachment);
-  if (!pdfUrl) throw new Error('لم يتم العثور على رابط ملف PDF.');
-
-  const pdfResponse = await fetch(pdfUrl);
-  if (!pdfResponse.ok) throw new Error('تعذر قراءة ملف PDF المرفوع.');
-
-  const pdfBlob = await pdfResponse.blob();
-  const maxInlinePdfSize = 20 * 1024 * 1024;
-  if (pdfBlob.size > maxInlinePdfSize) {
-    throw new Error('ملف PDF أكبر من 20MB. لاستخراجه بالذكاء الاصطناعي مباشرة، استخدم ملفًا أصغر أو الصق نص الدرس في خانة نص المرفق.');
-  }
-
-  const base64Pdf = await blobToBase64(pdfBlob);
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
-        role: 'user',
-        parts: [
-          { inline_data: { mime_type: 'application/pdf', data: base64Pdf } },
-          { text: prompt }
-        ]
-      }],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: 'application/json'
-      }
-    })
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    const message = data.error?.message || data.error?.status || 'تعذر قراءة ملف PDF عبر Gemini.';
-    const err = new Error(message);
-    err.status = response.status;
-    err.geminiError = data.error || null;
-    throw err;
-  }
-
-  const text = data.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || '';
-  if (!text.trim()) throw new Error('لم يرجع Gemini نتيجة صالحة من ملف PDF.');
-  return parseAiJson(text);
+  return callGeminiBackend(prompt, settings, { attachmentId: attachment.id, includePdf: true });
 }
 
 async function callGemini(prompt, settings) {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
-  const response = await fetch(endpoint, {
+  return callGeminiBackend(prompt, settings, { includePdf: false });
+}
+
+async function callGeminiBackend(prompt, settings, extra = {}) {
+  const data = await apiRequest('/api/gemini/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-        responseMimeType: 'application/json'
-      }
+      apiKey: settings.apiKey,
+      model: settings.model,
+      prompt,
+      attachmentId: extra.attachmentId || null,
+      includePdf: !!extra.includePdf
     })
   });
-
-  const data = await response.json();
-  if (!response.ok) {
-    const message = data.error?.message || data.error?.status || 'تعذر الاتصال بخدمة Gemini.';
-    const err = new Error(message);
-    err.status = response.status;
-    err.geminiError = data.error || null;
-    throw err;
-  }
-
-  const text = data.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || '';
-  if (!text.trim()) throw new Error('لم يرجع نموذج الذكاء الاصطناعي نتيجة صالحة.');
-  return parseAiJson(text);
+  return parseAiJson(data.text || '');
 }
 
 function parseAiJson(text) {
@@ -1909,7 +1880,6 @@ function getAttachmentUrl(attachment) {
   const filePath = String(attachment?.filePath || '').replace(/\\/g, '/');
   if (!filePath) return '';
   if (/^https?:\/\//i.test(filePath)) return filePath;
-  if (window.location.protocol === 'file:') return 'http://localhost:3000/' + filePath.replace(/^\/+/, '');
   const base = window.location.pathname.replace(/\/[^\/]*$/, '/');
   return base + filePath.replace(/^\/+/, '');
 }
