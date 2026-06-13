@@ -160,6 +160,31 @@ function extractText(buffer, fileName, fileType, fileSize, fields) {
   ].join("\n");
 }
 
+function receiveClientUpload(upload, meta) {
+  const fileName = safeFileName(upload?.fileName || upload?.pathname?.split("/").pop() || "upload.bin");
+  const fileType = String(upload?.fileType || upload?.contentType || "application/octet-stream");
+  const fileSize = Number(upload?.fileSize || upload?.size || 0);
+  const filePath = String(upload?.filePath || upload?.url || "");
+  if (!filePath || !/^https?:\/\//i.test(filePath)) {
+    const err = new Error("لم يرجع Vercel Blob رابط الملف بعد الرفع.");
+    err.statusCode = 400;
+    err.error = "invalid_blob_upload";
+    throw err;
+  }
+  if (fileSize > MAX_UPLOAD_SIZE) {
+    const err = new Error("حجم الملف أكبر من 600 MB");
+    err.statusCode = 413;
+    throw err;
+  }
+  return {
+    fileName,
+    fileType,
+    fileSize,
+    filePath,
+    extractedText: extractText(Buffer.alloc(0), fileName, fileType, fileSize, meta),
+  };
+}
+
 async function receiveUpload(req, meta) {
   const length = Number(req.headers["content-length"] || 0);
   if (length > MAX_UPLOAD_SIZE) {
@@ -245,11 +270,13 @@ async function insertAttachment(upload, title) {
 
 async function saveSingle(req, res) {
   if (!(await dbReady(res))) return;
-  const meta = decodeMeta(req.query?.meta || "");
+  const isJson = String(req.headers["content-type"] || "").includes("application/json");
+  const body = isJson ? await readJsonBody(req) : {};
+  const meta = body.meta && typeof body.meta === "object" ? body.meta : decodeMeta(req.query?.meta || "");
   for (const field of ["grade", "subject", "semester", "unit", "title"]) {
     if (!meta[field]) return fail(res, 400, "يرجى تعبئة جميع الحقول المطلوبة", "invalid_payload");
   }
-  const upload = await receiveUpload(req, meta);
+  const upload = body.upload ? receiveClientUpload(body.upload, meta) : await receiveUpload(req, meta);
   const attachmentId = await insertAttachment(upload, `${meta.unit} - ${meta.title}`);
   await sql`
     INSERT INTO ai_lessons (grade, subject, semester, unit, title, attachment_id, status, created_at)
@@ -260,12 +287,14 @@ async function saveSingle(req, res) {
 
 async function saveMulti(req, res) {
   if (!(await dbReady(res))) return;
-  const meta = decodeMeta(req.query?.meta || "");
+  const isJson = String(req.headers["content-type"] || "").includes("application/json");
+  const body = isJson ? await readJsonBody(req) : {};
+  const meta = body.meta && typeof body.meta === "object" ? body.meta : decodeMeta(req.query?.meta || "");
   const titles = Array.isArray(meta.titles) ? meta.titles.map((x) => String(x || "").trim()).filter(Boolean) : [];
   if (!meta.grade || !meta.subject || !meta.semester || !meta.unit || !titles.length) {
     return fail(res, 400, "يرجى تعبئة البيانات وإضافة درس واحد على الأقل", "invalid_payload");
   }
-  const upload = await receiveUpload(req, meta);
+  const upload = body.upload ? receiveClientUpload(body.upload, meta) : await receiveUpload(req, meta);
   const attachmentId = await insertAttachment(upload, meta.unit);
   for (const title of titles) {
     await sql`
