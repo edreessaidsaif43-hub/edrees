@@ -353,10 +353,11 @@ async function uploadGeminiFile(apiKey, attachment) {
 async function generateGemini(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readJsonBody(req);
-  const apiKey = String(body.apiKey || "").trim();
-  const model = String(body.model || "gemini-2.5-flash").trim();
+  const apiKey = String(body.apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
+  const model = String(body.model || process.env.GEMINI_MODEL || "gemini-2.5-flash").trim();
   const prompt = String(body.prompt || "");
-  if (!apiKey || !prompt) return fail(res, 400, "مفتاح Gemini أو نص الطلب غير موجود.", "invalid_payload");
+  if (!apiKey) return fail(res, 400, "مفتاح Gemini غير موجود. أضفه في إعدادات AI داخل الصفحة أو أضف GEMINI_API_KEY في Vercel ثم أعد النشر.", "missing_gemini_key");
+  if (!prompt) return fail(res, 400, "نص الطلب غير موجود.", "invalid_payload");
   const parts = [];
   if (body.includePdf && body.attachmentId) {
     const attachment = await getAttachment(Number(body.attachmentId));

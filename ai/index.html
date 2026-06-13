@@ -1704,9 +1704,10 @@ async function generateLesson() {
   if (!attachment) { showError('لا يوجد مرفق مرتبط بهذا الدرس. يرجى التواصل مع الإدارة.'); return; }
 
   const settings = getAiSettings();
-  const canReadPdfWithAi = settings.apiKey && isPdfAttachment(attachment);
-  if (!hasUsableAttachmentText(attachment) && !canReadPdfWithAi) {
-    showError('لا يوجد نص درسي كافٍ داخل المرفق. إذا كان الملف PDF فأضف مفتاح Gemini ليقرأه الذكاء الاصطناعي، أو الصق نص الدرس في خانة "نص المرفق" داخل لوحة الإدارة ثم احفظ الدرس مرة أخرى.');
+  const hasText = hasUsableAttachmentText(attachment);
+  const isPdf = isPdfAttachment(attachment);
+  if (!hasText && !isPdf) {
+    showError('لا يوجد نص درسي كافٍ داخل المرفق. الصق نص الدرس في خانة "نص المرفق" داخل لوحة الإدارة ثم احفظ الدرس مرة أخرى.');
     return;
   }
 
@@ -1722,9 +1723,9 @@ async function generateLesson() {
     let result;
     let usedFallback = false;
 
-    if (settings.apiKey) {
+    if (settings.apiKey || (!hasText && isPdf)) {
       try {
-        result = (!hasUsableAttachmentText(attachment) && isPdfAttachment(attachment))
+        result = (!hasText && isPdf)
           ? await callGeminiWithPdf(buildPdfLessonPrompt(lesson), settings, attachment)
           : await callGemini(prompt, settings);
       } catch (aiErr) {
@@ -1855,6 +1856,7 @@ function formatAiError(err) {
     return 'انتهت حصة Gemini الحالية. جرّب تغيير النموذج إلى Gemini 2.5 Flash من إعدادات AI، أو فعّل الفوترة/انتظر تجدد الحصة.';
   }
   const message = String(err?.message || '');
+  if (message.includes('مفتاح Gemini')) return message;
   if (message === 'Failed to fetch' || message.includes('NetworkError')) {
     return 'تعذر الاتصال بخدمة التوليد. تأكد من رفع api/ai.js، وإضافة قاعدة البيانات وBlob في Vercel، ومن اتصال الخادم بالإنترنت.';
   }
@@ -1903,8 +1905,11 @@ function normalizeAiResult(result) {
 
 function isPdfAttachment(attachment) {
   const type = String(attachment?.fileType || '').toLowerCase();
-  const name = String(attachment?.fileName || attachment?.filePath || '').toLowerCase();
-  return type.includes('pdf') || name.endsWith('.pdf');
+  const name = String(attachment?.fileName || '').toLowerCase();
+  const path = String(attachment?.filePath || '').toLowerCase();
+  let urlPath = '';
+  try { urlPath = new URL(path).pathname.toLowerCase(); } catch {}
+  return type.includes('pdf') || name.endsWith('.pdf') || path.includes('.pdf') || urlPath.endsWith('.pdf');
 }
 
 function getAttachmentUrl(attachment) {
@@ -1930,6 +1935,7 @@ function hasUsableAttachmentText(attachment) {
   const weakMarkers = [
     'تم حفظ الملف في قاعدة البيانات بنجاح',
     'ملاحظة: لاستخراج نصوص PDF/DOCX',
+    'ملاحظة: سيتم إرسال PDF إلى الذكاء الاصطناعي',
     'عنوان الملف:',
     'النص سيُستخرج عند التوليد'
   ];
