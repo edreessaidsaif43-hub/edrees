@@ -2001,12 +2001,17 @@ function formatAiError(err) {
   if (message === 'Failed to fetch' || message.includes('NetworkError')) {
     return 'تعذر الاتصال بخدمة التوليد. تأكد من رفع api/ai.js، وإضافة قاعدة البيانات وBlob في Vercel، ومن اتصال الخادم بالإنترنت.';
   }
+  if (message.includes('invalid argument') || message.includes('INVALID_ARGUMENT')) {
+    return 'رفض Gemini الطلب لأن أحد المرفقات غير صالح للقراءة. تأكد أن المرفقات المرسلة للتوليد ملفات PDF صالحة، أو الصق نص الدرس في لوحة الإدارة.';
+  }
   return err?.message || 'حدث خطأ أثناء توليد التحضير، يرجى المحاولة مرة أخرى.';
 }
 
 async function callGeminiWithPdf(prompt, settings, attachment, attachmentList = null) {
-  const ids = (attachmentList || [attachment]).map(item => item?.id).filter(Boolean);
-  return callGeminiBackend(prompt, settings, { attachmentId: attachment.id, attachmentIds: ids, includePdf: true });
+  const pdfAttachments = (attachmentList || [attachment]).filter(isPdfAttachment);
+  const ids = pdfAttachments.map(item => item?.id).filter(Boolean);
+  if (!ids.length) throw new Error('لا يوجد ملف PDF صالح ضمن المرفقات المشتركة. استخدم PDF أو الصق نص الدرس في لوحة الإدارة.');
+  return callGeminiBackend(prompt, settings, { attachmentId: ids[0], attachmentIds: ids, includePdf: true });
 }
 
 async function callGemini(prompt, settings) {

@@ -356,6 +356,15 @@ async function getAttachment(id) {
   return rows?.[0] ? attachmentRow(rows[0]) : null;
 }
 
+function isPdfAttachment(attachment) {
+  const type = String(attachment?.fileType || "").toLowerCase();
+  const name = String(attachment?.fileName || "").toLowerCase();
+  const path = String(attachment?.filePath || "").toLowerCase();
+  let urlPath = "";
+  try { urlPath = new URL(path).pathname.toLowerCase(); } catch {}
+  return type.includes("pdf") || name.endsWith(".pdf") || path.includes(".pdf") || urlPath.endsWith(".pdf");
+}
+
 async function fetchBlobBase64(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error("تعذر قراءة ملف PDF من التخزين.");
@@ -373,7 +382,7 @@ async function uploadGeminiFile(apiKey, attachment) {
       "X-Goog-Upload-Protocol": "resumable",
       "X-Goog-Upload-Command": "start",
       "X-Goog-Upload-Header-Content-Length": String(bytes.length),
-      "X-Goog-Upload-Header-Content-Type": attachment.fileType || "application/pdf",
+      "X-Goog-Upload-Header-Content-Type": "application/pdf",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ file: { display_name: attachment.fileName || "lesson.pdf" } }),
@@ -412,8 +421,8 @@ async function generateGemini(req, res) {
     if (!ids.length) return fail(res, 404, "لم يتم العثور على ملف PDF.", "not_found");
     for (const id of ids.slice(0, 6)) {
       const attachment = await getAttachment(id);
-      if (!attachment) continue;
-      const mimeType = attachment.fileType || "application/pdf";
+      if (!attachment || !isPdfAttachment(attachment)) continue;
+      const mimeType = "application/pdf";
       if (Number(attachment.fileSize || 0) > INLINE_GEMINI_LIMIT) {
         const fileUri = await uploadGeminiFile(apiKey, attachment);
         parts.push({ file_data: { mime_type: mimeType, file_uri: fileUri } });
@@ -434,7 +443,13 @@ async function generateGemini(req, res) {
     }),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) return fail(res, response.status || 500, data?.error?.message || "تعذر الاتصال بخدمة Gemini.", "gemini_failed");
+  if (!response.ok) {
+    const message = data?.error?.message || "تعذر الاتصال بخدمة Gemini.";
+    const friendly = /invalid argument/i.test(message)
+      ? "رفض Gemini الطلب لأن ملف PDF غير صالح أو لأن المرفق ليس PDF فعليًا. استخدم ملف PDF صالحًا أو الصق نص الدرس في لوحة الإدارة."
+      : message;
+    return fail(res, response.status || 500, friendly, "gemini_failed");
+  }
   const text = (data?.candidates?.[0]?.content?.parts || []).map((part) => part.text || "").join("");
   if (!text.trim()) return fail(res, 500, "لم يرجع Gemini نتيجة صالحة.", "empty_gemini_response");
   send(res, 200, { text });
