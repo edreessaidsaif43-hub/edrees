@@ -1439,7 +1439,18 @@
           </div>
 
           <div class="field" style="margin-bottom:1.5rem;">
-            <label>الوحدات والدروس والمرفقات <span>*</span></label>
+            <label>المرفقات المشتركة لكل الوحدات <span>*</span></label>
+            <div class="upload-area" onclick="document.getElementById('m-shared-files').click()" id="upload-area-multi-shared" ondragover="handleDragOver(event,'multi-shared')" ondrop="handleDrop(event,'multi-shared')">
+              <div class="upload-icon">📦</div>
+              <div class="upload-title">اضغط لاختيار الملفات أو اسحبها هنا</div>
+              <div class="upload-sub">هذه المرفقات ستُستخدم لكل الوحدات والدروس في هذه الدفعة</div>
+            </div>
+            <input type="file" id="m-shared-files" class="upload-file" multiple accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleFile(this,'multi-shared')">
+            <div class="unit-files-list" id="multi-shared-files-list"></div>
+          </div>
+
+          <div class="field" style="margin-bottom:1.5rem;">
+            <label>الوحدات والدروس <span>*</span></label>
             <div id="multi-units-list"></div>
             <button class="btn btn-outline btn-sm" onclick="addUnitBlock()" style="margin-top:10px;">
               + إضافة وحدة أخرى
@@ -2229,6 +2240,10 @@ function handleFile(input, type) {
     showToast('حجم الملف أكبر من 600 MB: ' + oversized.name, true);
     return;
   }
+  if (type === 'multi-shared') {
+    renderSharedMultiFiles();
+    return;
+  }
   if (type && type.startsWith('unit-')) {
     renderUnitFiles(input.closest('.unit-batch-card'));
     return;
@@ -2249,7 +2264,7 @@ function handleDrop(e, type) {
   document.getElementById('upload-area-' + type).classList.remove('over');
   const files = Array.from(e.dataTransfer.files || []);
   if (files.length) {
-    const input = document.getElementById(type === 'single' ? 'a-file' : 'm-file');
+    const input = document.getElementById(type === 'single' ? 'a-file' : type === 'multi-shared' ? 'm-shared-files' : 'm-file');
     const dt = new DataTransfer();
     files.forEach(file => dt.items.add(file));
     input.files = dt.files;
@@ -2276,16 +2291,7 @@ function createUnitBlock(unitNumber = 1) {
       <label>اسم الوحدة <span>*</span></label>
       <input type="text" class="unit-name-input" placeholder="مثال: وحدة الكهرباء" style="background-image:none !important;">
     </div>
-    <div class="field" style="margin-bottom:1rem;">
-      <label>ملفات الوحدة <span>*</span></label>
-      <div class="upload-area" onclick="this.parentElement.querySelector('.unit-files-input').click()">
-        <div class="upload-icon">📦</div>
-        <div class="upload-title">اضغط لاختيار ملفات الوحدة</div>
-        <div class="upload-sub">يمكن رفع أكثر من ملف PDF أو Word أو صورة أو نص</div>
-      </div>
-      <input type="file" class="upload-file unit-files-input" multiple accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleFile(this,'unit-' + ${unitNumber})">
-      <div class="unit-files-list"></div>
-    </div>
+
     <div class="field" style="margin-bottom:1rem;">
       <label>نص الوحدة أو نصوص الدروس لتحسين الدقة</label>
       <textarea class="unit-extracted-text" rows="5" placeholder="اختياري: الصق نص الوحدة أو نصوص دروسها هنا إذا احتجت دقة أعلى." style="background-image:none !important; resize:vertical;"></textarea>
@@ -2338,11 +2344,11 @@ function renumberUnits() {
   });
 }
 
-function renderUnitFiles(block) {
-  if (!block) return;
-  const input = block.querySelector('.unit-files-input');
-  const list = block.querySelector('.unit-files-list');
+function renderSharedMultiFiles() {
+  const input = document.getElementById('m-shared-files');
+  const list = document.getElementById('multi-shared-files-list');
   const files = Array.from(input?.files || []);
+  if (!list) return;
   list.innerHTML = files.map(file => `
     <div class="unit-file-pill">
       <span>📎 ${file.name}</span>
@@ -2406,38 +2412,38 @@ async function saveMultiLessons() {
     const unit = block.querySelector('.unit-name-input')?.value.trim() || '';
     const titles = Array.from(block.querySelectorAll('.unit-lessons-list .lesson-item input')).map(i => i.value.trim()).filter(Boolean);
     const extractedText = block.querySelector('.unit-extracted-text')?.value.trim() || '';
-    const files = Array.from(block.querySelector('.unit-files-input')?.files || []);
-    return { index, unit, titles, extractedText, files };
+    return { index, unit, titles, extractedText };
   });
 
   if (!units.length) { showToast('أضف وحدة واحدة على الأقل', true); return; }
-  const invalidUnit = units.find(item => !item.unit || item.titles.length === 0 || item.files.length === 0);
+  const invalidUnit = units.find(item => !item.unit || item.titles.length === 0);
   if (invalidUnit) {
-    showToast('كل وحدة تحتاج اسم وحدة ودرس واحد على الأقل وملف واحد على الأقل', true); return;
+    showToast('كل وحدة تحتاج اسم وحدة ودرس واحد على الأقل', true); return;
+  }
+
+  const sharedFiles = Array.from(document.getElementById('m-shared-files')?.files || []);
+  if (!sharedFiles.length) {
+    showToast('يرجى رفع مرفق واحد على الأقل ليشمل كل الوحدات', true); return;
   }
 
   const totalLessons = units.reduce((sum, item) => sum + item.titles.length, 0);
-  const totalFiles = units.reduce((sum, item) => sum + item.files.length, 0);
+  const totalFiles = sharedFiles.length;
 
   try {
-    const payloadUnits = [];
-    for (const item of units) {
-      const uploads = [];
-      for (const file of item.files) {
-        uploads.push(await uploadFileToBlob(file));
-      }
-      payloadUnits.push({
-        unit: item.unit,
-        titles: item.titles,
-        extractedText: item.extractedText,
-        uploads
-      });
+    const sharedUploads = [];
+    for (const file of sharedFiles) {
+      sharedUploads.push(await uploadFileToBlob(file));
     }
+    const payloadUnits = units.map(item => ({
+      unit: item.unit,
+      titles: item.titles,
+      extractedText: item.extractedText
+    }));
 
     const response = await fetch(apiUrl('/api/lessons/multi'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ meta: { grade, subject, semester, units: payloadUnits } })
+      body: JSON.stringify({ meta: { grade, subject, semester, units: payloadUnits, uploads: sharedUploads } })
     });
     let data = null;
     try { data = await response.json(); } catch {}
@@ -2447,8 +2453,11 @@ async function saveMultiLessons() {
     document.getElementById('m-grade').value = '';
     document.getElementById('m-subject').value = '';
     document.getElementById('m-semester').value = '';
+    const sharedInput = document.getElementById('m-shared-files');
+    if (sharedInput) sharedInput.value = '';
+    renderSharedMultiFiles();
     resetMultiUnits();
-    showToast(`تم حفظ ${totalLessons} درس مع ${totalFiles} ملف بنجاح!`);
+    showToast(`تم حفظ ${totalLessons} درس مع ${totalFiles} مرفق مشترك بنجاح!`);
   } catch (err) {
     showToast(err.message, true);
   }

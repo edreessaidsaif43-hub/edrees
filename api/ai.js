@@ -63,9 +63,14 @@ async function ensureSchema() {
           unit TEXT NOT NULL DEFAULT '',
           title TEXT NOT NULL DEFAULT '',
           attachment_id BIGINT REFERENCES ai_attachments(id) ON DELETE SET NULL,
+          attachment_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
           status TEXT NOT NULL DEFAULT 'active',
           created_at DATE NOT NULL DEFAULT CURRENT_DATE
         );
+      `;
+      await sql`
+        ALTER TABLE ai_lessons
+        ADD COLUMN IF NOT EXISTS attachment_ids JSONB NOT NULL DEFAULT '[]'::jsonb;
       `;
       await sql`
         CREATE INDEX IF NOT EXISTS idx_ai_lessons_created_at
@@ -234,6 +239,9 @@ function lessonRow(row) {
     unit: row.unit || "",
     title: row.title || "",
     attachmentId: row.attachment_id == null ? null : Number(row.attachment_id),
+    attachmentIds: Array.isArray(row.attachment_ids) && row.attachment_ids.length
+      ? row.attachment_ids.map((id) => Number(id)).filter(Boolean)
+      : (row.attachment_id == null ? [] : [Number(row.attachment_id)]),
     status: row.status || "active",
     createdAt: row.created_at ? String(row.created_at).slice(0, 10) : "",
   };
@@ -279,8 +287,8 @@ async function saveSingle(req, res) {
   const upload = body.upload ? receiveClientUpload(body.upload, meta) : await receiveUpload(req, meta);
   const attachmentId = await insertAttachment(upload, `${meta.unit} - ${meta.title}`);
   await sql`
-    INSERT INTO ai_lessons (grade, subject, semester, unit, title, attachment_id, status, created_at)
-    VALUES (${meta.grade}, ${meta.subject}, ${meta.semester}, ${meta.unit}, ${meta.title}, ${attachmentId}, ${meta.status || "active"}, ${today()});
+    INSERT INTO ai_lessons (grade, subject, semester, unit, title, attachment_id, attachment_ids, status, created_at)
+    VALUES (${meta.grade}, ${meta.subject}, ${meta.semester}, ${meta.unit}, ${meta.title}, ${attachmentId}, ${JSON.stringify([attachmentId])}::jsonb, ${meta.status || "active"}, ${today()});
   `;
   send(res, 200, { ok: true });
 }
@@ -290,6 +298,44 @@ async function saveMulti(req, res) {
   const isJson = String(req.headers["content-type"] || "").includes("application/json");
   const body = isJson ? await readJsonBody(req) : {};
   const meta = body.meta && typeof body.meta === "object" ? body.meta : decodeMeta(req.query?.meta || "");
+  const units = Array.isArray(meta.units) ? meta.units : [];
+  if (units.length) {
+    if (!meta.grade || !meta.subject || !meta.semester) {
+      return fail(res, 400, "يرجى تعبئة بيانات الصف والمادة والفصل", "invalid_payload");
+    }
+    const sharedUploads = Array.isArray(meta.uploads) ? meta.uploads : [];
+    if (!sharedUploads.length) {
+      return fail(res, 400, "يرجى رفع مرفق واحد على الأقل ليشمل كل الوحدات", "invalid_payload");
+    }
+    const attachmentIds = [];
+    for (const uploadPayload of sharedUploads) {
+      const upload = receiveClientUpload(uploadPayload, {
+        unit: "مرفقات مشتركة",
+        extractedText: units.map((unitItem) => String(unitItem?.extractedText || "").trim()).filter(Boolean).join("\n\n")
+      });
+      const attachmentId = await insertAttachment(upload, "مرفقات مشتركة لكل الوحدات");
+      attachmentIds.push(attachmentId);
+    }
+    const primaryAttachmentId = attachmentIds[0];
+    let lessonCount = 0;
+    const fileCount = attachmentIds.length;
+    for (const unitItem of units) {
+      const unit = String(unitItem?.unit || "").trim();
+      const titles = Array.isArray(unitItem?.titles) ? unitItem.titles.map((x) => String(x || "").trim()).filter(Boolean) : [];
+      if (!unit || !titles.length) {
+        return fail(res, 400, "كل وحدة تحتاج اسم وحدة ودرس واحد على الأقل", "invalid_payload");
+      }
+      for (const title of titles) {
+        await sql`
+          INSERT INTO ai_lessons (grade, subject, semester, unit, title, attachment_id, attachment_ids, status, created_at)
+          VALUES (${meta.grade}, ${meta.subject}, ${meta.semester}, ${unit}, ${title}, ${primaryAttachmentId}, ${JSON.stringify(attachmentIds)}::jsonb, 'active', ${today()});
+        `;
+        lessonCount += 1;
+      }
+    }
+    return send(res, 200, { ok: true, lessonCount, fileCount });
+  }
+
   const titles = Array.isArray(meta.titles) ? meta.titles.map((x) => String(x || "").trim()).filter(Boolean) : [];
   if (!meta.grade || !meta.subject || !meta.semester || !meta.unit || !titles.length) {
     return fail(res, 400, "يرجى تعبئة البيانات وإضافة درس واحد على الأقل", "invalid_payload");
@@ -298,11 +344,11 @@ async function saveMulti(req, res) {
   const attachmentId = await insertAttachment(upload, meta.unit);
   for (const title of titles) {
     await sql`
-      INSERT INTO ai_lessons (grade, subject, semester, unit, title, attachment_id, status, created_at)
-      VALUES (${meta.grade}, ${meta.subject}, ${meta.semester}, ${meta.unit}, ${title}, ${attachmentId}, 'active', ${today()});
+      INSERT INTO ai_lessons (grade, subject, semester, unit, title, attachment_id, attachment_ids, status, created_at)
+      VALUES (${meta.grade}, ${meta.subject}, ${meta.semester}, ${meta.unit}, ${title}, ${attachmentId}, ${JSON.stringify([attachmentId])}::jsonb, 'active', ${today()});
     `;
   }
-  send(res, 200, { ok: true });
+  send(res, 200, { ok: true, lessonCount: titles.length, fileCount: 1 });
 }
 
 async function getAttachment(id) {
@@ -353,23 +399,30 @@ async function uploadGeminiFile(apiKey, attachment) {
 async function generateGemini(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readJsonBody(req);
-  const apiKey = String(body.apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
+  const apiKey = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
   const model = String(body.model || process.env.GEMINI_MODEL || "gemini-2.5-flash").trim();
   const prompt = String(body.prompt || "");
-  if (!apiKey) return fail(res, 400, "مفتاح Gemini غير موجود. أضفه في إعدادات AI داخل الصفحة أو أضف GEMINI_API_KEY في Vercel ثم أعد النشر.", "missing_gemini_key");
+  if (!apiKey) return fail(res, 400, "مفتاح Gemini غير موجود على الخادم. أضف GEMINI_API_KEY في Vercel ثم أعد النشر.", "missing_gemini_key");
   if (!prompt) return fail(res, 400, "نص الطلب غير موجود.", "invalid_payload");
   const parts = [];
-  if (body.includePdf && body.attachmentId) {
-    const attachment = await getAttachment(Number(body.attachmentId));
-    if (!attachment) return fail(res, 404, "لم يتم العثور على ملف PDF.", "not_found");
-    const mimeType = attachment.fileType || "application/pdf";
-    if (Number(attachment.fileSize || 0) > INLINE_GEMINI_LIMIT) {
-      const fileUri = await uploadGeminiFile(apiKey, attachment);
-      parts.push({ file_data: { mime_type: mimeType, file_uri: fileUri } });
-    } else {
-      const data = await fetchBlobBase64(attachment.filePath);
-      parts.push({ inline_data: { mime_type: mimeType, data } });
+  if (body.includePdf && (body.attachmentId || Array.isArray(body.attachmentIds))) {
+    const ids = Array.isArray(body.attachmentIds) && body.attachmentIds.length
+      ? body.attachmentIds.map((id) => Number(id)).filter(Boolean)
+      : [Number(body.attachmentId)].filter(Boolean);
+    if (!ids.length) return fail(res, 404, "لم يتم العثور على ملف PDF.", "not_found");
+    for (const id of ids.slice(0, 6)) {
+      const attachment = await getAttachment(id);
+      if (!attachment) continue;
+      const mimeType = attachment.fileType || "application/pdf";
+      if (Number(attachment.fileSize || 0) > INLINE_GEMINI_LIMIT) {
+        const fileUri = await uploadGeminiFile(apiKey, attachment);
+        parts.push({ file_data: { mime_type: mimeType, file_uri: fileUri } });
+      } else {
+        const data = await fetchBlobBase64(attachment.filePath);
+        parts.push({ inline_data: { mime_type: mimeType, data } });
+      }
     }
+    if (!parts.length) return fail(res, 404, "لم يتم العثور على ملف PDF صالح.", "not_found");
   }
   parts.push({ text: prompt });
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
