@@ -474,6 +474,40 @@ async function generateGemini(req, res) {
   send(res, 200, { text });
 }
 
+function normalizeAttachmentIdsFromRow(row) {
+  const ids = new Set();
+  if (row?.attachment_id != null) ids.add(Number(row.attachment_id));
+  const raw = row?.attachment_ids;
+  if (Array.isArray(raw)) {
+    raw.forEach((value) => {
+      const id = Number(value);
+      if (Number.isFinite(id) && id > 0) ids.add(id);
+    });
+  }
+  return Array.from(ids).filter(Boolean);
+}
+
+async function cleanupUnusedAttachments(attachmentIds = []) {
+  const uniqueIds = Array.from(new Set(attachmentIds.map((id) => Number(id)).filter(Boolean)));
+  for (const attachmentId of uniqueIds) {
+    const usedByPrimary = await sql`
+      SELECT id FROM ai_lessons
+      WHERE attachment_id = ${attachmentId}
+      LIMIT 1;
+    `;
+    if (usedByPrimary?.[0]) continue;
+
+    const usedByList = await sql`
+      SELECT id FROM ai_lessons
+      WHERE attachment_ids @> ${JSON.stringify([attachmentId])}::jsonb
+      LIMIT 1;
+    `;
+    if (usedByList?.[0]) continue;
+
+    await sql`DELETE FROM ai_attachments WHERE id = ${attachmentId};`;
+  }
+}
+
 async function updateOrDeleteLesson(req, res, id) {
   if (!(await dbReady(res))) return;
   const rows = await sql`SELECT * FROM ai_lessons WHERE id = ${id} LIMIT 1;`;
@@ -490,13 +524,10 @@ async function updateOrDeleteLesson(req, res, id) {
     return send(res, 200, { ok: true });
   }
   if (req.method === "DELETE") {
-    const attachmentId = rows[0].attachment_id;
+    const attachmentIds = normalizeAttachmentIdsFromRow(rows[0]);
     await sql`DELETE FROM ai_lessons WHERE id = ${id};`;
-    if (attachmentId != null) {
-      const used = await sql`SELECT id FROM ai_lessons WHERE attachment_id = ${attachmentId} LIMIT 1;`;
-      if (!used?.[0]) await sql`DELETE FROM ai_attachments WHERE id = ${attachmentId};`;
-    }
-    return send(res, 200, { ok: true });
+    await cleanupUnusedAttachments(attachmentIds);
+    return send(res, 200, { ok: true, deletedAttachmentIdsChecked: attachmentIds });
   }
   return fail(res, 405, "طريقة الطلب غير مدعومة", "method_not_allowed");
 }
