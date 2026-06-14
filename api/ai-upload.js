@@ -15,15 +15,6 @@ export default async function handler(req, res) {
         return {
           allowedContentTypes: [
             "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.ms-powerpoint",
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            "text/plain",
-            "text/csv",
-            "image/jpeg",
-            "image/png",
-            "image/webp",
           ],
           maximumSizeInBytes: 629145600,
           addRandomSuffix: true,

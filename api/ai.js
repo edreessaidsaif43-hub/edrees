@@ -165,9 +165,21 @@ function extractText(buffer, fileName, fileType, fileSize, fields) {
   ].join("\n");
 }
 
+function assertPdfUpload(upload) {
+  const type = String(upload?.fileType || upload?.contentType || "").toLowerCase();
+  const name = String(upload?.fileName || upload?.pathname || upload?.url || "").toLowerCase();
+  if (type !== "application/pdf" && !name.endsWith(".pdf") && !name.includes(".pdf")) {
+    const err = new Error("يسمح برفع ملفات PDF فقط.");
+    err.statusCode = 400;
+    err.error = "pdf_only";
+    throw err;
+  }
+}
+
 function receiveClientUpload(upload, meta) {
-  const fileName = safeFileName(upload?.fileName || upload?.pathname?.split("/").pop() || "upload.bin");
-  const fileType = String(upload?.fileType || upload?.contentType || "application/octet-stream");
+  assertPdfUpload(upload);
+  const fileName = safeFileName(upload?.fileName || upload?.pathname?.split("/").pop() || "upload.pdf");
+  const fileType = "application/pdf";
   const fileSize = Number(upload?.fileSize || upload?.size || 0);
   const filePath = String(upload?.filePath || upload?.url || "");
   if (!filePath || !/^https?:\/\//i.test(filePath)) {
@@ -197,15 +209,22 @@ async function receiveUpload(req, meta) {
     err.statusCode = 413;
     throw err;
   }
-  const fileName = safeFileName(decodeURIComponent(String(req.headers["x-file-name"] || "upload.bin")));
-  const fileType = decodeURIComponent(String(req.headers["x-file-type"] || "application/octet-stream"));
+  const fileName = safeFileName(decodeURIComponent(String(req.headers["x-file-name"] || "upload.pdf")));
+  const headerType = decodeURIComponent(String(req.headers["x-file-type"] || "application/pdf"));
+  if (headerType.toLowerCase() !== "application/pdf" && !fileName.toLowerCase().endsWith(".pdf")) {
+    const err = new Error("يسمح برفع ملفات PDF فقط.");
+    err.statusCode = 400;
+    err.error = "pdf_only";
+    throw err;
+  }
+  const fileType = "application/pdf";
   const buffer = await readBodyBuffer(req, MAX_UPLOAD_SIZE);
   const pathname = `ai/uploads/${Date.now()}-${Math.floor(Math.random() * 900000 + 100000)}-${fileName}`;
   let blob;
   try {
     blob = await put(pathname, buffer, {
       access: "public",
-      contentType: fileType,
+      contentType: "application/pdf",
       addRandomSuffix: true,
     });
   } catch (error) {

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -1376,9 +1376,9 @@
             <div class="upload-area" onclick="document.getElementById('a-file').click()" id="upload-area-single" ondragover="handleDragOver(event,'single')" ondrop="handleDrop(event,'single')">
               <div class="upload-icon">📄</div>
               <div class="upload-title">اضغط لرفع الملف أو اسحبه هنا</div>
-              <div class="upload-sub">يدعم: PDF, Word, صور, نصي (حجم أقصى 600MB)</div>
+              <div class="upload-sub">يدعم ملفات PDF فقط (حجم أقصى 600MB)</div>
             </div>
-            <input type="file" id="a-file" class="upload-file" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleFile(this,'single')">
+            <input type="file" id="a-file" class="upload-file" accept="application/pdf,.pdf" onchange="handleFile(this,'single')">
             <div class="file-preview" id="file-preview-single">
               <span style="font-size:20px">📎</span>
               <span class="file-name" id="file-name-single"></span>
@@ -1388,8 +1388,8 @@
 
           <div class="field" style="margin-bottom:1.5rem;">
             <label>نص المرفق أو نص الدرس لتحسين الدقة</label>
-            <textarea id="a-extracted-text" rows="7" placeholder="الصق هنا نص الدرس من ملف PDF أو Word إذا لم يكن الملف نصيًا. كلما كان النص أوضح كانت الإجابة أدق." style="background-image:none !important; resize:vertical;"></textarea>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:6px;line-height:1.6;">مهم: ملفات PDF وWord لا يُستخرج نصها تلقائيًا على كل الاستضافات. لصق النص هنا يجعل التحضير دقيقًا.</div>
+            <textarea id="a-extracted-text" rows="7" placeholder="الصق هنا نص الدرس من ملف PDF إذا كان مصورًا أو غير واضح. كلما كان النص أوضح كانت الإجابة أدق." style="background-image:none !important; resize:vertical;"></textarea>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px;line-height:1.6;">مهم: إذا كان PDF مصورًا أو غير واضح، لصق النص هنا يجعل التحضير أدق.</div>
           </div>
 
           <button class="btn btn-primary" onclick="saveSingleLesson()" style="min-width:180px;justify-content:center;">
@@ -1443,9 +1443,9 @@
             <div class="upload-area" onclick="document.getElementById('m-shared-files').click()" id="upload-area-multi-shared" ondragover="handleDragOver(event,'multi-shared')" ondrop="handleDrop(event,'multi-shared')">
               <div class="upload-icon">📦</div>
               <div class="upload-title">اضغط لاختيار الملفات أو اسحبها هنا</div>
-              <div class="upload-sub">هذه المرفقات ستُستخدم لكل الوحدات والدروس في هذه الدفعة</div>
+              <div class="upload-sub">ملفات PDF فقط، وستُستخدم لكل الوحدات والدروس في هذه الدفعة</div>
             </div>
-            <input type="file" id="m-shared-files" class="upload-file" multiple accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleFile(this,'multi-shared')">
+            <input type="file" id="m-shared-files" class="upload-file" multiple accept="application/pdf,.pdf" onchange="handleFile(this,'multi-shared')">
             <div class="unit-files-list" id="multi-shared-files-list"></div>
           </div>
 
@@ -1668,7 +1668,7 @@ async function uploadFileToBlob(file) {
     uploaded = await blobClient.upload(file.name, file, {
       access: 'public',
       handleUploadUrl: '/api/ai-upload',
-      contentType: file.type || 'application/octet-stream'
+      contentType: 'application/pdf'
     });
   } catch (err) {
     throw new Error(formatUploadError(err));
@@ -1677,7 +1677,7 @@ async function uploadFileToBlob(file) {
     url: uploaded.url,
     pathname: uploaded.pathname,
     fileName: file.name,
-    fileType: file.type || 'application/octet-stream',
+    fileType: 'application/pdf',
     fileSize: file.size
   };
 }
@@ -1866,13 +1866,20 @@ async function generateLesson() {
           ? await callGeminiWithPdf(buildPdfLessonPrompt(lesson), settings, attachment, lessonAttachments)
           : await callGemini(prompt, settings);
       } catch (aiErr) {
-        if (!isGeminiQuotaError(aiErr)) throw aiErr;
-        console.warn('Gemini quota exceeded, using local fallback.', aiErr);
-        result = localGenerateLesson(lesson, attachment);
-        usedFallback = true;
+        if (isGeminiQuotaError(aiErr)) {
+          console.warn('Gemini quota exceeded, using local fallback.', aiErr);
+          result = localGenerateLesson(lesson, combinedAttachment);
+          usedFallback = true;
+        } else if (isGeminiInvalidArgumentError(aiErr)) {
+          console.warn('Gemini could not read PDF, using safe fallback.', aiErr);
+          result = hasText ? localGenerateLesson(lesson, combinedAttachment) : fallbackParse('', lesson);
+          usedFallback = true;
+        } else {
+          throw aiErr;
+        }
       }
     } else {
-      result = localGenerateLesson(lesson, attachment);
+      result = localGenerateLesson(lesson, combinedAttachment);
       usedFallback = true;
     }
 
@@ -1880,7 +1887,7 @@ async function generateLesson() {
     lastResult = normalizeAiResult(result);
     delete window.__currentLessonForNormalize;
     showResults(lastResult, lesson);
-    if (usedFallback) showToast('تعذر استخدام Gemini من الخادم، تم التوليد بالمولّد المحلي الاحتياطي.');
+    if (usedFallback) showToast('تعذر قراءة PDF عبر Gemini، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.');
   } catch (err) {
     console.error(err);
     showError(formatAiError(err));
@@ -1992,6 +1999,15 @@ function isGeminiQuotaError(err) {
     message.includes('free_tier');
 }
 
+function isGeminiInvalidArgumentError(err) {
+  const message = String(err?.message || err || '').toLowerCase();
+  return message.includes('invalid argument') ||
+    message.includes('invalid_argument') ||
+    message.includes('ملف pdf غير صالح') ||
+    message.includes('المرفق ليس pdf') ||
+    message.includes('غير صالح للقراءة');
+}
+
 function formatAiError(err) {
   if (isGeminiQuotaError(err)) {
     return 'انتهت حصة Gemini الحالية. جرّب تغيير النموذج إلى Gemini 2.5 Flash من إعدادات AI، أو فعّل الفوترة/انتظر تجدد الحصة.';
@@ -2001,8 +2017,8 @@ function formatAiError(err) {
   if (message === 'Failed to fetch' || message.includes('NetworkError')) {
     return 'تعذر الاتصال بخدمة التوليد. تأكد من رفع api/ai.js، وإضافة قاعدة البيانات وBlob في Vercel، ومن اتصال الخادم بالإنترنت.';
   }
-  if (message.includes('invalid argument') || message.includes('INVALID_ARGUMENT')) {
-    return 'رفض Gemini الطلب لأن أحد المرفقات غير صالح للقراءة. تأكد أن المرفقات المرسلة للتوليد ملفات PDF صالحة، أو الصق نص الدرس في لوحة الإدارة.';
+  if (isGeminiInvalidArgumentError(err)) {
+    return 'تعذر قراءة ملف PDF بالذكاء الاصطناعي. الصق نص الدرس في لوحة الإدارة لتحضير أدق، أو استخدم ملف PDF نصي واضح.';
   }
   return err?.message || 'حدث خطأ أثناء توليد التحضير، يرجى المحاولة مرة أخرى.';
 }
@@ -2081,7 +2097,7 @@ function hasUsableAttachmentText(attachment) {
   if (text.length < 40) return false;
   const weakMarkers = [
     'تم حفظ الملف في قاعدة البيانات بنجاح',
-    'ملاحظة: لاستخراج نصوص PDF/DOCX',
+    'ملاحظة: لاستخراج نصوص PDF',
     'ملاحظة: سيتم إرسال PDF إلى الذكاء الاصطناعي',
     'عنوان الملف:',
     'النص سيُستخرج عند التوليد'
@@ -2235,10 +2251,22 @@ function switchAdminTab(tab) {
 }
 
 // FILE HANDLING
+function isPdfFile(file) {
+  const type = String(file?.type || '').toLowerCase();
+  const name = String(file?.name || '').toLowerCase();
+  return type === 'application/pdf' || name.endsWith('.pdf');
+}
+
 function handleFile(input, type) {
   const files = Array.from(input.files || []);
   if (!files.length) return;
   const maxSize = 600 * 1024 * 1024;
+  const invalidType = files.find(file => !isPdfFile(file));
+  if (invalidType) {
+    input.value = '';
+    showToast('يسمح برفع ملفات PDF فقط: ' + invalidType.name, true);
+    return;
+  }
   const oversized = files.find(file => file.size > maxSize);
   if (oversized) {
     input.value = '';
@@ -2299,7 +2327,7 @@ function createUnitBlock(unitNumber = 1) {
 
     <div class="field" style="margin-bottom:1rem;">
       <label>نص الوحدة أو نصوص الدروس لتحسين الدقة</label>
-      <textarea class="unit-extracted-text" rows="5" placeholder="اختياري: الصق نص الوحدة أو نصوص دروسها هنا إذا احتجت دقة أعلى." style="background-image:none !important; resize:vertical;"></textarea>
+      <textarea class="unit-extracted-text" rows="5" placeholder="اختياري: الصق نص الوحدة أو نصوص دروسها هنا إذا كان PDF مصورًا أو غير واضح." style="background-image:none !important; resize:vertical;"></textarea>
     </div>
     <div class="field">
       <label>دروس الوحدة <span>*</span></label>
@@ -2656,3 +2684,4 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
