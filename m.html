@@ -6,8 +6,8 @@
   <meta name="apple-mobile-web-app-capable" content="true">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#1e3a5f">
-  <meta name="description" content="منصة تعليمية متكاملة للتعلم التفاعلي">
-  <title>🎓 منصة تعليمية</title>
+  <meta name="description" content="حقيبة المعلم: منصة موارد تعليمية تفاعلية للمعلمين">
+  <title>حقيبة المعلم</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
@@ -19,13 +19,44 @@
     img { max-width: 100%; height: auto; }
     section { content-visibility: auto; contain-intrinsic-size: 1px 900px; }
     button, a, input, select, textarea { touch-action: manipulation; }
-    .gradient-bg { background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 50%, #1b263b 100%); }
-    .card-glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); will-change: contents; }
+    .gradient-bg { background:
+      radial-gradient(circle at 15% 10%, rgba(251, 191, 36, 0.22), transparent 30%),
+      radial-gradient(circle at 85% 18%, rgba(56, 189, 248, 0.24), transparent 34%),
+      linear-gradient(135deg, #0f172a 0%, #14324d 46%, #07111f 100%);
+    }
+    .card-glass { background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.5); will-change: contents; }
+    .app-hero {
+      max-width: 1152px;
+      margin: 0 auto 22px;
+      padding: 22px;
+      border: 1px solid rgba(255,255,255,0.20);
+      border-radius: 28px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06));
+      box-shadow: 0 24px 70px rgba(2, 6, 23, 0.28);
+      backdrop-filter: blur(10px);
+    }
+    .app-hero-icon {
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, #fbbf24 0%, #f97316 100%);
+      border-radius: 24px;
+      box-shadow: 0 18px 38px rgba(249, 115, 22, 0.32);
+    }
+    .section-nav {
+      max-width: 1152px;
+      margin: 0 auto 28px;
+      padding: 10px;
+      border-radius: 24px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(15, 23, 42, 0.42);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 18px 45px rgba(2,6,23,0.18);
+      backdrop-filter: blur(10px);
+    }
     .btn-primary { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); transition: transform 0.15s ease; will-change: transform; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
     .btn-primary:active { transform: scale(0.98) translateZ(0); }
     .btn-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); transition: transform 0.15s ease; }
     .btn-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); transition: transform 0.15s ease; }
-    .tab-active { background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); color: white; border-color: rgba(255,255,255,0.35); box-shadow: 0 12px 26px rgba(79,70,229,0.35); }
+    .tab-active { background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); color: white; border-color: rgba(255,255,255,0.55); box-shadow: 0 14px 30px rgba(234,88,12,0.35); }
     .tab-inactive { background: rgba(255, 255, 255, 0.12); color: white; }
     .main-nav-btn {
       position: relative;
@@ -34,6 +65,7 @@
       backdrop-filter: blur(6px);
       transition: all 0.2s ease;
       transform: translateY(0);
+      letter-spacing: -0.2px;
     }
     .main-nav-btn:hover {
       transform: translateY(-2px);
@@ -293,8 +325,8 @@
   <a href="/" class="nav-brand">
     <div class="nav-brand-icon">&#x1F393;</div>
     <div class="nav-brand-text">
-      &#x0627;&#x0644;&#x062A;&#x062D;&#x0636;&#x064A;&#x0631; &#x0627;&#x0644;&#x0630;&#x0643;&#x064A;
-      <span>&#x0627;&#x0644;&#x062A;&#x062D;&#x0636;&#x064A;&#x0631; &#x0627;&#x0644;&#x0630;&#x0643;&#x064A;</span>
+      حقيبة المعلم
+      <span>موارد تعليمية تفاعلية</span>
     </div>
   </a>
 
@@ -372,8 +404,8 @@
   <div id="loading-overlay" class="loading-overlay">
    <div class="loading-container">
     <div class="game-icons"><span>🎮</span> <span>📊</span> <span>📁</span></div>
-    <div class="loading-title">🎓 منصة تعليمية</div>
-    <div class="loading-subtitle">منصة تعليمية متكاملة للتعلم المتقدم</div>
+    <div class="loading-title">حقيبة المعلم</div>
+    <div class="loading-subtitle">موارد تعليمية تفاعلية جاهزة للمعلمين</div>
     <div class="progress-bar-container"><div id="progress-bar" class="progress-bar-fill"></div></div>
     <div class="progress-text"><span id="progress-percent">0</span>%</div>
     <div class="loading-message">يتم تحميل الألعاب والمحتوى<span class="loading-dots"></span></div>
@@ -382,19 +414,35 @@
   </div>
 
   <div class="min-h-full w-full relative z-10 p-4 md:p-8">
-   <header class="text-center mb-8">
-    <div class="inline-flex items-center gap-3 mb-4">
-     <div class="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg"><span class="text-3xl">🎮</span></div>
-     <div class="text-right">
-      <h1 id="site-title" class="text-3xl md:text-4xl font-extrabold text-white">🎓 منصة تعليمية</h1>
-      <p id="welcome-message" class="text-amber-300 text-lg">🚀 اكتشف آفاقاً جديدة في التعلم التفاعلي والممتع</p>
+   <header class="app-hero">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+     <div class="flex items-center gap-4">
+      <div class="app-hero-icon flex items-center justify-center"><span class="text-4xl">🎒</span></div>
+      <div class="text-right">
+       <p class="text-amber-200 font-black text-sm mb-1">منصة موارد المعلم</p>
+       <h1 id="site-title" class="text-3xl md:text-5xl font-black text-white tracking-tight">حقيبة المعلم</h1>
+       <p id="welcome-message" class="text-sky-100 text-base md:text-lg mt-2">ألعاب، عروض، ملفات، تقييمات وتعليقات في مساحة واحدة منظمة وسريعة.</p>
+      </div>
+     </div>
+     <div class="grid grid-cols-3 gap-2 text-center min-w-full md:min-w-[330px]">
+      <div class="bg-white/12 border border-white/15 rounded-2xl p-3 text-white">
+       <p class="text-2xl font-black">🎮</p>
+       <p class="text-xs font-bold text-sky-100">ألعاب</p>
+      </div>
+      <div class="bg-white/12 border border-white/15 rounded-2xl p-3 text-white">
+       <p class="text-2xl font-black">📊</p>
+       <p class="text-xs font-bold text-sky-100">عروض</p>
+      </div>
+      <div class="bg-white/12 border border-white/15 rounded-2xl p-3 text-white">
+       <p class="text-2xl font-black">📁</p>
+       <p class="text-xs font-bold text-sky-100">ملفات</p>
+      </div>
      </div>
     </div>
    </header>
 
-   <nav class="flex justify-center gap-2 mb-8 flex-wrap">
-    <button onclick="switchTab('home')" id="tab-home" class="tab-active bg-gradient-to-r from-indigo-500 to-sky-500 px-6 py-3 rounded-xl font-bold transition-all text-white shadow-lg hover:shadow-xl">🏠 الصفحة الرئيسة</button>
-    <button onclick="switchTab('browse')" id="tab-browse" class="main-nav-btn main-nav-games tab-inactive px-6 py-3 rounded-xl font-bold transition-all">📚 الألعاب</button>
+   <nav class="section-nav flex justify-center gap-2 flex-wrap">
+    <button onclick="switchTab('browse')" id="tab-browse" class="main-nav-btn main-nav-games tab-active px-6 py-3 rounded-xl font-bold transition-all">📚 الألعاب</button>
     <button onclick="switchTab('presentations')" id="tab-presentations" class="main-nav-btn main-nav-presentations tab-inactive px-6 py-3 rounded-xl font-bold transition-all">📊 العروض التقديمية</button>
     <button onclick="switchTab('files')" id="tab-files" class="main-nav-btn main-nav-files tab-inactive px-6 py-3 rounded-xl font-bold transition-all">📁 الملفات المخزنة</button>
     <button onclick="switchTab('submit')" id="tab-submit" class="main-nav-btn main-nav-submit tab-inactive px-6 py-3 rounded-xl font-bold transition-all">➕ إرسال محتوى</button>
@@ -416,77 +464,11 @@
     <h3 class="text-lg font-black text-gray-800 mb-3">🔔 آخر التنبيهات</h3>
     <div id="global-notify-list" class="space-y-2"></div>
    </div>
-
-   <section id="section-home" class="max-w-6xl mx-auto">
-    <div class="bg-gradient-to-br from-sky-500/10 to-indigo-500/10 rounded-3xl p-8 border-2 border-sky-300/30 mb-6">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-        <div>
-          <h2 class="text-4xl font-black text-white mb-3">🏠 الصفحة الرئيسة</h2>
-          <p class="text-sky-100 text-lg leading-8 mb-5">
-            منصة تعليمية شاملة تجمع الألعاب التفاعلية والعروض التقديمية والملفات التعليمية في مكان واحد، مع نظام تقييم وتعليقات ومتابعة المشاهدات.
-          </p>
-          <div class="flex flex-wrap gap-3">
-            <button type="button" onclick="switchTab('submit')" class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-5 py-3 rounded-xl font-bold">ابدأ بإرسال محتوى</button>
-            <button type="button" onclick="switchTab('browse')" class="bg-white/20 text-white px-5 py-3 rounded-xl font-bold border border-white/30">تصفح الألعاب</button>
-          </div>
-        </div>
-        <div class="card-glass rounded-2xl p-6">
-          <h3 class="text-2xl font-black text-gray-800 mb-3">🔐 حالة الحساب</h3>
-          <p id="home-auth-status" class="text-gray-700 font-semibold mb-4">جارٍ التحقق من حالة تسجيل الدخول...</p>
-          <div class="grid grid-cols-2 gap-3">
-            <button type="button" id="home-auth-primary-btn" class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-3 rounded-xl font-bold" onclick="goToUnifiedAuth('login')">تسجيل الدخول</button>
-            <button type="button" id="home-auth-secondary-btn" class="bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-3 rounded-xl font-bold" onclick="goToUnifiedAuth('register')">إنشاء حساب</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-      <div class="card-glass rounded-2xl p-5">
-        <p class="text-3xl mb-2">🎮</p>
-        <h4 class="font-black text-gray-800 mb-2">ألعاب تعليمية</h4>
-        <p class="text-gray-600 text-sm">تعلم ممتع عبر ألعاب تفاعلية مناسبة لمواد وصفوف مختلفة.</p>
-      </div>
-      <div class="card-glass rounded-2xl p-5">
-        <p class="text-3xl mb-2">📊</p>
-        <h4 class="font-black text-gray-800 mb-2">عروض تقديمية</h4>
-        <p class="text-gray-600 text-sm">محتوى بصري منظم يساعد المعلم والطالب على شرح الدروس بسرعة.</p>
-      </div>
-      <div class="card-glass rounded-2xl p-5">
-        <p class="text-3xl mb-2">📁</p>
-        <h4 class="font-black text-gray-800 mb-2">ملفات مخزنة</h4>
-        <p class="text-gray-600 text-sm">مكتبة موارد جاهزة للاستخدام مع إمكانية التحميل المباشر.</p>
-      </div>
-      <div class="card-glass rounded-2xl p-5">
-        <p class="text-3xl mb-2">⭐</p>
-        <h4 class="font-black text-gray-800 mb-2">تفاعل المجتمع</h4>
-        <p class="text-gray-600 text-sm">تقييمات وتعليقات ومشاهدات تعكس جودة المحتوى وتأثيره.</p>
-      </div>
-    </div>
-
-    <div class="card-glass rounded-2xl p-6">
-      <h3 class="text-2xl font-black text-gray-800 mb-4">🚀 كيف تبدأ؟</h3>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-gray-700">
-        <div class="bg-sky-50 border border-sky-200 rounded-xl p-4">
-          <p class="font-black mb-1">1) أنشئ حسابًا</p>
-          <p class="text-sm">من تبويب الحساب، أنشئ حسابًا أو سجّل دخولك.</p>
-        </div>
-        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-          <p class="font-black mb-1">2) أرسل محتواك</p>
-          <p class="text-sm">أضف رابط الدرس وحدد الصفوف والمواد ثم أرسل للمراجعة.</p>
-        </div>
-        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <p class="font-black mb-1">3) تابع التفاعل</p>
-          <p class="text-sm">راقب المشاهدات والتقييمات والتعليقات على محتواك.</p>
-        </div>
-      </div>
-    </div>
-   </section>
-
-   <section id="section-browse" class="hidden max-w-6xl mx-auto">
-    <div class="mb-8 text-center">
-     <h2 class="text-3xl md:text-4xl font-extrabold text-white mb-2">📚 الألعاب التعليمية</h2>
-     <p class="text-white text-lg font-medium">مجموعة رائعة من الألعاب التفاعلية للتعليم</p>
+   <section id="section-browse" class="max-w-6xl mx-auto">
+    <div class="mb-8 text-center bg-white/10 border border-white/15 rounded-3xl p-6 shadow-2xl">
+     <p class="text-amber-200 font-black mb-2">واجهة حقيبة المعلم</p>
+     <h2 class="text-3xl md:text-5xl font-black text-white mb-3">📚 الألعاب التعليمية</h2>
+     <p class="text-sky-100 text-lg font-medium max-w-3xl mx-auto leading-8">ابدأ من هنا بتصفح الألعاب التعليمية حسب الصف والمادة والفصل الدراسي، ثم انتقل للعروض والملفات من شريط الأقسام.</p>
     </div>
     <div class="mb-6 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 rounded-2xl p-6 border-2 border-purple-400/30">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -815,8 +797,8 @@
     const ADMIN_PASSWORD = 'Edrees92526869@';
 
     const defaultConfig = {
-      site_title: '🎓 منصة تعليمية',
-      welcome_message: '🚀 اكتشف آفاقاً جديدة في التعلم التفاعلي والممتع'
+      site_title: 'حقيبة المعلم',
+      welcome_message: 'ألعاب، عروض، ملفات، تقييمات وتعليقات في مساحة واحدة منظمة وسريعة.'
     };
 
     let allGames = [];
@@ -2567,13 +2549,13 @@
         goToUnifiedAuth('login');
         return;
       }
-      ['home', 'browse', 'presentations', 'files', 'stars', 'account', 'submit', 'admin'].forEach(t => {
+      ['browse', 'presentations', 'files', 'stars', 'account', 'submit', 'admin'].forEach(t => {
         const section = document.getElementById(`section-${t}`);
         const tabBtn = document.getElementById(`tab-${t}`);
         if (section) section.classList.add('hidden');
         if (tabBtn) {
           tabBtn.classList.remove('tab-active');
-          if (t !== 'home') tabBtn.classList.add('tab-inactive');
+          tabBtn.classList.add('tab-inactive');
         }
       });
       const activeSection = document.getElementById(`section-${tab}`);
@@ -2581,7 +2563,7 @@
       if (activeSection) activeSection.classList.remove('hidden');
       if (activeTab) {
         activeTab.classList.add('tab-active');
-        if (tab !== 'home') activeTab.classList.remove('tab-inactive');
+        activeTab.classList.remove('tab-inactive');
       }
       if (tab === 'account') {
         loadMySubmissions(true);
@@ -3903,13 +3885,17 @@
       window.elementSdk.init({
         defaultConfig,
         onConfigChange: async (config) => {
-          document.getElementById('site-title').textContent = config.site_title || defaultConfig.site_title;
-          document.getElementById('welcome-message').textContent = config.welcome_message || defaultConfig.welcome_message;
+          const savedTitle = String(config.site_title || '').trim();
+          const savedWelcome = String(config.welcome_message || '').trim();
+          const title = (!savedTitle || savedTitle.includes('منصة تعليمية')) ? defaultConfig.site_title : savedTitle;
+          const welcome = (!savedWelcome || savedWelcome.includes('اكتشف آفاقاً')) ? defaultConfig.welcome_message : savedWelcome;
+          document.getElementById('site-title').textContent = title;
+          document.getElementById('welcome-message').textContent = welcome;
         },
         mapToCapabilities: () => ({ recolorables: [], borderables: [], fontEditable: undefined, fontSizeable: undefined }),
         mapToEditPanelValues: (config) => new Map([
-          ['site_title', config.site_title || defaultConfig.site_title],
-          ['welcome_message', config.welcome_message || defaultConfig.welcome_message]
+          ['site_title', (!config.site_title || String(config.site_title).includes('منصة تعليمية')) ? defaultConfig.site_title : config.site_title],
+          ['welcome_message', (!config.welcome_message || String(config.welcome_message).includes('اكتشف آفاقاً')) ? defaultConfig.welcome_message : config.welcome_message]
         ])
       });
     }
@@ -3974,6 +3960,7 @@
   </script>
  </body>
 </html>
+
 
 
 
