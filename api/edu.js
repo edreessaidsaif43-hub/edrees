@@ -192,6 +192,21 @@ function chunkArray(items, size) {
   return chunks;
 }
 
+function dedupeContentsById(contents = []) {
+  const byId = new Map();
+  let duplicateCount = 0;
+  for (const content of contents) {
+    const id = String(content?.id || "").trim();
+    if (!id) continue;
+    if (byId.has(id)) duplicateCount += 1;
+    byId.set(id, content);
+  }
+  return {
+    contents: [...byId.values()],
+    duplicateCount,
+  };
+}
+
 async function fetchLegacy(action) {
   const errors = [];
   const uniqueUrls = [...new Set(LEGACY_APPS_SCRIPT_URLS)];
@@ -260,8 +275,10 @@ async function migrateLegacyData() {
   const legacyGames = Array.isArray(legacyGamesPayload.data)
     ? legacyGamesPayload.data.map(normalizeContent)
     : [];
+  const deduped = dedupeContentsById(legacyGames);
+  const importGames = deduped.contents;
 
-  for (const chunk of chunkArray(legacyGames, 150)) {
+  for (const chunk of chunkArray(importGames, 150)) {
     const rowsJson = JSON.stringify(chunk.map((content) => ({ id: content.id, data: content })));
     await sql`
       WITH incoming AS (
@@ -301,6 +318,8 @@ async function migrateLegacyData() {
 
   return {
     legacyContents: legacyGames.length,
+    uniqueLegacyContents: importGames.length,
+    duplicateLegacyContents: deduped.duplicateCount,
     legacyFallbackAction: legacyGamesPayload.usedFallbackAction || "",
     beforeContents: beforeCount,
     afterContents: afterCount,
