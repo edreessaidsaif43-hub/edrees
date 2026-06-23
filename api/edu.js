@@ -7,9 +7,15 @@ const DATABASE_URL =
   process.env.DATABASE_URL ||
   process.env.MASH_DATABASE_URL ||
   "";
-const LEGACY_APPS_SCRIPT_URL =
-  process.env.LEGACY_APPS_SCRIPT_URL ||
+const DEFAULT_LEGACY_APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbzdBOQwSbIIjJI18MH1Nd3sxrSWBiVYLDBoIswbOJ9BhdzVICH8Fd5KKJJJdAB61ZJM/exec";
+const LEGACY_APPS_SCRIPT_URLS = [
+  ...(process.env.LEGACY_APPS_SCRIPT_URLS || process.env.LEGACY_APPS_SCRIPT_URL || "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean),
+  DEFAULT_LEGACY_APPS_SCRIPT_URL,
+];
 const MIGRATION_TOKEN = process.env.EDU_MIGRATION_TOKEN || "";
 
 const sql = DATABASE_URL ? neon(DATABASE_URL) : null;
@@ -187,14 +193,42 @@ function chunkArray(items, size) {
 }
 
 async function fetchLegacy(action) {
-  const url = `${LEGACY_APPS_SCRIPT_URL}?action=${encodeURIComponent(action)}`;
-  const response = await fetch(url, { method: "GET", cache: "no-store" });
-  if (!response.ok) throw new Error(`Legacy ${action} failed with HTTP ${response.status}`);
-  const payload = await response.json();
-  if (!payload || payload.success !== true) {
-    throw new Error(`Legacy ${action} returned an error`);
+  const errors = [];
+  const uniqueUrls = [...new Set(LEGACY_APPS_SCRIPT_URLS)];
+
+  for (const baseUrl of uniqueUrls) {
+    const cleanBase = String(baseUrl || "").split("?")[0].replace(/\/+$/, "");
+    const url = `${cleanBase}?action=${encodeURIComponent(action)}`;
+    try {
+      const response = await fetch(url, { method: "GET", cache: "no-store" });
+      if (!response.ok) {
+        errors.push(`${cleanBase} -> HTTP ${response.status}`);
+        continue;
+      }
+      const payload = await response.json();
+      if (!payload || payload.success !== true) {
+        errors.push(`${cleanBase} -> success=false`);
+        continue;
+      }
+      return payload;
+    } catch (error) {
+      errors.push(`${cleanBase} -> ${String(error?.message || error)}`);
+    }
   }
-  return payload;
+
+  if (action === "getAllGames") {
+    try {
+      const fallback = await fetchLegacy("getGames");
+      return {
+        ...fallback,
+        usedFallbackAction: "getGames",
+      };
+    } catch (fallbackError) {
+      errors.push(`getGames fallback -> ${String(fallbackError?.message || fallbackError)}`);
+    }
+  }
+
+  throw new Error(`Legacy ${action} failed. Tried: ${errors.join(" | ")}`);
 }
 
 function mergeUsers(legacyUsers = [], currentUsers = []) {
@@ -267,6 +301,7 @@ async function migrateLegacyData() {
 
   return {
     legacyContents: legacyGames.length,
+    legacyFallbackAction: legacyGamesPayload.usedFallbackAction || "",
     beforeContents: beforeCount,
     afterContents: afterCount,
     changedContents: Math.max(0, afterCount - beforeCount),
