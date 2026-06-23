@@ -736,6 +736,7 @@
         </div>
         <div class="flex gap-2">
           <button type="button" id="admin-refresh-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">تحديث القائمة</button>
+          <button type="button" id="admin-migrate-legacy-btn" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">مزامنة البيانات القديمة</button>
           <button type="button" id="admin-logout-btn" class="bg-gray-700 text-white px-4 py-2 rounded-lg font-bold">تسجيل خروج</button>
         </div>
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -3584,9 +3585,43 @@
       }
     });
 
+    async function migrateLegacyDataFromAdmin(buttonEl) {
+      const originalText = buttonEl ? buttonEl.textContent : '';
+      setButtonLoadingState(buttonEl, true, 'جاري المزامنة...', originalText);
+      try {
+        const payload = await apiPost({ action: 'migrateLegacy' }, 70000);
+        if (!payload || !payload.success) {
+          throw new Error((payload && payload.error) || 'migration_failed');
+        }
+        const info = payload.migration || {};
+        showToast(`✅ تمت المزامنة: ${info.afterContents || 0} مشاركة محفوظة`, 'success');
+        invalidateApiGetCache('getGames');
+        invalidateApiGetCache('getAllGames');
+        invalidateApiGetCache('getStorage');
+        await loadStorageFromVercel();
+        contentMetrics = loadContentMetrics();
+        contentComments = loadContentComments();
+        loadUsers();
+        await loadDataFromVercelDatabase({ preferCache: false });
+        renderAdminUsersManager();
+        renderAdminCommentsManager();
+        await loadAdminSubmissions();
+      } catch (error) {
+        console.error(error);
+        showToast('❌ تعذر مزامنة البيانات القديمة: ' + (error.message || 'خطأ غير معروف'), 'error');
+      } finally {
+        setButtonLoadingState(buttonEl, false, '', originalText);
+      }
+    }
+
     document.getElementById('admin-refresh-btn').addEventListener('click', () => {
       loadAdminSubmissions();
       loadAdminManagementData();
+    });
+
+    const adminMigrateLegacyBtn = document.getElementById('admin-migrate-legacy-btn');
+    if (adminMigrateLegacyBtn) adminMigrateLegacyBtn.addEventListener('click', async (e) => {
+      await migrateLegacyDataFromAdmin(e.currentTarget);
     });
 
     const adminRecoverUsersBtn = document.getElementById('admin-recover-users-btn');

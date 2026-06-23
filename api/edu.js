@@ -178,6 +178,14 @@ async function saveStorage(storage) {
   return safe;
 }
 
+function chunkArray(items, size) {
+  const chunks = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 async function fetchLegacy(action) {
   const url = `${LEGACY_APPS_SCRIPT_URL}?action=${encodeURIComponent(action)}`;
   const response = await fetch(url, { method: "GET", cache: "no-store" });
@@ -204,6 +212,12 @@ function mergeUsers(legacyUsers = [], currentUsers = []) {
 
 async function migrateLegacyData() {
   await ensureSchema();
+  const beforeRows = await sql`
+    SELECT COUNT(*)::int AS count
+    FROM edu_contents;
+  `;
+  const beforeCount = Number(beforeRows?.[0]?.count || 0);
+
   const [legacyGamesPayload, legacyStoragePayload] = await Promise.all([
     fetchLegacy("getAllGames"),
     fetchLegacy("getStorage").catch(() => ({ storage: defaultStorage() })),
@@ -213,13 +227,17 @@ async function migrateLegacyData() {
     ? legacyGamesPayload.data.map(normalizeContent)
     : [];
 
-  for (const content of legacyGames) {
-    await sql`
-      INSERT INTO edu_contents (id, data, created_at, updated_at)
-      VALUES (${content.id}, ${JSON.stringify(content)}::jsonb, NOW(), NOW())
-      ON CONFLICT (id)
-      DO UPDATE SET data = EXCLUDED.data, updated_at = NOW();
-    `;
+  for (const chunk of chunkArray(legacyGames, 40)) {
+    await Promise.all(
+      chunk.map((content) =>
+        sql`
+          INSERT INTO edu_contents (id, data, created_at, updated_at)
+          VALUES (${content.id}, ${JSON.stringify(content)}::jsonb, NOW(), NOW())
+          ON CONFLICT (id)
+          DO UPDATE SET data = EXCLUDED.data, updated_at = NOW();
+        `
+      )
+    );
   }
 
   const currentStorage = await getStorage();
@@ -238,8 +256,17 @@ async function migrateLegacyData() {
   });
 
   await saveStorage(mergedStorage);
+  const afterRows = await sql`
+    SELECT COUNT(*)::int AS count
+    FROM edu_contents;
+  `;
+  const afterCount = Number(afterRows?.[0]?.count || 0);
+
   return {
-    importedContents: legacyGames.length,
+    legacyContents: legacyGames.length,
+    beforeContents: beforeCount,
+    afterContents: afterCount,
+    changedContents: Math.max(0, afterCount - beforeCount),
     users: mergedStorage.users.length,
     metricKeys: Object.keys(mergedStorage.contentMetrics || {}).length,
     commentKeys: Object.keys(mergedStorage.contentComments || {}).length,
