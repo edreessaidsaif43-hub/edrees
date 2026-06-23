@@ -1028,8 +1028,16 @@
           body: JSON.stringify(payload || {}),
           signal: controller.signal
         });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
+        const rawText = await response.text();
+        let data = {};
+        try {
+          data = rawText ? JSON.parse(rawText) : {};
+        } catch (e) {
+          data = { message: rawText };
+        }
+        if (!response.ok) {
+          throw new Error(data.message || data.error || `HTTP ${response.status}`);
+        }
         const reqAction = String(payload && payload.action || '');
         if (data && data.success) {
           if (reqAction === 'addGame' || reqAction === 'updateGame') {

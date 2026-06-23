@@ -23,7 +23,7 @@ function dbUnavailable(res) {
   return send(res, 500, {
     success: false,
     error: "db_not_configured",
-    message: "Vercel database is not configured. Add EDU_DATABASE_URL or POSTGRES_URL.",
+    message: "Vercel database is not configured. Add EDU_DATABASE_URL or POSTGRES_URL in Vercel Environment Variables, then redeploy.",
   });
 }
 
@@ -227,17 +227,20 @@ async function migrateLegacyData() {
     ? legacyGamesPayload.data.map(normalizeContent)
     : [];
 
-  for (const chunk of chunkArray(legacyGames, 40)) {
-    await Promise.all(
-      chunk.map((content) =>
-        sql`
-          INSERT INTO edu_contents (id, data, created_at, updated_at)
-          VALUES (${content.id}, ${JSON.stringify(content)}::jsonb, NOW(), NOW())
-          ON CONFLICT (id)
-          DO UPDATE SET data = EXCLUDED.data, updated_at = NOW();
-        `
+  for (const chunk of chunkArray(legacyGames, 150)) {
+    const rowsJson = JSON.stringify(chunk.map((content) => ({ id: content.id, data: content })));
+    await sql`
+      WITH incoming AS (
+        SELECT *
+        FROM jsonb_to_recordset(${rowsJson}::jsonb)
+        AS x(id TEXT, data JSONB)
       )
-    );
+      INSERT INTO edu_contents (id, data, created_at, updated_at)
+      SELECT id, data, NOW(), NOW()
+      FROM incoming
+      ON CONFLICT (id)
+      DO UPDATE SET data = EXCLUDED.data, updated_at = NOW();
+    `;
   }
 
   const currentStorage = await getStorage();
