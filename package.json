@@ -2,6 +2,9 @@
   "name": "altahdir-root",
   "private": true,
   "type": "module",
+  "scripts": {
+    "migrate:edu": "node scripts/migrate-legacy-to-vercel.mjs"
+  },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
     "@vercel/blob": "^0.27.0"

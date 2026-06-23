@@ -7,6 +7,10 @@ const DATABASE_URL =
   process.env.DATABASE_URL ||
   process.env.MASH_DATABASE_URL ||
   "";
+const LEGACY_APPS_SCRIPT_URL =
+  process.env.LEGACY_APPS_SCRIPT_URL ||
+  "https://script.google.com/macros/s/AKfycbzdBOQwSbIIjJI18MH1Nd3sxrSWBiVYLDBoIswbOJ9BhdzVICH8Fd5KKJJJdAB61ZJM/exec";
+const MIGRATION_TOKEN = process.env.EDU_MIGRATION_TOKEN || "";
 
 const sql = DATABASE_URL ? neon(DATABASE_URL) : null;
 let schemaPromise = null;
@@ -82,6 +86,14 @@ function defaultStorage() {
     contentMetrics: {},
     contentComments: {},
   };
+}
+
+function tokenAllowed(req) {
+  if (!MIGRATION_TOKEN) return true;
+  const header = String(req.headers.authorization || "");
+  const bearer = header.startsWith("Bearer ") ? header.slice(7) : "";
+  const queryToken = String(req.query?.token || "");
+  return bearer === MIGRATION_TOKEN || queryToken === MIGRATION_TOKEN;
 }
 
 function normalizeStorage(storage = {}) {
@@ -166,6 +178,74 @@ async function saveStorage(storage) {
   return safe;
 }
 
+async function fetchLegacy(action) {
+  const url = `${LEGACY_APPS_SCRIPT_URL}?action=${encodeURIComponent(action)}`;
+  const response = await fetch(url, { method: "GET", cache: "no-store" });
+  if (!response.ok) throw new Error(`Legacy ${action} failed with HTTP ${response.status}`);
+  const payload = await response.json();
+  if (!payload || payload.success !== true) {
+    throw new Error(`Legacy ${action} returned an error`);
+  }
+  return payload;
+}
+
+function mergeUsers(legacyUsers = [], currentUsers = []) {
+  const byEmail = new Map();
+  for (const user of legacyUsers) {
+    const email = String(user?.email || user?.username || "").trim().toLowerCase();
+    if (email) byEmail.set(email, user);
+  }
+  for (const user of currentUsers) {
+    const email = String(user?.email || user?.username || "").trim().toLowerCase();
+    if (email) byEmail.set(email, user);
+  }
+  return [...byEmail.values()];
+}
+
+async function migrateLegacyData() {
+  await ensureSchema();
+  const [legacyGamesPayload, legacyStoragePayload] = await Promise.all([
+    fetchLegacy("getAllGames"),
+    fetchLegacy("getStorage").catch(() => ({ storage: defaultStorage() })),
+  ]);
+
+  const legacyGames = Array.isArray(legacyGamesPayload.data)
+    ? legacyGamesPayload.data.map(normalizeContent)
+    : [];
+
+  for (const content of legacyGames) {
+    await sql`
+      INSERT INTO edu_contents (id, data, created_at, updated_at)
+      VALUES (${content.id}, ${JSON.stringify(content)}::jsonb, NOW(), NOW())
+      ON CONFLICT (id)
+      DO UPDATE SET data = EXCLUDED.data, updated_at = NOW();
+    `;
+  }
+
+  const currentStorage = await getStorage();
+  const legacyStorage = normalizeStorage(legacyStoragePayload.storage || {});
+  const mergedStorage = normalizeStorage({
+    version: Math.max(Number(currentStorage.version) || 1, Number(legacyStorage.version) || 1),
+    users: mergeUsers(legacyStorage.users, currentStorage.users),
+    contentMetrics: {
+      ...(legacyStorage.contentMetrics || {}),
+      ...(currentStorage.contentMetrics || {}),
+    },
+    contentComments: {
+      ...(legacyStorage.contentComments || {}),
+      ...(currentStorage.contentComments || {}),
+    },
+  });
+
+  await saveStorage(mergedStorage);
+  return {
+    importedContents: legacyGames.length,
+    users: mergedStorage.users.length,
+    metricKeys: Object.keys(mergedStorage.contentMetrics || {}).length,
+    commentKeys: Object.keys(mergedStorage.contentComments || {}).length,
+  };
+}
+
 export default async function handler(req, res) {
   try {
     if (!sql) return dbUnavailable(res);
@@ -182,6 +262,11 @@ export default async function handler(req, res) {
       }
       if (action === "getStorage") {
         return send(res, 200, { success: true, storage: await getStorage() });
+      }
+      if (action === "migrateLegacy") {
+        if (!tokenAllowed(req)) return send(res, 403, { success: false, error: "forbidden" });
+        const result = await migrateLegacyData();
+        return send(res, 200, { success: true, migration: result });
       }
       return send(res, 404, { success: false, error: "unknown_action" });
     }
@@ -236,6 +321,12 @@ export default async function handler(req, res) {
 
       if (action === "saveStorage") {
         return send(res, 200, { success: true, storage: await saveStorage(body.storage || {}) });
+      }
+
+      if (action === "migrateLegacy") {
+        if (!tokenAllowed(req)) return send(res, 403, { success: false, error: "forbidden" });
+        const result = await migrateLegacyData();
+        return send(res, 200, { success: true, migration: result });
       }
 
       return send(res, 404, { success: false, error: "unknown_action" });
