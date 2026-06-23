@@ -489,10 +489,11 @@
      <p class="text-white text-lg font-medium">مجموعة رائعة من الألعاب التفاعلية للتعليم</p>
     </div>
     <div class="mb-6 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 rounded-2xl p-6 border-2 border-purple-400/30">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div><label class="block text-purple-200 font-bold mb-2">🔍 البحث عن الدرس</label><input type="text" id="search-lesson-games" placeholder="ابحث عن اسم الدرس..." class="w-full p-3 border-2 border-purple-300 rounded-xl outline-none bg-white text-gray-800 font-medium" oninput="applyGameFilters()"></div>
         <div><label class="block text-purple-200 font-bold mb-2">🎓 الصف الدراسي</label><select id="filter-grade-games" class="w-full p-3 border-2 border-purple-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyGameFilters()"><option value="">جميع الصفوف</option><option value="الصف الأول">الصف الأول</option><option value="الصف الثاني">الصف الثاني</option><option value="الصف الثالث">الصف الثالث</option><option value="الصف الرابع">الصف الرابع</option><option value="الصف الخامس">الصف الخامس</option><option value="الصف السادس">الصف السادس</option><option value="الصف السابع">الصف السابع</option><option value="الصف الثامن">الصف الثامن</option><option value="الصف التاسع">الصف التاسع</option><option value="الصف العاشر">الصف العاشر</option><option value="الصف الحادي عشر">الصف الحادي عشر</option><option value="الصف الثاني عشر">الصف الثاني عشر</option></select></div>
         <div><label class="block text-purple-200 font-bold mb-2">📖 المادة الدراسية</label><select id="filter-subject-games" class="w-full p-3 border-2 border-purple-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyGameFilters()"><option value="">جميع المواد</option><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="الرياضيات">الرياضيات</option><option value="العلوم">العلوم</option><option value="الفيزياء">الفيزياء</option><option value="الكيمياء">الكيمياء</option><option value="الأحياء">الأحياء</option><option value="الدراسات الاجتماعية">الدراسات الاجتماعية</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="الحاسوب">الحاسوب</option><option value="التربية الفنية">التربية الفنية</option><option value="التربية الرياضية">التربية الرياضية</option><option value="التربية الموسيقية">التربية الموسيقية</option></select></div>
+        <div><label class="block text-purple-200 font-bold mb-2">الفصل الدراسي</label><select id="filter-semester-games" class="w-full p-3 border-2 border-purple-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyGameFilters()"><option value="">جميع الفصول</option><option value="الفصل الأول">الفصل الأول</option><option value="الفصل الثاني">الفصل الثاني</option></select></div>
       </div>
     </div>
     <div id="games-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
@@ -505,10 +506,11 @@
       <p class="text-white text-lg font-medium">مجموعة من العروض التقديمية التعليمية المتنوعة</p>
     </div>
     <div class="mb-6 bg-gradient-to-r from-pink-500/10 to-rose-500/10 rounded-2xl p-6 border-2 border-pink-400/30">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div><label class="block text-pink-200 font-bold mb-2">🔍 البحث عن الدرس</label><input type="text" id="search-lesson-presentations" placeholder="ابحث عن اسم الدرس..." class="w-full p-3 border-2 border-pink-300 rounded-xl outline-none bg-white text-gray-800 font-medium" oninput="applyPresentationFilters()"></div>
         <div><label class="block text-pink-200 font-bold mb-2">🎓 الصف الدراسي</label><select id="filter-grade-presentations" class="w-full p-3 border-2 border-pink-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyPresentationFilters()"><option value="">جميع الصفوف</option><option value="الصف الأول">الصف الأول</option><option value="الصف الثاني">الصف الثاني</option><option value="الصف الثالث">الصف الثالث</option><option value="الصف الرابع">الصف الرابع</option><option value="الصف الخامس">الصف الخامس</option><option value="الصف السادس">الصف السادس</option><option value="الصف السابع">الصف السابع</option><option value="الصف الثامن">الصف الثامن</option><option value="الصف التاسع">الصف التاسع</option><option value="الصف العاشر">الصف العاشر</option><option value="الصف الحادي عشر">الصف الحادي عشر</option><option value="الصف الثاني عشر">الصف الثاني عشر</option></select></div>
         <div><label class="block text-pink-200 font-bold mb-2">📖 المادة الدراسية</label><select id="filter-subject-presentations" class="w-full p-3 border-2 border-pink-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyPresentationFilters()"><option value="">جميع المواد</option><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="الرياضيات">الرياضيات</option><option value="العلوم">العلوم</option><option value="الفيزياء">الفيزياء</option><option value="الكيمياء">الكيمياء</option><option value="الأحياء">الأحياء</option><option value="الدراسات الاجتماعية">الدراسات الاجتماعية</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="الحاسوب">الحاسوب</option><option value="التربية الفنية">التربية الفنية</option><option value="التربية الرياضية">التربية الرياضية</option><option value="التربية الموسيقية">التربية الموسيقية</option></select></div>
+        <div><label class="block text-pink-200 font-bold mb-2">الفصل الدراسي</label><select id="filter-semester-presentations" class="w-full p-3 border-2 border-pink-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyPresentationFilters()"><option value="">جميع الفصول</option><option value="الفصل الأول">الفصل الأول</option><option value="الفصل الثاني">الفصل الثاني</option></select></div>
       </div>
     </div>
     <div id="presentations-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
@@ -520,10 +522,11 @@
       <p class="text-white text-lg font-medium">مكتبة الملفات والموارد التعليمية</p>
     </div>
     <div class="mb-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-2xl p-6 border-2 border-cyan-400/30">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div><label class="block text-cyan-200 font-bold mb-2">🔍 البحث عن الدرس</label><input type="text" id="search-lesson-files" placeholder="ابحث عن اسم الدرس..." class="w-full p-3 border-2 border-cyan-300 rounded-xl outline-none bg-white text-gray-800 font-medium" oninput="applyFilesFilters()"></div>
         <div><label class="block text-cyan-200 font-bold mb-2">🎓 الصف الدراسي</label><select id="filter-grade-files" class="w-full p-3 border-2 border-cyan-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyFilesFilters()"><option value="">جميع الصفوف</option><option value="الصف الأول">الصف الأول</option><option value="الصف الثاني">الصف الثاني</option><option value="الصف الثالث">الصف الثالث</option><option value="الصف الرابع">الصف الرابع</option><option value="الصف الخامس">الصف الخامس</option><option value="الصف السادس">الصف السادس</option><option value="الصف السابع">الصف السابع</option><option value="الصف الثامن">الصف الثامن</option><option value="الصف التاسع">الصف التاسع</option><option value="الصف العاشر">الصف العاشر</option><option value="الصف الحادي عشر">الصف الحادي عشر</option><option value="الصف الثاني عشر">الصف الثاني عشر</option></select></div>
         <div><label class="block text-cyan-200 font-bold mb-2">📖 المادة الدراسية</label><select id="filter-subject-files" class="w-full p-3 border-2 border-cyan-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyFilesFilters()"><option value="">جميع المواد</option><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="الرياضيات">الرياضيات</option><option value="العلوم">العلوم</option><option value="الفيزياء">الفيزياء</option><option value="الكيمياء">الكيمياء</option><option value="الأحياء">الأحياء</option><option value="الدراسات الاجتماعية">الدراسات الاجتماعية</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="الحاسوب">الحاسوب</option><option value="التربية الفنية">التربية الفنية</option><option value="التربية الرياضية">التربية الرياضية</option><option value="التربية الموسيقية">التربية الموسيقية</option></select></div>
+        <div><label class="block text-cyan-200 font-bold mb-2">الفصل الدراسي</label><select id="filter-semester-files" class="w-full p-3 border-2 border-cyan-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyFilesFilters()"><option value="">جميع الفصول</option><option value="الفصل الأول">الفصل الأول</option><option value="الفصل الثاني">الفصل الثاني</option></select></div>
       </div>
     </div>
     <div id="files-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
@@ -704,6 +707,7 @@
         <div><label class="block text-emerald-200 font-bold mb-2">نوع المحتوى</label><select id="content-type" required class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"><option value="">اختر نوع المحتوى</option><option value="game">🎮 لعبة تعليمية</option><option value="presentation">📊 عرض تقديمي</option><option value="file">📁 ملف مخزن</option></select></div>
         <div><label class="block text-emerald-200 font-bold mb-2">الصفوف الدراسية</label><select id="submit-grade" multiple required class="w-full p-4 border-2 border-emerald-400 rounded-xl input-field outline-none bg-white text-gray-900 font-semibold" size="5"><option value="الصف الأول">الصف الأول</option><option value="الصف الثاني">الصف الثاني</option><option value="الصف الثالث">الصف الثالث</option><option value="الصف الرابع">الصف الرابع</option><option value="الصف الخامس">الصف الخامس</option><option value="الصف السادس">الصف السادس</option><option value="الصف السابع">الصف السابع</option><option value="الصف الثامن">الصف الثامن</option><option value="الصف التاسع">الصف التاسع</option><option value="الصف العاشر">الصف العاشر</option><option value="الصف الحادي عشر">الصف الحادي عشر</option><option value="الصف الثاني عشر">الصف الثاني عشر</option></select></div>
         <div><label class="block text-emerald-200 font-bold mb-2">المواد الدراسية</label><select id="submit-subject" multiple required class="w-full p-4 border-2 border-emerald-400 rounded-xl input-field outline-none bg-white text-gray-900 font-semibold" size="5"><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="الرياضيات">الرياضيات</option><option value="العلوم">العلوم</option><option value="الفيزياء">الفيزياء</option><option value="الكيمياء">الكيمياء</option><option value="الأحياء">الأحياء</option><option value="الدراسات الاجتماعية">الدراسات الاجتماعية</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="الحاسوب">الحاسوب</option><option value="التربية الفنية">التربية الفنية</option><option value="التربية الرياضية">التربية الرياضية</option><option value="التربية الموسيقية">التربية الموسيقية</option></select></div>
+        <div><label class="block text-emerald-200 font-bold mb-2">الفصل الدراسي</label><select id="submit-semester" required class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"><option value="">اختر الفصل الدراسي</option><option value="الفصل الأول">الفصل الأول</option><option value="الفصل الثاني">الفصل الثاني</option></select></div>
         <div><label class="block text-emerald-200 font-bold mb-2">عنوان المشاركة</label><input type="text" id="lesson-name" required placeholder="مثال: الكسور العشرية - الصف السادس" class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"></div>
         <div><label class="block text-emerald-200 font-bold mb-2">رابط المحتوى</label><input type="url" id="content-link" required class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"></div>
         <button id="submit-review-btn" type="submit" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transition-all">🚀 إرسال للمراجعة</button>
@@ -787,6 +791,10 @@
         <div>
           <label class="block text-gray-700 font-bold mb-2">المواد الدراسية</label>
           <select id="edit-submit-subject" multiple required class="w-full p-3 border-2 border-emerald-400 rounded-xl outline-none bg-white text-gray-900 font-semibold" size="5"><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="الرياضيات">الرياضيات</option><option value="العلوم">العلوم</option><option value="الفيزياء">الفيزياء</option><option value="الكيمياء">الكيمياء</option><option value="الأحياء">الأحياء</option><option value="الدراسات الاجتماعية">الدراسات الاجتماعية</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="الحاسوب">الحاسوب</option><option value="التربية الفنية">التربية الفنية</option><option value="التربية الرياضية">التربية الرياضية</option><option value="التربية الموسيقية">التربية الموسيقية</option></select>
+        </div>
+        <div>
+          <label class="block text-gray-700 font-bold mb-2">الفصل الدراسي</label>
+          <select id="edit-submit-semester" required class="w-full p-3 border-2 border-emerald-300 rounded-xl outline-none bg-white text-gray-800 font-medium"><option value="">اختر الفصل الدراسي</option><option value="الفصل الأول">الفصل الأول</option><option value="الفصل الثاني">الفصل الثاني</option></select>
         </div>
         <div>
           <label class="block text-gray-700 font-bold mb-2">عنوان المشاركة</label>
@@ -1826,14 +1834,17 @@
       if (targetTab === 'browse') {
         const g = document.getElementById('filter-grade-games'); if (g) g.value = '';
         const s = document.getElementById('filter-subject-games'); if (s) s.value = '';
+        const semester = document.getElementById('filter-semester-games'); if (semester) semester.value = '';
         const q = document.getElementById('search-lesson-games'); if (q) q.value = '';
       } else if (targetTab === 'presentations') {
         const g = document.getElementById('filter-grade-presentations'); if (g) g.value = '';
         const s = document.getElementById('filter-subject-presentations'); if (s) s.value = '';
+        const semester = document.getElementById('filter-semester-presentations'); if (semester) semester.value = '';
         const q = document.getElementById('search-lesson-presentations'); if (q) q.value = '';
       } else if (targetTab === 'files') {
         const g = document.getElementById('filter-grade-files'); if (g) g.value = '';
         const s = document.getElementById('filter-subject-files'); if (s) s.value = '';
+        const semester = document.getElementById('filter-semester-files'); if (semester) semester.value = '';
         const q = document.getElementById('search-lesson-files'); if (q) q.value = '';
       }
     }
@@ -2242,6 +2253,7 @@
       activeMySubmission = item;
       document.getElementById('edit-submission-id').value = item.id || '';
       document.getElementById('edit-content-type').value = item.content_type || 'game';
+      document.getElementById('edit-submit-semester').value = normalizeSemester(item.semester);
       document.getElementById('edit-lesson-name').value = item.lesson_name || '';
       document.getElementById('edit-content-link').value = item.game_link || '';
       setMultiSelectValues('edit-submit-grade', normalizeArrayField(item.grade));
@@ -2265,12 +2277,13 @@
       }
 
       const contentType = document.getElementById('edit-content-type').value;
+      const semester = normalizeSemester(document.getElementById('edit-submit-semester').value);
       const grades = collectMultiSelectValues('edit-submit-grade');
       const subjects = collectMultiSelectValues('edit-submit-subject');
       const lessonName = String(document.getElementById('edit-lesson-name').value || '').trim();
       const gameLink = String(document.getElementById('edit-content-link').value || '').trim();
 
-      if (!contentType || !grades.length || !subjects.length || !lessonName || !gameLink) {
+      if (!contentType || !semester || !grades.length || !subjects.length || !lessonName || !gameLink) {
         showToast('❌ يرجى تعبئة جميع الحقول', 'error');
         return;
       }
@@ -2289,6 +2302,7 @@
           teacher_key: getTeacherKey(currentUser.full_name),
           grade: grades,
           subject: subjects,
+          semester,
           lesson_name: lessonName,
           content_type: contentType,
           reviewed_at: null,
@@ -2696,6 +2710,7 @@
       if (!grid) return;
       const selectedGrade = (document.getElementById('filter-grade-games')?.value || '').trim();
       const selectedSubject = (document.getElementById('filter-subject-games')?.value || '').trim();
+      const selectedSemester = normalizeSemester(document.getElementById('filter-semester-games')?.value || '');
       const searchTerm = (document.getElementById('search-lesson-games')?.value || '').toLowerCase().trim();
 
       const gamesOnly = approvedByType.game
@@ -2703,10 +2718,12 @@
           const grades = parseMultiValues(g.grade);
           const subjects = parseMultiValues(g.subject);
           const lesson = String(g.lesson_name || '').toLowerCase();
+          const semester = getContentSemester(g);
           const gradeMatch = !selectedGrade || grades.includes(selectedGrade);
           const subjectMatch = !selectedSubject || subjects.includes(selectedSubject);
+          const semesterMatch = !selectedSemester || semester === selectedSemester;
           const searchMatch = !searchTerm || lesson.includes(searchTerm);
-          return gradeMatch && subjectMatch && searchMatch;
+          return gradeMatch && subjectMatch && semesterMatch && searchMatch;
         });
       if (!gamesOnly.length) {
         grid.innerHTML = '<div class="col-span-full text-center text-white text-lg">لا توجد ألعاب تطابق الفلتر الحالي</div>';
@@ -2748,6 +2765,7 @@
                 <p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p>
                 <div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div>
               </div>
+              ${renderSemesterBadge(game, 'bg-purple-100 text-purple-800')}
               ${renderRatingAndViews(contentId)}
               <a href="${game.game_link || '#'}" onclick="openContent('${contentId}', '${encodeURIComponent(game.game_link || '#')}'); return false;" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-3 px-4 rounded-xl font-bold block text-center">🎮 العب الآن</a>
               ${renderCommentsBlock(contentId)}
@@ -2763,6 +2781,7 @@
       if (!grid) return;
       const selectedGrade = (document.getElementById('filter-grade-presentations')?.value || '').trim();
       const selectedSubject = (document.getElementById('filter-subject-presentations')?.value || '').trim();
+      const selectedSemester = normalizeSemester(document.getElementById('filter-semester-presentations')?.value || '');
       const searchTerm = (document.getElementById('search-lesson-presentations')?.value || '').toLowerCase().trim();
 
       const items = approvedByType.presentation
@@ -2770,10 +2789,12 @@
           const grades = parseMultiValues(g.grade);
           const subjects = parseMultiValues(g.subject);
           const lesson = String(g.lesson_name || '').toLowerCase();
+          const semester = getContentSemester(g);
           const gradeMatch = !selectedGrade || grades.includes(selectedGrade);
           const subjectMatch = !selectedSubject || subjects.includes(selectedSubject);
+          const semesterMatch = !selectedSemester || semester === selectedSemester;
           const searchMatch = !searchTerm || lesson.includes(searchTerm);
-          return gradeMatch && subjectMatch && searchMatch;
+          return gradeMatch && subjectMatch && semesterMatch && searchMatch;
         });
       if (!items.length) {
         grid.innerHTML = '<div class="col-span-full text-center text-white text-lg">لا توجد عروض تطابق الفلتر الحالي</div>';
@@ -2790,7 +2811,7 @@
         const teacherImage = getTeacherProfileImage(p);
         const grades = parseMultiValues(p.grade);
         const subjects = parseMultiValues(p.subject);
-        return `<div id="content-card-${getSafeDomId(contentId)}" class="presentation-card card-glass rounded-2xl p-6"><div class="content-title-box-light"><p class="content-title-label-light">عنوان المشاركة</p><h3 class="content-title-text-dark">${p.lesson_name || 'عرض تقديمي'}</h3></div><div class="flex items-center gap-3 mb-3"><img src="${teacherImage}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border border-gray-300 bg-gray-100"><p class="text-gray-700 font-bold">${p.teacher_name || 'معلم'}</p></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-pink-100 text-pink-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-rose-100 text-rose-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div>${renderRatingAndViews(contentId)}<a href="${p.game_link || '#'}" onclick="openContent('${contentId}', '${encodeURIComponent(p.game_link || '#')}'); return false;" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r from-pink-500 to-rose-600 text-white py-3 px-4 rounded-xl font-bold block text-center">📊 عرض الآن</a>${renderCommentsBlock(contentId)}</div>`;
+        return `<div id="content-card-${getSafeDomId(contentId)}" class="presentation-card card-glass rounded-2xl p-6"><div class="content-title-box-light"><p class="content-title-label-light">عنوان المشاركة</p><h3 class="content-title-text-dark">${p.lesson_name || 'عرض تقديمي'}</h3></div><div class="flex items-center gap-3 mb-3"><img src="${teacherImage}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border border-gray-300 bg-gray-100"><p class="text-gray-700 font-bold">${p.teacher_name || 'معلم'}</p></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-pink-100 text-pink-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-rose-100 text-rose-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div>${renderSemesterBadge(p, 'bg-pink-100 text-pink-800')}${renderRatingAndViews(contentId)}<a href="${p.game_link || '#'}" onclick="openContent('${contentId}', '${encodeURIComponent(p.game_link || '#')}'); return false;" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r from-pink-500 to-rose-600 text-white py-3 px-4 rounded-xl font-bold block text-center">📊 عرض الآن</a>${renderCommentsBlock(contentId)}</div>`;
       }).join('');
       renderPaginationControls('presentations-pagination', 'presentation', totalItems);
     }
@@ -2800,6 +2821,7 @@
       if (!grid) return;
       const selectedGrade = (document.getElementById('filter-grade-files')?.value || '').trim();
       const selectedSubject = (document.getElementById('filter-subject-files')?.value || '').trim();
+      const selectedSemester = normalizeSemester(document.getElementById('filter-semester-files')?.value || '');
       const searchTerm = (document.getElementById('search-lesson-files')?.value || '').toLowerCase().trim();
 
       const items = approvedByType.file
@@ -2807,10 +2829,12 @@
           const grades = parseMultiValues(g.grade);
           const subjects = parseMultiValues(g.subject);
           const lesson = String(g.lesson_name || '').toLowerCase();
+          const semester = getContentSemester(g);
           const gradeMatch = !selectedGrade || grades.includes(selectedGrade);
           const subjectMatch = !selectedSubject || subjects.includes(selectedSubject);
+          const semesterMatch = !selectedSemester || semester === selectedSemester;
           const searchMatch = !searchTerm || lesson.includes(searchTerm);
-          return gradeMatch && subjectMatch && searchMatch;
+          return gradeMatch && subjectMatch && semesterMatch && searchMatch;
         });
       if (!items.length) {
         grid.innerHTML = '<div class="col-span-full text-center text-white text-lg">لا توجد ملفات تطابق الفلتر الحالي</div>';
@@ -2827,7 +2851,7 @@
         const teacherImage = getTeacherProfileImage(f);
         const grades = parseMultiValues(f.grade);
         const subjects = parseMultiValues(f.subject);
-        return `<div id="content-card-${getSafeDomId(contentId)}" class="file-card card-glass rounded-2xl p-6"><div class="content-title-box-light"><p class="content-title-label-light">عنوان المشاركة</p><h3 class="content-title-text-dark">${f.lesson_name || 'ملف مخزن'}</h3></div><div class="flex items-center gap-3 mb-3"><img src="${teacherImage}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border border-gray-300 bg-gray-100"><p class="text-gray-700 font-bold">${f.teacher_name || 'معلم'}</p></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-cyan-100 text-cyan-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div>${renderRatingAndViews(contentId)}<a href="${f.game_link || '#'}" onclick="openContent('${contentId}', '${encodeURIComponent(f.game_link || '#')}'); return false;" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-3 px-4 rounded-xl font-bold block text-center">📁 تحميل الملف</a>${renderCommentsBlock(contentId)}</div>`;
+        return `<div id="content-card-${getSafeDomId(contentId)}" class="file-card card-glass rounded-2xl p-6"><div class="content-title-box-light"><p class="content-title-label-light">عنوان المشاركة</p><h3 class="content-title-text-dark">${f.lesson_name || 'ملف مخزن'}</h3></div><div class="flex items-center gap-3 mb-3"><img src="${teacherImage}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border border-gray-300 bg-gray-100"><p class="text-gray-700 font-bold">${f.teacher_name || 'معلم'}</p></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-cyan-100 text-cyan-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div>${renderSemesterBadge(f, 'bg-cyan-100 text-cyan-800')}${renderRatingAndViews(contentId)}<a href="${f.game_link || '#'}" onclick="openContent('${contentId}', '${encodeURIComponent(f.game_link || '#')}'); return false;" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-3 px-4 rounded-xl font-bold block text-center">📁 تحميل الملف</a>${renderCommentsBlock(contentId)}</div>`;
       }).join('');
       renderPaginationControls('files-pagination', 'file', totalItems);
     }
@@ -2846,6 +2870,24 @@
         return t.split(',').map(v => v.trim()).filter(Boolean);
       }
       return [];
+    }
+
+    function normalizeSemester(value) {
+      const text = String(value || '').trim();
+      if (!text) return '';
+      if (text === '1' || text === 'الأول' || text === 'الفصل الاول' || text === 'الفصل الأول') return 'الفصل الأول';
+      if (text === '2' || text === 'الثاني' || text === 'الفصل الثاني') return 'الفصل الثاني';
+      return text;
+    }
+
+    function getContentSemester(item) {
+      return normalizeSemester(item && item.semester) || 'الفصل الثاني';
+    }
+
+    function renderSemesterBadge(item, colorClass = 'bg-emerald-100 text-emerald-800') {
+      const semester = getContentSemester(item);
+      if (!semester) return '';
+      return `<div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">الفصل الدراسي:</p><span class="${colorClass} text-xs px-2 py-1 rounded-full font-bold">${semester}</span></div>`;
     }
 
     function debounceRenderFilter(type, renderFn) {
@@ -3762,6 +3804,7 @@
       const teacherKey = normalizeTeacherName(teacherName);
 
       const contentType = document.getElementById('content-type').value;
+      const semester = normalizeSemester(document.getElementById('submit-semester').value);
       const gradeSelect = document.getElementById('submit-grade');
       const selectedGrades = Array.from(gradeSelect.selectedOptions).map(option => option.value);
       const subjectSelect = document.getElementById('submit-subject');
@@ -3769,7 +3812,7 @@
       const lessonName = document.getElementById('lesson-name').value.trim();
       const contentLink = document.getElementById('content-link').value.trim();
 
-      if (!teacherName || !contentType || selectedGrades.length === 0 || selectedSubjects.length === 0 || !lessonName || !contentLink) {
+      if (!teacherName || !contentType || !semester || selectedGrades.length === 0 || selectedSubjects.length === 0 || !lessonName || !contentLink) {
         showToast('❌ يرجى ملء جميع الحقول', 'error');
         return;
       }
@@ -3790,6 +3833,7 @@
           teacher_key: teacherKey,
           grade: selectedGrades,
           subject: selectedSubjects,
+          semester,
           lesson_name: lessonName,
           game_link: contentLink,
           status: 'pending',

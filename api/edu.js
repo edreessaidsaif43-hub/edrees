@@ -69,6 +69,7 @@ function randomId() {
 
 function normalizeContent(input = {}) {
   const createdAt = input.created_at || input.createdAt || new Date().toISOString();
+  const semester = String(input.semester || "").trim() || "الفصل الثاني";
   return {
     id: String(input.id || randomId()),
     teacher_name: String(input.teacher_name || "").trim(),
@@ -76,6 +77,7 @@ function normalizeContent(input = {}) {
     teacher_key: String(input.teacher_key || "").trim(),
     grade: stringifyArray(input.grade),
     subject: stringifyArray(input.subject),
+    semester,
     lesson_name: String(input.lesson_name || "").trim(),
     game_link: String(input.game_link || "").trim(),
     status: String(input.status || "pending").trim(),
@@ -144,6 +146,12 @@ async function ensureSchema() {
         INSERT INTO edu_storage (id, data, updated_at)
         VALUES ('main', ${JSON.stringify(defaultStorage())}::jsonb, NOW())
         ON CONFLICT (id) DO NOTHING;
+      `;
+      await sql`
+        UPDATE edu_contents
+        SET data = jsonb_set(data, '{semester}', to_jsonb('الفصل الثاني'::text), true),
+            updated_at = NOW()
+        WHERE COALESCE(data->>'semester', '') = '';
       `;
     })();
   }
@@ -383,8 +391,16 @@ export default async function handler(req, res) {
         const updated = normalizeContent({
           ...current,
           ...(body.game || {}),
+          teacher_name: body.teacher_name ?? body.game?.teacher_name ?? current.teacher_name,
+          teacher_email: body.teacher_email ?? body.game?.teacher_email ?? current.teacher_email,
+          teacher_key: body.teacher_key ?? body.game?.teacher_key ?? current.teacher_key,
+          grade: body.grade ?? body.game?.grade ?? current.grade,
+          subject: body.subject ?? body.game?.subject ?? current.subject,
+          semester: body.semester ?? body.game?.semester ?? current.semester,
+          lesson_name: body.lesson_name ?? body.game?.lesson_name ?? current.lesson_name,
+          content_type: body.content_type ?? body.game?.content_type ?? current.content_type,
           status: body.status ?? body.game?.status ?? current.status,
-          game_link: body.gameLink ?? body.game?.game_link ?? current.game_link,
+          game_link: body.gameLink ?? body.game_link ?? body.game?.game_link ?? current.game_link,
           reviewed_at: body.reviewed_at ?? body.game?.reviewed_at ?? current.reviewed_at,
         });
         await sql`
