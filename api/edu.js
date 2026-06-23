@@ -1,0 +1,252 @@
+import { neon } from "@neondatabase/serverless";
+
+const DATABASE_URL =
+  process.env.EDU_DATABASE_URL ||
+  process.env.POSTGRES_URL ||
+  process.env.POSTGRES_PRISMA_URL ||
+  process.env.DATABASE_URL ||
+  process.env.MASH_DATABASE_URL ||
+  "";
+
+const sql = DATABASE_URL ? neon(DATABASE_URL) : null;
+let schemaPromise = null;
+
+function send(res, status, payload) {
+  res.status(status).json(payload);
+}
+
+function dbUnavailable(res) {
+  return send(res, 500, {
+    success: false,
+    error: "db_not_configured",
+    message: "Vercel database is not configured. Add EDU_DATABASE_URL or POSTGRES_URL.",
+  });
+}
+
+function parseBody(req) {
+  if (!req.body) return {};
+  if (typeof req.body === "string") {
+    try {
+      return JSON.parse(req.body);
+    } catch {
+      return {};
+    }
+  }
+  return req.body;
+}
+
+function stringifyArray(value) {
+  if (Array.isArray(value)) return value;
+  if (value == null || value === "") return [];
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text) return [];
+    if (text.startsWith("[") && text.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+      } catch {}
+    }
+    return text.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+  return [String(value)];
+}
+
+function randomId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+function normalizeContent(input = {}) {
+  const createdAt = input.created_at || input.createdAt || new Date().toISOString();
+  return {
+    id: String(input.id || randomId()),
+    teacher_name: String(input.teacher_name || "").trim(),
+    teacher_email: String(input.teacher_email || "").trim().toLowerCase(),
+    teacher_key: String(input.teacher_key || "").trim(),
+    grade: stringifyArray(input.grade),
+    subject: stringifyArray(input.subject),
+    lesson_name: String(input.lesson_name || "").trim(),
+    game_link: String(input.game_link || "").trim(),
+    status: String(input.status || "pending").trim(),
+    content_type: String(input.content_type || "game").trim(),
+    created_at: createdAt,
+    reviewed_at: input.reviewed_at || "",
+  };
+}
+
+function defaultStorage() {
+  return {
+    version: 1,
+    users: [],
+    contentMetrics: {},
+    contentComments: {},
+  };
+}
+
+function normalizeStorage(storage = {}) {
+  return {
+    version: Number(storage.version) || 1,
+    users: Array.isArray(storage.users) ? storage.users : [],
+    contentMetrics:
+      storage.contentMetrics && typeof storage.contentMetrics === "object"
+        ? storage.contentMetrics
+        : {},
+    contentComments:
+      storage.contentComments && typeof storage.contentComments === "object"
+        ? storage.contentComments
+        : {},
+  };
+}
+
+async function ensureSchema() {
+  if (!sql) return;
+  if (!schemaPromise) {
+    schemaPromise = (async () => {
+      await sql`
+        CREATE TABLE IF NOT EXISTS edu_contents (
+          id TEXT PRIMARY KEY,
+          data JSONB NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS idx_edu_contents_updated_at
+        ON edu_contents (updated_at DESC);
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS edu_storage (
+          id TEXT PRIMARY KEY,
+          data JSONB NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `;
+      await sql`
+        INSERT INTO edu_storage (id, data, updated_at)
+        VALUES ('main', ${JSON.stringify(defaultStorage())}::jsonb, NOW())
+        ON CONFLICT (id) DO NOTHING;
+      `;
+    })();
+  }
+  await schemaPromise;
+}
+
+async function getContents(includeAll = false) {
+  await ensureSchema();
+  const rows = await sql`
+    SELECT data
+    FROM edu_contents
+    ORDER BY updated_at DESC;
+  `;
+  const items = (rows || []).map((row) => normalizeContent(row.data || {}));
+  return includeAll ? items : items.filter((item) => String(item.status).toLowerCase() === "approved");
+}
+
+async function getStorage() {
+  await ensureSchema();
+  const rows = await sql`
+    SELECT data
+    FROM edu_storage
+    WHERE id = 'main'
+    LIMIT 1;
+  `;
+  return normalizeStorage(rows?.[0]?.data || defaultStorage());
+}
+
+async function saveStorage(storage) {
+  await ensureSchema();
+  const safe = normalizeStorage(storage);
+  await sql`
+    INSERT INTO edu_storage (id, data, updated_at)
+    VALUES ('main', ${JSON.stringify(safe)}::jsonb, NOW())
+    ON CONFLICT (id)
+    DO UPDATE SET data = EXCLUDED.data, updated_at = NOW();
+  `;
+  return safe;
+}
+
+export default async function handler(req, res) {
+  try {
+    if (!sql) return dbUnavailable(res);
+
+    const body = parseBody(req);
+    const action = String(req.query?.action || body.action || "");
+
+    if (req.method === "GET") {
+      if (action === "getGames") {
+        return send(res, 200, { success: true, data: await getContents(false) });
+      }
+      if (action === "getAllGames") {
+        return send(res, 200, { success: true, data: await getContents(true) });
+      }
+      if (action === "getStorage") {
+        return send(res, 200, { success: true, storage: await getStorage() });
+      }
+      return send(res, 404, { success: false, error: "unknown_action" });
+    }
+
+    if (req.method === "POST") {
+      if (action === "addGame") {
+        const content = normalizeContent(body.game || {});
+        await ensureSchema();
+        await sql`
+          INSERT INTO edu_contents (id, data, created_at, updated_at)
+          VALUES (${content.id}, ${JSON.stringify(content)}::jsonb, NOW(), NOW())
+          ON CONFLICT (id)
+          DO UPDATE SET data = EXCLUDED.data, updated_at = NOW();
+        `;
+        return send(res, 200, { success: true, id: content.id, data: content });
+      }
+
+      if (action === "updateGame") {
+        const gameId = String(body.gameId || body.id || "").trim();
+        if (!gameId) return send(res, 400, { success: false, error: "missing_game_id" });
+        await ensureSchema();
+        const rows = await sql`
+          SELECT data
+          FROM edu_contents
+          WHERE id = ${gameId}
+          LIMIT 1;
+        `;
+        if (!rows?.[0]) return send(res, 404, { success: false, error: "not_found" });
+        const current = normalizeContent(rows[0].data || {});
+        const updated = normalizeContent({
+          ...current,
+          ...(body.game || {}),
+          status: body.status ?? body.game?.status ?? current.status,
+          game_link: body.gameLink ?? body.game?.game_link ?? current.game_link,
+          reviewed_at: body.reviewed_at ?? body.game?.reviewed_at ?? current.reviewed_at,
+        });
+        await sql`
+          UPDATE edu_contents
+          SET data = ${JSON.stringify(updated)}::jsonb, updated_at = NOW()
+          WHERE id = ${gameId};
+        `;
+        return send(res, 200, { success: true, data: updated });
+      }
+
+      if (action === "deleteGame") {
+        const gameId = String(body.gameId || body.id || "").trim();
+        if (!gameId) return send(res, 400, { success: false, error: "missing_game_id" });
+        await ensureSchema();
+        await sql`DELETE FROM edu_contents WHERE id = ${gameId};`;
+        return send(res, 200, { success: true });
+      }
+
+      if (action === "saveStorage") {
+        return send(res, 200, { success: true, storage: await saveStorage(body.storage || {}) });
+      }
+
+      return send(res, 404, { success: false, error: "unknown_action" });
+    }
+
+    return send(res, 405, { success: false, error: "method_not_allowed" });
+  } catch (error) {
+    return send(res, 500, {
+      success: false,
+      error: "vercel_db_error",
+      message: String(error?.message || error),
+    });
+  }
+}

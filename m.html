@@ -10,8 +10,6 @@
   <title>🎓 منصة تعليمية</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://script.google.com" crossorigin>
-  <link rel="dns-prefetch" href="//script.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="/_sdk/element_sdk.js"></script>
@@ -305,6 +303,7 @@
     <li><a href="/t" class="nav-link-item" data-page="t"><span class="nav-icon">&#x1F4DA;</span> &#x062A;&#x062D;&#x0636;&#x064A;&#x0631; &#x0627;&#x0644;&#x062F;&#x0631;&#x0648;&#x0633;</a></li>
     <li><a href="/m" class="nav-link-item" data-page="m"><span class="nav-icon">&#x1F3AE;</span> &#x0627;&#x0644;&#x0645;&#x0646;&#x0635;&#x0629; &#x0627;&#x0644;&#x062A;&#x0639;&#x0644;&#x064A;&#x0645;&#x064A;&#x0629;</a></li>
     <li><a href="/enjazy" class="nav-link-item" data-page="enjazy"><span class="nav-icon">📁</span> ملف الإنجاز الرقمي</a></li>
+    <li><a href="/ai/index.html" class="nav-link-item" data-page="ai"><span class="nav-icon">🤖</span> التحضير الذكي AI</a></li>
     
     <li><a href="https://altahdir.app/mash/index.html" class="nav-link-item" data-page="mash" target="_blank" rel="noopener"><span class="nav-icon">🏆</span> منصة مشاريع المعلمين</a></li>
     <li><a href="https://gyab-xi.vercel.app/" class="nav-link-item" data-page="gyab" target="_blank" rel="noopener"><span class="nav-icon">📊</span> نظام الحضور والتسرب المدرسي</a></li>
@@ -321,6 +320,7 @@
   <a href="/m" class="nav-link-item" data-page="m"><span>&#x1F3AE;</span> &#x0627;&#x0644;&#x0645;&#x0646;&#x0635;&#x0629; &#x0627;&#x0644;&#x062A;&#x0639;&#x0644;&#x064A;&#x0645;&#x064A;&#x0629;</a>
   <a href="/enjazy" class="nav-link-item" data-page="enjazy"><span>📁</span> ملف الإنجاز الرقمي</a>
   <a href="/Motivation+/" class="nav-link-item" data-page="motivation"><span>🚀</span> تحفيز+</a>
+  <a href="/ai/index.html" class="nav-link-item" data-page="ai"><span>🤖</span> التحضير الذكي AI</a>
   <a href="https://altahdir.app/mash/index.html" class="nav-link-item" data-page="mash" target="_blank" rel="noopener"><span>🏆</span> منصة مشاريع المعلمين</a>
   <a href="https://gyab-xi.vercel.app/" class="nav-link-item" data-page="gyab" target="_blank" rel="noopener"><span>📊</span> نظام الحضور والتسرب المدرسي</a>
 </div>
@@ -339,6 +339,9 @@
       '/m.html': 'm',
       '/enjazy': 'enjazy',
       '/enjazy/index.html': 'enjazy',
+      '/ai': 'ai',
+      '/ai/': 'ai',
+      '/ai/index.html': 'ai',
       '/motivation+': 'motivation',
       '/motivation+/': 'motivation',
       '/motivation+/index.html': 'motivation'
@@ -798,7 +801,7 @@
   </div>
 
   <script>
-    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdBOQwSbIIjJI18MH1Nd3sxrSWBiVYLDBoIswbOJ9BhdzVICH8Fd5KKJJJdAB61ZJM/exec';
+    const VERCEL_DATABASE_API_URL = '/api/edu';
     const ADMIN_EMAIL = 'edreessaidsaif43@gmail.com';
     const ADMIN_PASSWORD = 'Edrees92526869@';
 
@@ -962,7 +965,7 @@
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         return (async () => {
           try {
-            const url = `${GOOGLE_APPS_SCRIPT_URL}?action=${encodeURIComponent(action)}`;
+            const url = `${VERCEL_DATABASE_API_URL}?action=${encodeURIComponent(action)}`;
             const response = await fetch(url, {
               method: 'GET',
               cache: 'no-store',
@@ -1019,7 +1022,7 @@
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+        const response = await fetch(VERCEL_DATABASE_API_URL, {
           method: 'POST',
           body: JSON.stringify(payload || {}),
           signal: controller.signal
@@ -1131,7 +1134,7 @@
       if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    async function loadStorageFromAppScript() {
+    async function loadStorageFromVercel() {
       try {
         const payload = await apiGet('getStorage', 14000, { useCache: true, maxAgeMs: 45000, staleWhileRevalidate: true });
         if (payload && payload.success && payload.storage && typeof payload.storage === 'object') {
@@ -1187,7 +1190,7 @@
       }
     }
 
-    async function flushStorageToAppScript() {
+    async function flushStorageToVercel() {
       if (isRemoteSaveInFlight) {
         hasPendingRemoteSave = true;
         return false;
@@ -1232,7 +1235,7 @@
       } finally {
         isRemoteSaveInFlight = false;
         if (hasPendingRemoteSave) {
-          const nextOk = await flushStorageToAppScript();
+          const nextOk = await flushStorageToVercel();
           ok = ok && nextOk;
         }
       }
@@ -1241,7 +1244,7 @@
 
     function queueRemoteStorageSave() {
       if (saveRemoteTimer) clearTimeout(saveRemoteTimer);
-      saveRemoteTimer = setTimeout(() => { flushStorageToAppScript(); }, 120);
+      saveRemoteTimer = setTimeout(() => { flushStorageToVercel(); }, 120);
     }
 
     async function forceSaveRemoteStorageNow() {
@@ -1249,13 +1252,13 @@
         clearTimeout(saveRemoteTimer);
         saveRemoteTimer = null;
       }
-      return await flushStorageToAppScript();
+      return await flushStorageToVercel();
     }
 
     async function verifyUserExistsInRemoteStorage(email) {
       const target = normalizeEmail(email || '');
       if (!target) return false;
-      const ok = await loadStorageFromAppScript();
+      const ok = await loadStorageFromVercel();
       if (!ok) return false;
       const users = Array.isArray(remoteStorage.users) ? remoteStorage.users : [];
       return users.some(u => normalizeEmail(u.email) === target);
@@ -1931,7 +1934,7 @@
       const currentUser = getCurrentUser();
       if (!currentUser || !appReadyForNotifications) return;
       try {
-        await loadStorageFromAppScript();
+        await loadStorageFromVercel();
         contentMetrics = loadContentMetrics();
         contentComments = loadContentComments();
         await checkIncomingNotifications(showToastOnNew);
@@ -2289,7 +2292,7 @@
 
         closeEditSubmissionModal();
         await loadMySubmissions(true);
-        await loadDataFromSheet();
+        await loadDataFromVercelDatabase();
         showToast('✅ تم تعديل المشاركة وإرسالها للمدير للموافقة', 'success');
       } catch (error) {
         console.error(error);
@@ -2874,7 +2877,7 @@
       renderMySubmissions();
     }
 
-    async function loadDataFromSheet(options = {}) {
+    async function loadDataFromVercelDatabase(options = {}) {
       const preferCache = options.preferCache !== false;
       let renderedFromLocalCache = false;
       try {
@@ -3052,7 +3055,7 @@
     }
 
     async function loadAdminManagementData() {
-      const ok = await loadStorageFromAppScript();
+      const ok = await loadStorageFromVercel();
       contentMetrics = loadContentMetrics();
       contentComments = loadContentComments();
       loadUsers();
@@ -3066,7 +3069,7 @@
 
       setButtonLoadingState(buttonEl, true, '⏳ جاري الاستعادة...');
       try {
-        await loadStorageFromAppScript();
+        await loadStorageFromVercel();
         contentComments = loadContentComments();
         contentMetrics = loadContentMetrics();
 
@@ -3177,7 +3180,7 @@
           return;
         }
 
-        await loadStorageFromAppScript();
+        await loadStorageFromVercel();
         renderAdminUsersManager();
         renderAdminCommentsManager();
         if (syntheticCount > 0) {
@@ -3333,7 +3336,7 @@
 
         showToast(status === 'approved' ? '✅ تمت الموافقة على المشاركة' : '✅ تم رفض المشاركة', 'success');
         await loadAdminSubmissions();
-        await loadDataFromSheet();
+        await loadDataFromVercelDatabase();
       } catch (error) {
         console.error(error);
         showToast('❌ فشل تحديث حالة المشاركة', 'error');
@@ -3840,8 +3843,8 @@
       updateSubmitAccessUI();
       updateHomeAuthState();
 
-      const storagePromise = loadStorageFromAppScript();
-      const dataPromise = loadDataFromSheet();
+      const storagePromise = loadStorageFromVercel();
+      const dataPromise = loadDataFromVercelDatabase();
 
       await storagePromise;
       contentMetrics = loadContentMetrics();
@@ -3884,6 +3887,7 @@
   </script>
  </body>
 </html>
+
 
 
 
