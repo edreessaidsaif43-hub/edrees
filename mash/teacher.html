@@ -22,39 +22,55 @@
     </div>
   </header>
 
-  <main class="section">
+  <main class="section teacher-page">
     <div class="container">
-      <div id="teacherPublicView" class="panel" style="display:none; margin-bottom:14px;">
-        <h2 id="teacherPublicName">موقع المعلم</h2>
-        <p id="teacherPublicBio" class="meta">صفحة عامة تعرض مشاريع المعلم المعتمدة.</p>
-        <div class="actions" style="margin:10px 0 12px;">
+      <section class="teacher-hero panel">
+        <div>
+          <p class="teacher-hero-kicker">لوحة المعلم</p>
+          <h1>أنشئ صفحة مشروعك باحتراف</h1>
+          <p class="meta">من هذه الصفحة يمكنك إدارة مشاريعك التعليمية، إضافة الوسائط، ونشرها للعرض العام أو الاحتفاظ بها داخل موقعك فقط.</p>
+        </div>
+        <div class="teacher-hero-actions">
+          <a class="btn btn-dark" href="index.html">تصفح المعرض العام</a>
+          <a class="btn" href="#teacherFormWrap">ابدأ مشروعًا جديدًا</a>
+        </div>
+      </section>
+
+      <section id="teacherPublicView" class="panel teacher-public" style="display:none;">
+        <div class="teacher-public-head">
+          <div>
+            <h2 id="teacherPublicName">موقع المعلم</h2>
+            <p id="teacherPublicBio" class="meta">صفحة عامة تعرض مشاريع المعلم المعتمدة.</p>
+          </div>
           <a class="btn btn-dark" href="index.html">العودة إلى معرض المشاريع</a>
         </div>
         <div id="teacherPublicProjects" class="grid projects-grid"></div>
-      </div>
+      </section>
 
-      <div id="teacherLogin" class="panel">
+      <section id="teacherLogin" class="panel teacher-login-panel">
         <h2>دخول المعلم</h2>
-                <p>استخدم صفحة التسجيل الموحد الخاصة بموقع التحضير الذكي للمتابعة.</p>
-        <div class="actions" style="margin-bottom:12px;">
+        <p class="meta">استخدم صفحة التسجيل الموحد الخاصة بموقع التحضير الذكي للمتابعة.</p>
+        <div class="actions">
           <a class="btn btn-dark" href="../enjazy/auth.html?mode=login&return=/mash/teacher.html">تسجيل الدخول الموحد</a>
-          <a class="btn" style="background:#f0f9ff;color:#0b4f78;" href="../enjazy/auth.html?mode=register&return=/mash/teacher.html">إنشاء حساب جديد</a>
+          <a class="btn teacher-soft-btn" href="../enjazy/auth.html?mode=register&return=/mash/teacher.html">إنشاء حساب جديد</a>
         </div>
-      </div>
+      </section>
 
-      <div id="teacherUserBox" class="panel" style="display:none; margin-top:14px;">
-        <strong id="teacherWelcome"></strong>
-        <button id="teacherLogout" class="btn" style="margin-right:8px;">تسجيل خروج</button>
-      </div>
+      <section id="teacherUserBox" class="panel teacher-user-box" style="display:none;">
+        <div class="teacher-user-row">
+          <strong id="teacherWelcome"></strong>
+          <button id="teacherLogout" class="btn">تسجيل خروج</button>
+        </div>
+      </section>
 
-      <div id="teacherFormWrap" class="project-builder" style="display:none; margin-top:14px;">
+      <section id="teacherFormWrap" class="project-builder" style="display:none;">
         <div class="builder-head">
           <div>
             <span class="builder-kicker">منشئ صفحة مشروع</span>
             <h2>صمّم صفحة احترافية لمشروعك</h2>
           </div>
           <div class="actions">
-            <button id="editCancelBtn" class="btn" type="button" style="display:none;background:#fef2f2;color:#991b1b;">إلغاء التعديل</button>
+            <button id="editCancelBtn" class="btn teacher-cancel-btn" type="button" style="display:none;">إلغاء التعديل</button>
             <button id="projectSubmitBtn" class="btn btn-dark" form="teacherProjectForm" type="submit">نشر الصفحة</button>
           </div>
         </div>
@@ -146,12 +162,15 @@
             </div>
           </aside>
         </div>
-      </div>
+      </section>
 
-      <div id="teacherProjectsList" class="panel" style="display:none; margin-top:14px;">
-        <h2>مشاريعي التعليمية</h2>
+      <section id="teacherProjectsList" class="panel teacher-projects-panel" style="display:none;">
+        <div class="teacher-public-head">
+          <h2>مشاريعي التعليمية</h2>
+          <a class="btn" href="#teacherFormWrap">إضافة مشروع جديد</a>
+        </div>
         <div id="teacherProjects"></div>
-      </div>
+      </section>
     </div>
   </main>
 
@@ -159,7 +178,3 @@
   <script src="js/app.js"></script>
 </body>
 </html>
-
-
-
-

@@ -170,3 +170,83 @@ th { background: #f0f9ff; color: #0b4f78; }
   .builder-fields.two { grid-template-columns: 1fr; }
   .preview-meta { grid-template-columns: 1fr; }
 }
+
+/* Teacher Page Professional Layout */
+.teacher-page .container {
+  display: grid;
+  gap: 14px;
+}
+.teacher-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #dce9f7;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(14,165,163,.12), transparent 28%),
+    linear-gradient(110deg, #ffffff, #f3f9ff 48%, #ecfff7);
+}
+.teacher-hero h1 {
+  margin: 4px 0 8px;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+}
+.teacher-hero-kicker {
+  margin: 0;
+  color: #0b766f;
+  font-weight: 800;
+  font-size: .9rem;
+}
+.teacher-hero-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.teacher-public,
+.teacher-login-panel,
+.teacher-user-box,
+.teacher-projects-panel {
+  border-color: #dde7f0;
+}
+.teacher-public-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.teacher-user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.teacher-soft-btn {
+  background: #ecfeff;
+  color: #0b4f78;
+}
+.teacher-cancel-btn {
+  background: #fef2f2;
+  color: #991b1b;
+}
+.teacher-projects-panel #teacherProjects {
+  display: grid;
+  gap: 12px;
+}
+.teacher-projects-panel .project-card {
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.teacher-projects-panel .project-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(16,42,67,.12);
+}
+@media (max-width: 900px) {
+  .teacher-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .teacher-hero-actions .btn {
+    width: 100%;
+  }
+}
