@@ -1033,316 +1033,6 @@
 </div>
 
 <!-- ================================
-     TEACHER PAGE
-================================ -->
-<div id="page-teacher" class="page">
-
-  <!-- HERO -->
-  <div class="hero">
-    <div class="hero-badge">✦ مدعوم بالذكاء الاصطناعي ✦</div>
-    <h1>التحضير الذكي <span>AI</span></h1>
-    <p class="hero-sub">حضّر درسك بضغطة زر من المرفق المعتمد فقط</p>
-    <div class="hero-features">
-      <div class="hero-feat"><span>📎</span> من المرفق فقط</div>
-      <div class="hero-feat"><span>⚡</span> توليد فوري</div>
-      <div class="hero-feat"><span>📋</span> جاهز للنسخ</div>
-      <div class="hero-feat"><span>🎯</span> موثوق ومعتمد</div>
-    </div>
-  </div>
-
-  <div class="container">
-
-    <!-- ALERT -->
-    <div class="alert-box">
-      <div class="alert-icon">⚠️</div>
-      <div>
-        <div class="alert-title">تنبيه مهم</div>
-        <div class="alert-text">
-          يتم توليد التحضير من <strong>المرفق المرتبط بالدرس فقط</strong>.
-          إذا لم توجد المعلومة في المرفق، سيظهر النظام عبارة:
-          <strong>«غير مذكور في المرفق»</strong>
-        </div>
-      </div>
-    </div>
-
-    <!-- SELECTION FORM -->
-    <div class="form-card">
-      <div class="form-card-title">
-        <div class="icon">📝</div>
-        بيانات الدرس
-      </div>
-      <div class="form-grid">
-        <div class="field">
-          <label>الصف <span>*</span></label>
-          <select id="t-grade" onchange="loadSubjects()">
-            <option value="">— اختر الصف —</option>
-            <option>الصف الأول</option>
-            <option>الصف الثاني</option>
-            <option>الصف الثالث</option>
-            <option>الصف الرابع</option>
-            <option>الصف الخامس</option>
-            <option>الصف السادس</option>
-            <option>الصف السابع</option>
-            <option>الصف الثامن</option>
-            <option>الصف التاسع</option>
-            <option>الصف العاشر</option>
-            <option>الصف الحادي عشر</option>
-            <option>الصف الثاني عشر</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>المادة <span>*</span></label>
-          <select id="t-subject" onchange="loadSemesters()">
-            <option value="">— اختر المادة —</option>
-            <option>الرياضيات</option>
-            <option>العلوم</option>
-            <option>اللغة العربية</option>
-            <option>اللغة الإنجليزية</option>
-            <option>التربية الإسلامية</option>
-            <option>التاريخ</option>
-            <option>الجغرافيا</option>
-            <option>الحاسوب</option>
-            <option>الفيزياء</option>
-            <option>الكيمياء</option>
-            <option>الأحياء</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>الفصل الدراسي <span>*</span></label>
-          <select id="t-semester">
-            <option value="">— اختر الفصل —</option>
-            <option>الفصل الأول</option>
-            <option>الفصل الثاني</option>
-            <option>الفصل الثالث</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>الوحدة <span>*</span></label>
-          <select id="t-unit" onchange="loadLessons()">
-            <option value="">— اختر الوحدة —</option>
-            <option>الوحدة الأولى</option>
-            <option>الوحدة الثانية</option>
-            <option>الوحدة الثالثة</option>
-            <option>الوحدة الرابعة</option>
-            <option>الوحدة الخامسة</option>
-          </select>
-        </div>
-        <div class="field" style="grid-column: 1 / -1">
-          <label>الدرس <span>*</span></label>
-          <select id="t-lesson">
-            <option value="">— اختر الدرس —</option>
-          </select>
-        </div>
-      </div>
-      <div class="generate-area">
-        <button class="btn-generate" onclick="generateLesson()" id="btn-generate">
-          <span>⚡</span>
-          توليد التحضير
-        </button>
-      </div>
-    </div>
-
-    <!-- ERROR -->
-    <div class="error-box" id="teacher-error">
-      <div class="error-icon">❌</div>
-      <div class="error-text" id="teacher-error-text"></div>
-    </div>
-
-    <!-- LOADING -->
-    <div class="loading-state" id="loading-state">
-      <div class="loader-circles"><span></span><span></span><span></span></div>
-      <div class="loading-text">جاري تحليل المرفق وتوليد التحضير...</div>
-      <div class="loading-sub">الرجاء الانتظار، يتم قراءة المرفق فقط</div>
-    </div>
-
-    <!-- RESULTS -->
-    <div class="results-area" id="results-area">
-      <div class="results-header">
-        <div class="results-title">
-          ✅ تحضير الدرس
-        </div>
-        <div class="results-meta" id="results-meta">مستخرج من المرفق فقط</div>
-      </div>
-
-      <div class="sections-grid">
-        <div class="result-section-title">
-          أقسام التحضير في منصة نور
-          <span>هذه الحقول تعتمد على المرفق، مع ملاحظات ولي الأمر وفق الدرس والمرحلة الدراسية في سلطنة عمان</span>
-        </div>
-
-        <div class="section-card s-blue" id="card-objectives">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">🎯</div>
-              أهداف الدرس
-            </div>
-            <button class="btn-copy" onclick="copySection('objectives', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-objectives"></div>
-          <div class="section-footer">📎 مستخرج من المرفق فقط</div>
-        </div>
-
-        <div class="section-card s-green" id="card-intro">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">🌟</div>
-              التمهيد
-            </div>
-            <button class="btn-copy" onclick="copySection('intro', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-intro"></div>
-          <div class="section-footer">📎 مستخرج من المرفق فقط</div>
-        </div>
-
-        <div class="section-card s-purple wide" id="card-procedures">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">📖</div>
-              إجراءات تنفيذ الدرس
-            </div>
-            <button class="btn-copy" onclick="copySection('procedures', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-procedures"></div>
-          <div class="section-footer">📎 مستخرج من المرفق فقط</div>
-        </div>
-
-        <div class="section-card s-amber" id="card-formative">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">📊</div>
-              التقويم التكويني
-            </div>
-            <button class="btn-copy" onclick="copySection('formativeAssessment', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-formativeAssessment"></div>
-          <div class="section-footer">📎 مستخرج من المرفق فقط</div>
-        </div>
-
-        <div class="section-card s-teal" id="card-closing">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">🏁</div>
-              التقويم الختامي
-            </div>
-            <button class="btn-copy" onclick="copySection('closingAssessment', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-closingAssessment"></div>
-          <div class="section-footer">📎 مستخرج من المرفق فقط</div>
-        </div>
-
-        <div class="section-card s-indigo wide" id="card-parent">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">👨‍👩‍👧</div>
-              ملاحظات ولي الأمر
-            </div>
-            <button class="btn-copy" onclick="copySection('parentNotes', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-parentNotes"></div>
-          <div class="section-footer">📎 مستخرج من المرفق فقط</div>
-        </div>
-
-        <div class="result-section-title">
-          القسم الإثرائي
-          <span>يولد حسب اسم الدرس والمرحلة الدراسية والمعلومات الموجودة في المرفق</span>
-        </div>
-
-        <div class="section-card s-blue" id="card-homework1">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">📝</div>
-              الواجب الأول
-            </div>
-            <button class="btn-copy" onclick="copySection('homework1', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-homework1"></div>
-          <div class="section-footer">✨ إثرائي حسب الدرس والمرحلة</div>
-        </div>
-
-        <div class="section-card s-green" id="card-homework2">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">📌</div>
-              الواجب الثاني
-            </div>
-            <button class="btn-copy" onclick="copySection('homework2', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-homework2"></div>
-          <div class="section-footer">✨ إثرائي حسب الدرس والمرحلة</div>
-        </div>
-
-        <div class="section-card s-purple wide" id="card-classroomGames">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">🎲</div>
-              ألعاب صفية
-            </div>
-            <button class="btn-copy" onclick="copySection('classroomGames', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-classroomGames"></div>
-          <div class="section-footer">✨ إثرائي حسب الدرس والمرحلة</div>
-        </div>
-
-        <div class="section-card s-amber" id="card-citizenship">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">🏛️</div>
-              المواطنة
-            </div>
-            <button class="btn-copy" onclick="copySection('citizenship', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-citizenship"></div>
-          <div class="section-footer">✨ ربط تربوي مناسب لسلطنة عمان</div>
-        </div>
-
-        <div class="section-card s-teal" id="card-motivation">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">🚀</div>
-              التحفيز
-            </div>
-            <button class="btn-copy" onclick="copySection('motivation', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-motivation"></div>
-          <div class="section-footer">✨ إثرائي حسب الدرس والمرحلة</div>
-        </div>
-
-        <div class="section-card s-rose" id="card-attendance">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">✅</div>
-              الانتظام الطلابي
-            </div>
-            <button class="btn-copy" onclick="copySection('attendance', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-attendance"></div>
-          <div class="section-footer">✨ دعم الحضور والمشاركة</div>
-        </div>
-
-        <div class="section-card s-indigo wide" id="card-boardPlan">
-          <div class="section-head">
-            <div class="section-label">
-              <div class="section-icon">🧩</div>
-              تقسيم السبورة
-            </div>
-            <button class="btn-copy" onclick="copySection('boardPlan', this)">📋 نسخ</button>
-          </div>
-          <div class="section-body" id="sec-boardPlan"></div>
-          <div class="section-footer">✨ توزيع عملي للحصة</div>
-        </div>
-      </div>
-
-      <div class="copy-all-area">
-        <button class="btn btn-success" onclick="copyAll()" style="font-size:15px; padding:14px 36px; border-radius:14px;">
-          📋 نسخ التحضير كاملًا
-        </button>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<!-- ================================
      ADMIN PAGE
 ================================ -->
 <div id="page-admin" class="page active">
@@ -1745,7 +1435,7 @@ function showPage(p) {
   document.getElementById('tab-' + p).classList.add('active');
 }
 
-// ========== TEACHER PAGE ==========
+// ========== SHARED DATA / FILTER HELPERS ==========
 const teacherPlaceholders = {
   't-grade': '— اختر الصف —',
   't-subject': '— اختر المادة —',
@@ -2501,8 +2191,6 @@ function renderSharedMultiFiles() {
 
 // SAVE SINGLE
 async function saveSingleLesson() {
-  const currentUser = requireUnifiedAuth('سجّل الدخول أولًا لحفظ الدروس');
-  if (!currentUser) return;
   const grade = document.getElementById('a-grade').value;
   const subject = document.getElementById('a-subject').value;
   const semester = document.getElementById('a-semester').value;
@@ -2540,8 +2228,6 @@ async function saveSingleLesson() {
 
 // SAVE MULTI
 async function saveMultiLessons() {
-  const currentUser = requireUnifiedAuth('سجّل الدخول أولًا لحفظ الدروس');
-  if (!currentUser) return;
   const grade = document.getElementById('m-grade').value;
   const subject = document.getElementById('m-subject').value;
   const semester = document.getElementById('m-semester').value;
@@ -2794,6 +2480,8 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
+
 
 
 
