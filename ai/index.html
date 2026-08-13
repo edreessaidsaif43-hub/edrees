@@ -1376,13 +1376,17 @@ function normalizeUserRecord(user) {
 }
 
 function getCurrentUser() {
-  try {
-    const raw = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
-    if (!raw) return null;
-    return normalizeUserRecord(JSON.parse(raw));
-  } catch {
-    return null;
+  const keys = [CURRENT_USER_STORAGE_KEY, BACKEND_SESSION_STORAGE_KEY, 'enjazy_session_v1'];
+  for (const key of keys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      const user = normalizeUserRecord(parsed);
+      if (user && (user.userId || user.email || user.full_name)) return user;
+    } catch {}
   }
+  return null;
 }
 
 function getReturnPath() {
@@ -2071,6 +2075,7 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
 
 
 
