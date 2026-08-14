@@ -1868,7 +1868,27 @@ function buildPdfLessonPrompt(lesson) {
 {"objectives":"","intro":"","procedures":"","formativeAssessment":"","closingAssessment":"","parentNotes":"","homework1":"","homework2":"","classroomGames":"","citizenship":"","motivation":"","attendance":"","boardPlan":""}`;
 }
 
+function pickRelevantAttachmentText(text, lesson) {
+  const fullText = String(text || '').trim();
+  const maxLength = 18000;
+  if (fullText.length <= maxLength) return fullText;
+
+  const lowerText = fullText.toLowerCase();
+  const terms = [lesson?.title, lesson?.unit]
+    .map(value => String(value || '').trim().toLowerCase())
+    .filter(value => value.length > 1);
+  const firstHit = terms
+    .map(term => lowerText.indexOf(term))
+    .filter(index => index >= 0)
+    .sort((a, b) => a - b)[0];
+
+  const start = firstHit == null ? 0 : Math.max(0, firstHit - 2500);
+  const end = Math.min(fullText.length, start + maxLength);
+  return fullText.slice(start, end);
+}
+
 function buildLessonPrompt(lesson, attachment) {
+  const relevantText = pickRelevantAttachmentText(attachment.extractedText, lesson);
   return `أنت مساعد تعليمي لإعداد تحضير درس للمعلمين في سلطنة عُمان.
 
 المطلوب: إعداد تحضير درس واحد فقط من النص المرفق.
@@ -1881,7 +1901,7 @@ function buildLessonPrompt(lesson, attachment) {
 الدرس المطلوب: ${lesson.title}
 
 النص المرفق:
-${attachment.extractedText}
+${relevantText}
 
 قواعد الإجابة الصارمة:
 - الحقول الخمسة الأولى لمنصة نور يجب أن تكون من النص المرفق فقط: objectives, intro, procedures, formativeAssessment, closingAssessment.
