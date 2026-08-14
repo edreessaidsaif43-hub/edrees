@@ -1717,6 +1717,7 @@ async function generateLesson() {
   const settings = getAiSettings();
   const hasText = lessonAttachments.some(hasUsableAttachmentText);
   const isPdf = lessonAttachments.some(isPdfAttachment);
+  const needsPdfRead = lessonAttachments.some(item => isPdfAttachment(item) && !hasUsableAttachmentText(item));
   if (!hasText && !isPdf) {
     showError('لا يوجد نص درسي كافٍ داخل المرفق. الصق نص الدرس في خانة "نص المرفق" داخل لوحة الإدارة ثم احفظ الدرس مرة أخرى.');
     return;
@@ -1744,36 +1745,36 @@ async function generateLesson() {
 
     if (true) {
       try {
-        result = (!hasText && isPdf)
+        result = needsPdfRead
           ? await callGeminiWithPdf(buildPdfLessonPrompt(lesson), settings, attachment, lessonAttachments)
           : await callGemini(prompt, settings);
             } catch (aiErr) {
         if (isGeminiQuotaError(aiErr)) {
           console.warn('Gemini quota exceeded, using local fallback.', aiErr);
-          if (!hasText && isPdf) throw new Error('تعذر استخراج المعلومات من المرفق لأن حصة Gemini غير متاحة حاليًا. أعد المحاولة لاحقًا أو الصق نص الدرس في لوحة الإدارة.');
+          if (needsPdfRead) throw new Error('تعذر قراءة PDF لأن حصة Gemini غير متاحة حاليًا. استخرج نص المرفقات القديمة من لوحة الإدارة أو أعد المحاولة بعد توفر الحصة.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
         } else if (isGeminiInvalidArgumentError(aiErr)) {
           console.warn('Gemini could not read PDF, using safe fallback.', aiErr);
-          if (!hasText && isPdf) throw new Error('تعذر قراءة المرفق عبر Gemini. أعد المحاولة أو الصق نص الدرس في لوحة الإدارة ليتم استخراج أقسام منصة نور بدقة.');
+          if (needsPdfRead) throw new Error('تعذر قراءة PDF عبر Gemini. استخرج نص المرفقات القديمة من لوحة الإدارة أو استخدم ملف PDF نصي واضح.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = 'تعذر قراءة PDF عبر Gemini، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.';
         } else if (isRequestTimeoutError(aiErr)) {
           console.warn('Gemini took too long, using local fallback.', aiErr);
-          if (!hasText && isPdf) throw new Error('استغرق استخراج المعلومات من المرفق وقتًا طويلًا. أعد المحاولة أو الصق نص الدرس في لوحة الإدارة للحصول على أقسام منصة نور من المرفق.');
+          if (needsPdfRead) throw new Error('استغرقت قراءة PDF وقتًا طويلًا. استخرج نص المرفقات القديمة من لوحة الإدارة لتسريع التحضير.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = 'استغرق التوليد وقتًا طويلًا، فتم عرض تحضير احتياطي سريع بدل الانتظار.';
         } else if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(aiErr)) {
           console.warn('Gemini is under high demand.', aiErr);
-          if (!hasText && isPdf) throw new Error('خدمة Gemini عليها ضغط عالٍ حاليًا. جرّب مرة أخرى بعد قليل، أو اختر Gemini 2.5 Flash-Lite من لوحة الإدارة لتسريع قراءة المرفق.');
+          if (needsPdfRead) throw new Error('خدمة Gemini عليها ضغط عالٍ حاليًا ولا يمكن قراءة PDF الآن. جرّب لاحقًا أو استخرج نص المرفقات القديمة من لوحة الإدارة.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = 'خدمة Gemini مشغولة حاليًا، فتم عرض تحضير احتياطي سريع من النص المحفوظ.';
         } else if (typeof isGeminiPermissionError === 'function' && isGeminiPermissionError(aiErr)) {
           console.warn('Selected Gemini model is not allowed, using local fallback.', aiErr);
-          if (!hasText && isPdf) throw new Error('النموذج المختار لا يملك صلاحية قراءة المرفق. تم ضبط النموذج الافتراضي إلى Gemini 2.5 Flash، أعد المحاولة الآن.');
+          if (needsPdfRead) throw new Error('النموذج المختار لا يملك صلاحية قراءة PDF. اختر Gemini 2.5 Flash من إعدادات AI ثم أعد المحاولة.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = 'النموذج المختار غير متاح لحساب Gemini الحالي، فتم عرض تحضير احتياطي سريع.';
