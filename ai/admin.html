@@ -1105,9 +1105,7 @@
             <div class="field">
               <label>النموذج</label>
               <select id="ai-model">
-                <option value="gemini-3.6-flash">Gemini 3.7 Flash - الأقوى والأسرع للتوليد اليومي</option>
-                <option value="gemini-3.5-flash">Gemini 3.5 Flash - قوي ومستقر</option>
-                <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite - الأسرع للطلبات الكثيرة</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash - سريع ويدعم قراءة المرفقات</option>
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro - أعمق لكن أبطأ</option>
               </select>
             </div>
@@ -1668,15 +1666,30 @@ async function generateLesson() {
         result = (!hasText && isPdf)
           ? await callGeminiWithPdf(buildPdfLessonPrompt(lesson), settings, attachment, lessonAttachments)
           : await callGemini(prompt, settings);
-      } catch (aiErr) {
+            } catch (aiErr) {
         if (isGeminiQuotaError(aiErr)) {
           console.warn('Gemini quota exceeded, using local fallback.', aiErr);
+          if (!hasText && isPdf) throw new Error('تعذر استخراج المعلومات من المرفق لأن حصة Gemini غير متاحة حاليًا. أعد المحاولة لاحقًا أو الصق نص الدرس في لوحة الإدارة.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
         } else if (isGeminiInvalidArgumentError(aiErr)) {
           console.warn('Gemini could not read PDF, using safe fallback.', aiErr);
-          result = hasText ? localGenerateLesson(lesson, combinedAttachment) : fallbackParse('', lesson);
+          if (!hasText && isPdf) throw new Error('تعذر قراءة المرفق عبر Gemini. أعد المحاولة أو الصق نص الدرس في لوحة الإدارة ليتم استخراج أقسام منصة نور بدقة.');
+          result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
+          fallbackMessage = 'تعذر قراءة PDF عبر Gemini، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.';
+        } else if (isRequestTimeoutError(aiErr)) {
+          console.warn('Gemini took too long, using local fallback.', aiErr);
+          if (!hasText && isPdf) throw new Error('استغرق استخراج المعلومات من المرفق وقتًا طويلًا. أعد المحاولة أو الصق نص الدرس في لوحة الإدارة للحصول على أقسام منصة نور من المرفق.');
+          result = localGenerateLesson(lesson, combinedAttachment);
+          usedFallback = true;
+          fallbackMessage = 'استغرق التوليد وقتًا طويلًا، فتم عرض تحضير احتياطي سريع بدل الانتظار.';
+        } else if (typeof isGeminiPermissionError === 'function' && isGeminiPermissionError(aiErr)) {
+          console.warn('Selected Gemini model is not allowed, using local fallback.', aiErr);
+          if (!hasText && isPdf) throw new Error('النموذج المختار لا يملك صلاحية قراءة المرفق. تم ضبط النموذج الافتراضي إلى Gemini 2.5 Flash، أعد المحاولة الآن.');
+          result = localGenerateLesson(lesson, combinedAttachment);
+          usedFallback = true;
+          fallbackMessage = 'النموذج المختار غير متاح لحساب Gemini الحالي، فتم عرض تحضير احتياطي سريع.';
         } else {
           throw aiErr;
         }
@@ -1707,8 +1720,8 @@ function getAiSettings() {
     delete saved.apiKey;
     localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(saved));
   }
-  const preferredModel = 'gemini-3.6-flash';
-  const allowedModels = ['gemini-3.6-flash','gemini-3.6-flash','gemini-3.5-flash-lite','gemini-2.5-pro'];
+  const preferredModel = 'gemini-2.5-flash';
+  const allowedModels = ['gemini-2.5-flash','gemini-2.5-pro'];
   const model = allowedModels.includes(saved.model) ? saved.model : preferredModel;
   if (saved.model !== model) localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ ...saved, model }));
   return { model };
@@ -1717,7 +1730,7 @@ function getAiSettings() {
 function loadAiSettings() {
   const settings = getAiSettings();
   const modelInput = document.getElementById('ai-model');
-  if (modelInput) modelInput.value = Array.from(modelInput.options).some(option => option.value === settings.model) ? settings.model : 'gemini-3.6-flash';
+  if (modelInput) modelInput.value = Array.from(modelInput.options).some(option => option.value === settings.model) ? settings.model : 'gemini-2.5-flash';
   updateAiStatus();
 }
 
@@ -2483,6 +2496,10 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
+
+
+
 
 
 
