@@ -419,6 +419,30 @@
   @keyframes bounce { 0%,80%,100%{transform:scale(0.7);opacity:0.5} 40%{transform:scale(1);opacity:1} }
   .loading-text { font-size: 15px; font-weight: 600; color: var(--primary); }
   .loading-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .loading-progress-wrap {
+    width: min(360px, 100%);
+    height: 12px;
+    margin: 1.1rem auto 0.55rem;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(26,86,160,.10);
+    border: 1px solid rgba(26,86,160,.14);
+  }
+  .loading-progress-bar {
+    width: 0%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    transition: width .35s ease;
+  }
+  .loading-percent {
+    font-family: 'Cairo', sans-serif;
+    font-size: 24px;
+    font-weight: 900;
+    color: var(--primary-dark);
+    line-height: 1;
+    margin-top: .45rem;
+  }
 
   /* RESULTS */
   .results-area { display: none; }
@@ -1172,7 +1196,11 @@
     <div class="loading-state" id="loading-state">
       <div class="loader-circles"><span></span><span></span><span></span></div>
       <div class="loading-text">جاري تحليل المرفق وتوليد التحضير...</div>
-      <div class="loading-sub">الرجاء الانتظار، يتم قراءة المرفق فقط</div>
+      <div class="loading-progress-wrap" aria-hidden="true">
+        <div class="loading-progress-bar" id="loading-progress-bar"></div>
+      </div>
+      <div class="loading-percent" id="loading-percent">0%</div>
+      <div class="loading-sub" id="loading-sub">الرجاء الانتظار، يتم قراءة المرفق فقط</div>
     </div>
 
     <!-- RESULTS -->
@@ -1699,6 +1727,7 @@ async function generateLesson() {
   btn.innerHTML = '<span class="spin">⏳</span> جاري التوليد...';
   document.getElementById('loading-state').classList.add('show');
   document.getElementById('results-area').classList.remove('show');
+  startGenerationProgress();
   resetResultReveal();
 
   const combinedAttachment = {
@@ -1760,13 +1789,15 @@ async function generateLesson() {
     window.__currentLessonForNormalize = lesson;
     lastResult = normalizeAiResult(result);
     delete window.__currentLessonForNormalize;
+    finishGenerationProgress();
     showResults(lastResult, lesson);
     if (usedFallback) showToast(fallbackMessage);
   } catch (err) {
     console.error(err);
-    showError(formatAiError(err));
+    stopGenerationProgress();
+    showError(formatAiError(err) + ' يرجى الضغط على زر توليد التحضير مرة أخرى.');
   } finally {
-    document.getElementById('loading-state').classList.remove('show');
+    setTimeout(() => document.getElementById('loading-state').classList.remove('show'), 450);
     btn.disabled = false;
     btn.innerHTML = '<span>⚡</span> توليد التحضير';
   }
@@ -2070,6 +2101,49 @@ function fallbackParse(text, lesson = {}) {
   return { ...result, ...buildEnrichmentFallback(lesson) };
 }
 
+let generationProgressTimer = null;
+let generationProgressValue = 0;
+
+function setGenerationProgress(value, message = '') {
+  generationProgressValue = Math.max(0, Math.min(100, Math.round(value)));
+  const bar = document.getElementById('loading-progress-bar');
+  const percent = document.getElementById('loading-percent');
+  const sub = document.getElementById('loading-sub');
+  if (bar) bar.style.width = generationProgressValue + '%';
+  if (percent) percent.textContent = generationProgressValue + '%';
+  if (sub && message) sub.textContent = message;
+}
+
+function startGenerationProgress() {
+  clearInterval(generationProgressTimer);
+  setGenerationProgress(3, 'بدء قراءة المرفق وتجهيز الطلب...');
+  generationProgressTimer = setInterval(() => {
+    const next = generationProgressValue < 55
+      ? generationProgressValue + Math.ceil(Math.random() * 7)
+      : generationProgressValue < 82
+        ? generationProgressValue + Math.ceil(Math.random() * 4)
+        : generationProgressValue < 92
+          ? generationProgressValue + 1
+          : generationProgressValue;
+    const msg = next < 35
+      ? 'جاري تحليل المرفق...'
+      : next < 70
+        ? 'جاري توليد أقسام التحضير من المرفق...'
+        : 'اقتربنا من عرض النتيجة...';
+    setGenerationProgress(Math.min(next, 92), msg);
+  }, 650);
+}
+
+function finishGenerationProgress() {
+  clearInterval(generationProgressTimer);
+  setGenerationProgress(100, 'تم توليد التحضير، جاري عرض النتيجة...');
+}
+
+function stopGenerationProgress() {
+  clearInterval(generationProgressTimer);
+  setGenerationProgress(generationProgressValue || 0, 'حدث خطأ، يرجى إعادة توليد التحضير.');
+}
+
 function getRevealItems() {
   const titles = Array.from(document.querySelectorAll('.result-section-title'));
   const selectors = [
@@ -2210,6 +2284,7 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
 
 
 
