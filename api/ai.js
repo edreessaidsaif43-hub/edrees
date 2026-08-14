@@ -296,7 +296,11 @@ async function extractText(buffer, fileName, fileType, fileSize, fields, filePat
     return normalizeExtractedText(buffer.toString("utf8"));
   }
   if (lower.endsWith(".pdf") || String(fileType || "").includes("pdf")) {
-    const localText = extractPdfTextLocal(buffer);
+    let pdfBuffer = buffer;
+    if ((!Buffer.isBuffer(pdfBuffer) || !pdfBuffer.length) && filePath && Number(fileSize || 0) <= INLINE_GEMINI_LIMIT) {
+      pdfBuffer = await fetchBlobBuffer(filePath).catch(() => Buffer.alloc(0));
+    }
+    const localText = extractPdfTextLocal(pdfBuffer);
     if (localText.length >= 1500) return localText;
     const geminiText = await extractTextWithGemini(filePath, fileName, fileSize);
     if (geminiText.length > localText.length) return geminiText;
@@ -542,10 +546,14 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 55000) {
 }
 
 async function fetchBlobBase64(url) {
+  return (await fetchBlobBuffer(url)).toString("base64");
+}
+
+async function fetchBlobBuffer(url) {
   const response = await fetchWithTimeout(url, {}, 25000);
   if (!response.ok) throw new Error("ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© Ù…Ù„Ù PDF Ù…Ù† Ø§Ù„ØªØ®Ø²ÙŠÙ†.");
   const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer).toString("base64");
+  return Buffer.from(arrayBuffer);
 }
 
 async function uploadGeminiFile(apiKey, attachment) {
@@ -763,7 +771,7 @@ async function refreshAttachmentText(req, res) {
     }
     const attachment = attachmentRow(row);
     const text = await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
-    if (text && text.length > currentText.length) {
+    if (text && (text.length > currentText.length || (hasUsableExtractedText(text) && !hasUsableExtractedText(currentText)))) {
       await sql`UPDATE ai_attachments SET extracted_text = ${text} WHERE id = ${Number(row.id)};`;
       updated++;
       results.push({ id: Number(row.id), status: "updated", textLength: text.length });

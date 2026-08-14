@@ -1795,7 +1795,8 @@ async function generateLesson() {
   } catch (err) {
     console.error(err);
     stopGenerationProgress();
-    showError(formatAiError(err) + ' يرجى الضغط على زر توليد التحضير مرة أخرى.');
+    const retryHint = shouldSuggestGenerateRetry(err) ? ' يرجى الضغط على زر توليد التحضير مرة أخرى.' : '';
+    showError(formatAiError(err) + retryHint);
   } finally {
     setTimeout(() => document.getElementById('loading-state').classList.remove('show'), 450);
     btn.disabled = false;
@@ -1977,6 +1978,15 @@ function formatAiError(err) {
     return 'تعذر قراءة ملف PDF بالذكاء الاصطناعي. الصق نص الدرس في لوحة الإدارة لتحضير أدق، أو استخدم ملف PDF نصي واضح.';
   }
   return err?.message || 'حدث خطأ أثناء توليد التحضير، يرجى المحاولة مرة أخرى.';
+}
+
+function shouldSuggestGenerateRetry(err) {
+  const message = String(err?.message || err || '');
+  return !isGeminiQuotaError(err) &&
+    !message.includes('حصة Gemini') &&
+    !message.includes('لا يوجد نص درسي كاف') &&
+    !message.includes('الصق نص الدرس') &&
+    !message.includes('استخراج المعلومات من المرفق');
 }
 
 async function callGeminiWithPdf(prompt, settings, attachment, attachmentList = null) {
