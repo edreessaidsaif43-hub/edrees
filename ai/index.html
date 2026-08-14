@@ -1763,15 +1763,17 @@ function getAiSettings() {
     delete saved.apiKey;
     localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(saved));
   }
-  return {
-    model: saved.model || 'gemini-2.5-flash'
-  };
+  const preferredModel = 'gemini-3.7-flash';
+  const allowedModels = ['gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash-lite','gemini-2.5-pro'];
+  const model = allowedModels.includes(saved.model) ? saved.model : preferredModel;
+  if (saved.model !== model) localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ ...saved, model }));
+  return { model };
 }
 
 function loadAiSettings() {
   const settings = getAiSettings();
   const modelInput = document.getElementById('ai-model');
-  if (modelInput) modelInput.value = settings.model;
+  if (modelInput) modelInput.value = Array.from(modelInput.options).some(option => option.value === settings.model) ? settings.model : 'gemini-3.7-flash';
   updateAiStatus();
 }
 
@@ -2172,6 +2174,8 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
+
 
 
 
