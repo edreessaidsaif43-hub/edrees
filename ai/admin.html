@@ -1105,7 +1105,7 @@
             <div class="field">
               <label>النموذج</label>
               <select id="ai-model">
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash - سريع ويدعم قراءة المرفقات</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash - قوي ويدعم قراءة المرفقات</option>`r`n                <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite - أسرع عند الضغط العالي</option>
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro - أعمق لكن أبطأ</option>
               </select>
             </div>
@@ -1684,6 +1684,12 @@ async function generateLesson() {
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = 'استغرق التوليد وقتًا طويلًا، فتم عرض تحضير احتياطي سريع بدل الانتظار.';
+        } else if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(aiErr)) {
+          console.warn('Gemini is under high demand.', aiErr);
+          if (!hasText && isPdf) throw new Error('خدمة Gemini عليها ضغط عالٍ حاليًا. جرّب مرة أخرى بعد قليل، أو اختر Gemini 2.5 Flash-Lite من لوحة الإدارة لتسريع قراءة المرفق.');
+          result = localGenerateLesson(lesson, combinedAttachment);
+          usedFallback = true;
+          fallbackMessage = 'خدمة Gemini مشغولة حاليًا، فتم عرض تحضير احتياطي سريع من النص المحفوظ.';
         } else if (typeof isGeminiPermissionError === 'function' && isGeminiPermissionError(aiErr)) {
           console.warn('Selected Gemini model is not allowed, using local fallback.', aiErr);
           if (!hasText && isPdf) throw new Error('النموذج المختار لا يملك صلاحية قراءة المرفق. تم ضبط النموذج الافتراضي إلى Gemini 2.5 Flash، أعد المحاولة الآن.');
@@ -1721,7 +1727,7 @@ function getAiSettings() {
     localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(saved));
   }
   const preferredModel = 'gemini-2.5-flash';
-  const allowedModels = ['gemini-2.5-flash','gemini-2.5-pro'];
+  const allowedModels = ['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.5-pro'];
   const model = allowedModels.includes(saved.model) ? saved.model : preferredModel;
   if (saved.model !== model) localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ ...saved, model }));
   return { model };
@@ -2496,6 +2502,8 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
+
 
 
 

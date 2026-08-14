@@ -1736,6 +1736,12 @@ async function generateLesson() {
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = 'استغرق التوليد وقتًا طويلًا، فتم عرض تحضير احتياطي سريع بدل الانتظار.';
+        } else if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(aiErr)) {
+          console.warn('Gemini is under high demand.', aiErr);
+          if (!hasText && isPdf) throw new Error('خدمة Gemini عليها ضغط عالٍ حاليًا. جرّب مرة أخرى بعد قليل، أو اختر Gemini 2.5 Flash-Lite من لوحة الإدارة لتسريع قراءة المرفق.');
+          result = localGenerateLesson(lesson, combinedAttachment);
+          usedFallback = true;
+          fallbackMessage = 'خدمة Gemini مشغولة حاليًا، فتم عرض تحضير احتياطي سريع من النص المحفوظ.';
         } else if (typeof isGeminiPermissionError === 'function' && isGeminiPermissionError(aiErr)) {
           console.warn('Selected Gemini model is not allowed, using local fallback.', aiErr);
           if (!hasText && isPdf) throw new Error('النموذج المختار لا يملك صلاحية قراءة المرفق. تم ضبط النموذج الافتراضي إلى Gemini 2.5 Flash، أعد المحاولة الآن.');
@@ -1773,7 +1779,7 @@ function getAiSettings() {
     localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(saved));
   }
   const preferredModel = 'gemini-2.5-flash';
-  const allowedModels = ['gemini-2.5-flash','gemini-2.5-pro'];
+  const allowedModels = ['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.5-pro'];
   const model = allowedModels.includes(saved.model) ? saved.model : preferredModel;
   if (saved.model !== model) localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ ...saved, model }));
   return { model };
@@ -1886,6 +1892,16 @@ function isGeminiPermissionError(err) {
     message.includes('403');
 }
 
+function isGeminiHighDemandError(err) {
+  const message = String(err?.message || err || '').toLowerCase();
+  return message.includes('high demand') ||
+    message.includes('spikes in demand') ||
+    message.includes('try again later') ||
+    message.includes('overloaded') ||
+    message.includes('unavailable') ||
+    message.includes('503');
+}
+
 function isRequestTimeoutError(err) {
   const message = String(err?.message || err || '').toLowerCase();
   return err?.name === 'AbortError' || message === 'timeout' || message.includes('timeout') || message.includes('timed out') || message.includes('مهلة');
@@ -1894,6 +1910,9 @@ function isRequestTimeoutError(err) {
 function formatAiError(err) {
   if (isRequestTimeoutError(err)) {
     return 'استغرق التوليد وقتًا طويلًا. حاول مرة أخرى، أو الصق نص الدرس في لوحة الإدارة لتسريع التحضير.';
+  }
+  if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(err)) {
+    return 'خدمة Gemini عليها ضغط عالٍ مؤقتًا. حاول مرة أخرى بعد قليل أو اختر Gemini 2.5 Flash-Lite من لوحة الإدارة.';
   }
   if (isGeminiQuotaError(err)) {
     return 'انتهت حصة Gemini الحالية. جرّب تغيير النموذج إلى Gemini 2.5 Flash من إعدادات AI، أو فعّل الفوترة/انتظر تجدد الحصة.';
@@ -2191,6 +2210,7 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
 
 
 

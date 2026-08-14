@@ -485,10 +485,23 @@ async function generateGemini(req, res) {
     const data = await response.json().catch(() => ({}));
     return { response, data };
   }
+  function isHighDemandResponse(response, data) {
+    const message = String(data?.error?.message || "").toLowerCase();
+    return response.status === 503 ||
+      message.includes("high demand") ||
+      message.includes("spikes in demand") ||
+      message.includes("try again later") ||
+      message.includes("overloaded") ||
+      message.includes("unavailable");
+  }
   let { response, data } = await requestGemini(model);
   const deniedMessage = String(data?.error?.message || "").toLowerCase();
   if (!response.ok && response.status === 403 && model !== "gemini-2.5-flash" && deniedMessage.includes("permission")) {
     model = "gemini-2.5-flash";
+    ({ response, data } = await requestGemini(model));
+  }
+  if (!response.ok && isHighDemandResponse(response, data) && model !== "gemini-2.5-flash-lite") {
+    model = "gemini-2.5-flash-lite";
     ({ response, data } = await requestGemini(model));
   }
   if (!response.ok) {
@@ -577,6 +590,7 @@ export default async function handler(req, res) {
     return fail(res, status, String(error?.message || "Ø­Ø¯Ø« Ø®Ø·Ø£ ÙÙŠ Ø§Ù„Ø®Ø§Ø¯Ù…"), error?.error || "server_error");
   }
 }
+
 
 
 
