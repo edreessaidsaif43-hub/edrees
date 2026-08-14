@@ -423,6 +423,26 @@
   /* RESULTS */
   .results-area { display: none; }
   .results-area.show { display: block; }
+  .result-reveal-item {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(3px);
+    transition: opacity .38s ease, transform .38s ease, filter .38s ease;
+  }
+  .result-reveal-item.visible {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+  .section-body.generating::after {
+    content: ' جاري عرض النتيجة...';
+    display: inline-block;
+    margin-right: 6px;
+    color: var(--primary);
+    font-weight: 800;
+    animation: pulseText 1s ease-in-out infinite;
+  }
+  @keyframes pulseText { 0%,100%{opacity:.35} 50%{opacity:1} }
   .results-header {
     display: flex;
     align-items: center;
@@ -1679,6 +1699,7 @@ async function generateLesson() {
   btn.innerHTML = '<span class="spin">⏳</span> جاري التوليد...';
   document.getElementById('loading-state').classList.add('show');
   document.getElementById('results-area').classList.remove('show');
+  resetResultReveal();
 
   const combinedAttachment = {
     ...attachment,
@@ -2011,14 +2032,56 @@ function fallbackParse(text, lesson = {}) {
   return { ...result, ...buildEnrichmentFallback(lesson) };
 }
 
-function showResults(result, lesson) {
+function getRevealItems() {
+  const titles = Array.from(document.querySelectorAll('.result-section-title'));
+  const selectors = [
+    '.results-header',
+    '#card-objectives', '#card-intro', '#card-procedures', '#card-formative', '#card-closing', '#card-parent',
+    '#card-homework1', '#card-homework2', '#card-classroomGames', '#card-citizenship', '#card-motivation', '#card-attendance', '#card-boardPlan',
+    '.copy-all-area'
+  ];
+  const items = selectors.map(selector => document.querySelector(selector)).filter(Boolean);
+  if (titles[0]) items.splice(1, 0, titles[0]);
+  if (titles[1]) items.splice(8, 0, titles[1]);
+  return items;
+}
+
+function resetResultReveal() {
+  getRevealItems().forEach(item => {
+    item.classList.remove('visible');
+    item.classList.add('result-reveal-item');
+  });
   getResultKeys().forEach(k => {
     const el = document.getElementById('sec-' + k);
-    if (el) el.textContent = result[k] || 'غير مذكور في المرفق';
+    if (el) {
+      el.textContent = '';
+      el.classList.remove('generating');
+    }
   });
+}
+
+function showResults(result, lesson) {
+  const area = document.getElementById('results-area');
+  resetResultReveal();
   document.getElementById('results-meta').textContent = `${lesson.grade} • ${lesson.subject} • ${lesson.title}`;
-  document.getElementById('results-area').classList.add('show');
-  document.getElementById('results-area').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  area.classList.add('show');
+  area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const revealItems = getRevealItems();
+  revealItems.forEach((item, index) => {
+    setTimeout(() => item.classList.add('visible'), index * 170);
+  });
+
+  getResultKeys().forEach((k, index) => {
+    const el = document.getElementById('sec-' + k);
+    if (!el) return;
+    const value = result[k] || 'غير مذكور في المرفق';
+    el.classList.add('generating');
+    setTimeout(() => {
+      el.classList.remove('generating');
+      el.textContent = value;
+    }, 420 + index * 170);
+  });
 }
 
 function copySection(key, btn) {
@@ -2109,6 +2172,8 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
+
 
 
 
