@@ -1463,7 +1463,25 @@ function apiUrl(path, params = {}) {
 }
 
 async function apiRequest(path, options = {}) {
-  const response = await fetch(apiUrl(path), options);
+  const timeoutMs = Number(options.timeoutMs || 0);
+  const fetchOptions = { ...options };
+  delete fetchOptions.timeoutMs;
+  let timer = null;
+  if (timeoutMs > 0) {
+    const controller = new AbortController();
+    if (fetchOptions.signal) fetchOptions.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    fetchOptions.signal = controller.signal;
+    timer = setTimeout(() => controller.abort(), timeoutMs);
+  }
+  let response;
+  try {
+    response = await fetch(apiUrl(path), fetchOptions);
+  } catch (err) {
+    if (err?.name === 'AbortError') throw new Error('timeout');
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
   let data = null;
   try { data = await response.json(); } catch {}
   if (!response.ok) throw new Error(data?.message || data?.error || 'تعذر الاتصال بقاعدة البيانات');
@@ -1672,6 +1690,7 @@ async function generateLesson() {
   try {
     let result;
     let usedFallback = false;
+    let fallbackMessage = 'تعذر قراءة PDF عبر Gemini، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.';
 
     if (true) {
       try {
@@ -1687,6 +1706,12 @@ async function generateLesson() {
           console.warn('Gemini could not read PDF, using safe fallback.', aiErr);
           result = hasText ? localGenerateLesson(lesson, combinedAttachment) : fallbackParse('', lesson);
           usedFallback = true;
+          fallbackMessage = 'تعذر قراءة PDF عبر Gemini، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.';
+        } else if (isRequestTimeoutError(aiErr)) {
+          console.warn('Gemini took too long, using local fallback.', aiErr);
+          result = hasText ? localGenerateLesson(lesson, combinedAttachment) : fallbackParse('', lesson);
+          usedFallback = true;
+          fallbackMessage = 'استغرق التوليد وقتًا طويلًا، فتم عرض تحضير احتياطي سريع بدل الانتظار.';
         } else {
           throw aiErr;
         }
@@ -1700,7 +1725,7 @@ async function generateLesson() {
     lastResult = normalizeAiResult(result);
     delete window.__currentLessonForNormalize;
     showResults(lastResult, lesson);
-    if (usedFallback) showToast('تعذر قراءة PDF عبر Gemini، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.');
+    if (usedFallback) showToast(fallbackMessage);
   } catch (err) {
     console.error(err);
     showError(formatAiError(err));
@@ -1821,7 +1846,15 @@ function isGeminiInvalidArgumentError(err) {
     message.includes('غير صالح للقراءة');
 }
 
+function isRequestTimeoutError(err) {
+  const message = String(err?.message || err || '').toLowerCase();
+  return err?.name === 'AbortError' || message === 'timeout' || message.includes('timeout') || message.includes('timed out') || message.includes('مهلة');
+}
+
 function formatAiError(err) {
+  if (isRequestTimeoutError(err)) {
+    return 'استغرق التوليد وقتًا طويلًا. حاول مرة أخرى، أو الصق نص الدرس في لوحة الإدارة لتسريع التحضير.';
+  }
   if (isGeminiQuotaError(err)) {
     return 'انتهت حصة Gemini الحالية. جرّب تغيير النموذج إلى Gemini 2.5 Flash من إعدادات AI، أو فعّل الفوترة/انتظر تجدد الحصة.';
   }
@@ -1851,6 +1884,7 @@ async function callGeminiBackend(prompt, settings, extra = {}) {
   const data = await apiRequest('/api/gemini/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    timeoutMs: 65000,
     body: JSON.stringify({
       model: settings.model,
       prompt,
@@ -2075,6 +2109,9 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
+
+
 
 
 

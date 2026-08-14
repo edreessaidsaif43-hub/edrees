@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+﻿import { neon } from "@neondatabase/serverless";
 import { put } from "@vercel/blob";
 
 export const config = {
@@ -87,7 +87,7 @@ async function dbReady(res) {
     fail(
       res,
       500,
-      "قاعدة البيانات غير مضافة في Vercel. أضف Neon Postgres ثم اربط متغير DATABASE_URL أو AI_DATABASE_URL.",
+      "Ù‚Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ØºÙŠØ± Ù…Ø¶Ø§ÙØ© ÙÙŠ Vercel. Ø£Ø¶Ù Neon Postgres Ø«Ù… Ø§Ø±Ø¨Ø· Ù…ØªØºÙŠØ± DATABASE_URL Ø£Ùˆ AI_DATABASE_URL.",
       "db_not_configured"
     );
     return false;
@@ -122,7 +122,7 @@ async function readBodyBuffer(req, maxBytes = MAX_UPLOAD_SIZE) {
   for await (const chunk of req) {
     size += chunk.length;
     if (size > maxBytes) {
-      const err = new Error("حجم الملف أكبر من 600 MB");
+      const err = new Error("Ø­Ø¬Ù… Ø§Ù„Ù…Ù„Ù Ø£ÙƒØ¨Ø± Ù…Ù† 600 MB");
       err.statusCode = 413;
       throw err;
     }
@@ -154,14 +154,14 @@ function extractText(buffer, fileName, fileType, fileSize, fields) {
     return buffer.toString("utf8");
   }
   return [
-    `[محتوى المرفق: ${fileName}]`,
-    "تم حفظ الملف في قاعدة البيانات بنجاح.",
-    `حجم الملف: ${(fileSize / 1048576).toFixed(1)} MB`,
-    `الوحدة: ${fields?.unit || ""}`,
-    `المادة: ${fields?.subject || ""}`,
-    `الصف: ${fields?.grade || ""}`,
+    `[Ù…Ø­ØªÙˆÙ‰ Ø§Ù„Ù…Ø±ÙÙ‚: ${fileName}]`,
+    "ØªÙ… Ø­ÙØ¸ Ø§Ù„Ù…Ù„Ù ÙÙŠ Ù‚Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø¨Ù†Ø¬Ø§Ø­.",
+    `Ø­Ø¬Ù… Ø§Ù„Ù…Ù„Ù: ${(fileSize / 1048576).toFixed(1)} MB`,
+    `Ø§Ù„ÙˆØ­Ø¯Ø©: ${fields?.unit || ""}`,
+    `Ø§Ù„Ù…Ø§Ø¯Ø©: ${fields?.subject || ""}`,
+    `Ø§Ù„ØµÙ: ${fields?.grade || ""}`,
     "",
-    "ملاحظة: سيتم إرسال PDF إلى الذكاء الاصطناعي عند التوليد إذا كان مفتاح Gemini متوفرًا.",
+    "Ù…Ù„Ø§Ø­Ø¸Ø©: Ø³ÙŠØªÙ… Ø¥Ø±Ø³Ø§Ù„ PDF Ø¥Ù„Ù‰ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø¹Ù†Ø¯ Ø§Ù„ØªÙˆÙ„ÙŠØ¯ Ø¥Ø°Ø§ ÙƒØ§Ù† Ù…ÙØªØ§Ø­ Gemini Ù…ØªÙˆÙØ±Ù‹Ø§.",
   ].join("\n");
 }
 
@@ -169,7 +169,7 @@ function assertPdfUpload(upload) {
   const type = String(upload?.fileType || upload?.contentType || "").toLowerCase();
   const name = String(upload?.fileName || upload?.pathname || upload?.url || "").toLowerCase();
   if (type !== "application/pdf" && !name.endsWith(".pdf") && !name.includes(".pdf")) {
-    const err = new Error("يسمح برفع ملفات PDF فقط.");
+    const err = new Error("ÙŠØ³Ù…Ø­ Ø¨Ø±ÙØ¹ Ù…Ù„ÙØ§Øª PDF ÙÙ‚Ø·.");
     err.statusCode = 400;
     err.error = "pdf_only";
     throw err;
@@ -183,13 +183,13 @@ function receiveClientUpload(upload, meta) {
   const fileSize = Number(upload?.fileSize || upload?.size || 0);
   const filePath = String(upload?.filePath || upload?.url || "");
   if (!filePath || !/^https?:\/\//i.test(filePath)) {
-    const err = new Error("لم يرجع Vercel Blob رابط الملف بعد الرفع.");
+    const err = new Error("Ù„Ù… ÙŠØ±Ø¬Ø¹ Vercel Blob Ø±Ø§Ø¨Ø· Ø§Ù„Ù…Ù„Ù Ø¨Ø¹Ø¯ Ø§Ù„Ø±ÙØ¹.");
     err.statusCode = 400;
     err.error = "invalid_blob_upload";
     throw err;
   }
   if (fileSize > MAX_UPLOAD_SIZE) {
-    const err = new Error("حجم الملف أكبر من 600 MB");
+    const err = new Error("Ø­Ø¬Ù… Ø§Ù„Ù…Ù„Ù Ø£ÙƒØ¨Ø± Ù…Ù† 600 MB");
     err.statusCode = 413;
     throw err;
   }
@@ -205,14 +205,14 @@ function receiveClientUpload(upload, meta) {
 async function receiveUpload(req, meta) {
   const length = Number(req.headers["content-length"] || 0);
   if (length > MAX_UPLOAD_SIZE) {
-    const err = new Error("حجم الملف أكبر من 600 MB");
+    const err = new Error("Ø­Ø¬Ù… Ø§Ù„Ù…Ù„Ù Ø£ÙƒØ¨Ø± Ù…Ù† 600 MB");
     err.statusCode = 413;
     throw err;
   }
   const fileName = safeFileName(decodeURIComponent(String(req.headers["x-file-name"] || "upload.pdf")));
   const headerType = decodeURIComponent(String(req.headers["x-file-type"] || "application/pdf"));
   if (headerType.toLowerCase() !== "application/pdf" && !fileName.toLowerCase().endsWith(".pdf")) {
-    const err = new Error("يسمح برفع ملفات PDF فقط.");
+    const err = new Error("ÙŠØ³Ù…Ø­ Ø¨Ø±ÙØ¹ Ù…Ù„ÙØ§Øª PDF ÙÙ‚Ø·.");
     err.statusCode = 400;
     err.error = "pdf_only";
     throw err;
@@ -230,12 +230,12 @@ async function receiveUpload(req, meta) {
   } catch (error) {
     const message = String(error?.message || error);
     if (message.includes("BLOB_READ_WRITE_TOKEN")) {
-      const err = new Error("Vercel Blob غير مفعّل. أضف Blob Storage في Vercel أو متغير BLOB_READ_WRITE_TOKEN.");
+      const err = new Error("Vercel Blob ØºÙŠØ± Ù…ÙØ¹Ù‘Ù„. Ø£Ø¶Ù Blob Storage ÙÙŠ Vercel Ø£Ùˆ Ù…ØªØºÙŠØ± BLOB_READ_WRITE_TOKEN.");
       err.statusCode = 500;
       err.error = "blob_not_configured";
       throw err;
     }
-    const err = new Error("تعذر رفع الملف إلى Vercel Blob: " + message);
+    const err = new Error("ØªØ¹Ø°Ø± Ø±ÙØ¹ Ø§Ù„Ù…Ù„Ù Ø¥Ù„Ù‰ Vercel Blob: " + message);
     err.statusCode = 502;
     err.error = "blob_upload_failed";
     throw err;
@@ -301,7 +301,7 @@ async function saveSingle(req, res) {
   const body = isJson ? await readJsonBody(req) : {};
   const meta = body.meta && typeof body.meta === "object" ? body.meta : decodeMeta(req.query?.meta || "");
   for (const field of ["grade", "subject", "semester", "unit", "title"]) {
-    if (!meta[field]) return fail(res, 400, "يرجى تعبئة جميع الحقول المطلوبة", "invalid_payload");
+    if (!meta[field]) return fail(res, 400, "ÙŠØ±Ø¬Ù‰ ØªØ¹Ø¨Ø¦Ø© Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø­Ù‚ÙˆÙ„ Ø§Ù„Ù…Ø·Ù„ÙˆØ¨Ø©", "invalid_payload");
   }
   const upload = body.upload ? receiveClientUpload(body.upload, meta) : await receiveUpload(req, meta);
   const attachmentId = await insertAttachment(upload, `${meta.unit} - ${meta.title}`);
@@ -320,19 +320,19 @@ async function saveMulti(req, res) {
   const units = Array.isArray(meta.units) ? meta.units : [];
   if (units.length) {
     if (!meta.grade || !meta.subject || !meta.semester) {
-      return fail(res, 400, "يرجى تعبئة بيانات الصف والمادة والفصل", "invalid_payload");
+      return fail(res, 400, "ÙŠØ±Ø¬Ù‰ ØªØ¹Ø¨Ø¦Ø© Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„ØµÙ ÙˆØ§Ù„Ù…Ø§Ø¯Ø© ÙˆØ§Ù„ÙØµÙ„", "invalid_payload");
     }
     const sharedUploads = Array.isArray(meta.uploads) ? meta.uploads : [];
     if (!sharedUploads.length) {
-      return fail(res, 400, "يرجى رفع مرفق واحد على الأقل ليشمل كل الوحدات", "invalid_payload");
+      return fail(res, 400, "ÙŠØ±Ø¬Ù‰ Ø±ÙØ¹ Ù…Ø±ÙÙ‚ ÙˆØ§Ø­Ø¯ Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„ Ù„ÙŠØ´Ù…Ù„ ÙƒÙ„ Ø§Ù„ÙˆØ­Ø¯Ø§Øª", "invalid_payload");
     }
     const attachmentIds = [];
     for (const uploadPayload of sharedUploads) {
       const upload = receiveClientUpload(uploadPayload, {
-        unit: "مرفقات مشتركة",
+        unit: "Ù…Ø±ÙÙ‚Ø§Øª Ù…Ø´ØªØ±ÙƒØ©",
         extractedText: units.map((unitItem) => String(unitItem?.extractedText || "").trim()).filter(Boolean).join("\n\n")
       });
-      const attachmentId = await insertAttachment(upload, "مرفقات مشتركة لكل الوحدات");
+      const attachmentId = await insertAttachment(upload, "Ù…Ø±ÙÙ‚Ø§Øª Ù…Ø´ØªØ±ÙƒØ© Ù„ÙƒÙ„ Ø§Ù„ÙˆØ­Ø¯Ø§Øª");
       attachmentIds.push(attachmentId);
     }
     const primaryAttachmentId = attachmentIds[0];
@@ -342,7 +342,7 @@ async function saveMulti(req, res) {
       const unit = String(unitItem?.unit || "").trim();
       const titles = Array.isArray(unitItem?.titles) ? unitItem.titles.map((x) => String(x || "").trim()).filter(Boolean) : [];
       if (!unit || !titles.length) {
-        return fail(res, 400, "كل وحدة تحتاج اسم وحدة ودرس واحد على الأقل", "invalid_payload");
+        return fail(res, 400, "ÙƒÙ„ ÙˆØ­Ø¯Ø© ØªØ­ØªØ§Ø¬ Ø§Ø³Ù… ÙˆØ­Ø¯Ø© ÙˆØ¯Ø±Ø³ ÙˆØ§Ø­Ø¯ Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„", "invalid_payload");
       }
       for (const title of titles) {
         await sql`
@@ -357,7 +357,7 @@ async function saveMulti(req, res) {
 
   const titles = Array.isArray(meta.titles) ? meta.titles.map((x) => String(x || "").trim()).filter(Boolean) : [];
   if (!meta.grade || !meta.subject || !meta.semester || !meta.unit || !titles.length) {
-    return fail(res, 400, "يرجى تعبئة البيانات وإضافة درس واحد على الأقل", "invalid_payload");
+    return fail(res, 400, "ÙŠØ±Ø¬Ù‰ ØªØ¹Ø¨Ø¦Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ÙˆØ¥Ø¶Ø§ÙØ© Ø¯Ø±Ø³ ÙˆØ§Ø­Ø¯ Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„", "invalid_payload");
   }
   const upload = body.upload ? receiveClientUpload(body.upload, meta) : await receiveUpload(req, meta);
   const attachmentId = await insertAttachment(upload, meta.unit);
@@ -384,18 +384,35 @@ function isPdfAttachment(attachment) {
   return type.includes("pdf") || name.endsWith(".pdf") || path.includes(".pdf") || urlPath.endsWith(".pdf");
 }
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 55000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      const timeoutError = new Error("انتهت مهلة الاتصال بخدمة Gemini أو التخزين.");
+      timeoutError.code = "timeout";
+      throw timeoutError;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchBlobBase64(url) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error("تعذر قراءة ملف PDF من التخزين.");
+  const response = await fetchWithTimeout(url, {}, 25000);
+  if (!response.ok) throw new Error("ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© Ù…Ù„Ù PDF Ù…Ù† Ø§Ù„ØªØ®Ø²ÙŠÙ†.");
   const arrayBuffer = await response.arrayBuffer();
   return Buffer.from(arrayBuffer).toString("base64");
 }
 
 async function uploadGeminiFile(apiKey, attachment) {
-  const response = await fetch(attachment.filePath);
-  if (!response.ok) throw new Error("تعذر قراءة ملف PDF من التخزين.");
+  const response = await fetchWithTimeout(attachment.filePath, {}, 25000);
+  if (!response.ok) throw new Error("ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© Ù…Ù„Ù PDF Ù…Ù† Ø§Ù„ØªØ®Ø²ÙŠÙ†.");
   const bytes = Buffer.from(await response.arrayBuffer());
-  const start = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${encodeURIComponent(apiKey)}`, {
+  const start = await fetchWithTimeout(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: {
       "X-Goog-Upload-Protocol": "resumable",
@@ -405,11 +422,11 @@ async function uploadGeminiFile(apiKey, attachment) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ file: { display_name: attachment.fileName || "lesson.pdf" } }),
-  });
-  if (!start.ok) throw new Error("تعذر بدء رفع PDF إلى Gemini.");
+  }, 25000);
+  if (!start.ok) throw new Error("ØªØ¹Ø°Ø± Ø¨Ø¯Ø¡ Ø±ÙØ¹ PDF Ø¥Ù„Ù‰ Gemini.");
   const uploadUrl = start.headers.get("x-goog-upload-url");
-  if (!uploadUrl) throw new Error("لم يرجع Gemini رابط رفع الملف.");
-  const upload = await fetch(uploadUrl, {
+  if (!uploadUrl) throw new Error("Ù„Ù… ÙŠØ±Ø¬Ø¹ Gemini Ø±Ø§Ø¨Ø· Ø±ÙØ¹ Ø§Ù„Ù…Ù„Ù.");
+  const upload = await fetchWithTimeout(uploadUrl, {
     method: "POST",
     headers: {
       "Content-Length": String(bytes.length),
@@ -417,10 +434,10 @@ async function uploadGeminiFile(apiKey, attachment) {
       "X-Goog-Upload-Command": "upload, finalize",
     },
     body: bytes,
-  });
+  }, 35000);
   const data = await upload.json().catch(() => ({}));
-  if (!upload.ok) throw new Error(data?.error?.message || "تعذر رفع PDF إلى Gemini.");
-  if (!data?.file?.uri) throw new Error("لم يرجع Gemini رابط الملف بعد الرفع.");
+  if (!upload.ok) throw new Error(data?.error?.message || "ØªØ¹Ø°Ø± Ø±ÙØ¹ PDF Ø¥Ù„Ù‰ Gemini.");
+  if (!data?.file?.uri) throw new Error("Ù„Ù… ÙŠØ±Ø¬Ø¹ Gemini Ø±Ø§Ø¨Ø· Ø§Ù„Ù…Ù„Ù Ø¨Ø¹Ø¯ Ø§Ù„Ø±ÙØ¹.");
   return data.file.uri;
 }
 
@@ -430,14 +447,14 @@ async function generateGemini(req, res) {
   const apiKey = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
   const model = String(body.model || process.env.GEMINI_MODEL || "gemini-2.5-flash").trim();
   const prompt = String(body.prompt || "");
-  if (!apiKey) return fail(res, 400, "مفتاح Gemini غير موجود على الخادم. أضف GEMINI_API_KEY في Vercel ثم أعد النشر.", "missing_gemini_key");
-  if (!prompt) return fail(res, 400, "نص الطلب غير موجود.", "invalid_payload");
+  if (!apiKey) return fail(res, 400, "Ù…ÙØªØ§Ø­ Gemini ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯ Ø¹Ù„Ù‰ Ø§Ù„Ø®Ø§Ø¯Ù…. Ø£Ø¶Ù GEMINI_API_KEY ÙÙŠ Vercel Ø«Ù… Ø£Ø¹Ø¯ Ø§Ù„Ù†Ø´Ø±.", "missing_gemini_key");
+  if (!prompt) return fail(res, 400, "Ù†Øµ Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯.", "invalid_payload");
   const parts = [];
   if (body.includePdf && (body.attachmentId || Array.isArray(body.attachmentIds))) {
     const ids = Array.isArray(body.attachmentIds) && body.attachmentIds.length
       ? body.attachmentIds.map((id) => Number(id)).filter(Boolean)
       : [Number(body.attachmentId)].filter(Boolean);
-    if (!ids.length) return fail(res, 404, "لم يتم العثور على ملف PDF.", "not_found");
+    if (!ids.length) return fail(res, 404, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ù„Ù PDF.", "not_found");
     for (const id of ids.slice(0, 6)) {
       const attachment = await getAttachment(id);
       if (!attachment || !isPdfAttachment(attachment)) continue;
@@ -450,27 +467,27 @@ async function generateGemini(req, res) {
         parts.push({ inline_data: { mime_type: mimeType, data } });
       }
     }
-    if (!parts.length) return fail(res, 404, "لم يتم العثور على ملف PDF صالح.", "not_found");
+    if (!parts.length) return fail(res, 404, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ù„Ù PDF ØµØ§Ù„Ø­.", "not_found");
   }
   parts.push({ text: prompt });
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+  const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ role: "user", parts }],
       generationConfig: { temperature: body.includePdf ? 0.1 : 0.2, responseMimeType: "application/json" },
     }),
-  });
+  }, 55000);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = data?.error?.message || "تعذر الاتصال بخدمة Gemini.";
+    const message = data?.error?.message || "ØªØ¹Ø°Ø± Ø§Ù„Ø§ØªØµØ§Ù„ Ø¨Ø®Ø¯Ù…Ø© Gemini.";
     const friendly = /invalid argument/i.test(message)
-      ? "رفض Gemini الطلب لأن ملف PDF غير صالح أو لأن المرفق ليس PDF فعليًا. استخدم ملف PDF صالحًا أو الصق نص الدرس في لوحة الإدارة."
+      ? "Ø±ÙØ¶ Gemini Ø§Ù„Ø·Ù„Ø¨ Ù„Ø£Ù† Ù…Ù„Ù PDF ØºÙŠØ± ØµØ§Ù„Ø­ Ø£Ùˆ Ù„Ø£Ù† Ø§Ù„Ù…Ø±ÙÙ‚ Ù„ÙŠØ³ PDF ÙØ¹Ù„ÙŠÙ‹Ø§. Ø§Ø³ØªØ®Ø¯Ù… Ù…Ù„Ù PDF ØµØ§Ù„Ø­Ù‹Ø§ Ø£Ùˆ Ø§Ù„ØµÙ‚ Ù†Øµ Ø§Ù„Ø¯Ø±Ø³ ÙÙŠ Ù„ÙˆØ­Ø© Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©."
       : message;
     return fail(res, response.status || 500, friendly, "gemini_failed");
   }
   const text = (data?.candidates?.[0]?.content?.parts || []).map((part) => part.text || "").join("");
-  if (!text.trim()) return fail(res, 500, "لم يرجع Gemini نتيجة صالحة.", "empty_gemini_response");
+  if (!text.trim()) return fail(res, 500, "Ù„Ù… ÙŠØ±Ø¬Ø¹ Gemini Ù†ØªÙŠØ¬Ø© ØµØ§Ù„Ø­Ø©.", "empty_gemini_response");
   send(res, 200, { text });
 }
 
@@ -511,7 +528,7 @@ async function cleanupUnusedAttachments(attachmentIds = []) {
 async function updateOrDeleteLesson(req, res, id) {
   if (!(await dbReady(res))) return;
   const rows = await sql`SELECT * FROM ai_lessons WHERE id = ${id} LIMIT 1;`;
-  if (!rows?.[0]) return fail(res, 404, "لم يتم العثور على الدرس", "not_found");
+  if (!rows?.[0]) return fail(res, 404, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø§Ù„Ø¯Ø±Ø³", "not_found");
   if (req.method === "PUT") {
     const body = await readJsonBody(req);
     await sql`
@@ -529,7 +546,7 @@ async function updateOrDeleteLesson(req, res, id) {
     await cleanupUnusedAttachments(attachmentIds);
     return send(res, 200, { ok: true, deletedAttachmentIdsChecked: attachmentIds });
   }
-  return fail(res, 405, "طريقة الطلب غير مدعومة", "method_not_allowed");
+  return fail(res, 405, "Ø·Ø±ÙŠÙ‚Ø© Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…Ø¯Ø¹ÙˆÙ…Ø©", "method_not_allowed");
 }
 
 export default async function handler(req, res) {
@@ -542,9 +559,11 @@ export default async function handler(req, res) {
     if (req.method === "GET" && path === "/api/export") return await listData(res);
     const match = path.match(/^\/api\/lessons\/(\d+)$/);
     if (match) return await updateOrDeleteLesson(req, res, Number(match[1]));
-    return fail(res, 404, "المسار غير موجود", "not_found");
+    return fail(res, 404, "Ø§Ù„Ù…Ø³Ø§Ø± ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯", "not_found");
   } catch (error) {
     const status = Number(error?.statusCode || 500);
-    return fail(res, status, String(error?.message || "حدث خطأ في الخادم"), error?.error || "server_error");
+    return fail(res, status, String(error?.message || "Ø­Ø¯Ø« Ø®Ø·Ø£ ÙÙŠ Ø§Ù„Ø®Ø§Ø¯Ù…"), error?.error || "server_error");
   }
 }
+
+
