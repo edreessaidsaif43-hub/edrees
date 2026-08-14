@@ -1080,6 +1080,15 @@
         </div>
       </div>
 
+      <div class="form-card" style="margin-top:1rem;margin-bottom:1rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;font-weight:600;">
+            لتحويل ملفات PDF القديمة إلى نص محفوظ في قاعدة البيانات وتسريع التوليد، اضغط الزر التالي وكرر العملية إذا بقيت مرفقات.
+          </div>
+          <button class="btn btn-primary" id="extract-attachments-btn-main" onclick="extractStoredAttachmentText()">📄 استخراج نص المرفقات القديمة</button>
+        </div>
+      </div>
+
       <!-- TABS -->
       <div class="admin-tabs-bar">
         <button class="admin-tab active" onclick="switchAdminTab('single')">➕ إضافة درس واحد</button>
@@ -1762,10 +1771,12 @@ function updateAiStatus() {
 }
 
 async function extractStoredAttachmentText() {
-  const btn = document.getElementById('extract-attachments-btn');
-  const oldText = btn ? btn.textContent : '';
+  const buttons = ['extract-attachments-btn-main', 'extract-attachments-btn']
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+  const oldTexts = new Map(buttons.map(btn => [btn, btn.textContent]));
   try {
-    if (btn) { btn.disabled = true; btn.textContent = 'جاري استخراج النص...'; }
+    buttons.forEach(btn => { btn.disabled = true; btn.textContent = 'جاري استخراج النص...'; });
     const data = await apiRequest('/api/attachments/extract-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1778,7 +1789,10 @@ async function extractStoredAttachmentText() {
   } catch (err) {
     showToast((err?.message || 'تعذر استخراج نص المرفقات') + ' حاول مرة أخرى.', true);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = oldText || '📄 استخراج نص المرفقات القديمة'; }
+    buttons.forEach(btn => {
+      btn.disabled = false;
+      btn.textContent = oldTexts.get(btn) || '📄 استخراج نص المرفقات القديمة';
+    });
   }
 }
 
