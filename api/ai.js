@@ -445,7 +445,7 @@ async function generateGemini(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readJsonBody(req);
   const apiKey = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
-  const model = String(body.model || process.env.GEMINI_MODEL || "gemini-3.7-flash").trim();
+  let model = String(body.model || process.env.GEMINI_MODEL || "gemini-3.6-flash").trim();
   const prompt = String(body.prompt || "");
   if (!apiKey) return fail(res, 400, "Ù…ÙØªØ§Ø­ Gemini ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯ Ø¹Ù„Ù‰ Ø§Ù„Ø®Ø§Ø¯Ù…. Ø£Ø¶Ù GEMINI_API_KEY ÙÙŠ Vercel Ø«Ù… Ø£Ø¹Ø¯ Ø§Ù„Ù†Ø´Ø±.", "missing_gemini_key");
   if (!prompt) return fail(res, 400, "Ù†Øµ Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯.", "invalid_payload");
@@ -470,18 +470,27 @@ async function generateGemini(req, res) {
     if (!parts.length) return fail(res, 404, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ù„Ù PDF ØµØ§Ù„Ø­.", "not_found");
   }
   parts.push({ text: prompt });
-  const generationConfig = model.startsWith("gemini-3")
-    ? { responseMimeType: "application/json" }
-    : { temperature: body.includePdf ? 0.1 : 0.2, responseMimeType: "application/json" };
-  const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts }],
-      generationConfig,
-    }),
-  }, 55000);
-  const data = await response.json().catch(() => ({}));
+  async function requestGemini(selectedModel) {
+    const selectedGenerationConfig = selectedModel.startsWith("gemini-3")
+      ? { responseMimeType: "application/json" }
+      : { temperature: body.includePdf ? 0.1 : 0.2, responseMimeType: "application/json" };
+    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts }],
+        generationConfig: selectedGenerationConfig,
+      }),
+    }, 55000);
+    const data = await response.json().catch(() => ({}));
+    return { response, data };
+  }
+  let { response, data } = await requestGemini(model);
+  const deniedMessage = String(data?.error?.message || "").toLowerCase();
+  if (!response.ok && response.status === 403 && model !== "gemini-3.6-flash" && deniedMessage.includes("permission")) {
+    model = "gemini-3.6-flash";
+    ({ response, data } = await requestGemini(model));
+  }
   if (!response.ok) {
     const message = data?.error?.message || "ØªØ¹Ø°Ø± Ø§Ù„Ø§ØªØµØ§Ù„ Ø¨Ø®Ø¯Ù…Ø© Gemini.";
     const friendly = /invalid argument/i.test(message)
@@ -568,6 +577,8 @@ export default async function handler(req, res) {
     return fail(res, status, String(error?.message || "Ø­Ø¯Ø« Ø®Ø·Ø£ ÙÙŠ Ø§Ù„Ø®Ø§Ø¯Ù…"), error?.error || "server_error");
   }
 }
+
+
 
 
 

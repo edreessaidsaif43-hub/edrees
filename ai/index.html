@@ -1733,6 +1733,11 @@ async function generateLesson() {
           result = hasText ? localGenerateLesson(lesson, combinedAttachment) : fallbackParse('', lesson);
           usedFallback = true;
           fallbackMessage = 'استغرق التوليد وقتًا طويلًا، فتم عرض تحضير احتياطي سريع بدل الانتظار.';
+        } else if (isGeminiPermissionError(aiErr)) {
+          console.warn('Selected Gemini model is not allowed, using local fallback.', aiErr);
+          result = hasText ? localGenerateLesson(lesson, combinedAttachment) : fallbackParse('', lesson);
+          usedFallback = true;
+          fallbackMessage = 'النموذج المختار غير متاح لحساب Gemini الحالي، فتم عرض تحضير احتياطي سريع.';
         } else {
           throw aiErr;
         }
@@ -1763,8 +1768,8 @@ function getAiSettings() {
     delete saved.apiKey;
     localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(saved));
   }
-  const preferredModel = 'gemini-3.7-flash';
-  const allowedModels = ['gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash-lite','gemini-2.5-pro'];
+  const preferredModel = 'gemini-3.6-flash';
+  const allowedModels = ['gemini-3.6-flash','gemini-3.6-flash','gemini-3.5-flash-lite','gemini-2.5-pro'];
   const model = allowedModels.includes(saved.model) ? saved.model : preferredModel;
   if (saved.model !== model) localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ ...saved, model }));
   return { model };
@@ -1773,7 +1778,7 @@ function getAiSettings() {
 function loadAiSettings() {
   const settings = getAiSettings();
   const modelInput = document.getElementById('ai-model');
-  if (modelInput) modelInput.value = Array.from(modelInput.options).some(option => option.value === settings.model) ? settings.model : 'gemini-3.7-flash';
+  if (modelInput) modelInput.value = Array.from(modelInput.options).some(option => option.value === settings.model) ? settings.model : 'gemini-3.6-flash';
   updateAiStatus();
 }
 
@@ -1867,6 +1872,14 @@ function isGeminiInvalidArgumentError(err) {
     message.includes('ملف pdf غير صالح') ||
     message.includes('المرفق ليس pdf') ||
     message.includes('غير صالح للقراءة');
+}
+
+function isGeminiPermissionError(err) {
+  const message = String(err?.message || err || '').toLowerCase();
+  return message.includes('permission') ||
+    message.includes('caller does not have permission') ||
+    message.includes('permission_denied') ||
+    message.includes('403');
 }
 
 function isRequestTimeoutError(err) {
@@ -2174,6 +2187,8 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
+
 
 
 
