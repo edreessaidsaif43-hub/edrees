@@ -1732,7 +1732,7 @@ async function generateLesson() {
 
   const combinedAttachment = {
     ...attachment,
-    extractedText: lessonAttachments.map(a => a.extractedText || '').filter(Boolean).join('\n\n'),
+    extractedText: lessonAttachments.map(getUsableAttachmentText).filter(Boolean).join('\n\n'),
     fileName: lessonAttachments.map(a => a.fileName || '').filter(Boolean).join('، ')
   };
   const prompt = buildLessonPrompt(lesson, combinedAttachment);
@@ -2033,6 +2033,8 @@ function hasUsableAttachmentText(attachment) {
   const text = String(attachment?.extractedText || '').trim();
   if (text.length < 40) return false;
   const weakMarkers = [
+    '[PDF saved:',
+    'The file was saved, but text extraction did not return readable text',
     'تم حفظ الملف في قاعدة البيانات بنجاح',
     'ملاحظة: لاستخراج نصوص PDF',
     'ملاحظة: سيتم إرسال PDF إلى الذكاء الاصطناعي',
@@ -2040,6 +2042,10 @@ function hasUsableAttachmentText(attachment) {
     'النص سيُستخرج عند التوليد'
   ];
   return !weakMarkers.some(marker => text.includes(marker)) || text.length > 500;
+}
+
+function getUsableAttachmentText(attachment) {
+  return hasUsableAttachmentText(attachment) ? String(attachment?.extractedText || '').trim() : '';
 }
 
 function pickLessonText(text, title) {

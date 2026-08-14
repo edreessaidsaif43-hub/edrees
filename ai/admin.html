@@ -1113,6 +1113,7 @@
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px;">
             <button class="btn btn-primary" onclick="saveAiSettings()">💾 حفظ النموذج</button>
             <button class="btn btn-outline" onclick="clearAiSettings()">استعادة النموذج الافتراضي</button>
+            <button class="btn btn-outline" id="extract-attachments-btn" onclick="extractStoredAttachmentText()">📄 استخراج نص المرفقات القديمة</button>
             <span class="ai-status" id="ai-status">Gemini محمي من الخادم</span>
           </div>
           <div class="settings-note">
@@ -1652,7 +1653,7 @@ async function generateLesson() {
 
   const combinedAttachment = {
     ...attachment,
-    extractedText: lessonAttachments.map(a => a.extractedText || '').filter(Boolean).join('\n\n'),
+    extractedText: lessonAttachments.map(getUsableAttachmentText).filter(Boolean).join('\n\n'),
     fileName: lessonAttachments.map(a => a.fileName || '').filter(Boolean).join('، ')
   };
   const prompt = buildLessonPrompt(lesson, combinedAttachment);
@@ -1758,6 +1759,27 @@ function updateAiStatus() {
   if (!status) return;
   const settings = getAiSettings();
   status.textContent = `Gemini محمي من الخادم عبر ${settings.model}`;
+}
+
+async function extractStoredAttachmentText() {
+  const btn = document.getElementById('extract-attachments-btn');
+  const oldText = btn ? btn.textContent : '';
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = 'جاري استخراج النص...'; }
+    const data = await apiRequest('/api/attachments/extract-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit: 20 })
+    });
+    await loadDatabase();
+    const remaining = Number(data.remaining || 0);
+    const tail = remaining ? ` بقي ${remaining} مرفق، اضغط الزر مرة أخرى لإكمال الدفعة التالية.` : ' اكتمل تحويل المرفقات المحتاجة للنص.';
+    showToast(`تم فحص ${data.scanned || 0} مرفق وتحديث ${data.updated || 0} نص.${tail}`);
+  } catch (err) {
+    showToast((err?.message || 'تعذر استخراج نص المرفقات') + ' حاول مرة أخرى.', true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = oldText || '📄 استخراج نص المرفقات القديمة'; }
+  }
 }
 
 function buildPdfLessonPrompt(lesson) {
@@ -1920,6 +1942,8 @@ function hasUsableAttachmentText(attachment) {
   const text = String(attachment?.extractedText || '').trim();
   if (text.length < 40) return false;
   const weakMarkers = [
+    '[PDF saved:',
+    'The file was saved, but text extraction did not return readable text',
     'تم حفظ الملف في قاعدة البيانات بنجاح',
     'ملاحظة: لاستخراج نصوص PDF',
     'ملاحظة: سيتم إرسال PDF إلى الذكاء الاصطناعي',
@@ -1927,6 +1951,10 @@ function hasUsableAttachmentText(attachment) {
     'النص سيُستخرج عند التوليد'
   ];
   return !weakMarkers.some(marker => text.includes(marker)) || text.length > 500;
+}
+
+function getUsableAttachmentText(attachment) {
+  return hasUsableAttachmentText(attachment) ? String(attachment?.extractedText || '').trim() : '';
 }
 
 function pickLessonText(text, title) {
@@ -2502,6 +2530,7 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
 
 
 

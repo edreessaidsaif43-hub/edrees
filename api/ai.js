@@ -1,5 +1,6 @@
 ﻿import { neon } from "@neondatabase/serverless";
 import { put } from "@vercel/blob";
+import { inflateSync } from "node:zlib";
 
 export const config = {
   api: {
@@ -71,6 +72,10 @@ async function ensureSchema() {
       await sql`
         ALTER TABLE ai_lessons
         ADD COLUMN IF NOT EXISTS attachment_ids JSONB NOT NULL DEFAULT '[]'::jsonb;
+      `;
+      await sql`
+        ALTER TABLE ai_attachments
+        ADD COLUMN IF NOT EXISTS extracted_text TEXT NOT NULL DEFAULT '';
       `;
       await sql`
         CREATE INDEX IF NOT EXISTS idx_ai_lessons_created_at
@@ -146,23 +151,158 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function extractText(buffer, fileName, fileType, fileSize, fields) {
-  const manualText = String(fields?.extractedText || "").trim();
+function normalizeExtractedText(text) {
+  return String(text || "")
+    .replace(/\r/g, "\n")
+    .replace(/[\t\f\v]+/g, " ")
+    .replace(/[ \u00a0]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 180000);
+}
+
+function decodePdfLiteralString(raw) {
+  let out = "";
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch !== "\\") { out += ch; continue; }
+    const next = raw[++i] || "";
+    if (next === "n") out += "\n";
+    else if (next === "r") out += "\r";
+    else if (next === "t") out += "\t";
+    else if (next === "b") out += "\b";
+    else if (next === "f") out += "\f";
+    else if (next === "(" || next === ")" || next === "\\") out += next;
+    else if (/[0-7]/.test(next)) {
+      let oct = next;
+      for (let j = 0; j < 2 && /[0-7]/.test(raw[i + 1] || ""); j++) oct += raw[++i];
+      out += String.fromCharCode(parseInt(oct, 8));
+    } else {
+      out += next;
+    }
+  }
+  return out;
+}
+
+function decodePdfHexString(hex) {
+  const clean = String(hex || "").replace(/[^0-9a-fA-F]/g, "");
+  if (!clean) return "";
+  const bytes = Buffer.from(clean.length % 2 ? clean + "0" : clean, "hex");
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) return bytes.slice(2).toString("utf16le").replace(/(.)(.)/g, "$2$1");
+  if (bytes.length >= 4 && bytes.filter((_, i) => i % 2 === 0 && bytes[i] === 0).length > bytes.length / 4) return bytes.swap16().toString("utf16le");
+  return bytes.toString("utf8");
+}
+
+function extractPdfStringsFromContent(content) {
+  const chunks = [];
+  const text = String(content || "");
+  const btBlocks = text.match(/BT[\s\S]*?ET/g) || [text];
+  for (const block of btBlocks) {
+    const literalRe = /\((?:\\.|[^\\)])*\)\s*(?:Tj|'|"|\]|TJ)?/g;
+    let m;
+    while ((m = literalRe.exec(block))) chunks.push(decodePdfLiteralString(m[0].replace(/^\(|\)\s*(?:Tj|'|"|\]|TJ)?$/g, "")));
+    const hexRe = /<([0-9a-fA-F\s]+)>\s*(?:Tj|\]|TJ)?/g;
+    while ((m = hexRe.exec(block))) chunks.push(decodePdfHexString(m[1]));
+  }
+  return chunks.join(" ");
+}
+
+function extractPdfTextLocal(buffer) {
+  if (!Buffer.isBuffer(buffer) || !buffer.length) return "";
+  const pdf = buffer.toString("latin1");
+  const chunks = [];
+  const streamRe = /(<<[\s\S]*?>>)\s*stream\r?\n?([\s\S]*?)\r?\n?endstream/g;
+  let m;
+  while ((m = streamRe.exec(pdf))) {
+    const dict = m[1];
+    let stream = Buffer.from(m[2], "latin1");
+    try {
+      if (/FlateDecode/.test(dict)) stream = inflateSync(stream);
+      chunks.push(extractPdfStringsFromContent(stream.toString("utf8")));
+    } catch {
+      chunks.push(extractPdfStringsFromContent(m[2]));
+    }
+  }
+  chunks.push(extractPdfStringsFromContent(pdf));
+  return normalizeExtractedText(chunks.join("\n"));
+}
+
+async function extractTextWithGemini(filePath, fileName, fileSize) {
+  const apiKey = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
+  if (!apiKey || !filePath) return "";
+  try {
+    const parts = [{
+      text: [
+        "استخرج النص الكامل من ملف PDF بدقة عالية جدًا.",
+        "أعد النص فقط بدون تلخيص وبدون JSON وبدون شرح إضافي.",
+        "حافظ على العربية، العناوين، أرقام الصفحات إن وجدت، ترتيب الفقرات، والجداول بصيغة نصية واضحة.",
+        "لا تحذف الأسئلة أو التعليمات أو الأمثلة، واكتب النص غير الواضح بأقرب قراءة ممكنة."
+      ].join("\n")
+    }];
+    if (Number(fileSize || 0) > INLINE_GEMINI_LIMIT) {
+      const uri = await uploadGeminiFile(apiKey, { filePath, fileName, fileSize, fileType: "application/pdf" });
+      parts.push({ file_data: { mime_type: "application/pdf", file_uri: uri } });
+    } else {
+      const data = await fetchBlobBase64(filePath);
+      parts.push({ inline_data: { mime_type: "application/pdf", data } });
+    }
+    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${encodeURIComponent(apiKey)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts }],
+        generationConfig: { temperature: 0 }
+      }),
+    }, 85000);
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) return "";
+    return normalizeExtractedText((result?.candidates?.[0]?.content?.parts || []).map((part) => part.text || "").join("\n"));
+  } catch {
+    return "";
+  }
+}
+
+function attachmentPlaceholder(fileName, fileSize, fields) {
+  return [
+    `[PDF saved: ${fileName}]`,
+    "The file was saved, but text extraction did not return readable text.",
+    `File size: ${(Number(fileSize || 0) / 1048576).toFixed(1)} MB`,
+    `Unit: ${fields?.unit || ""}`,
+    `Subject: ${fields?.subject || ""}`,
+    `Grade: ${fields?.grade || ""}`,
+  ].join("\n");
+}
+
+function hasUsableExtractedText(text) {
+  const value = normalizeExtractedText(text);
+  if (value.length < 40) return false;
+  const weakMarkers = [
+    "[PDF saved:",
+    "The file was saved, but text extraction did not return readable text",
+    "تم حفظ الملف في قاعدة البيانات بنجاح",
+    "ملاحظة: لاستخراج نصوص PDF",
+    "ملاحظة: سيتم إرسال PDF إلى الذكاء الاصطناعي",
+    "عنوان الملف:",
+    "النص سيُستخرج عند التوليد"
+  ];
+  return !weakMarkers.some((marker) => value.includes(marker)) || value.length > 500;
+}
+
+async function extractText(buffer, fileName, fileType, fileSize, fields, filePath = "") {
+  const manualText = normalizeExtractedText(fields?.extractedText || "");
   if (manualText) return manualText;
   const lower = String(fileName || "").toLowerCase();
   if ((lower.endsWith(".txt") || String(fileType || "").startsWith("text/")) && fileSize <= 2 * 1024 * 1024) {
-    return buffer.toString("utf8");
+    return normalizeExtractedText(buffer.toString("utf8"));
   }
-  return [
-    `[Ù…Ø­ØªÙˆÙ‰ Ø§Ù„Ù…Ø±ÙÙ‚: ${fileName}]`,
-    "ØªÙ… Ø­ÙØ¸ Ø§Ù„Ù…Ù„Ù ÙÙŠ Ù‚Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø¨Ù†Ø¬Ø§Ø­.",
-    `Ø­Ø¬Ù… Ø§Ù„Ù…Ù„Ù: ${(fileSize / 1048576).toFixed(1)} MB`,
-    `Ø§Ù„ÙˆØ­Ø¯Ø©: ${fields?.unit || ""}`,
-    `Ø§Ù„Ù…Ø§Ø¯Ø©: ${fields?.subject || ""}`,
-    `Ø§Ù„ØµÙ: ${fields?.grade || ""}`,
-    "",
-    "Ù…Ù„Ø§Ø­Ø¸Ø©: Ø³ÙŠØªÙ… Ø¥Ø±Ø³Ø§Ù„ PDF Ø¥Ù„Ù‰ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø¹Ù†Ø¯ Ø§Ù„ØªÙˆÙ„ÙŠØ¯ Ø¥Ø°Ø§ ÙƒØ§Ù† Ù…ÙØªØ§Ø­ Gemini Ù…ØªÙˆÙØ±Ù‹Ø§.",
-  ].join("\n");
+  if (lower.endsWith(".pdf") || String(fileType || "").includes("pdf")) {
+    const localText = extractPdfTextLocal(buffer);
+    if (localText.length >= 1500) return localText;
+    const geminiText = await extractTextWithGemini(filePath, fileName, fileSize);
+    if (geminiText.length > localText.length) return geminiText;
+    if (localText) return localText;
+  }
+  return attachmentPlaceholder(fileName, fileSize, fields);
 }
 
 function assertPdfUpload(upload) {
@@ -176,7 +316,7 @@ function assertPdfUpload(upload) {
   }
 }
 
-function receiveClientUpload(upload, meta) {
+async function receiveClientUpload(upload, meta) {
   assertPdfUpload(upload);
   const fileName = safeFileName(upload?.fileName || upload?.pathname?.split("/").pop() || "upload.pdf");
   const fileType = "application/pdf";
@@ -198,7 +338,7 @@ function receiveClientUpload(upload, meta) {
     fileType,
     fileSize,
     filePath,
-    extractedText: extractText(Buffer.alloc(0), fileName, fileType, fileSize, meta),
+    extractedText: await extractText(Buffer.alloc(0), fileName, fileType, fileSize, meta, filePath),
   };
 }
 
@@ -245,7 +385,7 @@ async function receiveUpload(req, meta) {
     fileType,
     fileSize: buffer.length,
     filePath: blob.url,
-    extractedText: extractText(buffer, fileName, fileType, buffer.length, meta),
+    extractedText: await extractText(buffer, fileName, fileType, buffer.length, meta, blob.url),
   };
 }
 
@@ -303,7 +443,7 @@ async function saveSingle(req, res) {
   for (const field of ["grade", "subject", "semester", "unit", "title"]) {
     if (!meta[field]) return fail(res, 400, "ÙŠØ±Ø¬Ù‰ ØªØ¹Ø¨Ø¦Ø© Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø­Ù‚ÙˆÙ„ Ø§Ù„Ù…Ø·Ù„ÙˆØ¨Ø©", "invalid_payload");
   }
-  const upload = body.upload ? receiveClientUpload(body.upload, meta) : await receiveUpload(req, meta);
+  const upload = body.upload ? await receiveClientUpload(body.upload, meta) : await receiveUpload(req, meta);
   const attachmentId = await insertAttachment(upload, `${meta.unit} - ${meta.title}`);
   await sql`
     INSERT INTO ai_lessons (grade, subject, semester, unit, title, attachment_id, attachment_ids, status, created_at)
@@ -328,7 +468,7 @@ async function saveMulti(req, res) {
     }
     const attachmentIds = [];
     for (const uploadPayload of sharedUploads) {
-      const upload = receiveClientUpload(uploadPayload, {
+      const upload = await receiveClientUpload(uploadPayload, {
         unit: "Ù…Ø±ÙÙ‚Ø§Øª Ù…Ø´ØªØ±ÙƒØ©",
         extractedText: units.map((unitItem) => String(unitItem?.extractedText || "").trim()).filter(Boolean).join("\n\n")
       });
@@ -359,7 +499,7 @@ async function saveMulti(req, res) {
   if (!meta.grade || !meta.subject || !meta.semester || !meta.unit || !titles.length) {
     return fail(res, 400, "ÙŠØ±Ø¬Ù‰ ØªØ¹Ø¨Ø¦Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ÙˆØ¥Ø¶Ø§ÙØ© Ø¯Ø±Ø³ ÙˆØ§Ø­Ø¯ Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„", "invalid_payload");
   }
-  const upload = body.upload ? receiveClientUpload(body.upload, meta) : await receiveUpload(req, meta);
+  const upload = body.upload ? await receiveClientUpload(body.upload, meta) : await receiveUpload(req, meta);
   const attachmentId = await insertAttachment(upload, meta.unit);
   for (const title of titles) {
     await sql`
@@ -450,6 +590,7 @@ async function generateGemini(req, res) {
   if (!apiKey) return fail(res, 400, "Ù…ÙØªØ§Ø­ Gemini ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯ Ø¹Ù„Ù‰ Ø§Ù„Ø®Ø§Ø¯Ù…. Ø£Ø¶Ù GEMINI_API_KEY ÙÙŠ Vercel Ø«Ù… Ø£Ø¹Ø¯ Ø§Ù„Ù†Ø´Ø±.", "missing_gemini_key");
   if (!prompt) return fail(res, 400, "Ù†Øµ Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯.", "invalid_payload");
   const parts = [];
+  let usesPdfAttachment = false;
   if (body.includePdf && (body.attachmentId || Array.isArray(body.attachmentIds))) {
     const ids = Array.isArray(body.attachmentIds) && body.attachmentIds.length
       ? body.attachmentIds.map((id) => Number(id)).filter(Boolean)
@@ -458,6 +599,16 @@ async function generateGemini(req, res) {
     for (const id of ids.slice(0, 6)) {
       const attachment = await getAttachment(id);
       if (!attachment || !isPdfAttachment(attachment)) continue;
+      const savedText = normalizeExtractedText(attachment.extractedText || "");
+      if (hasUsableExtractedText(savedText)) {
+        parts.push({
+          text: [
+            `النص المستخرج والمحفوظ من المرفق (${attachment.fileName || "PDF"}):`,
+            savedText
+          ].join("\n")
+        });
+        continue;
+      }
       const mimeType = "application/pdf";
       if (Number(attachment.fileSize || 0) > INLINE_GEMINI_LIMIT) {
         const fileUri = await uploadGeminiFile(apiKey, attachment);
@@ -466,6 +617,7 @@ async function generateGemini(req, res) {
         const data = await fetchBlobBase64(attachment.filePath);
         parts.push({ inline_data: { mime_type: mimeType, data } });
       }
+      usesPdfAttachment = true;
     }
     if (!parts.length) return fail(res, 404, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ù„Ù PDF ØµØ§Ù„Ø­.", "not_found");
   }
@@ -473,7 +625,7 @@ async function generateGemini(req, res) {
   async function requestGemini(selectedModel) {
     const selectedGenerationConfig = selectedModel.startsWith("gemini-3")
       ? { responseMimeType: "application/json" }
-      : { temperature: body.includePdf ? 0.1 : 0.2, responseMimeType: "application/json" };
+      : { temperature: usesPdfAttachment ? 0.1 : 0.2, responseMimeType: "application/json" };
     const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -550,6 +702,79 @@ async function cleanupUnusedAttachments(attachmentIds = []) {
   }
 }
 
+function needsTextRefresh(text = "") {
+  const value = String(text || "").trim();
+  if (!value) return true;
+  return value.includes("[PDF saved:") ||
+    value.includes("[Ù…Ø­ØªÙˆÙ‰ Ø§Ù„Ù…Ø±ÙÙ‚") ||
+    value.includes("The file was saved, but text extraction did not return readable text") ||
+    value.length < 500;
+}
+
+async function refreshAttachmentText(req, res) {
+  if (!(await dbReady(res))) return;
+  const body = req.method === "POST" ? await readJsonBody(req).catch(() => ({})) : {};
+  const force = !!body.force;
+  const limit = Math.max(1, Math.min(20, Number(body.limit || 8)));
+  const rows = force
+    ? await sql`
+        SELECT * FROM ai_attachments
+        WHERE file_path <> ''
+        ORDER BY created_at DESC, id DESC
+        LIMIT ${limit};
+      `
+    : await sql`
+        SELECT * FROM ai_attachments
+        WHERE file_path <> ''
+          AND (
+            extracted_text IS NULL
+            OR btrim(extracted_text) = ''
+            OR char_length(extracted_text) < 500
+            OR extracted_text LIKE '%[PDF saved:%'
+            OR extracted_text LIKE '%The file was saved, but text extraction did not return readable text%'
+            OR extracted_text LIKE '%النص سيُستخرج عند التوليد%'
+          )
+        ORDER BY created_at ASC, id ASC
+        LIMIT ${limit};
+      `;
+  const remainingBeforeRows = force ? [{ count: 0 }] : await sql`
+    SELECT COUNT(*)::int AS count
+    FROM ai_attachments
+    WHERE file_path <> ''
+      AND (
+        extracted_text IS NULL
+        OR btrim(extracted_text) = ''
+        OR char_length(extracted_text) < 500
+        OR extracted_text LIKE '%[PDF saved:%'
+        OR extracted_text LIKE '%The file was saved, but text extraction did not return readable text%'
+        OR extracted_text LIKE '%النص سيُستخرج عند التوليد%'
+      );
+  `;
+  const remainingBefore = Number(remainingBeforeRows?.[0]?.count || 0);
+  let scanned = 0;
+  let updated = 0;
+  const results = [];
+  for (const row of rows || []) {
+    scanned++;
+    const currentText = row.extracted_text || "";
+    if (!force && !needsTextRefresh(currentText)) {
+      results.push({ id: Number(row.id), status: "skipped", textLength: currentText.length });
+      continue;
+    }
+    const attachment = attachmentRow(row);
+    const text = await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
+    if (text && text.length > currentText.length) {
+      await sql`UPDATE ai_attachments SET extracted_text = ${text} WHERE id = ${Number(row.id)};`;
+      updated++;
+      results.push({ id: Number(row.id), status: "updated", textLength: text.length });
+    } else {
+      results.push({ id: Number(row.id), status: "unchanged", textLength: currentText.length });
+    }
+  }
+  const remaining = force ? 0 : Math.max(0, remainingBefore - scanned);
+  send(res, 200, { ok: true, scanned, updated, remaining, results });
+}
+
 async function updateOrDeleteLesson(req, res, id) {
   if (!(await dbReady(res))) return;
   const rows = await sql`SELECT * FROM ai_lessons WHERE id = ${id} LIMIT 1;`;
@@ -581,6 +806,7 @@ export default async function handler(req, res) {
     if (req.method === "POST" && path === "/api/lessons/single") return await saveSingle(req, res);
     if (req.method === "POST" && path === "/api/lessons/multi") return await saveMulti(req, res);
     if (req.method === "POST" && path === "/api/gemini/generate") return await generateGemini(req, res);
+    if (req.method === "POST" && path === "/api/attachments/extract-text") return await refreshAttachmentText(req, res);
     if (req.method === "GET" && path === "/api/export") return await listData(res);
     const match = path.match(/^\/api\/lessons\/(\d+)$/);
     if (match) return await updateOrDeleteLesson(req, res, Number(match[1]));
@@ -590,6 +816,9 @@ export default async function handler(req, res) {
     return fail(res, status, String(error?.message || "Ø­Ø¯Ø« Ø®Ø·Ø£ ÙÙŠ Ø§Ù„Ø®Ø§Ø¯Ù…"), error?.error || "server_error");
   }
 }
+
+
+
 
 
 
