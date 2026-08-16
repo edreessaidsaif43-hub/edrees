@@ -1687,8 +1687,10 @@ async function generateLesson() {
           ? await callGeminiWithPdf(buildPdfLessonPrompt(lesson), settings, attachment, lessonAttachments)
           : await callGemini(prompt, settings);
             } catch (aiErr) {
+        const canUseTextFallback = hasUsableAttachmentText(combinedAttachment);
         if (isGeminiQuotaError(aiErr)) {
           console.warn('Gemini quota exceeded, using local fallback.', aiErr);
+          if (needsPdfRead && !canUseTextFallback) throw new Error('تعذر قراءة PDF لأن حصة Gemini غير متاحة حاليًا، ولا يوجد نص محفوظ لهذا المرفق. من لوحة الإدارة اضغط "استخراج نص المرفقات القديمة"، أو أعد المحاولة بعد توفر الحصة.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = needsPdfRead
@@ -1696,6 +1698,7 @@ async function generateLesson() {
             : fallbackMessage;
         } else if (isGeminiInvalidArgumentError(aiErr)) {
           console.warn('Gemini could not read PDF, using safe fallback.', aiErr);
+          if (needsPdfRead && !canUseTextFallback) throw new Error('تعذر قراءة PDF ولم يتم العثور على نص محفوظ صالح. استخدم ملف PDF نصيًا واضحًا أو استخرج النص من لوحة الإدارة.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = needsPdfRead
@@ -1703,6 +1706,7 @@ async function generateLesson() {
             : 'تعذر قراءة PDF عبر Gemini، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.';
         } else if (isRequestTimeoutError(aiErr)) {
           console.warn('Gemini took too long, using local fallback.', aiErr);
+          if (needsPdfRead && !canUseTextFallback) throw new Error('استغرقت قراءة PDF وقتًا طويلًا ولا يوجد نص محفوظ صالح. استخرج نص المرفقات القديمة من لوحة الإدارة لتسريع التحضير.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = needsPdfRead
@@ -1710,6 +1714,7 @@ async function generateLesson() {
             : 'استغرق التوليد وقتًا طويلًا، فتم عرض تحضير احتياطي سريع بدل الانتظار.';
         } else if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(aiErr)) {
           console.warn('Gemini is under high demand.', aiErr);
+          if (needsPdfRead && !canUseTextFallback) throw new Error('خدمة Gemini مشغولة حاليًا ولا يوجد نص محفوظ لهذا المرفق. استخرج النص من لوحة الإدارة أو جرّب لاحقًا.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = needsPdfRead
@@ -1717,6 +1722,7 @@ async function generateLesson() {
             : 'خدمة Gemini مشغولة حاليًا، فتم عرض تحضير احتياطي سريع من النص المحفوظ.';
         } else if (typeof isGeminiPermissionError === 'function' && isGeminiPermissionError(aiErr)) {
           console.warn('Selected Gemini model is not allowed, using local fallback.', aiErr);
+          if (needsPdfRead && !canUseTextFallback) throw new Error('النموذج المختار لا يملك صلاحية قراءة PDF ولا يوجد نص محفوظ صالح. اختر Gemini 2.5 Flash من إعدادات AI أو استخرج النص من لوحة الإدارة.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = needsPdfRead
