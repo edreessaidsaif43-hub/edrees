@@ -617,6 +617,17 @@ async function generateGemini(req, res) {
         });
         continue;
       }
+      const extractedNow = await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
+      if (hasUsableExtractedText(extractedNow)) {
+        await sql`UPDATE ai_attachments SET extracted_text = ${extractedNow} WHERE id = ${Number(attachment.id)};`;
+        parts.push({
+          text: [
+            `النص المستخرج والمحفوظ من المرفق (${attachment.fileName || "PDF"}):`,
+            extractedNow
+          ].join("\n")
+        });
+        continue;
+      }
       const mimeType = "application/pdf";
       if (Number(attachment.fileSize || 0) > INLINE_GEMINI_LIMIT) {
         const fileUri = await uploadGeminiFile(apiKey, attachment);
@@ -641,7 +652,7 @@ async function generateGemini(req, res) {
         contents: [{ role: "user", parts }],
         generationConfig: selectedGenerationConfig,
       }),
-    }, 55000);
+    }, usesPdfAttachment ? 85000 : 55000);
     const data = await response.json().catch(() => ({}));
     return { response, data };
   }
