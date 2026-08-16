@@ -1122,8 +1122,10 @@
             <div class="field">
               <label>النموذج</label>
               <select id="ai-model">
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash - قوي ويدعم قراءة المرفقات</option>`r`n                <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite - أسرع عند الضغط العالي</option>
-                <option value="gemini-2.5-pro">Gemini 2.5 Pro - أعمق لكن أبطأ</option>
+                <option value="gemini-3.6-flash">Gemini 3.6 Flash - الافتراضي الأحدث</option>
+                <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite - أسرع لقراءة PDF</option>
+                <option value="gemini-3.5-flash">Gemini 3.5 Flash - قوي ومتوازن</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash - خيار احتياطي مستقر</option>
               </select>
             </div>
           </div>
@@ -1758,8 +1760,9 @@ function getAiSettings() {
     delete saved.apiKey;
     localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(saved));
   }
-  const preferredModel = 'gemini-2.5-flash';
-  const allowedModels = ['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.5-pro'];
+  if (saved.model === 'gemini-2.5-flash-lite') saved.model = 'gemini-3.1-flash-lite';
+  const preferredModel = 'gemini-3.6-flash';
+  const allowedModels = ['gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-flash-lite','gemini-2.5-flash','gemini-2.5-pro'];
   const model = allowedModels.includes(saved.model) ? saved.model : preferredModel;
   if (saved.model !== model) localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ ...saved, model }));
   return { model };
@@ -1768,7 +1771,7 @@ function getAiSettings() {
 function loadAiSettings() {
   const settings = getAiSettings();
   const modelInput = document.getElementById('ai-model');
-  if (modelInput) modelInput.value = Array.from(modelInput.options).some(option => option.value === settings.model) ? settings.model : 'gemini-2.5-flash';
+  if (modelInput) modelInput.value = Array.from(modelInput.options).some(option => option.value === settings.model) ? settings.model : 'gemini-3.6-flash';
   updateAiStatus();
 }
 
@@ -1929,7 +1932,7 @@ async function callGeminiWithPdf(prompt, settings, attachment, attachmentList = 
   const pdfAttachments = (attachmentList || [attachment]).filter(isPdfAttachment);
   const ids = pdfAttachments.map(item => item?.id).filter(Boolean);
   if (!ids.length) throw new Error('لا يوجد ملف PDF صالح ضمن المرفقات المشتركة. استخدم PDF أو الصق نص الدرس في لوحة الإدارة.');
-  return callGeminiBackend(prompt, { ...settings, model: 'gemini-2.5-flash-lite' }, { attachmentId: ids[0], attachmentIds: ids, includePdf: true });
+  return callGeminiBackend(prompt, { ...settings, model: 'gemini-3.1-flash-lite' }, { attachmentId: ids[0], attachmentIds: ids, includePdf: true });
 }
 
 async function callGemini(prompt, settings) {

@@ -1823,8 +1823,9 @@ function getAiSettings() {
     delete saved.apiKey;
     localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(saved));
   }
-  const preferredModel = 'gemini-2.5-flash';
-  const allowedModels = ['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.5-pro'];
+  if (saved.model === 'gemini-2.5-flash-lite') saved.model = 'gemini-3.1-flash-lite';
+  const preferredModel = 'gemini-3.6-flash';
+  const allowedModels = ['gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-flash-lite','gemini-2.5-flash','gemini-2.5-pro'];
   const model = allowedModels.includes(saved.model) ? saved.model : preferredModel;
   if (saved.model !== model) localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ ...saved, model }));
   return { model };
@@ -1833,7 +1834,7 @@ function getAiSettings() {
 function loadAiSettings() {
   const settings = getAiSettings();
   const modelInput = document.getElementById('ai-model');
-  if (modelInput) modelInput.value = Array.from(modelInput.options).some(option => option.value === settings.model) ? settings.model : 'gemini-2.5-flash';
+  if (modelInput) modelInput.value = Array.from(modelInput.options).some(option => option.value === settings.model) ? settings.model : 'gemini-3.6-flash';
   updateAiStatus();
 }
 
@@ -1954,6 +1955,8 @@ function isGeminiPermissionError(err) {
   return message.includes('permission') ||
     message.includes('caller does not have permission') ||
     message.includes('permission_denied') ||
+    message.includes('no longer available') ||
+    message.includes('not found') ||
     message.includes('403');
 }
 
@@ -1977,7 +1980,7 @@ function formatAiError(err) {
     return 'استغرق التوليد وقتًا طويلًا. حاول مرة أخرى، أو الصق نص الدرس في لوحة الإدارة لتسريع التحضير.';
   }
   if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(err)) {
-    return 'خدمة Gemini عليها ضغط عالٍ مؤقتًا. حاول مرة أخرى بعد قليل أو اختر Gemini 2.5 Flash-Lite من لوحة الإدارة.';
+    return 'خدمة Gemini عليها ضغط عالٍ مؤقتًا. حاول مرة أخرى بعد قليل أو اختر Gemini 3.1 Flash-Lite من لوحة الإدارة.';
   }
   if (isGeminiQuotaError(err)) {
     return 'انتهت حصة Gemini الحالية. جرّب تغيير النموذج إلى Gemini 2.5 Flash من إعدادات AI، أو فعّل الفوترة/انتظر تجدد الحصة.';
@@ -2002,6 +2005,8 @@ function shouldSuggestGenerateRetry(err) {
     !message.includes('نص محفوظ صالح') &&
     !message.includes('قراءة PDF') &&
     !message.includes('استغرقت قراءة') &&
+    !message.includes('no longer available') &&
+    !message.includes('not found') &&
     !message.includes('الصق نص الدرس') &&
     !message.includes('استخراج المعلومات من المرفق');
 }
@@ -2010,7 +2015,7 @@ async function callGeminiWithPdf(prompt, settings, attachment, attachmentList = 
   const pdfAttachments = (attachmentList || [attachment]).filter(isPdfAttachment);
   const ids = pdfAttachments.map(item => item?.id).filter(Boolean);
   if (!ids.length) throw new Error('لا يوجد ملف PDF صالح ضمن المرفقات المشتركة. استخدم PDF أو الصق نص الدرس في لوحة الإدارة.');
-  return callGeminiBackend(prompt, { ...settings, model: 'gemini-2.5-flash-lite' }, { attachmentId: ids[0], attachmentIds: ids, includePdf: true });
+  return callGeminiBackend(prompt, { ...settings, model: 'gemini-3.1-flash-lite' }, { attachmentId: ids[0], attachmentIds: ids, includePdf: true });
 }
 
 async function callGemini(prompt, settings) {

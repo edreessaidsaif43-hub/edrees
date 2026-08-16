@@ -256,7 +256,7 @@ async function extractTextWithGemini(filePath, fileName, fileSize) {
       const data = await fetchBlobBase64(filePath);
       parts.push({ inline_data: { mime_type: "application/pdf", data } });
     }
-    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${encodeURIComponent(apiKey)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -603,7 +603,8 @@ async function generateGemini(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readJsonBody(req);
   const apiKey = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
-  let model = String(body.model || process.env.GEMINI_MODEL || "gemini-2.5-flash").trim();
+  let model = String(body.model || process.env.GEMINI_MODEL || "gemini-3.6-flash").trim();
+  if (model === "gemini-2.5-flash-lite") model = "gemini-3.1-flash-lite";
   const prompt = String(body.prompt || "");
   if (!apiKey) return fail(res, 400, "Ù…ÙØªØ§Ø­ Gemini ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯ Ø¹Ù„Ù‰ Ø§Ù„Ø®Ø§Ø¯Ù…. Ø£Ø¶Ù GEMINI_API_KEY ÙÙŠ Vercel Ø«Ù… Ø£Ø¹Ø¯ Ø§Ù„Ù†Ø´Ø±.", "missing_gemini_key");
   if (!prompt) return fail(res, 400, "Ù†Øµ Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯.", "invalid_payload");
@@ -677,12 +678,17 @@ async function generateGemini(req, res) {
   }
   let { response, data } = await requestGemini(model);
   const deniedMessage = String(data?.error?.message || "").toLowerCase();
-  if (!response.ok && response.status === 403 && model !== "gemini-2.5-flash" && deniedMessage.includes("permission")) {
-    model = "gemini-2.5-flash";
+  if (!response.ok && response.status === 403 && model !== "gemini-3.6-flash" && deniedMessage.includes("permission")) {
+    model = "gemini-3.6-flash";
     ({ response, data } = await requestGemini(model));
   }
-  if (!response.ok && isHighDemandResponse(response, data) && model !== "gemini-2.5-flash-lite") {
-    model = "gemini-2.5-flash-lite";
+  if (!response.ok && isHighDemandResponse(response, data) && model !== "gemini-3.1-flash-lite") {
+    model = "gemini-3.1-flash-lite";
+    ({ response, data } = await requestGemini(model));
+  }
+  const notAvailableMessage = String(data?.error?.message || "").toLowerCase();
+  if (!response.ok && model !== "gemini-2.5-flash" && (response.status === 404 || notAvailableMessage.includes("no longer available") || notAvailableMessage.includes("not found"))) {
+    model = "gemini-2.5-flash";
     ({ response, data } = await requestGemini(model));
   }
   if (!response.ok) {
