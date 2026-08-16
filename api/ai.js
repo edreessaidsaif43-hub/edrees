@@ -13,6 +13,7 @@ const MAX_UPLOAD_SIZE = 629145600;
 const INLINE_GEMINI_LIMIT = 20 * 1024 * 1024;
 const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
 const OCR_GEMINI_TIMEOUT_MS = 9 * 60 * 1000;
+const LARGE_FILE_TRANSFER_TIMEOUT_MS = 6 * 60 * 1000;
 
 const DATABASE_URL =
   process.env.AI_DATABASE_URL ||
@@ -261,7 +262,7 @@ async function extractTextWithGemini(filePath, fileName, fileSize) {
       const data = await fetchBlobBase64(filePath);
       parts.push({ inline_data: { mime_type: "application/pdf", data } });
     }
-    const models = ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
+    const models = ["gemini-2.5-pro", "gemini-3.6-flash", "gemini-2.5-flash", "gemini-3.1-flash-lite"];
     for (const model of models) {
       const body = {
         contents: [{ role: "user", parts }],
@@ -593,7 +594,9 @@ async function fetchBlobBuffer(url, timeoutMs = 25000) {
 }
 
 async function uploadGeminiFile(apiKey, attachment) {
-  const response = await fetchWithTimeout(attachment.filePath, {}, 25000);
+  const fileSize = Number(attachment.fileSize || 0);
+  const transferTimeout = fileSize > INLINE_GEMINI_LIMIT ? LARGE_FILE_TRANSFER_TIMEOUT_MS : 25000;
+  const response = await fetchWithTimeout(attachment.filePath, {}, transferTimeout);
   if (!response.ok) throw new Error("ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© Ù…Ù„Ù PDF Ù…Ù† Ø§Ù„ØªØ®Ø²ÙŠÙ†.");
   const bytes = Buffer.from(await response.arrayBuffer());
   const start = await fetchWithTimeout(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${encodeURIComponent(apiKey)}`, {
@@ -606,7 +609,7 @@ async function uploadGeminiFile(apiKey, attachment) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ file: { display_name: attachment.fileName || "lesson.pdf" } }),
-  }, 25000);
+  }, transferTimeout);
   if (!start.ok) throw new Error("ØªØ¹Ø°Ø± Ø¨Ø¯Ø¡ Ø±ÙØ¹ PDF Ø¥Ù„Ù‰ Gemini.");
   const uploadUrl = start.headers.get("x-goog-upload-url");
   if (!uploadUrl) throw new Error("Ù„Ù… ÙŠØ±Ø¬Ø¹ Gemini Ø±Ø§Ø¨Ø· Ø±ÙØ¹ Ø§Ù„Ù…Ù„Ù.");
@@ -618,7 +621,7 @@ async function uploadGeminiFile(apiKey, attachment) {
       "X-Goog-Upload-Command": "upload, finalize",
     },
     body: bytes,
-  }, 35000);
+  }, transferTimeout);
   const data = await upload.json().catch(() => ({}));
   if (!upload.ok) throw new Error(data?.error?.message || "ØªØ¹Ø°Ø± Ø±ÙØ¹ PDF Ø¥Ù„Ù‰ Gemini.");
   if (!data?.file?.uri) throw new Error("Ù„Ù… ÙŠØ±Ø¬Ø¹ Gemini Ø±Ø§Ø¨Ø· Ø§Ù„Ù…Ù„Ù Ø¨Ø¹Ø¯ Ø§Ù„Ø±ÙØ¹.");

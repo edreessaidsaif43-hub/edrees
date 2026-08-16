@@ -1518,13 +1518,13 @@ async function apiRequest(path, options = {}) {
 function formatAdminRequestError(err, context = '') {
   const message = String(err?.message || err || '');
   if (message === 'timeout' || message.includes('timeout') || message.includes('مهلة')) {
-    return 'استغرقت العملية وقتًا طويلًا. قد تكون الاستضافة أوقفت طلب OCR قبل اكتماله؛ حدّث القائمة للتأكد، أو جرّب ملفًا أصغر.';
+    return 'استغرقت عملية OCR وقتًا طويلًا. تم تمديد مهلة الملفات الكبيرة، لكن إذا توقفت مجددًا فقد تكون الاستضافة أوقفت الطلب قبل اكتماله.';
   }
   if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('Load failed')) {
     return 'انقطع الاتصال أثناء العملية. قد تكون المهمة اكتملت جزئيًا؛ حدّث القائمة للتأكد ثم أعد المحاولة إذا بقيت الحالة كما هي.';
   }
   if (message.includes('تعذر الاتصال بقاعدة البيانات') && context === 'ocr') {
-    return 'تعذر استلام رد الخادم بعد مدة طويلة. حدّث القائمة للتأكد هل تم حفظ النص، وإذا لم يتغير شيء فأعد المحاولة بملف PDF أصغر.';
+    return 'تعذر استلام رد الخادم بعد مدة طويلة. حدّث القائمة للتأكد هل تم حفظ النص، وإذا لم يتغير شيء فأعد المحاولة؛ الملفات حتى 80MB مدعومة الآن.';
   }
   return message || 'حدث خطأ أثناء تنفيذ الطلب.';
 }
