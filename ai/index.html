@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -1864,7 +1864,7 @@ function getAiSettings() {
   }
   if (saved.model === 'gemini-2.5-flash-lite') saved.model = 'gemini-3.1-flash-lite';
   const preferredModel = 'gemini-3.6-flash';
-  const allowedModels = ['gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-flash-lite','gemini-2.5-flash','gemini-2.5-pro'];
+  const allowedModels = ['gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-flash-lite','gemini-2.5-flash'];
   const model = allowedModels.includes(saved.model) ? saved.model : preferredModel;
   if (saved.model !== model) localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ ...saved, model }));
   return { model };

@@ -1,4 +1,4 @@
-﻿import { neon } from "@neondatabase/serverless";
+import { neon } from "@neondatabase/serverless";
 import { put } from "@vercel/blob";
 import { inflateSync } from "node:zlib";
 
@@ -266,7 +266,7 @@ async function extractTextWithGemini(filePath, fileName, fileSize) {
       const data = await fetchBlobBase64(filePath);
       parts.push({ inline_data: { mime_type: "application/pdf", data } });
     }
-    const models = ["gemini-2.5-pro", "gemini-3.6-flash", "gemini-2.5-flash", "gemini-3.1-flash-lite"];
+    const models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.6-flash", "gemini-2.5-flash"];
     for (const model of models) {
       const body = {
         contents: [{ role: "user", parts }],
@@ -652,10 +652,10 @@ async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageE
     "إذا كانت الصفحات صورًا ممسوحة، نفّذ OCR بصريًا واستخرج النصوص العربية والإنجليزية والأرقام والجداول.",
     "أعد النص فقط بدون تلخيص وبدون JSON. إذا لم توجد هذه الصفحات أو لا يوجد نص اكتب: END_OF_DOCUMENT."
   ].join("\n");
-  const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${encodeURIComponent(apiKey)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.6-flash", "gemini-2.5-flash"];
+  let lastError = null;
+  for (const model of models) {
+    const body = {
       contents: [{
         role: "user",
         parts: [
@@ -663,12 +663,22 @@ async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageE
           { file_data: { mime_type: "application/pdf", file_uri: fileUri } }
         ]
       }],
-      generationConfig: { temperature: 0 }
-    }),
-  }, 4 * 60 * 1000);
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result?.error?.message || "تعذر استخراج صفحات PDF.");
-  return normalizeExtractedText((result?.candidates?.[0]?.content?.parts || []).map((part) => part.text || "").join("\n"));
+      ...(model.startsWith("gemini-3") ? {} : { generationConfig: { temperature: 0 } })
+    };
+    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }, 4 * 60 * 1000);
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      lastError = result?.error?.message || "تعذر استخراج صفحات PDF.";
+      continue;
+    }
+    const extracted = normalizeExtractedText((result?.candidates?.[0]?.content?.parts || []).map((part) => part.text || "").join("\n"));
+    if (hasUsableExtractedText(extracted) || extracted.includes("END_OF_DOCUMENT")) return extracted;
+  }
+  throw new Error(lastError || "تعذر استخراج صفحات PDF.");
 }
 
 async function generateGemini(req, res) {
@@ -677,6 +687,7 @@ async function generateGemini(req, res) {
   const apiKey = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
   let model = String(body.model || process.env.GEMINI_MODEL || "gemini-3.6-flash").trim();
   if (model === "gemini-2.5-flash-lite") model = "gemini-3.1-flash-lite";
+  if (model === "gemini-2.5-pro") model = "gemini-3.5-flash";
   const prompt = String(body.prompt || "");
   if (!apiKey) return fail(res, 400, "Ù…ÙØªØ§Ø­ Gemini ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯ Ø¹Ù„Ù‰ Ø§Ù„Ø®Ø§Ø¯Ù…. Ø£Ø¶Ù GEMINI_API_KEY ÙÙŠ Vercel Ø«Ù… Ø£Ø¹Ø¯ Ø§Ù„Ù†Ø´Ø±.", "missing_gemini_key");
   if (!prompt) return fail(res, 400, "Ù†Øµ Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯.", "invalid_payload");
