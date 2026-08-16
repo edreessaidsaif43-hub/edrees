@@ -1214,8 +1214,12 @@
             <div style="font-size:12px;color:var(--text-muted);margin-top:6px;line-height:1.6;">مهم: إذا كان PDF مصورًا أو غير واضح، لصق النص هنا يجعل التحضير أدق.</div>
           </div>
 
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
+            <button class="btn btn-outline" id="convert-single-file-btn" onclick="convertSingleFileToText()">📄 تحويل الملف إلى نص أولًا</button>
+            <span id="single-convert-status" style="font-size:12px;color:var(--text-muted);font-weight:700;">لم يتم تحويل الملف بعد</span>
+          </div>
           <button class="btn btn-primary" onclick="saveSingleLesson()" style="min-width:180px;justify-content:center;">
-            💾 حفظ الدرس
+            💾 حفظ الدرس في قاعدة البيانات
           </button>
         </div>
       </div>
@@ -1381,6 +1385,8 @@ let editingId = null;
 let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
 const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
+let singleConvertedUpload = null;
+let singleConvertedFileKey = '';
 const CURRENT_USER_STORAGE_KEY = 'lesson_platform_current_user_v1';
 const BACKEND_SESSION_STORAGE_KEY = 'lesson_platform_backend_session_v1';
 const ENJAZY_AUTH_BRIDGE_KEY = 'enjazy_auth_bridge_v1';
@@ -1549,7 +1555,9 @@ async function uploadFileToBlob(file) {
 }
 
 async function uploadLessonFile(path, meta, file) {
-  const uploaded = await uploadFileToBlob(file);
+  const uploaded = singleConvertedUpload && singleConvertedFileKey === fileKey(file)
+    ? singleConvertedUpload
+    : await uploadFileToBlob(file);
 
   const response = await fetch(apiUrl(path), {
     method: 'POST',
@@ -1563,6 +1571,58 @@ async function uploadLessonFile(path, meta, file) {
   try { data = await response.json(); } catch {}
   if (!response.ok) throw new Error(data?.message || data?.error || 'تعذر حفظ بيانات الملف في قاعدة البيانات');
   return data;
+}
+
+function fileKey(file) {
+  return file ? `${file.name}|${file.size}|${file.lastModified || 0}` : '';
+}
+
+async function convertSingleFileToText() {
+  const fileInput = document.getElementById('a-file');
+  const file = fileInput?.files?.[0];
+  const status = document.getElementById('single-convert-status');
+  const btn = document.getElementById('convert-single-file-btn');
+  if (!file) return showToast('اختر ملف PDF أولًا', true);
+  if (!isPdfFile(file)) return showToast('يسمح بتحويل ملفات PDF فقط', true);
+  const oldText = btn ? btn.textContent : '';
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = 'جاري التحويل...'; }
+    if (status) status.textContent = 'جاري رفع الملف مؤقتًا ثم تحويله إلى نص...';
+    startAttachmentProgress('تحويل الملف إلى نص قبل الحفظ');
+    const uploaded = await uploadFileToBlob(file);
+    const data = await apiRequest('/api/attachments/preview-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      timeoutMs: 30 * 60 * 1000,
+      body: JSON.stringify({
+        upload: uploaded,
+        meta: {
+          grade: document.getElementById('a-grade').value,
+          subject: document.getElementById('a-subject').value,
+          semester: document.getElementById('a-semester').value,
+          unit: document.getElementById('a-unit').value.trim(),
+          title: document.getElementById('a-lesson-title').value.trim(),
+          extractedText: document.getElementById('a-extracted-text').value.trim()
+        }
+      })
+    });
+    singleConvertedUpload = data.upload || uploaded;
+    singleConvertedFileKey = fileKey(file);
+    if (data.extractedText) document.getElementById('a-extracted-text').value = data.extractedText;
+    const msg = data.hasText
+      ? 'تم تحويل الملف إلى نص. اضغط الآن حفظ الدرس في قاعدة البيانات.'
+      : 'تم رفع الملف مؤقتًا، لكن لم يتم استخراج نص صالح كامل. سيتم حفظ الملف ويمكن قراءة الصور عند التوليد.';
+    if (status) status.textContent = msg;
+    finishAttachmentProgress('اكتمل تحويل الملف', msg);
+    showToast(msg, !data.hasText);
+  } catch (err) {
+    const friendly = formatAdminRequestError(err, 'ocr');
+    if (status) status.textContent = friendly;
+    setAttachmentProgress(100, 'تعذر تحويل الملف', friendly);
+    showToast(friendly, true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = oldText || '📄 تحويل الملف إلى نص أولًا'; }
+  }
 }
 
 function formatUploadError(err) {
@@ -2263,6 +2323,12 @@ function handleFile(input, type) {
     return;
   }
   const file = files[0];
+  if (type === 'single') {
+    singleConvertedUpload = null;
+    singleConvertedFileKey = '';
+    const status = document.getElementById('single-convert-status');
+    if (status) status.textContent = 'لم يتم تحويل الملف بعد';
+  }
   const preview = document.getElementById('file-preview-' + type);
   document.getElementById('file-name-' + type).textContent = file.name;
   document.getElementById('file-size-' + type).textContent = formatSize(file.size);
@@ -2386,6 +2452,10 @@ async function saveSingleLesson() {
   if (!fileInput.files[0]) {
     showToast('يرجى رفع المرفق', true); return;
   }
+  if (!singleConvertedUpload || singleConvertedFileKey !== fileKey(fileInput.files[0])) {
+    showToast('حوّل الملف إلى نص أولًا، ثم اضغط حفظ الدرس في قاعدة البيانات.', true);
+    return;
+  }
 
   try {
     await uploadLessonFile('/api/lessons/single', {
@@ -2401,6 +2471,10 @@ async function saveSingleLesson() {
     document.getElementById('a-file').value = '';
     document.getElementById('a-extracted-text').value = '';
     document.getElementById('file-preview-single').classList.remove('show');
+    singleConvertedUpload = null;
+    singleConvertedFileKey = '';
+    const convertStatus = document.getElementById('single-convert-status');
+    if (convertStatus) convertStatus.textContent = 'لم يتم تحويل الملف بعد';
     showToast('تم حفظ الدرس في قاعدة البيانات بنجاح!');
   } catch (err) {
     showToast(err.message, true);

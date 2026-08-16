@@ -873,6 +873,32 @@ async function replaceAttachment(req, res, id) {
   return send(res, 200, { ok: true, attachmentId: id, extracted: hasUsableExtractedText(upload.extractedText) });
 }
 
+async function previewUploadText(req, res) {
+  const body = await readJsonBody(req);
+  if (!body.upload) return fail(res, 400, "Ù„Ù… ÙŠØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ù…Ù„Ù", "invalid_payload");
+  const upload = body.upload || {};
+  assertPdfUpload(upload);
+  const fileName = safeFileName(upload?.fileName || upload?.pathname?.split("/").pop() || "upload.pdf");
+  const fileType = "application/pdf";
+  const fileSize = Number(upload?.fileSize || upload?.size || 0);
+  const filePath = String(upload?.filePath || upload?.url || "");
+  if (!filePath || !/^https?:\/\//i.test(filePath)) return fail(res, 400, "Ù„Ù… ÙŠØªÙ… Ø±ÙØ¹ Ø§Ù„Ù…Ù„Ù Ø¨Ø´ÙƒÙ„ ØµØ­ÙŠØ­.", "invalid_blob_upload");
+  if (fileSize > MAX_UPLOAD_SIZE) return fail(res, 413, "Ø­Ø¬Ù… Ø§Ù„Ù…Ù„Ù Ø£ÙƒØ¨Ø± Ù…Ù† 600 MB", "too_large");
+  const text = await extractText(Buffer.alloc(0), fileName, fileType, fileSize, body.meta || {}, filePath);
+  return send(res, 200, {
+    ok: true,
+    upload: {
+      url: filePath,
+      pathname: upload.pathname || "",
+      fileName,
+      fileType,
+      fileSize
+    },
+    extractedText: normalizeExtractedText(text),
+    hasText: hasUsableExtractedText(text)
+  });
+}
+
 async function updateOrDeleteLesson(req, res, id) {
   if (!(await dbReady(res))) return;
   const rows = await sql`SELECT * FROM ai_lessons WHERE id = ${id} LIMIT 1;`;
@@ -905,6 +931,7 @@ export default async function handler(req, res) {
     if (req.method === "POST" && path === "/api/lessons/multi") return await saveMulti(req, res);
     if (req.method === "POST" && path === "/api/gemini/generate") return await generateGemini(req, res);
     if (req.method === "POST" && path === "/api/attachments/extract-text") return await refreshAttachmentText(req, res);
+    if (req.method === "POST" && path === "/api/attachments/preview-text") return await previewUploadText(req, res);
     if (req.method === "GET" && path === "/api/export") return await listData(res);
     const attachmentReplaceMatch = path.match(/^\/api\/attachments\/(\d+)\/replace$/);
     if (req.method === "POST" && attachmentReplaceMatch) return await replaceAttachment(req, res, Number(attachmentReplaceMatch[1]));
