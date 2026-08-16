@@ -899,6 +899,48 @@ async function previewUploadText(req, res) {
   });
 }
 
+async function previewAttachmentText(req, res) {
+  if (!(await dbReady(res))) return;
+  const body = await readJsonBody(req);
+  const ids = Array.isArray(body.attachmentIds)
+    ? body.attachmentIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0).slice(0, 6)
+    : [];
+  if (!ids.length) return fail(res, 400, "Ù„Ù… ÙŠØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø£ÙŠ Ù…Ø±ÙÙ‚", "invalid_payload");
+  const rows = await sql`
+    SELECT * FROM ai_attachments
+    WHERE id IN (
+      SELECT jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb)::bigint
+    )
+      AND file_path <> ''
+    ORDER BY created_at ASC, id ASC;
+  `;
+  const results = [];
+  for (const row of rows || []) {
+    const attachment = attachmentRow(row);
+    const text = await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
+    results.push({
+      id: Number(row.id),
+      status: hasUsableExtractedText(text)
+        ? "ready_to_save"
+        : (Number(row.file_size || 0) > MAX_DIRECT_OCR_SIZE ? "too_large_for_ocr" : "needs_vision"),
+      extractedText: hasUsableExtractedText(text) ? normalizeExtractedText(text) : "",
+      textLength: normalizeExtractedText(text).length
+    });
+  }
+  return send(res, 200, { ok: true, scanned: results.length, results });
+}
+
+async function saveAttachmentText(req, res, id) {
+  if (!(await dbReady(res))) return;
+  const body = await readJsonBody(req);
+  const text = normalizeExtractedText(body.extractedText || "");
+  if (!hasUsableExtractedText(text)) return fail(res, 400, "Ø§Ù„Ù†Øµ Ø§Ù„Ù…Ø³ØªØ®Ø±Ø¬ ØºÙŠØ± ØµØ§Ù„Ø­ Ù„Ù„Ø­ÙØ¸.", "invalid_text");
+  const rows = await sql`SELECT id FROM ai_attachments WHERE id = ${id} LIMIT 1;`;
+  if (!rows?.[0]) return fail(res, 404, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø±ÙÙ‚", "not_found");
+  await sql`UPDATE ai_attachments SET extracted_text = ${text} WHERE id = ${id};`;
+  return send(res, 200, { ok: true, attachmentId: id, textLength: text.length });
+}
+
 async function updateOrDeleteLesson(req, res, id) {
   if (!(await dbReady(res))) return;
   const rows = await sql`SELECT * FROM ai_lessons WHERE id = ${id} LIMIT 1;`;
@@ -932,9 +974,12 @@ export default async function handler(req, res) {
     if (req.method === "POST" && path === "/api/gemini/generate") return await generateGemini(req, res);
     if (req.method === "POST" && path === "/api/attachments/extract-text") return await refreshAttachmentText(req, res);
     if (req.method === "POST" && path === "/api/attachments/preview-text") return await previewUploadText(req, res);
+    if (req.method === "POST" && path === "/api/attachments/preview-existing-text") return await previewAttachmentText(req, res);
     if (req.method === "GET" && path === "/api/export") return await listData(res);
     const attachmentReplaceMatch = path.match(/^\/api\/attachments\/(\d+)\/replace$/);
     if (req.method === "POST" && attachmentReplaceMatch) return await replaceAttachment(req, res, Number(attachmentReplaceMatch[1]));
+    const attachmentTextMatch = path.match(/^\/api\/attachments\/(\d+)\/text$/);
+    if (req.method === "POST" && attachmentTextMatch) return await saveAttachmentText(req, res, Number(attachmentTextMatch[1]));
     const match = path.match(/^\/api\/lessons\/(\d+)$/);
     if (match) return await updateOrDeleteLesson(req, res, Number(match[1]));
     return fail(res, 404, "Ø§Ù„Ù…Ø³Ø§Ø± ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯", "not_found");

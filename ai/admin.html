@@ -1387,6 +1387,7 @@ const AI_SETTINGS_KEY = 'aiSettings';
 const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
 let singleConvertedUpload = null;
 let singleConvertedFileKey = '';
+const pendingAttachmentTexts = new Map();
 const CURRENT_USER_STORAGE_KEY = 'lesson_platform_current_user_v1';
 const BACKEND_SESSION_STORAGE_KEY = 'lesson_platform_backend_session_v1';
 const ENJAZY_AUTH_BRIDGE_KEY = 'enjazy_auth_bridge_v1';
@@ -2606,6 +2607,13 @@ function renderAttachmentDbStatus(list) {
 
 function renderAttachmentTextStatus(list, lessonId) {
   if (!list.length) return '<span class="badge badge-gray">لا يوجد مرفق</span>';
+  const pending = list.filter(att => pendingAttachmentTexts.has(Number(att.id))).length;
+  if (pending) {
+    return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
+      <span class="badge badge-blue">تم التحويل مؤقتًا ${pending}/${list.length}</span>
+      <button type="button" class="tbl-btn tbl-btn-edit js-save-pending-text" data-lesson-id="${Number(lessonId)}">رفع النص إلى قاعدة البيانات</button>
+    </div>`;
+  }
   const converted = list.filter(hasUsableAttachmentText).length;
   if (converted === list.length) {
     return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
@@ -2688,26 +2696,63 @@ async function extractLessonTextFromTable(lessonId, force = false) {
   if (!ids.length) return showToast('لا توجد مرفقات تحتاج تحويلًا لهذا الدرس.');
   try {
     startAttachmentProgress(force ? 'إعادة تحويل المرفق إلى نص' : 'استخراج نص المرفق وتحويل الصور');
-    const data = await apiRequest('/api/attachments/extract-text', {
+    const data = await apiRequest('/api/attachments/preview-existing-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       timeoutMs: 30 * 60 * 1000,
       body: JSON.stringify({ attachmentIds: ids, limit: ids.length, force: true })
     });
-    await loadDatabase();
-    const updated = Number(data.updated || 0);
+    let readyCount = 0;
+    (data.results || []).forEach(item => {
+      if (item.status === 'ready_to_save' && item.extractedText) {
+        pendingAttachmentTexts.set(Number(item.id), item.extractedText);
+        readyCount += 1;
+      }
+    });
     const visionCount = Array.isArray(data.results) ? data.results.filter(item => item.status === 'needs_vision').length : 0;
-    const msg = visionCount
-      ? `اكتمل الفحص. تم تحديث ${updated} مرفق، و${visionCount} مرفق يحتاج قراءة الصور مباشرة عند التوليد.`
-      : `اكتمل التحويل. تم تحديث ${updated} مرفق.`;
+    renderTable();
+    const msg = readyCount
+      ? `تم تحويل ${readyCount} مرفق إلى نص مؤقتًا. اضغط زر "رفع النص إلى قاعدة البيانات".`
+      : (visionCount ? `${visionCount} مرفق يحتاج قراءة الصور مباشرة عند التوليد.` : 'لم يتم استخراج نص صالح للحفظ.');
     finishAttachmentProgress('اكتملت المعالجة', msg);
-    showToast(msg, !!visionCount);
+    showToast(msg, !readyCount);
   } catch (err) {
     if (attachmentProgressTimer) clearInterval(attachmentProgressTimer);
     attachmentProgressTimer = null;
     const friendly = formatAdminRequestError(err, 'ocr');
     setAttachmentProgress(100, 'توقفت المتابعة', friendly);
     try { await loadDatabase(); } catch {}
+    showToast(friendly, true);
+  }
+}
+
+async function savePendingLessonTextToDb(lessonId) {
+  const lesson = lessons.find(item => item.id == lessonId);
+  if (!lesson) return showToast('لم يتم العثور على الدرس', true);
+  const lessonFiles = getLessonTableAttachments(lesson).filter(att => pendingAttachmentTexts.has(Number(att.id)));
+  if (!lessonFiles.length) return showToast('لا يوجد نص محوّل مؤقتًا لحفظه.', true);
+  try {
+    startAttachmentProgress('رفع النص إلى قاعدة البيانات');
+    let saved = 0;
+    for (const att of lessonFiles) {
+      const text = pendingAttachmentTexts.get(Number(att.id));
+      await apiRequest(`/api/attachments/${Number(att.id)}/text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        timeoutMs: 120000,
+        body: JSON.stringify({ extractedText: text })
+      });
+      pendingAttachmentTexts.delete(Number(att.id));
+      saved += 1;
+      setAttachmentProgress(Math.min(95, (saved / lessonFiles.length) * 100), 'رفع النص إلى قاعدة البيانات', `تم حفظ ${saved} من ${lessonFiles.length}`);
+    }
+    await loadDatabase();
+    const msg = `تم رفع النص وحفظه في قاعدة البيانات (${saved}/${lessonFiles.length}).`;
+    finishAttachmentProgress('تم الحفظ', msg);
+    showToast(msg);
+  } catch (err) {
+    const friendly = formatAdminRequestError(err, 'ocr');
+    setAttachmentProgress(100, 'تعذر حفظ النص', friendly);
     showToast(friendly, true);
   }
 }
@@ -2800,6 +2845,12 @@ document.addEventListener('click', (event) => {
     event.preventDefault();
     const lessonId = Number(extractBtn.dataset.lessonId || 0);
     extractLessonTextFromTable(lessonId, extractBtn.dataset.force === 'true');
+  }
+  const savePendingBtn = event.target.closest('.js-save-pending-text');
+  if (savePendingBtn) {
+    event.preventDefault();
+    const lessonId = Number(savePendingBtn.dataset.lessonId || 0);
+    savePendingLessonTextToDb(lessonId);
   }
 });
 
