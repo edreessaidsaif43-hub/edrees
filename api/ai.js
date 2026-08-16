@@ -11,7 +11,7 @@ export const config = {
 
 const MAX_UPLOAD_SIZE = 629145600;
 const INLINE_GEMINI_LIMIT = 20 * 1024 * 1024;
-const MAX_DIRECT_OCR_SIZE = 60 * 1024 * 1024;
+const MAX_DIRECT_OCR_SIZE = 20 * 1024 * 1024;
 const OCR_GEMINI_TIMEOUT_MS = 9 * 60 * 1000;
 
 const DATABASE_URL =
