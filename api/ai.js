@@ -14,6 +14,7 @@ const INLINE_GEMINI_LIMIT = 20 * 1024 * 1024;
 const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
 const OCR_GEMINI_TIMEOUT_MS = 9 * 60 * 1000;
 const LARGE_FILE_TRANSFER_TIMEOUT_MS = 6 * 60 * 1000;
+const GEMINI_OCR_MODELS = ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"];
 
 const DATABASE_URL =
   process.env.AI_DATABASE_URL ||
@@ -266,7 +267,7 @@ async function extractTextWithGemini(filePath, fileName, fileSize) {
       const data = await fetchBlobBase64(filePath);
       parts.push({ inline_data: { mime_type: "application/pdf", data } });
     }
-    const models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.6-flash", "gemini-2.5-flash"];
+    const models = GEMINI_OCR_MODELS;
     for (const model of models) {
       const body = {
         contents: [{ role: "user", parts }],
@@ -598,6 +599,23 @@ async function fetchBlobBuffer(url, timeoutMs = 25000) {
   return Buffer.from(arrayBuffer);
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitGeminiFileActive(apiKey, fileName) {
+  if (!fileName) return;
+  for (let attempt = 0; attempt < 18; attempt++) {
+    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${encodeURIComponent(apiKey)}`, {}, 20000);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error?.message || "تعذر التحقق من جاهزية ملف PDF في Gemini.");
+    const state = String(data?.file?.state || data?.state || "").toUpperCase();
+    if (!state || state === "ACTIVE") return;
+    if (state === "FAILED") throw new Error("فشل Gemini في معالجة ملف PDF بعد رفعه.");
+    await sleep(Math.min(12000, 1200 + attempt * 900));
+  }
+  throw new Error("لم يجهز ملف PDF في Gemini ضمن المهلة، جرّب ملفًا أصغر أو أعد المحاولة.");
+}
 async function uploadGeminiFile(apiKey, attachment) {
   const fileSize = Number(attachment.fileSize || 0);
   const transferTimeout = fileSize > INLINE_GEMINI_LIMIT ? LARGE_FILE_TRANSFER_TIMEOUT_MS : 25000;
@@ -630,12 +648,36 @@ async function uploadGeminiFile(apiKey, attachment) {
   const data = await upload.json().catch(() => ({}));
   if (!upload.ok) throw new Error(data?.error?.message || "ØªØ¹Ø°Ø± Ø±ÙØ¹ PDF Ø¥Ù„Ù‰ Gemini.");
   if (!data?.file?.uri) throw new Error("Ù„Ù… ÙŠØ±Ø¬Ø¹ Gemini Ø±Ø§Ø¨Ø· Ø§Ù„Ù…Ù„Ù Ø¨Ø¹Ø¯ Ø§Ù„Ø±ÙØ¹.");
+  await waitGeminiFileActive(apiKey, data.file.name);
   return data.file.uri;
+}
+
+function geminiFileNameFromUri(uri) {
+  const value = String(uri || "").trim();
+  if (!value) return "";
+  if (value.startsWith("files/")) return value;
+  try {
+    const path = new URL(value).pathname.replace(/^\/v1beta\//, "").replace(/^\//, "");
+    return path.startsWith("files/") ? path : "";
+  } catch {
+    return "";
+  }
+}
+
+async function isGeminiFileUsable(apiKey, uri) {
+  const fileName = geminiFileNameFromUri(uri);
+  if (!fileName) return false;
+  try {
+    await waitGeminiFileActive(apiKey, fileName);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function getOrCreateGeminiFileUri(apiKey, attachment) {
   const existing = String(attachment?.geminiFileUri || "").trim();
-  if (existing) return existing;
+  if (existing && await isGeminiFileUsable(apiKey, existing)) return existing;
   const uri = await uploadGeminiFile(apiKey, attachment);
   if (attachment?.id) {
     await sql`UPDATE ai_attachments SET gemini_file_uri = ${uri} WHERE id = ${Number(attachment.id)};`;
@@ -652,7 +694,7 @@ async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageE
     "إذا كانت الصفحات صورًا ممسوحة، نفّذ OCR بصريًا واستخرج النصوص العربية والإنجليزية والأرقام والجداول.",
     "أعد النص فقط بدون تلخيص وبدون JSON. إذا لم توجد هذه الصفحات أو لا يوجد نص اكتب: END_OF_DOCUMENT."
   ].join("\n");
-  const models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.6-flash", "gemini-2.5-flash"];
+  const models = GEMINI_OCR_MODELS;
   let lastError = null;
   for (const model of models) {
     const body = {
@@ -678,7 +720,7 @@ async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageE
     const extracted = normalizeExtractedText((result?.candidates?.[0]?.content?.parts || []).map((part) => part.text || "").join("\n"));
     if (hasUsableExtractedText(extracted) || extracted.includes("END_OF_DOCUMENT")) return extracted;
   }
-  throw new Error(lastError || "تعذر استخراج صفحات PDF.");
+  throw new Error(lastError ? `تعذر استخراج صفحات PDF: ${lastError}` : "تعذر استخراج صفحات PDF.");
 }
 
 async function generateGemini(req, res) {
