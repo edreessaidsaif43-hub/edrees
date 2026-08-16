@@ -1294,6 +1294,16 @@
             <button class="btn btn-outline btn-sm" onclick="exportData()">⬇️ تصدير</button>
           </div>
         </div>
+        <div id="attachment-progress-box" style="display:none;margin-bottom:1rem;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;">
+            <div id="attachment-progress-title" style="font-size:13px;font-weight:800;color:var(--primary);">جاري المعالجة...</div>
+            <div id="attachment-progress-percent" style="font-size:13px;font-weight:900;color:var(--primary);">0%</div>
+          </div>
+          <div style="height:8px;background:white;border:1px solid var(--border);border-radius:999px;overflow:hidden;">
+            <div id="attachment-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--primary),var(--accent));transition:width .35s ease;"></div>
+          </div>
+          <div id="attachment-progress-sub" style="font-size:11px;color:var(--text-muted);margin-top:7px;line-height:1.6;">قد تستغرق قراءة الصور داخل PDF عدة دقائق.</div>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -2492,7 +2502,7 @@ function renderAttachmentFileNames(list) {
   if (!list.length) return '<span style="color:var(--text-muted);font-size:11px;">لا يوجد</span>';
   return list.map(att => {
     const name = escapeHtml(att.fileName || 'ملف PDF');
-    return `<div title="${name}" style="color:var(--primary);font-size:11px;font-weight:700;max-width:220px;white-space:normal;line-height:1.5;">📎 ${name}</div>`;
+    return `<div title="${name}" style="color:var(--primary);font-size:11px;font-weight:700;max-width:240px;white-space:normal;line-height:1.5;margin-bottom:4px;">📎 ${name}<br><button class="tbl-btn tbl-btn-edit" style="margin-top:4px;" onclick="replaceAttachmentFile(${Number(att.id)})">استبدال الملف</button></div>`;
   }).join('');
 }
 
@@ -2504,13 +2514,121 @@ function renderAttachmentDbStatus(list) {
   return `<span class="badge ${allSaved ? 'badge-green' : 'badge-gray'}">${label}</span>`;
 }
 
-function renderAttachmentTextStatus(list) {
+function renderAttachmentTextStatus(list, lessonId) {
   if (!list.length) return '<span class="badge badge-gray">لا يوجد مرفق</span>';
   const converted = list.filter(hasUsableAttachmentText).length;
   if (converted === list.length) return '<span class="badge badge-green">تم التحويل كاملًا</span>';
   if (converted > 0) return `<span class="badge badge-gray">تحويل جزئي ${converted}/${list.length}</span>`;
   const hasPdf = list.some(isPdfAttachment);
-  return `<span class="badge badge-gray">${hasPdf ? 'يحتاج قراءة الصور/PDF' : 'غير محوّل'}</span>`;
+  if (!hasPdf) return '<span class="badge badge-gray">غير محوّل</span>';
+  return `<button class="badge badge-gray" style="border:0;cursor:pointer;font-family:inherit;" onclick="extractLessonTextFromTable(${Number(lessonId)})">يحتاج قراءة الصور/PDF</button>`;
+}
+
+let attachmentProgressTimer = null;
+
+function setAttachmentProgress(percent, title, sub = '') {
+  const box = document.getElementById('attachment-progress-box');
+  const bar = document.getElementById('attachment-progress-bar');
+  const pct = document.getElementById('attachment-progress-percent');
+  const titleEl = document.getElementById('attachment-progress-title');
+  const subEl = document.getElementById('attachment-progress-sub');
+  if (!box || !bar || !pct || !titleEl || !subEl) return;
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+  box.style.display = 'block';
+  bar.style.width = safePercent + '%';
+  pct.textContent = safePercent + '%';
+  titleEl.textContent = title || 'جاري المعالجة...';
+  if (sub) subEl.textContent = sub;
+}
+
+function startAttachmentProgress(title) {
+  const startedAt = Date.now();
+  const maxMs = 30 * 60 * 1000;
+  if (attachmentProgressTimer) clearInterval(attachmentProgressTimer);
+  setAttachmentProgress(1, title, 'المهلة القصوى 30 دقيقة. يتم استخراج النص وحفظه في قاعدة البيانات.');
+  attachmentProgressTimer = setInterval(() => {
+    const elapsed = Date.now() - startedAt;
+    const percent = Math.min(95, 1 + (elapsed / maxMs) * 94);
+    setAttachmentProgress(percent, title, 'جاري قراءة النصوص والصور داخل PDF...');
+  }, 1000);
+}
+
+function finishAttachmentProgress(title, sub) {
+  if (attachmentProgressTimer) clearInterval(attachmentProgressTimer);
+  attachmentProgressTimer = null;
+  setAttachmentProgress(100, title, sub);
+  setTimeout(() => {
+    const box = document.getElementById('attachment-progress-box');
+    if (box) box.style.display = 'none';
+  }, 3500);
+}
+
+async function extractLessonTextFromTable(lessonId) {
+  const lesson = lessons.find(item => item.id == lessonId);
+  if (!lesson) return showToast('لم يتم العثور على الدرس', true);
+  const lessonFiles = getLessonTableAttachments(lesson);
+  const ids = lessonFiles
+    .filter(item => isPdfAttachment(item) && !hasUsableAttachmentText(item))
+    .map(item => item.id)
+    .filter(Boolean);
+  if (!ids.length) return showToast('لا توجد مرفقات تحتاج تحويلًا لهذا الدرس.');
+  try {
+    startAttachmentProgress('استخراج نص المرفق وتحويل الصور');
+    const data = await apiRequest('/api/attachments/extract-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      timeoutMs: 30 * 60 * 1000,
+      body: JSON.stringify({ attachmentIds: ids, limit: ids.length, force: true })
+    });
+    await loadDatabase();
+    const updated = Number(data.updated || 0);
+    const visionCount = Array.isArray(data.results) ? data.results.filter(item => item.status === 'needs_vision').length : 0;
+    const msg = visionCount
+      ? `اكتمل الفحص. تم تحديث ${updated} مرفق، و${visionCount} مرفق يحتاج قراءة الصور مباشرة عند التوليد.`
+      : `اكتمل التحويل. تم تحديث ${updated} مرفق.`;
+    finishAttachmentProgress('اكتملت المعالجة', msg);
+    showToast(msg, !!visionCount);
+  } catch (err) {
+    if (attachmentProgressTimer) clearInterval(attachmentProgressTimer);
+    attachmentProgressTimer = null;
+    setAttachmentProgress(100, 'تعذرت المعالجة', err?.message || 'حدث خطأ أثناء استخراج النص.');
+    showToast(err?.message || 'تعذر استخراج نص المرفق', true);
+  }
+}
+
+async function replaceAttachmentFile(attachmentId) {
+  const current = attachments.find(item => item.id == attachmentId);
+  if (!current) return showToast('لم يتم العثور على المرفق', true);
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/pdf,.pdf';
+  input.onchange = async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (!isPdfFile(file)) return showToast('يسمح باستبدال المرفق بملف PDF فقط', true);
+    try {
+      startAttachmentProgress('رفع الملف الجديد واستخراج النص');
+      const uploaded = await uploadFileToBlob(file);
+      const result = await apiRequest(`/api/attachments/${attachmentId}/replace`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        timeoutMs: 30 * 60 * 1000,
+        body: JSON.stringify({ upload: uploaded, meta: { unit: current.title || '', extractedText: '' } })
+      });
+      await loadDatabase();
+      const msg = result.extracted
+        ? 'تم استبدال الملف وتحويله إلى نص وحفظه في قاعدة البيانات.'
+        : 'تم استبدال الملف وحفظه في قاعدة البيانات، وسيتم قراءة الصور مباشرة عند التوليد.';
+      finishAttachmentProgress('تم استبدال الملف', msg);
+      showToast(msg, !result.extracted);
+    } catch (err) {
+      if (attachmentProgressTimer) clearInterval(attachmentProgressTimer);
+      attachmentProgressTimer = null;
+      setAttachmentProgress(100, 'تعذر استبدال الملف', err?.message || 'حدث خطأ أثناء استبدال الملف.');
+      showToast(err?.message || 'تعذر استبدال الملف', true);
+    }
+  };
+  input.click();
 }
 
 // TABLE
@@ -2542,7 +2660,7 @@ function renderTable() {
       <td style="font-weight:600">${escapeHtml(l.title)}</td>
       <td>${renderAttachmentFileNames(lessonFiles)}</td>
       <td>${renderAttachmentDbStatus(lessonFiles)}</td>
-      <td>${renderAttachmentTextStatus(lessonFiles)}</td>
+      <td>${renderAttachmentTextStatus(lessonFiles, l.id)}</td>
       <td><span class="badge ${l.status==='active'?'badge-green':'badge-gray'}">${l.status==='active'?'مفعل':'غير مفعل'}</span></td>
       <td style="color:var(--text-muted);font-size:11px">${escapeHtml(l.createdAt)}</td>
       <td>

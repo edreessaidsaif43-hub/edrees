@@ -11,6 +11,7 @@ export const config = {
 
 const MAX_UPLOAD_SIZE = 629145600;
 const INLINE_GEMINI_LIMIT = 20 * 1024 * 1024;
+const OCR_GEMINI_TIMEOUT_MS = 9 * 60 * 1000;
 
 const DATABASE_URL =
   process.env.AI_DATABASE_URL ||
@@ -268,7 +269,7 @@ async function extractTextWithGemini(filePath, fileName, fileSize) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-      }, 85000);
+      }, OCR_GEMINI_TIMEOUT_MS);
       const result = await response.json().catch(() => ({}));
       if (!response.ok) continue;
       const extracted = normalizeExtractedText((result?.candidates?.[0]?.content?.parts || []).map((part) => part.text || "").join("\n"));
@@ -778,9 +779,11 @@ async function refreshAttachmentText(req, res) {
     ? body.attachmentIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0).slice(0, 6)
     : [];
   const rows = requestedIds.length
-    ? await sql`
+      ? await sql`
         SELECT * FROM ai_attachments
-        WHERE id = ANY(${requestedIds}::bigint[])
+        WHERE id IN (
+          SELECT jsonb_array_elements_text(${JSON.stringify(requestedIds)}::jsonb)::bigint
+        )
           AND file_path <> ''
         ORDER BY created_at ASC, id ASC;
       `
@@ -847,6 +850,25 @@ async function refreshAttachmentText(req, res) {
   send(res, 200, { ok: true, scanned, updated, remaining, results });
 }
 
+async function replaceAttachment(req, res, id) {
+  if (!(await dbReady(res))) return;
+  const rows = await sql`SELECT * FROM ai_attachments WHERE id = ${id} LIMIT 1;`;
+  if (!rows?.[0]) return fail(res, 404, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø±ÙÙ‚", "not_found");
+  const body = await readJsonBody(req);
+  if (!body.upload) return fail(res, 400, "Ù„Ù… ÙŠØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø¬Ø¯ÙŠØ¯", "invalid_payload");
+  const upload = await receiveClientUpload(body.upload, body.meta || {});
+  await sql`
+    UPDATE ai_attachments
+    SET file_name = ${cleanDbText(upload.fileName, 300)},
+        file_type = ${cleanDbText(upload.fileType, 120)},
+        file_size = ${upload.fileSize},
+        file_path = ${cleanDbText(upload.filePath, 1200)},
+        extracted_text = ${normalizeExtractedText(upload.extractedText)}
+    WHERE id = ${id};
+  `;
+  return send(res, 200, { ok: true, attachmentId: id, extracted: hasUsableExtractedText(upload.extractedText) });
+}
+
 async function updateOrDeleteLesson(req, res, id) {
   if (!(await dbReady(res))) return;
   const rows = await sql`SELECT * FROM ai_lessons WHERE id = ${id} LIMIT 1;`;
@@ -880,6 +902,8 @@ export default async function handler(req, res) {
     if (req.method === "POST" && path === "/api/gemini/generate") return await generateGemini(req, res);
     if (req.method === "POST" && path === "/api/attachments/extract-text") return await refreshAttachmentText(req, res);
     if (req.method === "GET" && path === "/api/export") return await listData(res);
+    const attachmentReplaceMatch = path.match(/^\/api\/attachments\/(\d+)\/replace$/);
+    if (req.method === "POST" && attachmentReplaceMatch) return await replaceAttachment(req, res, Number(attachmentReplaceMatch[1]));
     const match = path.match(/^\/api\/lessons\/(\d+)$/);
     if (match) return await updateOrDeleteLesson(req, res, Number(match[1]));
     return fail(res, 404, "Ø§Ù„Ù…Ø³Ø§Ø± ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯", "not_found");
