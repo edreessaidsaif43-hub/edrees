@@ -1380,6 +1380,7 @@ const API_BASE = '/api/ai';
 let editingId = null;
 let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
+const MAX_DIRECT_OCR_SIZE = 60 * 1024 * 1024;
 const CURRENT_USER_STORAGE_KEY = 'lesson_platform_current_user_v1';
 const BACKEND_SESSION_STORAGE_KEY = 'lesson_platform_backend_session_v1';
 const ENJAZY_AUTH_BRIDGE_KEY = 'enjazy_auth_bridge_v1';
@@ -2516,7 +2517,8 @@ function renderAttachmentFileNames(list) {
   if (!list.length) return '<span style="color:var(--text-muted);font-size:11px;">لا يوجد</span>';
   return list.map(att => {
     const name = escapeHtml(att.fileName || 'ملف PDF');
-    return `<div title="${name}" style="color:var(--primary);font-size:11px;font-weight:700;max-width:240px;white-space:normal;line-height:1.5;margin-bottom:4px;">📎 ${name}<br><button class="tbl-btn tbl-btn-edit" style="margin-top:4px;" onclick="replaceAttachmentFile(${Number(att.id)})">استبدال الملف</button></div>`;
+    const size = formatSize(Number(att.fileSize || 0));
+    return `<div title="${name}" style="color:var(--primary);font-size:11px;font-weight:700;max-width:240px;white-space:normal;line-height:1.5;margin-bottom:4px;">📎 ${name}<br><span style="color:var(--text-muted);font-weight:600;">${size}</span><br><button class="tbl-btn tbl-btn-edit" style="margin-top:4px;" onclick="replaceAttachmentFile(${Number(att.id)})">استبدال الملف</button></div>`;
   }).join('');
 }
 
@@ -2545,6 +2547,13 @@ function renderAttachmentTextStatus(list, lessonId) {
   }
   const hasPdf = list.some(isPdfAttachment);
   if (!hasPdf) return '<span class="badge badge-gray">غير محوّل</span>';
+  const tooLarge = list.some(att => Number(att.fileSize || 0) > MAX_DIRECT_OCR_SIZE);
+  if (tooLarge) {
+    return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
+      <span class="badge badge-gray">كبير للتحويل النصي</span>
+      <span style="font-size:11px;color:var(--text-muted);line-height:1.5;">قسّم الملف أو استبدله بملف أصغر من ${formatSize(MAX_DIRECT_OCR_SIZE)}</span>
+    </div>`;
+  }
   return `<button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}">يحتاج قراءة الصور/PDF</button>`;
 }
 
@@ -2594,6 +2603,10 @@ async function extractLessonTextFromTable(lessonId, force = false) {
   if (!lesson) return showToast('لم يتم العثور على الدرس', true);
   showToast(force ? 'بدأ طلب إعادة تحويل المرفق إلى نص...' : 'بدأ طلب استخراج النص من المرفق...');
   const lessonFiles = getLessonTableAttachments(lesson);
+  const oversizedFiles = lessonFiles.filter(item => isPdfAttachment(item) && Number(item.fileSize || 0) > MAX_DIRECT_OCR_SIZE);
+  if (oversizedFiles.length) {
+    return showToast(`حجم الملف كبير للتحويل النصي المباشر. الحد المناسب ${formatSize(MAX_DIRECT_OCR_SIZE)}. قسّم PDF إلى أجزاء أصغر أو استبدله بملف أصغر.`, true);
+  }
   const ids = lessonFiles
     .filter(item => isPdfAttachment(item) && (force || !hasUsableAttachmentText(item)))
     .map(item => item.id)
