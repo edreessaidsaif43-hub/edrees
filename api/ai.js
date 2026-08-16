@@ -836,7 +836,11 @@ async function refreshAttachmentText(req, res) {
       updated++;
       results.push({ id: Number(row.id), status: "updated", textLength: text.length });
     } else {
-      results.push({ id: Number(row.id), status: "unchanged", textLength: currentText.length });
+      results.push({
+        id: Number(row.id),
+        status: hasUsableExtractedText(currentText) ? "unchanged" : "needs_vision",
+        textLength: currentText.length
+      });
     }
   }
   const remaining = force || requestedIds.length ? 0 : Math.max(0, remainingBefore - scanned);

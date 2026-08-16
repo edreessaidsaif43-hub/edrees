@@ -2043,7 +2043,7 @@ async function callGeminiWithPdf(prompt, settings, attachment, attachmentList = 
   const pdfAttachments = (attachmentList || [attachment]).filter(isPdfAttachment);
   const ids = pdfAttachments.map(item => item?.id).filter(Boolean);
   if (!ids.length) throw new Error('لا يوجد ملف PDF صالح ضمن المرفقات المشتركة. استخدم PDF أو الصق نص الدرس في لوحة الإدارة.');
-  return callGeminiBackend(prompt, { ...settings, model: 'gemini-3.1-flash-lite' }, { attachmentId: ids[0], attachmentIds: ids, includePdf: true });
+  return callGeminiBackend(prompt, { ...settings, model: 'gemini-3.6-flash' }, { attachmentId: ids[0], attachmentIds: ids, includePdf: true });
 }
 
 async function callGemini(prompt, settings) {

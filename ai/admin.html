@@ -1864,8 +1864,10 @@ async function extractStoredAttachmentText() {
     });
     await loadDatabase();
     const remaining = Number(data.remaining || 0);
+    const visionCount = Array.isArray(data.results) ? data.results.filter(item => item.status === 'needs_vision').length : 0;
     const tail = remaining ? ` بقي ${remaining} مرفق، اضغط الزر مرة أخرى لإكمال الدفعة التالية.` : ' اكتمل تحويل المرفقات المحتاجة للنص.';
-    showToast(`تم فحص ${data.scanned || 0} مرفق وتحديث ${data.updated || 0} نص.${tail}`);
+    const visionNote = visionCount ? ` ${visionCount} ملف يحتاج قراءة الصور مباشرة عند التوليد.` : '';
+    showToast(`تم فحص ${data.scanned || 0} مرفق وتحديث ${data.updated || 0} نص.${tail}${visionNote}`);
   } catch (err) {
     showToast((err?.message || 'تعذر استخراج نص المرفقات') + ' حاول مرة أخرى.', true);
   } finally {
@@ -1974,7 +1976,7 @@ async function callGeminiWithPdf(prompt, settings, attachment, attachmentList = 
   const pdfAttachments = (attachmentList || [attachment]).filter(isPdfAttachment);
   const ids = pdfAttachments.map(item => item?.id).filter(Boolean);
   if (!ids.length) throw new Error('لا يوجد ملف PDF صالح ضمن المرفقات المشتركة. استخدم PDF أو الصق نص الدرس في لوحة الإدارة.');
-  return callGeminiBackend(prompt, { ...settings, model: 'gemini-3.1-flash-lite' }, { attachmentId: ids[0], attachmentIds: ids, includePdf: true });
+  return callGeminiBackend(prompt, { ...settings, model: 'gemini-3.6-flash' }, { attachmentId: ids[0], attachmentIds: ids, includePdf: true });
 }
 
 async function callGemini(prompt, settings) {
