@@ -81,6 +81,10 @@ async function ensureSchema() {
         ADD COLUMN IF NOT EXISTS extracted_text TEXT NOT NULL DEFAULT '';
       `;
       await sql`
+        ALTER TABLE ai_attachments
+        ADD COLUMN IF NOT EXISTS gemini_file_uri TEXT NOT NULL DEFAULT '';
+      `;
+      await sql`
         CREATE INDEX IF NOT EXISTS idx_ai_lessons_created_at
         ON ai_lessons (created_at DESC, id DESC);
       `;
@@ -456,6 +460,7 @@ function attachmentRow(row) {
     fileSize: Number(row.file_size || 0),
     filePath: row.file_path || "",
     extractedText: row.extracted_text || "",
+    geminiFileUri: row.gemini_file_uri || "",
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : "",
   };
 }
@@ -626,6 +631,44 @@ async function uploadGeminiFile(apiKey, attachment) {
   if (!upload.ok) throw new Error(data?.error?.message || "ØªØ¹Ø°Ø± Ø±ÙØ¹ PDF Ø¥Ù„Ù‰ Gemini.");
   if (!data?.file?.uri) throw new Error("Ù„Ù… ÙŠØ±Ø¬Ø¹ Gemini Ø±Ø§Ø¨Ø· Ø§Ù„Ù…Ù„Ù Ø¨Ø¹Ø¯ Ø§Ù„Ø±ÙØ¹.");
   return data.file.uri;
+}
+
+async function getOrCreateGeminiFileUri(apiKey, attachment) {
+  const existing = String(attachment?.geminiFileUri || "").trim();
+  if (existing) return existing;
+  const uri = await uploadGeminiFile(apiKey, attachment);
+  if (attachment?.id) {
+    await sql`UPDATE ai_attachments SET gemini_file_uri = ${uri} WHERE id = ${Number(attachment.id)};`;
+  }
+  return uri;
+}
+
+async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd) {
+  const apiKey = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
+  if (!apiKey) throw new Error("missing_gemini_key");
+  const fileUri = await getOrCreateGeminiFileUri(apiKey, attachment);
+  const prompt = [
+    `استخرج النص من صفحات ${pageStart} إلى ${pageEnd} فقط من ملف PDF.`,
+    "إذا كانت الصفحات صورًا ممسوحة، نفّذ OCR بصريًا واستخرج النصوص العربية والإنجليزية والأرقام والجداول.",
+    "أعد النص فقط بدون تلخيص وبدون JSON. إذا لم توجد هذه الصفحات أو لا يوجد نص اكتب: END_OF_DOCUMENT."
+  ].join("\n");
+  const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{
+        role: "user",
+        parts: [
+          { text: prompt },
+          { file_data: { mime_type: "application/pdf", file_uri: fileUri } }
+        ]
+      }],
+      generationConfig: { temperature: 0 }
+    }),
+  }, 4 * 60 * 1000);
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result?.error?.message || "تعذر استخراج صفحات PDF.");
+  return normalizeExtractedText((result?.candidates?.[0]?.content?.parts || []).map((part) => part.text || "").join("\n"));
 }
 
 async function generateGemini(req, res) {
@@ -917,17 +960,23 @@ async function previewAttachmentText(req, res) {
       AND file_path <> ''
     ORDER BY created_at ASC, id ASC;
   `;
+  const pageStart = Math.max(1, Number(body.pageStart || 0));
+  const pageEnd = Math.max(pageStart, Number(body.pageEnd || 0));
   const results = [];
   for (const row of rows || []) {
     const attachment = attachmentRow(row);
-    const text = await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
+    const text = pageStart && pageEnd
+      ? await extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd)
+      : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
+    const ended = String(text || "").includes("END_OF_DOCUMENT");
+    const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, ""));
     results.push({
       id: Number(row.id),
-      status: hasUsableExtractedText(text)
+      status: ended ? "end" : hasUsableExtractedText(cleanText)
         ? "ready_to_save"
         : (Number(row.file_size || 0) > MAX_DIRECT_OCR_SIZE ? "too_large_for_ocr" : "needs_vision"),
-      extractedText: hasUsableExtractedText(text) ? normalizeExtractedText(text) : "",
-      textLength: normalizeExtractedText(text).length
+      extractedText: hasUsableExtractedText(cleanText) ? cleanText : "",
+      textLength: cleanText.length
     });
   }
   return send(res, 200, { ok: true, scanned: results.length, results });

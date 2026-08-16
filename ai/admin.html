@@ -2696,24 +2696,57 @@ async function extractLessonTextFromTable(lessonId, force = false) {
   if (!ids.length) return showToast('لا توجد مرفقات تحتاج تحويلًا لهذا الدرس.');
   try {
     startAttachmentProgress(force ? 'إعادة تحويل المرفق إلى نص' : 'استخراج نص المرفق وتحويل الصور');
-    const data = await apiRequest('/api/attachments/preview-existing-text', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      timeoutMs: 30 * 60 * 1000,
-      body: JSON.stringify({ attachmentIds: ids, limit: ids.length, force: true })
-    });
     let readyCount = 0;
-    (data.results || []).forEach(item => {
-      if (item.status === 'ready_to_save' && item.extractedText) {
-        pendingAttachmentTexts.set(Number(item.id), item.extractedText);
-        readyCount += 1;
+    const useChunks = lessonFiles.some(item => Number(item.fileSize || 0) > 20 * 1024 * 1024);
+    if (useChunks) {
+      const pageStep = 8;
+      const maxPages = 160;
+      const collected = new Map(ids.map(id => [Number(id), []]));
+      for (let pageStart = 1; pageStart <= maxPages; pageStart += pageStep) {
+        const pageEnd = pageStart + pageStep - 1;
+        setAttachmentProgress(Math.min(95, ((pageStart - 1) / maxPages) * 100), 'تحويل PDF كبير على دفعات', `استخراج الصفحات ${pageStart}-${pageEnd}`);
+        const chunkData = await apiRequest('/api/attachments/preview-existing-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          timeoutMs: 6 * 60 * 1000,
+          body: JSON.stringify({ attachmentIds: ids, pageStart, pageEnd })
+        });
+        let gotText = false;
+        let gotEnd = false;
+        (chunkData.results || []).forEach(item => {
+          if (item.status === 'end') gotEnd = true;
+          if (item.status === 'ready_to_save' && item.extractedText) {
+            collected.get(Number(item.id))?.push(item.extractedText);
+            gotText = true;
+          }
+        });
+        if (gotEnd || (!gotText && pageStart > 40)) break;
       }
-    });
-    const visionCount = Array.isArray(data.results) ? data.results.filter(item => item.status === 'needs_vision').length : 0;
+      collected.forEach((parts, id) => {
+        const text = parts.join('\n\n').trim();
+        if (text.length >= 40) {
+          pendingAttachmentTexts.set(id, text);
+          readyCount += 1;
+        }
+      });
+    } else {
+      const data = await apiRequest('/api/attachments/preview-existing-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        timeoutMs: 30 * 60 * 1000,
+        body: JSON.stringify({ attachmentIds: ids, limit: ids.length, force: true })
+      });
+      (data.results || []).forEach(item => {
+        if (item.status === 'ready_to_save' && item.extractedText) {
+          pendingAttachmentTexts.set(Number(item.id), item.extractedText);
+          readyCount += 1;
+        }
+      });
+    }
     renderTable();
     const msg = readyCount
       ? `تم تحويل ${readyCount} مرفق إلى نص مؤقتًا. اضغط زر "رفع النص إلى قاعدة البيانات".`
-      : (visionCount ? `${visionCount} مرفق يحتاج قراءة الصور مباشرة عند التوليد.` : 'لم يتم استخراج نص صالح للحفظ.');
+      : 'لم يتم استخراج نص صالح للحفظ.';
     finishAttachmentProgress('اكتملت المعالجة', msg);
     showToast(msg, !readyCount);
   } catch (err) {
