@@ -1507,6 +1507,20 @@ async function apiRequest(path, options = {}) {
   return data;
 }
 
+function formatAdminRequestError(err, context = '') {
+  const message = String(err?.message || err || '');
+  if (message === 'timeout' || message.includes('timeout') || message.includes('مهلة')) {
+    return 'استغرقت العملية وقتًا طويلًا. قد تكون الاستضافة أوقفت طلب OCR قبل اكتماله؛ حدّث القائمة للتأكد، أو جرّب ملفًا أصغر.';
+  }
+  if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('Load failed')) {
+    return 'انقطع الاتصال أثناء العملية. قد تكون المهمة اكتملت جزئيًا؛ حدّث القائمة للتأكد ثم أعد المحاولة إذا بقيت الحالة كما هي.';
+  }
+  if (message.includes('تعذر الاتصال بقاعدة البيانات') && context === 'ocr') {
+    return 'تعذر استلام رد الخادم بعد مدة طويلة. حدّث القائمة للتأكد هل تم حفظ النص، وإذا لم يتغير شيء فأعد المحاولة بملف PDF أصغر.';
+  }
+  return message || 'حدث خطأ أثناء تنفيذ الطلب.';
+}
+
 function encodeUploadMeta(meta) {
   const json = encodeURIComponent(JSON.stringify(meta));
   return btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
@@ -2517,8 +2531,18 @@ function renderAttachmentDbStatus(list) {
 function renderAttachmentTextStatus(list, lessonId) {
   if (!list.length) return '<span class="badge badge-gray">لا يوجد مرفق</span>';
   const converted = list.filter(hasUsableAttachmentText).length;
-  if (converted === list.length) return '<span class="badge badge-green">تم التحويل كاملًا</span>';
-  if (converted > 0) return `<span class="badge badge-gray">تحويل جزئي ${converted}/${list.length}</span>`;
+  if (converted === list.length) {
+    return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
+      <span class="badge badge-green">تم التحويل كاملًا</span>
+      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">إعادة تحويل إلى نص</button>
+    </div>`;
+  }
+  if (converted > 0) {
+    return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
+      <span class="badge badge-gray">تحويل جزئي ${converted}/${list.length}</span>
+      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">إعادة تحويل إلى نص</button>
+    </div>`;
+  }
   const hasPdf = list.some(isPdfAttachment);
   if (!hasPdf) return '<span class="badge badge-gray">غير محوّل</span>';
   return `<button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}">يحتاج قراءة الصور/PDF</button>`;
@@ -2565,18 +2589,18 @@ function finishAttachmentProgress(title, sub) {
   }, 3500);
 }
 
-async function extractLessonTextFromTable(lessonId) {
+async function extractLessonTextFromTable(lessonId, force = false) {
   const lesson = lessons.find(item => item.id == lessonId);
   if (!lesson) return showToast('لم يتم العثور على الدرس', true);
-  showToast('بدأ طلب استخراج النص من المرفق...');
+  showToast(force ? 'بدأ طلب إعادة تحويل المرفق إلى نص...' : 'بدأ طلب استخراج النص من المرفق...');
   const lessonFiles = getLessonTableAttachments(lesson);
   const ids = lessonFiles
-    .filter(item => isPdfAttachment(item) && !hasUsableAttachmentText(item))
+    .filter(item => isPdfAttachment(item) && (force || !hasUsableAttachmentText(item)))
     .map(item => item.id)
     .filter(Boolean);
   if (!ids.length) return showToast('لا توجد مرفقات تحتاج تحويلًا لهذا الدرس.');
   try {
-    startAttachmentProgress('استخراج نص المرفق وتحويل الصور');
+    startAttachmentProgress(force ? 'إعادة تحويل المرفق إلى نص' : 'استخراج نص المرفق وتحويل الصور');
     const data = await apiRequest('/api/attachments/extract-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2594,8 +2618,10 @@ async function extractLessonTextFromTable(lessonId) {
   } catch (err) {
     if (attachmentProgressTimer) clearInterval(attachmentProgressTimer);
     attachmentProgressTimer = null;
-    setAttachmentProgress(100, 'تعذرت المعالجة', err?.message || 'حدث خطأ أثناء استخراج النص.');
-    showToast(err?.message || 'تعذر استخراج نص المرفق', true);
+    const friendly = formatAdminRequestError(err, 'ocr');
+    setAttachmentProgress(100, 'توقفت المتابعة', friendly);
+    try { await loadDatabase(); } catch {}
+    showToast(friendly, true);
   }
 }
 
@@ -2627,8 +2653,10 @@ async function replaceAttachmentFile(attachmentId) {
     } catch (err) {
       if (attachmentProgressTimer) clearInterval(attachmentProgressTimer);
       attachmentProgressTimer = null;
-      setAttachmentProgress(100, 'تعذر استبدال الملف', err?.message || 'حدث خطأ أثناء استبدال الملف.');
-      showToast(err?.message || 'تعذر استبدال الملف', true);
+      const friendly = formatAdminRequestError(err, 'ocr');
+      setAttachmentProgress(100, 'تعذر استبدال الملف', friendly);
+      try { await loadDatabase(); } catch {}
+      showToast(friendly, true);
     }
   };
   input.click();
@@ -2684,7 +2712,7 @@ document.addEventListener('click', (event) => {
   if (extractBtn) {
     event.preventDefault();
     const lessonId = Number(extractBtn.dataset.lessonId || 0);
-    extractLessonTextFromTable(lessonId);
+    extractLessonTextFromTable(lessonId, extractBtn.dataset.force === 'true');
   }
 });
 
