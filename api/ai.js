@@ -153,12 +153,22 @@ function today() {
 
 function normalizeExtractedText(text) {
   return String(text || "")
+    .replace(/\u0000/g, "")
     .replace(/\r/g, "\n")
+    .replace(/[\u0001-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, " ")
     .replace(/[\t\f\v]+/g, " ")
     .replace(/[ \u00a0]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
     .slice(0, 180000);
+}
+
+function cleanDbText(text, maxLength = 2000) {
+  return String(text || "")
+    .replace(/\u0000/g, "")
+    .replace(/[\u0001-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, " ")
+    .trim()
+    .slice(0, maxLength);
 }
 
 function decodePdfLiteralString(raw) {
@@ -433,7 +443,7 @@ async function listData(res) {
 async function insertAttachment(upload, title) {
   const rows = await sql`
     INSERT INTO ai_attachments (title, file_name, file_type, file_size, file_path, extracted_text)
-    VALUES (${title}, ${upload.fileName}, ${upload.fileType}, ${upload.fileSize}, ${upload.filePath}, ${upload.extractedText})
+    VALUES (${cleanDbText(title)}, ${cleanDbText(upload.fileName, 300)}, ${cleanDbText(upload.fileType, 120)}, ${upload.fileSize}, ${cleanDbText(upload.filePath, 1200)}, ${normalizeExtractedText(upload.extractedText)})
     RETURNING id;
   `;
   return Number(rows[0].id);
@@ -451,7 +461,7 @@ async function saveSingle(req, res) {
   const attachmentId = await insertAttachment(upload, `${meta.unit} - ${meta.title}`);
   await sql`
     INSERT INTO ai_lessons (grade, subject, semester, unit, title, attachment_id, attachment_ids, status, created_at)
-    VALUES (${meta.grade}, ${meta.subject}, ${meta.semester}, ${meta.unit}, ${meta.title}, ${attachmentId}, ${JSON.stringify([attachmentId])}::jsonb, ${meta.status || "active"}, ${today()});
+    VALUES (${cleanDbText(meta.grade)}, ${cleanDbText(meta.subject)}, ${cleanDbText(meta.semester)}, ${cleanDbText(meta.unit)}, ${cleanDbText(meta.title)}, ${attachmentId}, ${JSON.stringify([attachmentId])}::jsonb, ${cleanDbText(meta.status || "active", 60)}, ${today()});
   `;
   send(res, 200, { ok: true });
 }
@@ -491,7 +501,7 @@ async function saveMulti(req, res) {
       for (const title of titles) {
         await sql`
           INSERT INTO ai_lessons (grade, subject, semester, unit, title, attachment_id, attachment_ids, status, created_at)
-          VALUES (${meta.grade}, ${meta.subject}, ${meta.semester}, ${unit}, ${title}, ${primaryAttachmentId}, ${JSON.stringify(attachmentIds)}::jsonb, 'active', ${today()});
+          VALUES (${cleanDbText(meta.grade)}, ${cleanDbText(meta.subject)}, ${cleanDbText(meta.semester)}, ${cleanDbText(unit)}, ${cleanDbText(title)}, ${primaryAttachmentId}, ${JSON.stringify(attachmentIds)}::jsonb, 'active', ${today()});
         `;
         lessonCount += 1;
       }
@@ -508,7 +518,7 @@ async function saveMulti(req, res) {
   for (const title of titles) {
     await sql`
       INSERT INTO ai_lessons (grade, subject, semester, unit, title, attachment_id, attachment_ids, status, created_at)
-      VALUES (${meta.grade}, ${meta.subject}, ${meta.semester}, ${meta.unit}, ${title}, ${attachmentId}, ${JSON.stringify([attachmentId])}::jsonb, 'active', ${today()});
+      VALUES (${cleanDbText(meta.grade)}, ${cleanDbText(meta.subject)}, ${cleanDbText(meta.semester)}, ${cleanDbText(meta.unit)}, ${cleanDbText(title)}, ${attachmentId}, ${JSON.stringify([attachmentId])}::jsonb, 'active', ${today()});
     `;
   }
   send(res, 200, { ok: true, lessonCount: titles.length, fileCount: 1 });
@@ -619,7 +629,7 @@ async function generateGemini(req, res) {
       }
       const extractedNow = await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
       if (hasUsableExtractedText(extractedNow)) {
-        await sql`UPDATE ai_attachments SET extracted_text = ${extractedNow} WHERE id = ${Number(attachment.id)};`;
+        await sql`UPDATE ai_attachments SET extracted_text = ${normalizeExtractedText(extractedNow)} WHERE id = ${Number(attachment.id)};`;
         parts.push({
           text: [
             `النص المستخرج والمحفوظ من المرفق (${attachment.fileName || "PDF"}):`,
@@ -783,7 +793,7 @@ async function refreshAttachmentText(req, res) {
     const attachment = attachmentRow(row);
     const text = await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
     if (text && (text.length > currentText.length || (hasUsableExtractedText(text) && !hasUsableExtractedText(currentText)))) {
-      await sql`UPDATE ai_attachments SET extracted_text = ${text} WHERE id = ${Number(row.id)};`;
+      await sql`UPDATE ai_attachments SET extracted_text = ${normalizeExtractedText(text)} WHERE id = ${Number(row.id)};`;
       updated++;
       results.push({ id: Number(row.id), status: "updated", textLength: text.length });
     } else {
@@ -802,9 +812,9 @@ async function updateOrDeleteLesson(req, res, id) {
     const body = await readJsonBody(req);
     await sql`
       UPDATE ai_lessons
-      SET title = COALESCE(${body.title ?? null}, title),
-          unit = COALESCE(${body.unit ?? null}, unit),
-          status = COALESCE(${body.status ?? null}, status)
+      SET title = COALESCE(${body.title == null ? null : cleanDbText(body.title)}, title),
+          unit = COALESCE(${body.unit == null ? null : cleanDbText(body.unit)}, unit),
+          status = COALESCE(${body.status == null ? null : cleanDbText(body.status, 60)}, status)
       WHERE id = ${id};
     `;
     return send(res, 200, { ok: true });
