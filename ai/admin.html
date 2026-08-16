@@ -2521,7 +2521,7 @@ function renderAttachmentTextStatus(list, lessonId) {
   if (converted > 0) return `<span class="badge badge-gray">تحويل جزئي ${converted}/${list.length}</span>`;
   const hasPdf = list.some(isPdfAttachment);
   if (!hasPdf) return '<span class="badge badge-gray">غير محوّل</span>';
-  return `<button class="badge badge-gray" style="border:0;cursor:pointer;font-family:inherit;" onclick="extractLessonTextFromTable(${Number(lessonId)})">يحتاج قراءة الصور/PDF</button>`;
+  return `<button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}">يحتاج قراءة الصور/PDF</button>`;
 }
 
 let attachmentProgressTimer = null;
@@ -2534,11 +2534,13 @@ function setAttachmentProgress(percent, title, sub = '') {
   const subEl = document.getElementById('attachment-progress-sub');
   if (!box || !bar || !pct || !titleEl || !subEl) return;
   const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+  const wasHidden = box.style.display === 'none';
   box.style.display = 'block';
   bar.style.width = safePercent + '%';
   pct.textContent = safePercent + '%';
   titleEl.textContent = title || 'جاري المعالجة...';
   if (sub) subEl.textContent = sub;
+  if (wasHidden) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function startAttachmentProgress(title) {
@@ -2566,6 +2568,7 @@ function finishAttachmentProgress(title, sub) {
 async function extractLessonTextFromTable(lessonId) {
   const lesson = lessons.find(item => item.id == lessonId);
   if (!lesson) return showToast('لم يتم العثور على الدرس', true);
+  showToast('بدأ طلب استخراج النص من المرفق...');
   const lessonFiles = getLessonTableAttachments(lesson);
   const ids = lessonFiles
     .filter(item => isPdfAttachment(item) && !hasUsableAttachmentText(item))
@@ -2675,6 +2678,15 @@ function renderTable() {
 }
 
 function filterLessons() { renderTable(); }
+
+document.addEventListener('click', (event) => {
+  const extractBtn = event.target.closest('.js-extract-lesson-text');
+  if (extractBtn) {
+    event.preventDefault();
+    const lessonId = Number(extractBtn.dataset.lessonId || 0);
+    extractLessonTextFromTable(lessonId);
+  }
+});
 
 function openEdit(id) {
   const lesson = lessons.find(l => l.id == id);
