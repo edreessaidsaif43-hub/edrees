@@ -319,6 +319,21 @@ async function extractText(buffer, fileName, fileType, fileSize, fields, filePat
   return attachmentPlaceholder(fileName, fileSize, fields);
 }
 
+async function extractTextLocalOnly(buffer, fileName, fileType, fileSize, filePath = "") {
+  const lower = String(fileName || "").toLowerCase();
+  if ((lower.endsWith(".txt") || String(fileType || "").startsWith("text/")) && Buffer.isBuffer(buffer) && buffer.length && fileSize <= 2 * 1024 * 1024) {
+    return normalizeExtractedText(buffer.toString("utf8"));
+  }
+  if (lower.endsWith(".pdf") || String(fileType || "").includes("pdf")) {
+    let pdfBuffer = buffer;
+    if ((!Buffer.isBuffer(pdfBuffer) || !pdfBuffer.length) && filePath && Number(fileSize || 0) <= INLINE_GEMINI_LIMIT) {
+      pdfBuffer = await fetchBlobBuffer(filePath, 12000).catch(() => Buffer.alloc(0));
+    }
+    return extractPdfTextLocal(pdfBuffer);
+  }
+  return "";
+}
+
 function assertPdfUpload(upload) {
   const type = String(upload?.fileType || upload?.contentType || "").toLowerCase();
   const name = String(upload?.fileName || upload?.pathname || upload?.url || "").toLowerCase();
@@ -559,8 +574,8 @@ async function fetchBlobBase64(url) {
   return (await fetchBlobBuffer(url)).toString("base64");
 }
 
-async function fetchBlobBuffer(url) {
-  const response = await fetchWithTimeout(url, {}, 25000);
+async function fetchBlobBuffer(url, timeoutMs = 25000) {
+  const response = await fetchWithTimeout(url, {}, timeoutMs);
   if (!response.ok) throw new Error("ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© Ù…Ù„Ù PDF Ù…Ù† Ø§Ù„ØªØ®Ø²ÙŠÙ†.");
   const arrayBuffer = await response.arrayBuffer();
   return Buffer.from(arrayBuffer);
@@ -628,7 +643,7 @@ async function generateGemini(req, res) {
         });
         continue;
       }
-      const extractedNow = await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
+      const extractedNow = await extractTextLocalOnly(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, attachment.filePath);
       if (hasUsableExtractedText(extractedNow)) {
         await sql`UPDATE ai_attachments SET extracted_text = ${normalizeExtractedText(extractedNow)} WHERE id = ${Number(attachment.id)};`;
         parts.push({
@@ -751,7 +766,17 @@ async function refreshAttachmentText(req, res) {
   const body = req.method === "POST" ? await readJsonBody(req).catch(() => ({})) : {};
   const force = !!body.force;
   const limit = Math.max(1, Math.min(20, Number(body.limit || 8)));
-  const rows = force
+  const requestedIds = Array.isArray(body.attachmentIds)
+    ? body.attachmentIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0).slice(0, 6)
+    : [];
+  const rows = requestedIds.length
+    ? await sql`
+        SELECT * FROM ai_attachments
+        WHERE id = ANY(${requestedIds}::bigint[])
+          AND file_path <> ''
+        ORDER BY created_at ASC, id ASC;
+      `
+    : force
     ? await sql`
         SELECT * FROM ai_attachments
         WHERE file_path <> ''
@@ -772,7 +797,7 @@ async function refreshAttachmentText(req, res) {
         ORDER BY created_at ASC, id ASC
         LIMIT ${limit};
       `;
-  const remainingBeforeRows = force ? [{ count: 0 }] : await sql`
+  const remainingBeforeRows = force || requestedIds.length ? [{ count: 0 }] : await sql`
     SELECT COUNT(*)::int AS count
     FROM ai_attachments
     WHERE file_path <> ''
@@ -806,7 +831,7 @@ async function refreshAttachmentText(req, res) {
       results.push({ id: Number(row.id), status: "unchanged", textLength: currentText.length });
     }
   }
-  const remaining = force ? 0 : Math.max(0, remainingBefore - scanned);
+  const remaining = force || requestedIds.length ? 0 : Math.max(0, remainingBefore - scanned);
   send(res, 200, { ok: true, scanned, updated, remaining, results });
 }
 

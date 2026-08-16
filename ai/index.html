@@ -1687,6 +1687,29 @@ function getLessonAttachments(lesson) {
   return ids.map(id => attachments.find(a => a.id == id)).filter(Boolean);
 }
 
+async function ensureLessonAttachmentText(lesson, currentAttachments) {
+  const ids = currentAttachments
+    .filter(item => isPdfAttachment(item) && !hasUsableAttachmentText(item))
+    .map(item => item.id)
+    .filter(Boolean);
+  if (!ids.length) return currentAttachments;
+  setGenerationProgress(12, 'استخراج نص المرفق لأول مرة وحفظه...');
+  const data = await apiRequest('/api/attachments/extract-text', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    timeoutMs: 120000,
+    body: JSON.stringify({ attachmentIds: ids, limit: ids.length })
+  });
+  await loadDatabase();
+  const refreshedAttachments = getLessonAttachments(lesson);
+  const stillMissing = refreshedAttachments.some(item => isPdfAttachment(item) && !hasUsableAttachmentText(item));
+  if (stillMissing) {
+    const details = Array.isArray(data?.results) ? data.results.map(item => item.status).join('، ') : '';
+    throw new Error('لم يتم استخراج نص صالح من PDF. قد يكون الملف مصورًا أو كبيرًا جدًا. استخرج النص من لوحة الإدارة أو ارفع PDF نصيًا واضحًا.' + (details ? ` (${details})` : ''));
+  }
+  return refreshedAttachments;
+}
+
 ['t-grade','t-subject','t-semester','t-unit'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('change', () => populateTeacherFilters(id));
@@ -1710,14 +1733,14 @@ async function generateLesson() {
   if (!lesson) { showError('لم يتم العثور على الدرس.'); return; }
   if (lesson.status !== 'active') { showError('هذا الدرس غير متاح حاليًا.'); return; }
 
-  const lessonAttachments = getLessonAttachments(lesson);
-  const attachment = lessonAttachments[0];
+  let lessonAttachments = getLessonAttachments(lesson);
+  let attachment = lessonAttachments[0];
   if (!attachment) { showError('لا يوجد مرفق مرتبط بهذا الدرس. يرجى التواصل مع الإدارة.'); return; }
 
   const settings = getAiSettings();
-  const hasText = lessonAttachments.some(hasUsableAttachmentText);
-  const isPdf = lessonAttachments.some(isPdfAttachment);
-  const needsPdfRead = lessonAttachments.some(item => isPdfAttachment(item) && !hasUsableAttachmentText(item));
+  let hasText = lessonAttachments.some(hasUsableAttachmentText);
+  let isPdf = lessonAttachments.some(isPdfAttachment);
+  let needsPdfRead = lessonAttachments.some(item => isPdfAttachment(item) && !hasUsableAttachmentText(item));
   if (!hasText && !isPdf) {
     showError('لا يوجد نص درسي كافٍ داخل المرفق. الصق نص الدرس في خانة "نص المرفق" داخل لوحة الإدارة ثم احفظ الدرس مرة أخرى.');
     return;
@@ -1730,6 +1753,24 @@ async function generateLesson() {
   document.getElementById('results-area').classList.remove('show');
   startGenerationProgress();
   resetResultReveal();
+
+  try {
+    if (needsPdfRead) {
+      lessonAttachments = await ensureLessonAttachmentText(lesson, lessonAttachments);
+      attachment = lessonAttachments[0];
+      hasText = lessonAttachments.some(hasUsableAttachmentText);
+      isPdf = lessonAttachments.some(isPdfAttachment);
+      needsPdfRead = lessonAttachments.some(item => isPdfAttachment(item) && !hasUsableAttachmentText(item));
+      if (!hasText && isPdf) throw new Error('لم يتم العثور على نص محفوظ صالح بعد استخراج PDF.');
+    }
+  } catch (err) {
+    stopGenerationProgress();
+    showError(formatAiError(err));
+    setTimeout(() => document.getElementById('loading-state').classList.remove('show'), 450);
+    btn.disabled = false;
+    btn.innerHTML = '<span>⚡</span> توليد التحضير';
+    return;
+  }
 
   const combinedAttachment = {
     ...attachment,
@@ -1768,7 +1809,7 @@ async function generateLesson() {
             : 'تعذر قراءة PDF عبر Gemini، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.';
         } else if (isRequestTimeoutError(aiErr)) {
           console.warn('Gemini took too long, using local fallback.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) throw new Error('استغرقت قراءة PDF وقتًا طويلًا ولا يوجد نص محفوظ صالح. استخرج نص المرفقات القديمة من لوحة الإدارة لتسريع التحضير.');
+          if (needsPdfRead && !canUseTextFallback) throw new Error('لم يكتمل تحليل PDF ضمن المهلة ولا يوجد نص محفوظ لهذا المرفق. من لوحة الإدارة اضغط "استخراج نص المرفقات القديمة"، أو ارفع ملف PDF أصغر/نصيًا واضحًا.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = needsPdfRead
@@ -2005,6 +2046,8 @@ function shouldSuggestGenerateRetry(err) {
     !message.includes('نص محفوظ صالح') &&
     !message.includes('قراءة PDF') &&
     !message.includes('استغرقت قراءة') &&
+    !message.includes('لم يكتمل تحليل PDF') &&
+    !message.includes('ضمن المهلة') &&
     !message.includes('no longer available') &&
     !message.includes('not found') &&
     !message.includes('الصق نص الدرس') &&
