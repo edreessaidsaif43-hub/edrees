@@ -2697,6 +2697,7 @@ async function extractLessonTextFromTable(lessonId, force = false) {
   try {
     startAttachmentProgress(force ? 'إعادة تحويل المرفق إلى نص' : 'استخراج نص المرفق وتحويل الصور');
     let readyCount = 0;
+    const errorMessages = [];
     const useChunks = lessonFiles.some(item => Number(item.fileSize || 0) > 20 * 1024 * 1024);
     if (useChunks) {
       const pageStep = 8;
@@ -2715,6 +2716,7 @@ async function extractLessonTextFromTable(lessonId, force = false) {
         let gotEnd = false;
         (chunkData.results || []).forEach(item => {
           if (item.status === 'end') gotEnd = true;
+          if (item.status === 'error' && item.message) errorMessages.push(item.message);
           if (item.status === 'ready_to_save' && item.extractedText) {
             collected.get(Number(item.id))?.push(item.extractedText);
             gotText = true;
@@ -2737,6 +2739,7 @@ async function extractLessonTextFromTable(lessonId, force = false) {
         body: JSON.stringify({ attachmentIds: ids, limit: ids.length, force: true })
       });
       (data.results || []).forEach(item => {
+        if (item.status === 'error' && item.message) errorMessages.push(item.message);
         if (item.status === 'ready_to_save' && item.extractedText) {
           pendingAttachmentTexts.set(Number(item.id), item.extractedText);
           readyCount += 1;
@@ -2744,9 +2747,10 @@ async function extractLessonTextFromTable(lessonId, force = false) {
       });
     }
     renderTable();
+    const uniqueErrors = Array.from(new Set(errorMessages.map(text => String(text || '').trim()).filter(Boolean)));
     const msg = readyCount
       ? `تم تحويل ${readyCount} مرفق إلى نص مؤقتًا. اضغط زر "رفع النص إلى قاعدة البيانات".`
-      : 'لم يتم استخراج نص صالح للحفظ.';
+      : (uniqueErrors.length ? uniqueErrors[0] : 'لم يتم استخراج نص صالح للحفظ.');
     finishAttachmentProgress('اكتملت المعالجة', msg);
     showToast(msg, !readyCount);
   } catch (err) {

@@ -712,13 +712,20 @@ async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageE
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }, 4 * 60 * 1000);
-    const result = await response.json().catch(() => ({}));
+    const raw = await response.text().catch(() => "");
+    let result = {};
+    try { result = raw ? JSON.parse(raw) : {}; } catch {}
     if (!response.ok) {
-      lastError = result?.error?.message || "تعذر استخراج صفحات PDF.";
+      const providerMessage = result?.error?.message || raw.slice(0, 240).trim();
+      lastError = providerMessage
+        ? `${model} HTTP ${response.status}: ${providerMessage}`
+        : `${model} HTTP ${response.status || 0}`;
       continue;
     }
     const extracted = normalizeExtractedText((result?.candidates?.[0]?.content?.parts || []).map((part) => part.text || "").join("\n"));
     if (hasUsableExtractedText(extracted) || extracted.includes("END_OF_DOCUMENT")) return extracted;
+    const finishReason = result?.candidates?.[0]?.finishReason || "empty_text";
+    lastError = `${model} returned no readable text for pages ${pageStart}-${pageEnd} (${finishReason}).`;
   }
   throw new Error(lastError ? `تعذر استخراج صفحات PDF: ${lastError}` : "تعذر استخراج صفحات PDF.");
 }
@@ -1018,19 +1025,32 @@ async function previewAttachmentText(req, res) {
   const results = [];
   for (const row of rows || []) {
     const attachment = attachmentRow(row);
-    const text = pageStart && pageEnd
-      ? await extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd)
-      : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
-    const ended = String(text || "").includes("END_OF_DOCUMENT");
-    const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, ""));
-    results.push({
-      id: Number(row.id),
-      status: ended ? "end" : hasUsableExtractedText(cleanText)
-        ? "ready_to_save"
-        : (Number(row.file_size || 0) > MAX_DIRECT_OCR_SIZE ? "too_large_for_ocr" : "needs_vision"),
-      extractedText: hasUsableExtractedText(cleanText) ? cleanText : "",
-      textLength: cleanText.length
-    });
+    try {
+      const text = pageStart && pageEnd
+        ? await extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd)
+        : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
+      const ended = String(text || "").includes("END_OF_DOCUMENT");
+      const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, ""));
+      results.push({
+        id: Number(row.id),
+        fileName: attachment.fileName || "PDF",
+        status: ended ? "end" : hasUsableExtractedText(cleanText)
+          ? "ready_to_save"
+          : (Number(row.file_size || 0) > MAX_DIRECT_OCR_SIZE ? "too_large_for_ocr" : "needs_vision"),
+        extractedText: hasUsableExtractedText(cleanText) ? cleanText : "",
+        textLength: cleanText.length
+      });
+    } catch (err) {
+      const message = String(err?.message || err || "تعذر استخراج صفحات PDF.");
+      results.push({
+        id: Number(row.id),
+        fileName: attachment.fileName || "PDF",
+        status: "error",
+        message,
+        extractedText: "",
+        textLength: 0
+      });
+    }
   }
   return send(res, 200, { ok: true, scanned: results.length, results });
 }
