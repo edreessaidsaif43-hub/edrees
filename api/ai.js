@@ -11,6 +11,7 @@ export const config = {
 
 const MAX_UPLOAD_SIZE = 629145600;
 const INLINE_GEMINI_LIMIT = 20 * 1024 * 1024;
+const MAX_DIRECT_OCR_SIZE = 60 * 1024 * 1024;
 const OCR_GEMINI_TIMEOUT_MS = 9 * 60 * 1000;
 
 const DATABASE_URL =
@@ -241,6 +242,7 @@ function extractPdfTextLocal(buffer) {
 async function extractTextWithGemini(filePath, fileName, fileSize) {
   const apiKey = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
   if (!apiKey || !filePath) return "";
+  if (Number(fileSize || 0) > MAX_DIRECT_OCR_SIZE) return "";
   try {
     const parts = [{
       text: [
@@ -841,7 +843,9 @@ async function refreshAttachmentText(req, res) {
     } else {
       results.push({
         id: Number(row.id),
-        status: hasUsableExtractedText(currentText) ? "unchanged" : "needs_vision",
+        status: hasUsableExtractedText(currentText)
+          ? "unchanged"
+          : (Number(row.file_size || 0) > MAX_DIRECT_OCR_SIZE ? "too_large_for_ocr" : "needs_vision"),
         textLength: currentText.length
       });
     }
