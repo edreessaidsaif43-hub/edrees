@@ -1704,8 +1704,7 @@ async function ensureLessonAttachmentText(lesson, currentAttachments) {
   const refreshedAttachments = getLessonAttachments(lesson);
   const stillMissing = refreshedAttachments.some(item => isPdfAttachment(item) && !hasUsableAttachmentText(item));
   if (stillMissing) {
-    const details = Array.isArray(data?.results) ? data.results.map(item => item.status).join('، ') : '';
-    throw new Error('لم يتم استخراج نص صالح من PDF. قد يكون الملف مصورًا أو كبيرًا جدًا. استخرج النص من لوحة الإدارة أو ارفع PDF نصيًا واضحًا.' + (details ? ` (${details})` : ''));
+    showToast('لم يتم حفظ نص كامل من PDF، سيتم قراءة الصور داخل المرفق مباشرة الآن.', true);
   }
   return refreshedAttachments;
 }
@@ -1761,7 +1760,6 @@ async function generateLesson() {
       hasText = lessonAttachments.some(hasUsableAttachmentText);
       isPdf = lessonAttachments.some(isPdfAttachment);
       needsPdfRead = lessonAttachments.some(item => isPdfAttachment(item) && !hasUsableAttachmentText(item));
-      if (!hasText && isPdf) throw new Error('لم يتم العثور على نص محفوظ صالح بعد استخراج PDF.');
     }
   } catch (err) {
     stopGenerationProgress();
@@ -1903,6 +1901,7 @@ function buildPdfLessonPrompt(lesson) {
   return `أنت مساعد تعليمي لإعداد تحضير درس للمعلمين في سلطنة عُمان.
 
 المطلوب: اقرأ ملف PDF المرفق بصريًا ونصيًا، ثم أعد تحضير درس واحد فقط.
+إذا كانت الصفحات صورًا ممسوحة ضوئيًا، اقرأها بصريًا واستخرج المعلومات التعليمية من النصوص داخل الصور والرسومات والجداول.
 
 بيانات الدرس:
 الصف: ${lesson.grade}

@@ -243,9 +243,11 @@ async function extractTextWithGemini(filePath, fileName, fileSize) {
   try {
     const parts = [{
       text: [
-        "استخرج النص الكامل من ملف PDF بدقة عالية جدًا.",
+        "استخرج النص الكامل من ملف PDF بدقة عالية جدًا، حتى لو كانت الصفحات صورًا ممسوحة ضوئيًا.",
+        "نفّذ OCR بصريًا على كل صفحة وكل صورة داخل الملف، واستخرج النصوص العربية والإنجليزية والأرقام والرموز التعليمية.",
         "أعد النص فقط بدون تلخيص وبدون JSON وبدون شرح إضافي.",
         "حافظ على العربية، العناوين، أرقام الصفحات إن وجدت، ترتيب الفقرات، والجداول بصيغة نصية واضحة.",
+        "إذا وجدت رسومات أو صورًا تعليمية فيها معلومات مفيدة، صف محتواها التعليمي نصيًا في مكانها.",
         "لا تحذف الأسئلة أو التعليمات أو الأمثلة، واكتب النص غير الواضح بأقرب قراءة ممكنة."
       ].join("\n")
     }];
@@ -256,17 +258,23 @@ async function extractTextWithGemini(filePath, fileName, fileSize) {
       const data = await fetchBlobBase64(filePath);
       parts.push({ inline_data: { mime_type: "application/pdf", data } });
     }
-    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${encodeURIComponent(apiKey)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const models = ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
+    for (const model of models) {
+      const body = {
         contents: [{ role: "user", parts }],
-        generationConfig: { temperature: 0 }
-      }),
-    }, 85000);
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) return "";
-    return normalizeExtractedText((result?.candidates?.[0]?.content?.parts || []).map((part) => part.text || "").join("\n"));
+        ...(model.startsWith("gemini-3") ? {} : { generationConfig: { temperature: 0 } })
+      };
+      const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }, 85000);
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) continue;
+      const extracted = normalizeExtractedText((result?.candidates?.[0]?.content?.parts || []).map((part) => part.text || "").join("\n"));
+      if (hasUsableExtractedText(extracted)) return extracted;
+    }
+    return "";
   } catch {
     return "";
   }
@@ -823,7 +831,7 @@ async function refreshAttachmentText(req, res) {
     }
     const attachment = attachmentRow(row);
     const text = await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
-    if (text && (text.length > currentText.length || (hasUsableExtractedText(text) && !hasUsableExtractedText(currentText)))) {
+    if (hasUsableExtractedText(text) && (text.length > currentText.length || !hasUsableExtractedText(currentText) || needsTextRefresh(currentText))) {
       await sql`UPDATE ai_attachments SET extracted_text = ${normalizeExtractedText(text)} WHERE id = ${Number(row.id)};`;
       updated++;
       results.push({ id: Number(row.id), status: "updated", textLength: text.length });
