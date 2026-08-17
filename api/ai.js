@@ -15,6 +15,7 @@ const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
 const OCR_GEMINI_TIMEOUT_MS = 9 * 60 * 1000;
 const LARGE_FILE_TRANSFER_TIMEOUT_MS = 6 * 60 * 1000;
 const GEMINI_OCR_MODELS = ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"];
+const MIN_SAVED_PDF_TEXT_LENGTH = 500;
 
 const DATABASE_URL =
   process.env.AI_DATABASE_URL ||
@@ -167,8 +168,7 @@ function normalizeExtractedText(text) {
     .replace(/[\t\f\v]+/g, " ")
     .replace(/[ \u00a0]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
-    .trim()
-    .slice(0, 180000);
+    .trim();
 }
 
 function cleanDbText(text, maxLength = 2000) {
@@ -248,7 +248,6 @@ function extractPdfTextLocal(buffer) {
 async function extractTextWithGemini(filePath, fileName, fileSize) {
   const apiKey = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
   if (!apiKey || !filePath) return "";
-  if (Number(fileSize || 0) > MAX_DIRECT_OCR_SIZE) return "";
   try {
     const parts = [{
       text: [
@@ -302,7 +301,7 @@ function attachmentPlaceholder(fileName, fileSize, fields) {
 
 function hasUsableExtractedText(text) {
   const value = normalizeExtractedText(text);
-  if (value.length < 40) return false;
+  if (value.length < MIN_SAVED_PDF_TEXT_LENGTH) return false;
   const weakMarkers = [
     "[PDF saved:",
     "The file was saved, but text extraction did not return readable text",
@@ -312,7 +311,7 @@ function hasUsableExtractedText(text) {
     "عنوان الملف:",
     "النص سيُستخرج عند التوليد"
   ];
-  return !weakMarkers.some((marker) => value.includes(marker)) || value.length > 500;
+  return !weakMarkers.some((marker) => value.includes(marker));
 }
 
 async function extractText(buffer, fileName, fileType, fileSize, fields, filePath = "") {
@@ -730,6 +729,21 @@ async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageE
   throw new Error(lastError ? `تعذر استخراج صفحات PDF: ${lastError}` : "تعذر استخراج صفحات PDF.");
 }
 
+async function extractFullAttachmentTextWithGemini(attachment) {
+  const pageStep = 8;
+  const maxPages = 5000;
+  const parts = [];
+  for (let pageStart = 1; pageStart <= maxPages; pageStart += pageStep) {
+    const pageEnd = pageStart + pageStep - 1;
+    const text = await extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd);
+    const ended = String(text || "").includes("END_OF_DOCUMENT");
+    const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, ""));
+    if (cleanText) parts.push(cleanText);
+    if (ended) break;
+  }
+  return normalizeExtractedText(parts.join("\n\n"));
+}
+
 async function generateGemini(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readJsonBody(req);
@@ -941,7 +955,9 @@ async function refreshAttachmentText(req, res) {
       continue;
     }
     const attachment = attachmentRow(row);
-    const text = await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
+    const text = isPdfAttachment(attachment)
+      ? await extractFullAttachmentTextWithGemini(attachment)
+      : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
     if (hasUsableExtractedText(text) && (text.length > currentText.length || !hasUsableExtractedText(currentText) || needsTextRefresh(currentText))) {
       await sql`UPDATE ai_attachments SET extracted_text = ${normalizeExtractedText(text)} WHERE id = ${Number(row.id)};`;
       updated++;
@@ -951,7 +967,7 @@ async function refreshAttachmentText(req, res) {
         id: Number(row.id),
         status: hasUsableExtractedText(currentText)
           ? "unchanged"
-          : (Number(row.file_size || 0) > MAX_DIRECT_OCR_SIZE ? "too_large_for_ocr" : "needs_vision"),
+          : "needs_vision",
         textLength: currentText.length
       });
     }
@@ -1028,7 +1044,9 @@ async function previewAttachmentText(req, res) {
     try {
       const text = pageStart && pageEnd
         ? await extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd)
-        : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
+        : isPdfAttachment(attachment)
+          ? await extractFullAttachmentTextWithGemini(attachment)
+          : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
       const ended = String(text || "").includes("END_OF_DOCUMENT");
       const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, ""));
       results.push({
@@ -1036,7 +1054,7 @@ async function previewAttachmentText(req, res) {
         fileName: attachment.fileName || "PDF",
         status: ended ? "end" : hasUsableExtractedText(cleanText)
           ? "ready_to_save"
-          : (Number(row.file_size || 0) > MAX_DIRECT_OCR_SIZE ? "too_large_for_ocr" : "needs_vision"),
+          : "needs_vision",
         extractedText: hasUsableExtractedText(cleanText) ? cleanText : "",
         textLength: cleanText.length
       });

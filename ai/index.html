@@ -1406,6 +1406,7 @@ const API_BASE = '/api/ai';
 let editingId = null;
 let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
+const MIN_SAVED_PDF_TEXT_LENGTH = 500;
 const CURRENT_USER_STORAGE_KEY = 'lesson_platform_current_user_v1';
 const BACKEND_SESSION_STORAGE_KEY = 'lesson_platform_backend_session_v1';
 const ENJAZY_AUTH_BRIDGE_KEY = 'enjazy_auth_bridge_v1';
@@ -1925,7 +1926,7 @@ function buildPdfLessonPrompt(lesson) {
 
 function pickRelevantAttachmentText(text, lesson) {
   const fullText = String(text || '').trim();
-  return fullText.slice(0, 180000);
+  return fullText;
 }
 
 function buildLessonPrompt(lesson, attachment) {
@@ -2111,7 +2112,7 @@ function blobToBase64(blob) {
 
 function hasUsableAttachmentText(attachment) {
   const text = String(attachment?.extractedText || '').trim();
-  if (text.length < 40) return false;
+  if (text.length < MIN_SAVED_PDF_TEXT_LENGTH) return false;
   const weakMarkers = [
     '[PDF saved:',
     'The file was saved, but text extraction did not return readable text',
@@ -2121,7 +2122,7 @@ function hasUsableAttachmentText(attachment) {
     'عنوان الملف:',
     'النص سيُستخرج عند التوليد'
   ];
-  return !weakMarkers.some(marker => text.includes(marker)) || text.length > 500;
+  return !weakMarkers.some(marker => text.includes(marker));
 }
 
 function getUsableAttachmentText(attachment) {
@@ -2132,13 +2133,13 @@ function pickLessonText(text, title) {
   const normalizedTitle = title.trim();
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   const start = lines.findIndex(line => line.includes(normalizedTitle));
-  if (start === -1) return text.trim().slice(0, 8000);
+  if (start === -1) return text.trim();
   const selected = [];
   for (let i = start; i < lines.length; i++) {
     if (i > start && /^الدرس\s/.test(lines[i]) && !lines[i].includes(normalizedTitle)) break;
     selected.push(lines[i]);
   }
-  return selected.join('\n').slice(0, 8000);
+  return selected.join('\n');
 }
 
 function localGenerateLesson(lesson, attachment) {

@@ -1385,6 +1385,7 @@ let editingId = null;
 let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
 const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
+const MIN_SAVED_PDF_TEXT_LENGTH = 500;
 let singleConvertedUpload = null;
 let singleConvertedFileKey = '';
 const pendingAttachmentTexts = new Map();
@@ -1994,7 +1995,7 @@ function buildPdfLessonPrompt(lesson) {
 
 function pickRelevantAttachmentText(text, lesson) {
   const fullText = String(text || '').trim();
-  return fullText.slice(0, 180000);
+  return fullText;
 }
 
 function buildLessonPrompt(lesson, attachment) {
@@ -2132,7 +2133,7 @@ function blobToBase64(blob) {
 
 function hasUsableAttachmentText(attachment) {
   const text = String(attachment?.extractedText || '').trim();
-  if (text.length < 40) return false;
+  if (text.length < MIN_SAVED_PDF_TEXT_LENGTH) return false;
   const weakMarkers = [
     '[PDF saved:',
     'The file was saved, but text extraction did not return readable text',
@@ -2142,7 +2143,7 @@ function hasUsableAttachmentText(attachment) {
     'عنوان الملف:',
     'النص سيُستخرج عند التوليد'
   ];
-  return !weakMarkers.some(marker => text.includes(marker)) || text.length > 500;
+  return !weakMarkers.some(marker => text.includes(marker));
 }
 
 function getUsableAttachmentText(attachment) {
@@ -2153,13 +2154,13 @@ function pickLessonText(text, title) {
   const normalizedTitle = title.trim();
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   const start = lines.findIndex(line => line.includes(normalizedTitle));
-  if (start === -1) return text.trim().slice(0, 8000);
+  if (start === -1) return text.trim();
   const selected = [];
   for (let i = start; i < lines.length; i++) {
     if (i > start && /^الدرس\s/.test(lines[i]) && !lines[i].includes(normalizedTitle)) break;
     selected.push(lines[i]);
   }
-  return selected.join('\n').slice(0, 8000);
+  return selected.join('\n');
 }
 
 function localGenerateLesson(lesson, attachment) {
@@ -2605,6 +2606,14 @@ function renderAttachmentDbStatus(list) {
   return `<span class="badge ${allSaved ? 'badge-green' : 'badge-gray'}">${label}</span>`;
 }
 
+function renderAttachmentTextLength(list) {
+  const lengths = list.map(att => String(att?.extractedText || '').trim().length).filter(length => length > 0);
+  if (!lengths.length) return '<span style="font-size:11px;color:var(--text-muted);">لا يوجد نص محفوظ</span>';
+  const total = lengths.reduce((sum, length) => sum + length, 0);
+  const quality = total >= 20000 ? 'جيد' : (total >= MIN_SAVED_PDF_TEXT_LENGTH ? 'قليل' : 'ناقص');
+  const color = total >= 20000 ? 'var(--success)' : (total >= MIN_SAVED_PDF_TEXT_LENGTH ? 'var(--warning)' : 'var(--danger)');
+  return `<span style="font-size:11px;color:${color};font-weight:700;">النص: ${total.toLocaleString('ar-SA')} حرف - ${quality}</span>`;
+}
 function renderAttachmentTextStatus(list, lessonId) {
   if (!list.length) return '<span class="badge badge-gray">لا يوجد مرفق</span>';
   const pending = list.filter(att => pendingAttachmentTexts.has(Number(att.id))).length;
@@ -2629,13 +2638,6 @@ function renderAttachmentTextStatus(list, lessonId) {
   }
   const hasPdf = list.some(isPdfAttachment);
   if (!hasPdf) return '<span class="badge badge-gray">غير محوّل</span>';
-  const tooLarge = list.some(att => Number(att.fileSize || 0) > MAX_DIRECT_OCR_SIZE);
-  if (tooLarge) {
-    return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
-      <span class="badge badge-gray">كبير للتحويل النصي</span>
-      <span style="font-size:11px;color:var(--text-muted);line-height:1.5;">قسّم الملف أو استبدله بملف أصغر من ${formatSize(MAX_DIRECT_OCR_SIZE)}</span>
-    </div>`;
-  }
   return `<button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}">يحتاج قراءة الصور/PDF</button>`;
 }
 
@@ -2685,10 +2687,6 @@ async function extractLessonTextFromTable(lessonId, force = false) {
   if (!lesson) return showToast('لم يتم العثور على الدرس', true);
   showToast(force ? 'بدأ طلب إعادة تحويل المرفق إلى نص...' : 'بدأ طلب استخراج النص من المرفق...');
   const lessonFiles = getLessonTableAttachments(lesson);
-  const oversizedFiles = lessonFiles.filter(item => isPdfAttachment(item) && Number(item.fileSize || 0) > MAX_DIRECT_OCR_SIZE);
-  if (oversizedFiles.length) {
-    return showToast(`حجم الملف كبير للتحويل النصي المباشر. الحد المناسب ${formatSize(MAX_DIRECT_OCR_SIZE)}. قسّم PDF إلى أجزاء أصغر أو استبدله بملف أصغر.`, true);
-  }
   const ids = lessonFiles
     .filter(item => isPdfAttachment(item) && (force || !hasUsableAttachmentText(item)))
     .map(item => item.id)
@@ -2698,14 +2696,13 @@ async function extractLessonTextFromTable(lessonId, force = false) {
     startAttachmentProgress(force ? 'إعادة تحويل المرفق إلى نص' : 'استخراج نص المرفق وتحويل الصور');
     let readyCount = 0;
     const errorMessages = [];
-    const useChunks = lessonFiles.some(item => Number(item.fileSize || 0) > 20 * 1024 * 1024);
-    if (useChunks) {
+    if (true) {
       const pageStep = 8;
-      const maxPages = 160;
+      const maxPages = 5000;
       const collected = new Map(ids.map(id => [Number(id), []]));
       for (let pageStart = 1; pageStart <= maxPages; pageStart += pageStep) {
         const pageEnd = pageStart + pageStep - 1;
-        setAttachmentProgress(Math.min(95, ((pageStart - 1) / maxPages) * 100), 'تحويل PDF كبير على دفعات', `استخراج الصفحات ${pageStart}-${pageEnd}`);
+        setAttachmentProgress(Math.min(95, Math.max(5, (pageStart / 5000) * 95)), 'تحويل PDF كبير على دفعات', `استخراج الصفحات ${pageStart}-${pageEnd}`);
         const chunkData = await apiRequest('/api/attachments/preview-existing-text', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2722,11 +2719,11 @@ async function extractLessonTextFromTable(lessonId, force = false) {
             gotText = true;
           }
         });
-        if (gotEnd || (!gotText && pageStart > 40)) break;
+        if (gotEnd) break;
       }
       collected.forEach((parts, id) => {
         const text = parts.join('\n\n').trim();
-        if (text.length >= 40) {
+        if (text.length >= MIN_SAVED_PDF_TEXT_LENGTH) {
           pendingAttachmentTexts.set(id, text);
           readyCount += 1;
         }
@@ -2860,7 +2857,7 @@ function renderTable() {
       <td style="font-weight:600">${escapeHtml(l.title)}</td>
       <td>${renderAttachmentFileNames(lessonFiles)}</td>
       <td>${renderAttachmentDbStatus(lessonFiles)}</td>
-      <td>${renderAttachmentTextStatus(lessonFiles, l.id)}</td>
+      <td><div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start;">${renderAttachmentTextStatus(lessonFiles, l.id)}${renderAttachmentTextLength(lessonFiles)}</div></td>
       <td><span class="badge ${l.status==='active'?'badge-green':'badge-gray'}">${l.status==='active'?'مفعل':'غير مفعل'}</span></td>
       <td style="color:var(--text-muted);font-size:11px">${escapeHtml(l.createdAt)}</td>
       <td>
