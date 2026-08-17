@@ -764,30 +764,9 @@ async function generateGemini(req, res) {
     for (const id of ids.slice(0, 6)) {
       const attachment = await getAttachment(id);
       if (!attachment || !isPdfAttachment(attachment)) continue;
-      const savedText = normalizeExtractedText(attachment.extractedText || "");
-      if (hasUsableExtractedText(savedText)) {
-        parts.push({
-          text: [
-            `النص المستخرج والمحفوظ من المرفق (${attachment.fileName || "PDF"}):`,
-            savedText
-          ].join("\n")
-        });
-        continue;
-      }
-      const extractedNow = await extractTextLocalOnly(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, attachment.filePath);
-      if (hasUsableExtractedText(extractedNow)) {
-        await sql`UPDATE ai_attachments SET extracted_text = ${normalizeExtractedText(extractedNow)} WHERE id = ${Number(attachment.id)};`;
-        parts.push({
-          text: [
-            `النص المستخرج والمحفوظ من المرفق (${attachment.fileName || "PDF"}):`,
-            extractedNow
-          ].join("\n")
-        });
-        continue;
-      }
       const mimeType = "application/pdf";
       if (Number(attachment.fileSize || 0) > INLINE_GEMINI_LIMIT) {
-        const fileUri = await uploadGeminiFile(apiKey, attachment);
+        const fileUri = await getOrCreateGeminiFileUri(apiKey, attachment);
         parts.push({ file_data: { mime_type: mimeType, file_uri: fileUri } });
       } else {
         const data = await fetchBlobBase64(attachment.filePath);

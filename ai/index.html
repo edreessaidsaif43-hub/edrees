@@ -1740,7 +1740,7 @@ async function generateLesson() {
   const settings = getAiSettings();
   let hasText = lessonAttachments.some(hasUsableAttachmentText);
   let isPdf = lessonAttachments.some(isPdfAttachment);
-  let needsPdfRead = lessonAttachments.some(item => isPdfAttachment(item) && !hasUsableAttachmentText(item));
+  let needsPdfRead = lessonAttachments.some(isPdfAttachment);
   if (!hasText && !isPdf) {
     showError('لا يوجد نص درسي كافٍ داخل المرفق. الصق نص الدرس في خانة "نص المرفق" داخل لوحة الإدارة ثم احفظ الدرس مرة أخرى.');
     return;
@@ -1753,23 +1753,6 @@ async function generateLesson() {
   document.getElementById('results-area').classList.remove('show');
   startGenerationProgress();
   resetResultReveal();
-
-  try {
-    if (isPdf) {
-      lessonAttachments = await ensureLessonAttachmentText(lesson, lessonAttachments);
-      attachment = lessonAttachments[0];
-      hasText = lessonAttachments.some(hasUsableAttachmentText);
-      isPdf = lessonAttachments.some(isPdfAttachment);
-      needsPdfRead = lessonAttachments.some(item => isPdfAttachment(item) && !hasUsableAttachmentText(item));
-    }
-  } catch (err) {
-    stopGenerationProgress();
-    showError(formatAiError(err));
-    setTimeout(() => document.getElementById('loading-state').classList.remove('show'), 450);
-    btn.disabled = false;
-    btn.innerHTML = '<span>⚡</span> توليد التحضير';
-    return;
-  }
 
   const combinedAttachment = {
     ...attachment,
