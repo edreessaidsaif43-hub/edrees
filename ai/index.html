@@ -1690,7 +1690,7 @@ function getLessonAttachments(lesson) {
 
 async function ensureLessonAttachmentText(lesson, currentAttachments) {
   const ids = currentAttachments
-    .filter(item => isPdfAttachment(item) && !hasUsableAttachmentText(item))
+    .filter(item => isPdfAttachment(item))
     .map(item => item.id)
     .filter(Boolean);
   if (!ids.length) return currentAttachments;
@@ -1698,8 +1698,8 @@ async function ensureLessonAttachmentText(lesson, currentAttachments) {
   const data = await apiRequest('/api/attachments/extract-text', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    timeoutMs: 120000,
-    body: JSON.stringify({ attachmentIds: ids, limit: ids.length })
+    timeoutMs: 30 * 60 * 1000,
+    body: JSON.stringify({ attachmentIds: ids, limit: ids.length, force: true })
   });
   await loadDatabase();
   const refreshedAttachments = getLessonAttachments(lesson);
@@ -1755,7 +1755,7 @@ async function generateLesson() {
   resetResultReveal();
 
   try {
-    if (needsPdfRead) {
+    if (isPdf) {
       lessonAttachments = await ensureLessonAttachmentText(lesson, lessonAttachments);
       attachment = lessonAttachments[0];
       hasText = lessonAttachments.some(hasUsableAttachmentText);
