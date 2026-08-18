@@ -765,13 +765,8 @@ async function generateGemini(req, res) {
       const attachment = await getAttachment(id);
       if (!attachment || !isPdfAttachment(attachment)) continue;
       const mimeType = "application/pdf";
-      if (Number(attachment.fileSize || 0) > INLINE_GEMINI_LIMIT) {
-        const fileUri = await getOrCreateGeminiFileUri(apiKey, attachment);
-        parts.push({ file_data: { mime_type: mimeType, file_uri: fileUri } });
-      } else {
-        const data = await fetchBlobBase64(attachment.filePath);
-        parts.push({ inline_data: { mime_type: mimeType, data } });
-      }
+      const fileUri = await getOrCreateGeminiFileUri(apiKey, attachment);
+      parts.push({ file_data: { mime_type: mimeType, file_uri: fileUri } });
       usesPdfAttachment = true;
     }
     if (!parts.length) return fail(res, 404, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ù„Ù PDF ØµØ§Ù„Ø­.", "not_found");
@@ -968,7 +963,8 @@ async function replaceAttachment(req, res, id) {
         file_type = ${cleanDbText(upload.fileType, 120)},
         file_size = ${upload.fileSize},
         file_path = ${cleanDbText(upload.filePath, 1200)},
-        extracted_text = ${normalizeExtractedText(upload.extractedText)}
+        extracted_text = ${normalizeExtractedText(upload.extractedText)},
+        gemini_file_uri = ''
     WHERE id = ${id};
   `;
   return send(res, 200, { ok: true, attachmentId: id, extracted: hasUsableExtractedText(upload.extractedText) });
