@@ -1987,7 +1987,7 @@ function isRequestTimeoutError(err) {
 
 function formatAiError(err) {
   if (isRequestTimeoutError(err)) {
-    return 'استغرق التوليد وقتًا طويلًا. حاول مرة أخرى، أو الصق نص الدرس في لوحة الإدارة لتسريع التحضير.';
+    return 'استغرق قراءة ملف PDF وقتًا طويلًا. حاول مرة أخرى؛ بعد تجهيز الملف أول مرة يصبح التوليد التالي أسرع.';
   }
   if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(err)) {
     return 'خدمة Gemini عليها ضغط عالٍ مؤقتًا. حاول مرة أخرى بعد قليل أو اختر Gemini 3.1 Flash-Lite من لوحة الإدارة.';
@@ -2001,7 +2001,7 @@ function formatAiError(err) {
     return 'تعذر الاتصال بخدمة التوليد. تأكد من رفع api/ai.js، وإضافة قاعدة البيانات وBlob في Vercel، ومن اتصال الخادم بالإنترنت.';
   }
   if (isGeminiInvalidArgumentError(err)) {
-    return 'تعذر قراءة ملف PDF بالذكاء الاصطناعي. الصق نص الدرس في لوحة الإدارة لتحضير أدق، أو استخدم ملف PDF نصي واضح.';
+    return 'تعذر قراءة ملف PDF بالذكاء الاصطناعي. استخدم ملف PDF أوضح/أصغر أو أعد المحاولة بعد قليل.';
   }
   return err?.message || 'حدث خطأ أثناء توليد التحضير، يرجى المحاولة مرة أخرى.';
 }
@@ -2038,7 +2038,7 @@ async function callGeminiBackend(prompt, settings, extra = {}) {
   const data = await apiRequest('/api/gemini/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    timeoutMs: extra.includePdf ? 90000 : 65000,
+    timeoutMs: extra.includePdf ? 4 * 60 * 1000 : 65000,
     body: JSON.stringify({
       model: settings.model,
       prompt,
