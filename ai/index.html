@@ -1751,7 +1751,8 @@ async function generateLesson() {
   btn.innerHTML = '<span class="spin">⏳</span> جاري التوليد...';
   document.getElementById('loading-state').classList.add('show');
   document.getElementById('results-area').classList.remove('show');
-  startGenerationProgress();
+  startGenerationProgress({ needsPdfRead, hasSavedText: hasText });
+  setGenerationProgressStage('prepare');
   resetResultReveal();
 
   const combinedAttachment = {
@@ -1768,9 +1769,12 @@ async function generateLesson() {
 
     if (true) {
       try {
+        setGenerationProgressStage(needsPdfRead ? 'pdf' : 'text');
+        setGenerationProgressStage('request');
         result = needsPdfRead
           ? await callGeminiWithPdf(buildPdfLessonPrompt(lesson), settings, attachment, lessonAttachments)
           : await callGemini(prompt, settings);
+        setGenerationProgressStage('response');
             } catch (aiErr) {
         const canUseTextFallback = hasUsableAttachmentText(combinedAttachment);
         if (isGeminiQuotaError(aiErr)) {
@@ -1825,6 +1829,7 @@ async function generateLesson() {
     window.__currentLessonForNormalize = lesson;
     lastResult = normalizeAiResult(result);
     delete window.__currentLessonForNormalize;
+    setGenerationProgressStage('render');
     finishGenerationProgress();
     showResults(lastResult, lesson);
     if (usedFallback) showToast(fallbackMessage);
@@ -2173,9 +2178,24 @@ function fallbackParse(text, lesson = {}) {
 
 let generationProgressTimer = null;
 let generationProgressValue = 0;
+let generationProgressTarget = 0;
 
-function setGenerationProgress(value, message = '') {
-  generationProgressValue = Math.max(0, Math.min(100, Math.round(value)));
+const generationProgressStages = {
+  start: { value: 3, message: 'بدء تجهيز طلب التحضير...' },
+  prepare: { value: 10, message: 'التحقق من بيانات الدرس والمرفقات...' },
+  text: { value: 25, message: 'تجهيز النص المحفوظ من المرفق...' },
+  pdf: { value: 35, message: 'إرسال المرفق إلى Gemini لقراءته وتحليله...' },
+  request: { value: 55, message: 'تم إرسال طلب التوليد، بانتظار استجابة الذكاء الاصطناعي...' },
+  response: { value: 88, message: 'تم استلام النتيجة، جاري تنظيم أقسام التحضير...' },
+  fallback: { value: 82, message: 'جاري تجهيز تحضير احتياطي من النص المتاح...' },
+  render: { value: 96, message: 'جاري عرض التحضير في الصفحة...' }
+};
+
+function setGenerationProgress(value, message = '', options = {}) {
+  const nextValue = Math.max(0, Math.min(100, Math.round(value)));
+  generationProgressValue = options.allowDecrease
+    ? nextValue
+    : Math.max(generationProgressValue, nextValue);
   const bar = document.getElementById('loading-progress-bar');
   const percent = document.getElementById('loading-percent');
   const sub = document.getElementById('loading-sub');
@@ -2184,28 +2204,31 @@ function setGenerationProgress(value, message = '') {
   if (sub && message) sub.textContent = message;
 }
 
-function startGenerationProgress() {
+function setGenerationProgressStage(stageName) {
+  const stage = generationProgressStages[stageName];
+  if (!stage) return;
+  generationProgressTarget = Math.max(generationProgressTarget, stage.value);
+  setGenerationProgress(stage.value, stage.message);
+}
+
+function startGenerationProgress(context = {}) {
   clearInterval(generationProgressTimer);
-  setGenerationProgress(3, 'بدء قراءة المرفق وتجهيز الطلب...');
+  generationProgressValue = 0;
+  generationProgressTarget = 3;
+  setGenerationProgress(0, '', { allowDecrease: true });
+  setGenerationProgressStage('start');
+
   generationProgressTimer = setInterval(() => {
-    const next = generationProgressValue < 55
-      ? generationProgressValue + Math.ceil(Math.random() * 7)
-      : generationProgressValue < 82
-        ? generationProgressValue + Math.ceil(Math.random() * 4)
-        : generationProgressValue < 92
-          ? generationProgressValue + 1
-          : generationProgressValue;
-    const msg = next < 35
-      ? 'جاري تحليل المرفق...'
-      : next < 70
-        ? 'جاري توليد أقسام التحضير من المرفق...'
-        : 'اقتربنا من عرض النتيجة...';
-    setGenerationProgress(Math.min(next, 92), msg);
-  }, 650);
+    if (generationProgressValue >= generationProgressTarget) return;
+    const gap = generationProgressTarget - generationProgressValue;
+    const step = gap > 12 ? 3 : gap > 5 ? 2 : 1;
+    setGenerationProgress(Math.min(generationProgressTarget, generationProgressValue + step));
+  }, context.needsPdfRead ? 900 : 650);
 }
 
 function finishGenerationProgress() {
   clearInterval(generationProgressTimer);
+  setGenerationProgressStage('render');
   setGenerationProgress(100, 'تم توليد التحضير، جاري عرض النتيجة...');
 }
 
