@@ -783,7 +783,7 @@ async function generateGemini(req, res) {
         contents: [{ role: "user", parts }],
         generationConfig: selectedGenerationConfig,
       }),
-    }, usesPdfAttachment ? 85000 : 55000);
+    }, usesPdfAttachment ? 4 * 60 * 1000 : 55000);
     const data = await response.json().catch(() => ({}));
     return { response, data };
   }
