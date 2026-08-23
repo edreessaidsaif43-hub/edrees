@@ -463,7 +463,7 @@
 .subscription-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .subscription-title{font-weight:900;color:#163b72;font-size:16px}
 .subscription-badge{background:#e8f1ff;color:#174ea6;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800}
-.subscription-text{color:#475569;font-size:13px;line-height:1.8;margin:6px 0 12px}
+.subscription-text{color:#475569;font-size:13px;line-height:1.7;margin:6px 0 10px}.transfer-number{display:inline-flex;align-items:center;direction:ltr;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:8px;padding:3px 9px;margin:0 4px;font-weight:900;font-size:15px;letter-spacing:.4px;box-shadow:0 2px 8px rgba(251,146,60,.18)}
 .subscription-form{display:grid;grid-template-columns:minmax(160px,1fr) minmax(180px,1.2fr) auto;gap:10px;align-items:end}
 .subscription-form label{display:block;font-size:12px;font-weight:800;color:#334155;margin-bottom:5px}
 .subscription-form select,.subscription-form input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font-family:inherit;font-size:13px}.subscription-form select[multiple]{min-height:132px}.subscription-amount{grid-column:1 / -1;background:#eef6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;color:#174ea6;font-size:13px;font-weight:900}
@@ -642,7 +642,7 @@
         <div class="subscription-badge" id="subscription-badge">قيمة موحدة للصفحتين</div>
       </div>
       <div class="subscription-text" id="subscription-text">
-        للاشتراك يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong>، علمًا بأن الرقم مفعل للتحويل، ثم أرسل صورة الإيصال أو PDF الإيصال للتأكد وتفعيل الاشتراك. قيمة الاشتراك 1 ريال عماني لكل صف، ويمكن اختيار أكثر من صف دفعة واحدة. الاشتراك يفتح الصفوف المشتركة في التحضير الذكي والتحضير بالذكاء الاصطناعي.
+        اختر الصفوف المطلوبة، حوّل قيمة الاشتراك إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع الإيصال. قيمة الاشتراك: 1 ريال عماني لكل صف.
       </div>
       <div class="subscription-form">
         <div>
@@ -820,20 +820,20 @@ function updateSubscriptionPanel() {
     const stopped = latestBlocked.status === 'stopped';
     badge.textContent = stopped ? 'تم إيقاف الاشتراك' : 'تم رفض الإيصال';
     text.innerHTML = stopped
-      ? 'تم إيقاف اشتراكك لهذا الصف بعد مراجعة الإيصال. لإعادة الاشتراك يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong> ثم رفع إيصال صحيح مرة أخرى.'
-      : 'تم رفض الإيصال بعد المراجعة. يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong> ثم رفع إيصال صحيح مرة أخرى.';
+      ? 'لإعادة التفعيل: حوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع إيصالًا صحيحًا.'
+      : 'تم رفض الإيصال. حوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع إيصالًا صحيحًا.';
     status.textContent = 'الصف: ' + latestBlocked.grade + (latestBlocked.adminNote ? ' - ملاحظة الإدارة: ' + latestBlocked.adminNote : '');
   } else if (active.length) {
     badge.textContent = 'مفعل: ' + active.join('، ');
-    text.innerHTML = 'اشتراكك مفعل. ستظهر لك الصفوف المشترك فيها فقط في التحضير الذكي والتحضير بالذكاء الاصطناعي. للاشتراك في صف آخر يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong> ثم رفع صورة الإيصال أو PDF الإيصال من النموذج أدناه.';
+    text.innerHTML = 'اشتراكك مفعل للصفوف المحددة. لإضافة صف: حوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع الإيصال.';
     status.textContent = 'الصفوف المتاحة الآن: ' + active.join('، ');
   } else if (pending.length) {
     badge.textContent = 'بانتظار المراجعة';
-    text.innerHTML = 'تم استلام الإيصال. الاشتراك يعمل مؤقتًا وسيتم التحقق من صحة التحويل إلى الرقم <strong>91470590</strong>.';
+    text.innerHTML = 'تم استلام الإيصال، وسيتم التحقق من التحويل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span>.';
     status.textContent = 'طلبات قيد المراجعة: ' + pending.map(p => p.grade).join('، ');
   } else {
     badge.textContent = 'قيمة موحدة للصفحتين';
-    text.innerHTML = 'للاشتراك يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong>، علمًا بأن الرقم مفعل للتحويل، ثم أرسل صورة الإيصال أو PDF الإيصال للتأكد وتفعيل الاشتراك. قيمة الاشتراك 1 ريال عماني لكل صف، ويمكن اختيار أكثر من صف دفعة واحدة. الاشتراك يفتح الصفوف المشتركة في التحضير الذكي والتحضير بالذكاء الاصطناعي.';
+    text.innerHTML = 'اختر الصفوف المطلوبة، حوّل قيمة الاشتراك إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع الإيصال. قيمة الاشتراك: 1 ريال عماني لكل صف.';
     status.textContent = getSubscriptionUserId() ? 'اختر الصف وارفع الإيصال.' : 'سجل الدخول ثم أرسل الإيصال ليتم تفعيل الصف.';
   }
 }
