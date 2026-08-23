@@ -6,46 +6,138 @@
   <title>إدارة اشتراكات التحضير</title>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
   <style>
-    *{box-sizing:border-box} body{margin:0;font-family:Tajawal,Arial,sans-serif;background:#f6f8fb;color:#0f172a;padding:24px}
-    .wrap{max-width:1180px;margin:auto}.top{display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
-    h1{margin:0;font-size:26px;color:#163b72}.panel,.card{background:#fff;border:1px solid #dbe4ef;border-radius:12px;box-shadow:0 10px 28px rgba(15,23,42,.06);padding:16px}
-    .login{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.field{display:flex;flex-direction:column;gap:5px}.field label{font-size:12px;font-weight:800;color:#475569}
-    input,select,button,textarea{font-family:inherit}input,textarea{border:1px solid #cbd5e1;border-radius:8px;padding:10px;min-width:220px}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Tajawal,Arial,sans-serif;background:#f6f8fb;color:#0f172a;padding:24px}
+    .wrap{max-width:1280px;margin:auto}
+    .top{display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+    h1{margin:0;font-size:26px;color:#163b72}
+    .panel{background:#fff;border:1px solid #dbe4ef;border-radius:12px;box-shadow:0 10px 28px rgba(15,23,42,.06);padding:16px}
+    .login{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+    .field{display:flex;flex-direction:column;gap:5px}
+    .field label{font-size:12px;font-weight:800;color:#475569}
+    input,button,textarea{font-family:inherit}
+    input,textarea{border:1px solid #cbd5e1;border-radius:8px;padding:10px;min-width:220px}
     button{border:none;border-radius:8px;padding:10px 14px;background:#1a56a0;color:white;font-weight:900;cursor:pointer}
-    .btn-danger{background:#dc2626}.btn-ok{background:#15803d}.btn-muted{background:#64748b}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px;margin-top:16px}
-    .meta{font-size:13px;color:#64748b;line-height:1.8}.name{font-weight:900;color:#163b72;font-size:16px}.status{display:inline-block;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:900;background:#e2e8f0}
+    .btn-danger{background:#dc2626}.btn-ok{background:#15803d}.btn-muted{background:#64748b}
+    .meta{font-size:13px;color:#64748b;line-height:1.8}
+    .hidden{display:none}.msg{font-size:13px;margin-top:8px;color:#64748b}.empty{text-align:center;color:#64748b;padding:30px}
+    .table-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:12px;background:#fff}
+    table{width:100%;border-collapse:collapse;min-width:1050px}
+    th,td{border-bottom:1px solid #e2e8f0;padding:10px;vertical-align:top;text-align:right}
+    th{background:#f8fafc;color:#334155;font-size:12px;font-weight:900;position:sticky;top:0;z-index:1}
+    td{font-size:13px}
+    tr:hover td{background:#fbfdff}
+    .name{font-weight:900;color:#163b72;font-size:14px}
+    .status{display:inline-block;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:900;background:#e2e8f0;white-space:nowrap}
     .status.active{background:#dcfce7;color:#166534}.status.pending{background:#fef3c7;color:#92400e}.status.rejected,.status.stopped{background:#fee2e2;color:#991b1b}
-    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.receipt{display:inline-block;margin-top:10px;color:#1a56a0;font-weight:800}.hidden{display:none}.msg{font-size:13px;margin-top:8px;color:#64748b}.empty{text-align:center;color:#64748b;padding:30px}.note{width:100%;min-height:60px;margin-top:10px}.ops{margin-top:12px;border-top:1px solid #e2e8f0;padding-top:10px}.ops-title{font-size:12px;font-weight:900;color:#334155;margin-bottom:6px}.op{padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;margin-top:6px;font-size:12px;color:#475569;line-height:1.7}.op a{color:#1a56a0;font-weight:900}
+    .sub-list{display:flex;flex-direction:column;gap:4px}
+    .sub-chip{display:inline-flex;width:max-content;max-width:260px;border:1px solid #bfdbfe;background:#eff6ff;color:#174ea6;border-radius:999px;padding:4px 8px;font-weight:800;font-size:12px}
+    .receipt-link{display:block;color:inherit;text-decoration:none}
+    .receipt-preview{width:180px;height:130px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;overflow:hidden;display:flex;align-items:center;justify-content:center}
+    .receipt-preview img{width:100%;height:100%;object-fit:contain;background:#fff}
+    .receipt-preview iframe{width:100%;height:100%;border:0;background:#fff;pointer-events:none}
+    .file-preview{padding:12px;text-align:center;color:#334155;font-weight:900}
+    .file-name{display:block;width:180px;margin-top:6px;color:#1a56a0;font-size:12px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .note{width:220px;min-width:220px;min-height:58px;resize:vertical}
+    .actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .actions button{padding:8px 10px;font-size:12px}
+    details{margin-top:8px;color:#475569}
+    summary{cursor:pointer;font-weight:900;color:#334155}
+    .op{padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;margin-top:6px;font-size:12px;line-height:1.7}
+    .op a{color:#1a56a0;font-weight:900}
+    @media(max-width:760px){
+      body{padding:12px}
+      .table-wrap{border:0;overflow:visible;background:transparent}
+      table,thead,tbody,tr,td{display:block;width:100%;min-width:0}
+      table{min-width:0}
+      thead{display:none}
+      tr{background:#fff;border:1px solid #dbe4ef;border-radius:12px;box-shadow:0 8px 22px rgba(15,23,42,.06);margin-bottom:12px;overflow:hidden}
+      td{border-bottom:1px solid #eef2f7}
+      td::before{content:attr(data-label);display:block;font-size:11px;font-weight:900;color:#64748b;margin-bottom:5px}
+      .receipt-preview,.file-name,.note{width:100%}
+      .receipt-preview{height:210px}
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="top">
-      <div><h1>إدارة اشتراكات التحضير</h1><div class="meta">مراجعة إيصالات الاشتراك وتفعيل الصفوف أو إيقافها عند وجود إيصال مخالف.</div></div>
+      <div>
+        <h1>إدارة اشتراكات التحضير</h1>
+        <div class="meta">مراجعة إيصالات الاشتراك وتفعيل المواد أو إيقافها عند وجود إيصال مخالف.</div>
+      </div>
       <a href="/" style="color:#1a56a0;font-weight:900;text-decoration:none">العودة للرئيسية</a>
     </div>
+
     <div class="panel" id="login-panel">
       <div class="login">
-        <div class="field"><label>كلمة مرور الإدارة</label><input id="admin-password" type="password" placeholder="أدخل كلمة المرور"></div>
+        <div class="field">
+          <label>كلمة مرور الإدارة</label>
+          <input id="admin-password" type="password" placeholder="أدخل كلمة المرور">
+        </div>
         <button onclick="loginAdmin()">دخول</button>
       </div>
       <div class="msg" id="login-msg"></div>
     </div>
+
     <div class="panel hidden" id="admin-panel">
-      <div class="top"><div><strong>الإيصالات والاشتراكات</strong><div class="meta">رقم التحويل: 91470590</div></div><button class="btn-muted" onclick="loadSubscriptions()">تحديث</button></div>
-      <div id="list" class="grid"></div>
+      <div class="top">
+        <div>
+          <strong>الإيصالات والاشتراكات</strong>
+          <div class="meta">رقم التحويل: 91470590</div>
+        </div>
+        <button class="btn-muted" onclick="loadSubscriptions()">تحديث</button>
+      </div>
+      <div id="list"></div>
     </div>
   </div>
+
 <script>
 let adminPassword = '';
+
 function api(path){ return (location.protocol === 'file:' ? 'https://altahdir.app' : '') + path; }
 function esc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function statusLabel(s){ return ({pending:'قيد المراجعة',active:'مفعل',rejected:'مرفوض',stopped:'متوقف'})[s] || s; }
+function formatDate(value){ const d = value ? new Date(value) : null; return d && Number.isFinite(d.getTime()) ? d.toLocaleString('ar-OM') : ''; }
+function isImageReceipt(item){ return String(item?.receiptFileType || '').startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(String(item?.receiptUrl || item?.receiptFileName || '')); }
+function isPdfReceipt(item){ return String(item?.receiptFileType || '').includes('pdf') || /\.pdf($|\?)/i.test(String(item?.receiptUrl || item?.receiptFileName || '')); }
+
+function formatSubjects(item){
+  const subjects = Array.isArray(item.subjects) ? item.subjects : [];
+  if (subjects.length) {
+    return subjects.map(s => '<span class="sub-chip">' + esc((s.grade || '') + ' - ' + (s.subject || '')) + '</span>').join('');
+  }
+  const grades = Array.isArray(item.grades) && item.grades.length ? item.grades : [item.grade].filter(Boolean);
+  return grades.map(g => '<span class="sub-chip">' + esc(g) + '</span>').join('');
+}
+
+function receiptPreview(item){
+  if(!item.receiptUrl) return '<div class="meta">لا يوجد إيصال</div>';
+  const url = esc(item.receiptUrl);
+  const name = esc(item.receiptFileName || 'receipt');
+  let preview = '';
+  if(isImageReceipt(item)){
+    preview = '<div class="receipt-preview"><img src="' + url + '" alt="إيصال الاشتراك" loading="lazy"></div>';
+  } else if(isPdfReceipt(item)){
+    preview = '<div class="receipt-preview"><iframe src="' + url + '#toolbar=0&navpanes=0" title="معاينة PDF"></iframe></div>';
+  } else {
+    preview = '<div class="receipt-preview"><div class="file-preview">ملف إيصال<br>اضغط للفتح</div></div>';
+  }
+  return '<a class="receipt-link" href="' + url + '" target="_blank" rel="noopener" title="فتح الإيصال">' + preview + '<span class="file-name">' + name + '</span></a>';
+}
+
 function renderOperations(item){
   const ops = Array.isArray(item.receiptHistory) ? item.receiptHistory : [];
   if(!ops.length) return '';
-  return `<div class="ops"><div class="ops-title">كل عمليات المستخدم</div>${ops.map((op, idx) => `<div class="op"><strong>${idx + 1}. ${esc(op.grade || '')}</strong><br>التاريخ: ${esc(op.createdAt ? new Date(op.createdAt).toLocaleString('ar-OM') : '')}<br>المبلغ: ${esc(op.amountOmr || (Array.isArray(op.grades) ? op.grades.length : 1))} ريال عماني<br>${op.receiptUrl ? `<a href="${esc(op.receiptUrl)}" target="_blank" rel="noopener">فتح إيصال العملية: ${esc(op.receiptFileName || 'receipt')}</a>` : ''}</div>`).join('')}</div>`;
+  return '<details><summary>كل عمليات المستخدم (' + ops.length + ')</summary>' + ops.map((op, idx) => {
+    const subjects = Array.isArray(op.subjects) && op.subjects.length
+      ? op.subjects.map(s => esc((s.grade || '') + ' - ' + (s.subject || ''))).join('، ')
+      : esc(op.grade || '');
+    const link = op.receiptUrl ? '<br><a href="' + esc(op.receiptUrl) + '" target="_blank" rel="noopener">فتح إيصال العملية: ' + esc(op.receiptFileName || 'receipt') + '</a>' : '';
+    return '<div class="op"><strong>' + (idx + 1) + '. ' + subjects + '</strong><br>التاريخ: ' + esc(formatDate(op.createdAt)) + '<br>المبلغ: ' + esc(op.amountOmr || 1) + ' ريال عماني' + link + '</div>';
+  }).join('') + '</details>';
 }
+
 async function loginAdmin(){
   adminPassword = document.getElementById('admin-password').value.trim();
   if(!adminPassword){ document.getElementById('login-msg').textContent='أدخل كلمة المرور.'; return; }
@@ -53,6 +145,7 @@ async function loginAdmin(){
   document.getElementById('admin-panel').classList.remove('hidden');
   await loadSubscriptions();
 }
+
 async function loadSubscriptions(){
   const list = document.getElementById('list');
   list.innerHTML = '<div class="empty">جاري التحميل...</div>';
@@ -62,26 +155,27 @@ async function loadSubscriptions(){
     if(!res.ok) throw new Error(data.message || 'تعذر تحميل الاشتراكات.');
     const items = data.subscriptions || [];
     if(!items.length){ list.innerHTML = '<div class="empty">لا توجد إيصالات حتى الآن.</div>'; return; }
-    list.innerHTML = items.map(item => {
+    list.innerHTML = '<div class="table-wrap"><table><thead><tr><th>المستخدم</th><th>الاشتراك</th><th>الحالة</th><th>الإيصال</th><th>آخر تحديث</th><th>ملاحظة وإجراءات</th></tr></thead><tbody>' + items.map(item => {
       const p = item.profile || {};
-      return `<div class="card">
-        <div class="top" style="margin-bottom:6px"><div class="name">${esc(p.name || item.userId)}</div><span class="status ${esc(item.status)}">${esc(statusLabel(item.status))}</span></div>
-        <div class="meta">المستخدم: ${esc(item.userId)}<br>التواصل: ${esc(p.contact || '')}<br>الصف: <strong>${esc(item.grade)}</strong><br>آخر تحديث: ${esc(new Date(item.updatedAt).toLocaleString('ar-OM'))}</div>
-        ${item.receiptUrl ? `<a class="receipt" href="${esc(item.receiptUrl)}" target="_blank" rel="noopener">فتح آخر إيصال: ${esc(item.receiptFileName || 'receipt')}</a>` : ''}
-        ${renderOperations(item)}
-        <textarea class="note" id="note-${item.id}" placeholder="ملاحظة إدارية اختيارية">${esc(item.adminNote || '')}</textarea>
-        <div class="actions">
-          <button class="btn-ok" onclick="updateSub(${item.id}, 'active')">تفعيل الاشتراك</button>
-          <button class="btn-danger" onclick="updateSub(${item.id}, 'stopped')">إيقاف الاشتراك</button>
-          <button class="btn-muted" onclick="updateSub(${item.id}, 'rejected')">رفض الإيصال</button>
-        </div>
-      </div>`;
-    }).join('');
+      return '<tr>' +
+        '<td data-label="المستخدم"><div class="name">' + esc(p.name || item.userId) + '</div><div class="meta">ID: ' + esc(item.userId) + '<br>التواصل: ' + esc(p.contact || '') + '</div></td>' +
+        '<td data-label="الاشتراك"><div class="sub-list">' + formatSubjects(item) + '</div>' + renderOperations(item) + '</td>' +
+        '<td data-label="الحالة"><span class="status ' + esc(item.status) + '">' + esc(statusLabel(item.status)) + '</span></td>' +
+        '<td data-label="الإيصال">' + receiptPreview(item) + '</td>' +
+        '<td data-label="آخر تحديث"><div class="meta">' + esc(formatDate(item.updatedAt)) + '</div></td>' +
+        '<td data-label="ملاحظة وإجراءات"><textarea class="note" id="note-' + item.id + '" placeholder="ملاحظة إدارية اختيارية">' + esc(item.adminNote || '') + '</textarea><div class="actions"><button class="btn-ok" onclick="updateSub(' + item.id + ', \'active\')">تفعيل</button><button class="btn-danger" onclick="updateSub(' + item.id + ', \'stopped\')">إيقاف</button><button class="btn-muted" onclick="updateSub(' + item.id + ', \'rejected\')">رفض</button></div></td>' +
+      '</tr>';
+    }).join('') + '</tbody></table></div>';
   }catch(e){ list.innerHTML = '<div class="empty">'+esc(e.message)+'</div>'; }
 }
+
 async function updateSub(id,status){
   const note = document.getElementById('note-'+id)?.value || '';
-  const res = await fetch(api('/api/subscriptions?action=admin_update'), { method:'POST', headers:{ 'Content-Type':'application/json', 'x-admin-password': adminPassword }, body: JSON.stringify({ id, status, note }) });
+  const res = await fetch(api('/api/subscriptions?action=admin_update'), {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'x-admin-password': adminPassword },
+    body: JSON.stringify({ id, status, note })
+  });
   const data = await res.json().catch(() => ({}));
   if(!res.ok){ alert(data.message || 'تعذر تحديث الاشتراك.'); return; }
   await loadSubscriptions();
