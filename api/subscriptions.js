@@ -225,7 +225,7 @@ async function requestSubscription(req, res) {
     )
     RETURNING *;
   `;
-  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), message: "تم إرسال الإيصال. سيتم تفعيل الاشتراك بعد مراجعته." });
+  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), message: "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. ستتم مراجعة الإيصال من الإدارة لاحقًا." });
 }
 
 async function adminList(req, res) {
@@ -274,4 +274,5 @@ export default async function handler(req, res) {
     return fail(res, error?.statusCode || 500, String(error?.message || error), "server_error");
   }
 }
+
 

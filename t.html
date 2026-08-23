@@ -755,15 +755,24 @@ function updateSubscriptionPanel() {
   if (!card || !badge || !text || !status) return;
   const active = subscriptionState.activeGrades || [];
   const pending = subscriptionState.pending || [];
-  card.classList.toggle('active', active.length > 0);
-  card.classList.toggle('pending', !active.length && pending.length > 0);
-  if (active.length) {
+  const blocked = (subscriptionState.subscriptions || []).filter(item => ['rejected', 'stopped'].includes(item.status));
+  const latestBlocked = blocked[0] || null;
+  card.classList.toggle('active', active.length > 0 && !latestBlocked);
+  card.classList.toggle('pending', !active.length && (pending.length > 0 || !!latestBlocked));
+  if (latestBlocked) {
+    const stopped = latestBlocked.status === 'stopped';
+    badge.textContent = stopped ? 'تم إيقاف الاشتراك' : 'تم رفض الإيصال';
+    text.innerHTML = stopped
+      ? 'تم إيقاف اشتراكك لهذا الصف بعد مراجعة الإيصال. يمكنك إرسال إيصال صحيح مرة أخرى.'
+      : 'تم رفض الإيصال بعد المراجعة. يمكنك إرسال إيصال صحيح مرة أخرى.';
+    status.textContent = 'الصف: ' + latestBlocked.grade + (latestBlocked.adminNote ? ' - ملاحظة الإدارة: ' + latestBlocked.adminNote : '');
+  } else if (active.length) {
     badge.textContent = 'مفعل: ' + active.join('، ');
-    text.innerHTML = 'اشتراكك مفعل. ستظهر لك الصفوف المشترك فيها فقط في التحضير الذكي والتحضير بالذكاء الاصطناعي.';
+    text.innerHTML = 'اشتراكك مفعل. ستظهر لك الصفوف المشترك فيها فقط في التحضير الذكي والتحضير بالذكاء الاصطناعي. ستتم مراجعة الإيصال من الإدارة لاحقًا.';
     status.textContent = 'الصفوف المتاحة الآن: ' + active.join('، ');
   } else if (pending.length) {
     badge.textContent = 'بانتظار المراجعة';
-    text.innerHTML = 'تم استلام الإيصال. سيتم تفعيل الصف بعد التحقق من صحة التحويل إلى الرقم <strong>91470590</strong>.';
+    text.innerHTML = 'تم استلام الإيصال. الاشتراك يعمل مؤقتًا وسيتم التحقق من صحة التحويل إلى الرقم <strong>91470590</strong>.';
     status.textContent = 'طلبات قيد المراجعة: ' + pending.map(p => p.grade).join('، ');
   } else {
     badge.textContent = 'قيمة موحدة للصفحتين';
@@ -1443,6 +1452,7 @@ function showMessage(text, type = 'info') {
   </script>
  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ddd6fb1b2c1f9f0',t:'MTc3Mzc2NTU5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
+
 
 
 

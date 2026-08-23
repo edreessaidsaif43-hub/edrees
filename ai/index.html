@@ -1490,15 +1490,24 @@ function updateSubscriptionPanel() {
   if (!card || !badge || !text || !status) return;
   const active = subscriptionState.activeGrades || [];
   const pending = subscriptionState.pending || [];
-  card.classList.toggle('active', active.length > 0);
-  card.classList.toggle('pending', !active.length && pending.length > 0);
-  if (active.length) {
+  const blocked = (subscriptionState.subscriptions || []).filter(item => ['rejected', 'stopped'].includes(item.status));
+  const latestBlocked = blocked[0] || null;
+  card.classList.toggle('active', active.length > 0 && !latestBlocked);
+  card.classList.toggle('pending', !active.length && (pending.length > 0 || !!latestBlocked));
+  if (latestBlocked) {
+    const stopped = latestBlocked.status === 'stopped';
+    badge.textContent = stopped ? 'تم إيقاف الاشتراك' : 'تم رفض الإيصال';
+    text.innerHTML = stopped
+      ? 'تم إيقاف اشتراكك لهذا الصف بعد مراجعة الإيصال. يمكنك إرسال إيصال صحيح مرة أخرى.'
+      : 'تم رفض الإيصال بعد المراجعة. يمكنك إرسال إيصال صحيح مرة أخرى.';
+    status.textContent = 'الصف: ' + latestBlocked.grade + (latestBlocked.adminNote ? ' - ملاحظة الإدارة: ' + latestBlocked.adminNote : '');
+  } else if (active.length) {
     badge.textContent = 'مفعل: ' + active.join('، ');
-    text.innerHTML = 'اشتراكك مفعل. ستظهر لك الصفوف المشترك فيها فقط في التحضير الذكي والتحضير بالذكاء الاصطناعي.';
+    text.innerHTML = 'اشتراكك مفعل. ستظهر لك الصفوف المشترك فيها فقط في التحضير الذكي والتحضير بالذكاء الاصطناعي. ستتم مراجعة الإيصال من الإدارة لاحقًا.';
     status.textContent = 'الصفوف المتاحة الآن: ' + active.join('، ');
   } else if (pending.length) {
     badge.textContent = 'بانتظار المراجعة';
-    text.innerHTML = 'تم استلام الإيصال. سيتم تفعيل الصف بعد التحقق من صحة التحويل إلى الرقم <strong>91470590</strong>.';
+    text.innerHTML = 'تم استلام الإيصال. الاشتراك يعمل مؤقتًا وسيتم التحقق من صحة التحويل إلى الرقم <strong>91470590</strong>.';
     status.textContent = 'طلبات قيد المراجعة: ' + pending.map(p => p.grade).join('، ');
   } else {
     badge.textContent = 'قيمة موحدة للصفحتين';
@@ -2590,6 +2599,7 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
 
 
 
