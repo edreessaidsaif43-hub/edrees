@@ -1450,21 +1450,77 @@ function subscriptionApiUrl(path) {
   return base + path;
 }
 
+function splitSubscriptionGrades(value) {
+  if (Array.isArray(value)) return value.flatMap(splitSubscriptionGrades);
+  const text = String(value || '').trim();
+  if (!text) return [];
+  const normalized = normalizeSubscriptionGrade(text);
+  const found = [];
+  const definitions = subscriptionGradeDefinitions();
+  definitions.forEach((item) => {
+    item.aliases.forEach((alias) => {
+      const pattern = alias.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+      const matches = normalized.match(new RegExp('(^|\\s)' + pattern + '(?=\\s|$)', 'g'));
+      if (matches) matches.forEach(() => found.push(item.display));
+    });
+  });
+  if (found.length) return found;
+  return text.split(/[،,]/).map(part => part.trim()).filter(Boolean);
+}
+
+function subscriptionGradeDefinitions() {
+  return [
+    { key: 'الحادي عشر', display: 'الحادي عشر', aliases: ['الحادي عشر', '11', '١١'] },
+    { key: 'الثاني عشر', display: 'الثاني عشر', aliases: ['الثاني عشر', '12', '١٢'] },
+    { key: 'الاول', display: 'الأول', aliases: ['الاول', '1', '١'] },
+    { key: 'الثاني', display: 'الثاني', aliases: ['الثاني', '2', '٢'] },
+    { key: 'الثالث', display: 'الثالث', aliases: ['الثالث', '3', '٣'] },
+    { key: 'الرابع', display: 'الرابع', aliases: ['الرابع', '4', '٤'] },
+    { key: 'الخامس', display: 'الخامس', aliases: ['الخامس', '5', '٥'] },
+    { key: 'السادس', display: 'السادس', aliases: ['السادس', '6', '٦'] },
+    { key: 'السابع', display: 'السابع', aliases: ['السابع', '7', '٧'] },
+    { key: 'الثامن', display: 'الثامن', aliases: ['الثامن', '8', '٨'] },
+    { key: 'التاسع', display: 'التاسع', aliases: ['التاسع', '9', '٩'] },
+    { key: 'العاشر', display: 'العاشر', aliases: ['العاشر', '10', '١٠'] }
+  ];
+}
+
+function displaySubscriptionGrade(value) {
+  const normalized = normalizeSubscriptionGrade(value);
+  const found = subscriptionGradeDefinitions().find(item => item.key === normalized || item.aliases.includes(normalized));
+  return found ? 'الصف ' + found.display : String(value || '').trim();
+}
+
+function uniqueSubscriptionGrades(values) {
+  const seen = new Set();
+  const out = [];
+  splitSubscriptionGrades(values).forEach((value) => {
+    const key = normalizeSubscriptionGrade(value);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(displaySubscriptionGrade(value));
+  });
+  return out;
+}
+
 function normalizeSubscriptionGrade(value) {
   return String(value || '')
-    .replace(/^الصف\s+/, '')
+    .replace(/\bgrade\b/gi, '')
+    .replace(/الصف/g, '')
+    .replace(/صف/g, '')
     .replace(/أ/g, 'ا')
     .replace(/إ/g, 'ا')
     .replace(/آ/g, 'ا')
     .replace(/ى/g, 'ي')
     .replace(/ة/g, 'ه')
+    .replace(/[،,؛;|/\\_\-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 function isGradeSubscribed(grade) {
   const wanted = normalizeSubscriptionGrade(grade);
-  return subscriptionState.activeGrades.some(g => normalizeSubscriptionGrade(g) === wanted);
+  return uniqueSubscriptionGrades(subscriptionState.activeGrades).some(g => normalizeSubscriptionGrade(g) === wanted);
 }
 
 function getSubscriptionUserId() {
@@ -1489,7 +1545,7 @@ function updateSubscriptionPanel() {
   const text = document.getElementById('subscription-text');
   const status = document.getElementById('subscription-status');
   if (!card || !badge || !text || !status) return;
-  const active = subscriptionState.activeGrades || [];
+  const active = uniqueSubscriptionGrades(subscriptionState.activeGrades || []);
   const pending = subscriptionState.pending || [];
   const blocked = (subscriptionState.subscriptions || []).filter(item => ['rejected', 'stopped'].includes(item.status));
   const latestBlocked = blocked[0] || null;
@@ -1562,7 +1618,7 @@ async function refreshSubscriptionStatus() {
     if (!response.ok) throw new Error(data.message || 'تعذر جلب حالة الاشتراك.');
     subscriptionState = {
       loaded: true,
-      activeGrades: Array.isArray(data.activeGrades) ? data.activeGrades : [],
+      activeGrades: uniqueSubscriptionGrades(Array.isArray(data.activeGrades) ? data.activeGrades : []),
       pending: Array.isArray(data.pending) ? data.pending : [],
       subscriptions: Array.isArray(data.subscriptions) ? data.subscriptions : [],
       paymentNumber: data.paymentNumber || '91470590'
@@ -1817,7 +1873,7 @@ async function loadDatabase() {
   const data = await apiRequest('/api/lessons');
   lessons = Array.isArray(data?.lessons) ? data.lessons : [];
   attachments = Array.isArray(data?.attachments) ? data.attachments : [];
-  subscriptionGradeOptions = uniqueValues(activeLessons(), 'grade');
+  subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(activeLessons(), 'grade'));
   fillSubscriptionGradeOptions(subscriptionGradeOptions);
   await refreshSubscriptionStatus();
   populateTeacherFilters();
@@ -1834,7 +1890,7 @@ function availableTeacherLessons() {
 }
 
 function applySubscriptionToGrades() {
-  subscriptionGradeOptions = uniqueValues(activeLessons(), 'grade');
+  subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(activeLessons(), 'grade'));
   fillSubscriptionGradeOptions(subscriptionGradeOptions);
   populateTeacherFilters();
 }
