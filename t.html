@@ -470,6 +470,18 @@
 .subscription-form button,.subscription-action{border:none;border-radius:8px;padding:10px 14px;background:#1a56a0;color:#fff;font-family:inherit;font-weight:900;cursor:pointer;min-height:39px}
 .subscription-form button:disabled{opacity:.65;cursor:not-allowed}
 .subscription-status{font-size:12px;color:#64748b;margin-top:10px;line-height:1.7}
+@media(min-width:761px){
+  .subscription-card{padding:18px 20px}
+  .subscription-form{grid-template-columns:minmax(190px,.75fr) minmax(340px,1.45fr) minmax(180px,.65fr);align-items:stretch;gap:12px}
+  .subscription-form>div:nth-child(1){grid-column:1;grid-row:1}
+  .subscription-form>div:nth-child(2){grid-column:2;grid-row:1 / span 2}
+  .subscription-form>div:nth-child(3){grid-column:1;grid-row:2}
+  .subscription-form button{grid-column:3;grid-row:2;align-self:end}
+  .subscription-amount{grid-column:3;grid-row:1;align-self:start;min-height:44px;display:flex;align-items:center}
+  #subscription-grade{height:43px}
+  #subscription-subject{min-height:190px}
+  #subscription-subject option{padding:7px 10px}
+}
 @media(max-width:760px){.subscription-form{grid-template-columns:1fr}.subscription-form button{width:100%}}
 </style>
 </head>
