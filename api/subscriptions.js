@@ -41,10 +41,39 @@ async function ensureSchema() {
           receipt_url TEXT NOT NULL DEFAULT '',
           receipt_file_name TEXT NOT NULL DEFAULT '',
           receipt_file_type TEXT NOT NULL DEFAULT '',
+          receipt_history JSONB NOT NULL DEFAULT '[]'::jsonb,
           admin_note TEXT NOT NULL DEFAULT '',
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+      `;
+      await sql`
+        ALTER TABLE teacher_subscriptions
+        ADD COLUMN IF NOT EXISTS grades JSONB NOT NULL DEFAULT '[]'::jsonb;
+      `;
+      await sql`
+        ALTER TABLE teacher_subscriptions
+        ADD COLUMN IF NOT EXISTS receipt_history JSONB NOT NULL DEFAULT '[]'::jsonb;
+      `;
+      await sql`
+        UPDATE teacher_subscriptions
+        SET grades = jsonb_build_array(grade)
+        WHERE (grades IS NULL OR grades = '[]'::jsonb)
+          AND COALESCE(grade, '') <> '';
+      `;
+      await sql`
+        UPDATE teacher_subscriptions
+        SET receipt_history = jsonb_build_array(jsonb_build_object(
+          'grade', grade,
+          'grades', grades,
+          'receiptUrl', receipt_url,
+          'receiptFileName', receipt_file_name,
+          'receiptFileType', receipt_file_type,
+          'status', status,
+          'createdAt', updated_at
+        ))
+        WHERE (receipt_history IS NULL OR receipt_history = '[]'::jsonb)
+          AND COALESCE(receipt_url, '') <> '';
       `;
       await sql`
         CREATE INDEX IF NOT EXISTS idx_teacher_subscriptions_user_status
@@ -53,6 +82,34 @@ async function ensureSchema() {
       await sql`
         CREATE INDEX IF NOT EXISTS idx_teacher_subscriptions_updated_at
         ON teacher_subscriptions (updated_at DESC, id DESC);
+      `;
+      await sql`
+        WITH flattened_subscription_grades AS (
+          SELECT user_id, jsonb_array_elements_text(COALESCE(grades, '[]'::jsonb)) AS grade_name
+          FROM teacher_subscriptions
+          UNION ALL
+          SELECT user_id, grade AS grade_name
+          FROM teacher_subscriptions
+          WHERE COALESCE(grade, '') <> ''
+        ), merged_subscription_grades AS (
+          SELECT
+            user_id,
+            jsonb_agg(DISTINCT grade_name) FILTER (WHERE COALESCE(grade_name, '') <> '') AS grades,
+            string_agg(DISTINCT grade_name, '، ') FILTER (WHERE COALESCE(grade_name, '') <> '') AS grade_text
+          FROM flattened_subscription_grades
+          GROUP BY user_id
+        ), keepers AS (
+          SELECT user_id, MAX(id) AS keep_id
+          FROM teacher_subscriptions
+          GROUP BY user_id
+        )
+        UPDATE teacher_subscriptions target
+        SET
+          grades = COALESCE(merged_subscription_grades.grades, '[]'::jsonb),
+          grade = COALESCE(merged_subscription_grades.grade_text, target.grade)
+        FROM merged_subscription_grades, keepers
+        WHERE target.id = keepers.keep_id
+          AND keepers.user_id = merged_subscription_grades.user_id;
       `;
       await sql`
         DELETE FROM teacher_subscriptions a
@@ -172,15 +229,33 @@ function canonicalGradeName(value) {
   const name = names[compact] || raw;
   return name ? `الصف ${name}` : '';
 }
+function subscriptionGrades(row) {
+  const values = Array.isArray(row?.grades) ? row.grades : [];
+  const list = values.map(canonicalGradeName).filter(Boolean);
+  const legacy = canonicalGradeName(row?.grade || '');
+  if (legacy) list.push(legacy);
+  return [...new Set(list)];
+}
+
+function joinGrades(grades) {
+  return [...new Set((grades || []).map(canonicalGradeName).filter(Boolean))].join('، ');
+}
+
+function subscriptionHistory(row) {
+  return Array.isArray(row?.receipt_history) ? row.receipt_history : [];
+}
 function rowToSubscription(row) {
+  const grades = subscriptionGrades(row);
   return {
     id: row.id,
     userId: row.user_id,
-    grade: row.grade,
+    grade: joinGrades(grades) || row.grade,
+    grades,
     status: row.status,
     receiptUrl: row.receipt_url,
     receiptFileName: row.receipt_file_name,
     receiptFileType: row.receipt_file_type,
+    receiptHistory: subscriptionHistory(row),
     adminNote: row.admin_note,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -197,7 +272,7 @@ async function getStatus(req, res) {
     ORDER BY updated_at DESC, id DESC;
   `;
   const subscriptions = (rows || []).map(rowToSubscription);
-  const activeGrades = [...new Set(subscriptions.filter((s) => s.status === "active").map((s) => s.grade).filter(Boolean))];
+  const activeGrades = [...new Set(subscriptions.filter((s) => s.status === "active").flatMap((s) => Array.isArray(s.grades) ? s.grades : [s.grade]).filter(Boolean))];
   const pending = subscriptions.filter((s) => s.status === "pending");
   send(res, 200, { activeGrades, pending, subscriptions, paymentNumber: PAYMENT_NUMBER });
 }
@@ -216,29 +291,55 @@ async function requestSubscription(req, res) {
   if (!allowed.includes(String(receipt.contentType || "").toLowerCase())) {
     return fail(res, 400, "نوع الإيصال غير مدعوم. ارفع صورة PNG/JPG/WEBP أو PDF.", "invalid_file_type");
   }
+  const existingRows = await sql`
+    SELECT * FROM teacher_subscriptions
+    WHERE user_id = ${userId}
+    LIMIT 1;
+  `;
+  const existing = existingRows?.[0] || {};
+  const existingGrades = subscriptionGrades(existing);
+  const existingHistory = subscriptionHistory(existing);
+  const nextGrades = [...new Set([...existingGrades, grade])];
+  const gradeText = joinGrades(nextGrades);
+  const operationAt = new Date().toISOString();
   const blob = await put(`receipts/${userId}/${Date.now()}-${receipt.fileName}`, receipt.buffer, {
     access: "public",
     contentType: receipt.contentType,
     addRandomSuffix: true,
   });
+  const nextHistory = [
+    {
+      grade,
+      grades: nextGrades,
+      receiptUrl: blob.url,
+      receiptFileName: receipt.fileName,
+      receiptFileType: receipt.contentType,
+      status: 'active',
+      operation: 'subscription_request',
+      createdAt: operationAt,
+    },
+    ...existingHistory,
+  ].slice(0, 50);
   const rows = await sql`
     INSERT INTO teacher_subscriptions (
-      user_id, grade, status, receipt_url, receipt_file_name, receipt_file_type, admin_note, created_at, updated_at
+      user_id, grade, grades, status, receipt_url, receipt_file_name, receipt_file_type, receipt_history, admin_note, created_at, updated_at
     ) VALUES (
-      ${userId}, ${grade}, 'active', ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, '', NOW(), NOW()
+      ${userId}, ${gradeText}, ${JSON.stringify(nextGrades)}::jsonb, 'active', ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, ${JSON.stringify(nextHistory)}::jsonb, '', NOW(), NOW()
     )
     ON CONFLICT (user_id)
     DO UPDATE SET
       grade = EXCLUDED.grade,
+      grades = EXCLUDED.grades,
       status = 'active',
       receipt_url = EXCLUDED.receipt_url,
       receipt_file_name = EXCLUDED.receipt_file_name,
       receipt_file_type = EXCLUDED.receipt_file_type,
+      receipt_history = EXCLUDED.receipt_history,
       admin_note = '',
       updated_at = NOW()
     RETURNING *;
   `;
-  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), message: "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. تم تحديث إيصال المستخدم الحالي في صفحة الإدارة." });
+  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), message: "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. تم تحديث إيصال المستخدم الحالي مع الاحتفاظ بالصفوف السابقة." });
 }
 
 async function adminList(req, res) {
@@ -287,6 +388,9 @@ export default async function handler(req, res) {
     return fail(res, error?.statusCode || 500, String(error?.message || error), "server_error");
   }
 }
+
+
+
 
 
 
