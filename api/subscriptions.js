@@ -374,7 +374,12 @@ function parseRequestedSubjects(fields = {}) {
       values = raw.split(/[،,]/).map((part) => part.trim()).filter(Boolean);
     }
   }
-  return uniqueSubscriptionSubjects(values.map((subject) => ({ grade, subject })));
+  return uniqueSubscriptionSubjects(values.map((item) => {
+    if (item && typeof item === 'object') {
+      return { grade: item.grade || grade, subject: item.subject || item.name || '' };
+    }
+    return { grade, subject: item };
+  }));
 }
 
 function subscriptionHistory(row) {
@@ -443,15 +448,17 @@ async function requestSubscription(req, res) {
   const existingGrades = subscriptionGrades(existing);
   const existingSubjects = subscriptionSubjects(existing);
   const existingHistory = subscriptionHistory(existing);
-  const activeExistingSubjects = existingSubjects.filter((item) => isSubjectEntryActive(item));
+  const keepExistingSubjects = existing.status === "active";
+  const reusableExistingSubjects = keepExistingSubjects ? existingSubjects : [];
+  const activeExistingSubjects = reusableExistingSubjects.filter((item) => isSubjectEntryActive(item));
   const activeSubjectKeys = new Set(activeExistingSubjects.map(subjectKey));
   const expiryDate = subscriptionExpiryDate();
   const requestedNewSubjects = requestedSubjects.filter((item) => !activeSubjectKeys.has(subjectKey(item)));
   if (requestedSubjects.length && !requestedNewSubjects.length) return fail(res, 409, "هذه المادة مشتركة مسبقًا ولن تظهر ضمن مواد الاشتراك الجديدة.", "already_subscribed");
   const operationAt = new Date().toISOString();
   const stampedSubjects = requestedNewSubjects.map((item) => ({ ...item, expiresAt: expiryDate, status: 'active', createdAt: operationAt }));
-  const nextSubjects = uniqueSubscriptionSubjects([...stampedSubjects, ...existingSubjects]);
-  const nextGrades = uniqueCanonicalGrades([existingGrades, requestedGrades, nextSubjects.map((item) => item.grade)]);
+  const nextSubjects = uniqueSubscriptionSubjects([...stampedSubjects, ...reusableExistingSubjects]);
+  const nextGrades = uniqueCanonicalGrades([keepExistingSubjects ? existingGrades : [], requestedGrades, nextSubjects.map((item) => item.grade)]);
   const gradeText = joinGrades(nextGrades);
   const selectedGradeText = requestedNewSubjects.length ? requestedNewSubjects.map((item) => item.grade + ' - ' + item.subject).join('، ') : joinGrades(requestedGrades);
   const amountOmr = requestedNewSubjects.length || requestedGrades.length;
@@ -525,13 +532,19 @@ async function adminUpdate(req, res) {
   const note = String(body.note || "").trim();
   const allowed = new Set(["pending", "active", "rejected", "stopped"]);
   if (!id || !allowed.has(status)) return fail(res, 400, "بيانات تحديث الاشتراك غير صحيحة.", "invalid_payload");
+  const existingRows = await sql`
+    SELECT * FROM teacher_subscriptions
+    WHERE id = ${id}
+    LIMIT 1;
+  `;
+  if (!existingRows?.[0]) return fail(res, 404, "طلب الاشتراك غير موجود.", "not_found");
+  const updatedSubjects = subscriptionSubjects(existingRows[0]).map((item) => ({ ...item, status }));
   const rows = await sql`
     UPDATE teacher_subscriptions
-    SET status = ${status}, admin_note = ${note}, updated_at = NOW()
+    SET status = ${status}, subjects = ${JSON.stringify(updatedSubjects)}::jsonb, admin_note = ${note}, updated_at = NOW()
     WHERE id = ${id}
     RETURNING *;
   `;
-  if (!rows?.[0]) return fail(res, 404, "طلب الاشتراك غير موجود.", "not_found");
   send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]) });
 }
 
