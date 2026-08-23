@@ -948,7 +948,7 @@
 .subscription-text{color:#475569;font-size:13px;line-height:1.8;margin:6px 0 12px}
 .subscription-form{display:grid;grid-template-columns:minmax(160px,1fr) minmax(180px,1.2fr) auto;gap:10px;align-items:end}
 .subscription-form label{display:block;font-size:12px;font-weight:800;color:#334155;margin-bottom:5px}
-.subscription-form select,.subscription-form input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font-family:inherit;font-size:13px}
+.subscription-form select,.subscription-form input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font-family:inherit;font-size:13px}.subscription-form select[multiple]{min-height:132px}.subscription-amount{grid-column:1 / -1;background:#eef6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;color:#174ea6;font-size:13px;font-weight:900}
 .subscription-form button,.subscription-action{border:none;border-radius:8px;padding:10px 14px;background:#1a56a0;color:#fff;font-family:inherit;font-weight:900;cursor:pointer;min-height:39px}
 .subscription-form button:disabled{opacity:.65;cursor:not-allowed}
 .subscription-status{font-size:12px;color:#64748b;margin-top:10px;line-height:1.7}
@@ -1132,18 +1132,19 @@
         <div class="subscription-badge" id="subscription-badge">قيمة موحدة للصفحتين</div>
       </div>
       <div class="subscription-text" id="subscription-text">
-        للاشتراك يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong>، علمًا بأن الرقم مفعل للتحويل، ثم أرسل صورة الإيصال أو PDF الإيصال للتأكد وتفعيل الاشتراك. الاشتراك الواحد يفتح الصف المشترك فيه في التحضير الذكي والتحضير بالذكاء الاصطناعي.
+        للاشتراك يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong>، علمًا بأن الرقم مفعل للتحويل، ثم أرسل صورة الإيصال أو PDF الإيصال للتأكد وتفعيل الاشتراك. قيمة الاشتراك 1 ريال عماني لكل صف، ويمكن اختيار أكثر من صف دفعة واحدة. الاشتراك يفتح الصفوف المشتركة في التحضير الذكي والتحضير بالذكاء الاصطناعي.
       </div>
       <div class="subscription-form">
         <div>
-          <label for="subscription-grade">الصف المطلوب</label>
-          <select id="subscription-grade"></select>
+          <label for="subscription-grade">الصفوف المطلوبة</label>
+          <select id="subscription-grade" multiple onchange="updateSubscriptionAmount()"></select>
         </div>
         <div>
           <label for="subscription-receipt">صورة الإيصال أو PDF</label>
           <input id="subscription-receipt" type="file" accept="image/png,image/jpeg,image/webp,application/pdf">
         </div>
         <button type="button" id="subscription-submit" onclick="submitSubscriptionRequest()">إرسال الإيصال</button>
+        <div class="subscription-amount" id="subscription-amount">قيمة الاشتراك: 1 ريال عماني لكل صف</div>
       </div>
       <div class="subscription-status" id="subscription-status">سجل الدخول ثم أرسل الإيصال ليتم تفعيل الصف.</div>
     </div>
@@ -1511,24 +1512,41 @@ function updateSubscriptionPanel() {
     status.textContent = 'طلبات قيد المراجعة: ' + pending.map(p => p.grade).join('، ');
   } else {
     badge.textContent = 'قيمة موحدة للصفحتين';
-    text.innerHTML = 'للاشتراك يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong>، علمًا بأن الرقم مفعل للتحويل، ثم أرسل صورة الإيصال أو PDF الإيصال للتأكد وتفعيل الاشتراك. الاشتراك الواحد يفتح الصف المشترك فيه في التحضير الذكي والتحضير بالذكاء الاصطناعي.';
+    text.innerHTML = 'للاشتراك يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong>، علمًا بأن الرقم مفعل للتحويل، ثم أرسل صورة الإيصال أو PDF الإيصال للتأكد وتفعيل الاشتراك. قيمة الاشتراك 1 ريال عماني لكل صف، ويمكن اختيار أكثر من صف دفعة واحدة. الاشتراك يفتح الصفوف المشتركة في التحضير الذكي والتحضير بالذكاء الاصطناعي.';
     status.textContent = getSubscriptionUserId() ? 'اختر الصف وارفع الإيصال.' : 'سجل الدخول ثم أرسل الإيصال ليتم تفعيل الصف.';
   }
+}
+
+function getSelectedSubscriptionGrades() {
+  const select = document.getElementById('subscription-grade');
+  if (!select) return [];
+  return Array.from(select.selectedOptions).map(option => option.value).filter(Boolean);
+}
+
+function updateSubscriptionAmount() {
+  const box = document.getElementById('subscription-amount');
+  if (!box) return;
+  const count = getSelectedSubscriptionGrades().length;
+  const total = count;
+  box.textContent = count
+    ? 'قيمة الاشتراك: ' + count + ' صف × 1 ريال عماني = ' + total + ' ريال عماني'
+    : 'قيمة الاشتراك: 1 ريال عماني لكل صف';
 }
 
 function fillSubscriptionGradeOptions(values = subscriptionGradeOptions) {
   const select = document.getElementById('subscription-grade');
   if (!select) return;
-  const previous = select.value;
+  const previous = getSelectedSubscriptionGrades();
   const list = values.length ? values : ['الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع','الصف الخامس','الصف السادس','الصف السابع','الصف الثامن','الصف التاسع','الصف العاشر','الصف الحادي عشر','الصف الثاني عشر'];
-  select.innerHTML = '<option value="">اختر الصف...</option>';
+  select.innerHTML = '';
   list.forEach((grade) => {
     const option = document.createElement('option');
     option.value = grade;
     option.textContent = grade;
     select.appendChild(option);
   });
-  if (list.includes(previous)) select.value = previous;
+  Array.from(select.options).forEach(option => { option.selected = previous.includes(option.value); });
+  updateSubscriptionAmount();
 }
 
 async function refreshSubscriptionStatus() {
@@ -1566,11 +1584,11 @@ async function submitSubscriptionRequest() {
     else if (typeof goUnifiedAuth === 'function') setTimeout(() => goUnifiedAuth('login'), 700);
     return;
   }
-  const grade = document.getElementById('subscription-grade')?.value || '';
+  const selectedGrades = getSelectedSubscriptionGrades();
   const file = document.getElementById('subscription-receipt')?.files?.[0] || null;
-  if (!grade || !file) {
-    if (typeof showMessage === 'function') showMessage('اختر الصف وارفع الإيصال.', 'error');
-    else if (typeof showToast === 'function') showToast('اختر الصف وارفع الإيصال.', true);
+  if (!selectedGrades.length || !file) {
+    if (typeof showMessage === 'function') showMessage('اختر صفًا واحدًا على الأقل وارفع الإيصال.', 'error');
+    else if (typeof showToast === 'function') showToast('اختر صفًا واحدًا على الأقل وارفع الإيصال.', true);
     return;
   }
   const btn = document.getElementById('subscription-submit');
@@ -1578,7 +1596,8 @@ async function submitSubscriptionRequest() {
   try {
     const form = new FormData();
     form.append('userId', userId);
-    form.append('grade', grade);
+    form.append('grades', JSON.stringify(selectedGrades));
+    form.append('grade', selectedGrades[0]);
     form.append('receipt', file);
     const response = await fetch(subscriptionApiUrl('/api/subscriptions?action=request'), { method: 'POST', body: form });
     const data = await response.json().catch(() => ({}));

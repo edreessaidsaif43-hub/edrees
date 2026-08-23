@@ -241,6 +241,21 @@ function joinGrades(grades) {
   return [...new Set((grades || []).map(canonicalGradeName).filter(Boolean))].join('، ');
 }
 
+function parseRequestedGrades(fields = {}) {
+  const rawGrades = String(fields.grades || '').trim();
+  let values = [];
+  if (rawGrades) {
+    try {
+      const parsed = JSON.parse(rawGrades);
+      if (Array.isArray(parsed)) values = parsed;
+    } catch {
+      values = rawGrades.split(/[،,]/);
+    }
+  }
+  if (!values.length && fields.grade) values = [fields.grade];
+  return [...new Set(values.map(canonicalGradeName).filter(Boolean))];
+}
+
 function subscriptionHistory(row) {
   return Array.isArray(row?.receipt_history) ? row.receipt_history : [];
 }
@@ -282,9 +297,9 @@ async function requestSubscription(req, res) {
   const body = await readBodyBuffer(req);
   const { fields, files } = parseMultipart(body, String(req.headers["content-type"] || ""));
   const userId = String(fields.userId || "").trim();
-  const grade = canonicalGradeName(fields.grade);
+  const requestedGrades = parseRequestedGrades(fields);
   const receipt = files.receipt;
-  if (!userId || !grade) return fail(res, 400, "اختر الصف وسجل الدخول قبل إرسال طلب الاشتراك.", "invalid_payload");
+  if (!userId || !requestedGrades.length) return fail(res, 400, "اختر صفًا واحدًا على الأقل وسجل الدخول قبل إرسال طلب الاشتراك.", "invalid_payload");
   if (!receipt || !receipt.buffer?.length) return fail(res, 400, "يرجى رفع صورة الإيصال أو ملف PDF الإيصال.", "missing_receipt");
   if (receipt.buffer.length > MAX_RECEIPT_SIZE) return fail(res, 413, "حجم الإيصال أكبر من 12MB.", "file_too_large");
   const allowed = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
@@ -299,8 +314,10 @@ async function requestSubscription(req, res) {
   const existing = existingRows?.[0] || {};
   const existingGrades = subscriptionGrades(existing);
   const existingHistory = subscriptionHistory(existing);
-  const nextGrades = [...new Set([...existingGrades, grade])];
+  const nextGrades = [...new Set([...existingGrades, ...requestedGrades])];
   const gradeText = joinGrades(nextGrades);
+  const selectedGradeText = joinGrades(requestedGrades);
+  const amountOmr = requestedGrades.length;
   const operationAt = new Date().toISOString();
   const blob = await put(`receipts/${userId}/${Date.now()}-${receipt.fileName}`, receipt.buffer, {
     access: "public",
@@ -309,8 +326,10 @@ async function requestSubscription(req, res) {
   });
   const nextHistory = [
     {
-      grade,
-      grades: nextGrades,
+      grade: selectedGradeText,
+      grades: requestedGrades,
+      allGrades: nextGrades,
+      amountOmr,
       receiptUrl: blob.url,
       receiptFileName: receipt.fileName,
       receiptFileType: receipt.contentType,
@@ -339,7 +358,7 @@ async function requestSubscription(req, res) {
       updated_at = NOW()
     RETURNING *;
   `;
-  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), message: "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. تم تحديث إيصال المستخدم الحالي مع الاحتفاظ بالصفوف السابقة." });
+  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), amountOmr, message: "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. المبلغ المطلوب: " + amountOmr + " ريال عماني، وتم الاحتفاظ بالصفوف السابقة." });
 }
 
 async function adminList(req, res) {

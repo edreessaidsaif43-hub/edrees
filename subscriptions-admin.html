@@ -44,7 +44,7 @@ function statusLabel(s){ return ({pending:'قيد المراجعة',active:'مف
 function renderOperations(item){
   const ops = Array.isArray(item.receiptHistory) ? item.receiptHistory : [];
   if(!ops.length) return '';
-  return `<div class="ops"><div class="ops-title">كل عمليات المستخدم</div>${ops.map((op, idx) => `<div class="op"><strong>${idx + 1}. ${esc(op.grade || '')}</strong><br>التاريخ: ${esc(op.createdAt ? new Date(op.createdAt).toLocaleString('ar-OM') : '')}<br>${op.receiptUrl ? `<a href="${esc(op.receiptUrl)}" target="_blank" rel="noopener">فتح إيصال العملية: ${esc(op.receiptFileName || 'receipt')}</a>` : ''}</div>`).join('')}</div>`;
+  return `<div class="ops"><div class="ops-title">كل عمليات المستخدم</div>${ops.map((op, idx) => `<div class="op"><strong>${idx + 1}. ${esc(op.grade || '')}</strong><br>التاريخ: ${esc(op.createdAt ? new Date(op.createdAt).toLocaleString('ar-OM') : '')}<br>المبلغ: ${esc(op.amountOmr || (Array.isArray(op.grades) ? op.grades.length : 1))} ريال عماني<br>${op.receiptUrl ? `<a href="${esc(op.receiptUrl)}" target="_blank" rel="noopener">فتح إيصال العملية: ${esc(op.receiptFileName || 'receipt')}</a>` : ''}</div>`).join('')}</div>`;
 }
 async function loginAdmin(){
   adminPassword = document.getElementById('admin-password').value.trim();
