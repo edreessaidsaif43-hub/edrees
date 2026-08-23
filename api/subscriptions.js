@@ -54,6 +54,16 @@ async function ensureSchema() {
         CREATE INDEX IF NOT EXISTS idx_teacher_subscriptions_updated_at
         ON teacher_subscriptions (updated_at DESC, id DESC);
       `;
+      await sql`
+        DELETE FROM teacher_subscriptions a
+        USING teacher_subscriptions b
+        WHERE a.user_id = b.user_id
+          AND a.id < b.id;
+      `;
+      await sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS uniq_teacher_subscriptions_user_id
+        ON teacher_subscriptions (user_id);
+      `;
     })();
   }
   await schemaPromise;
@@ -206,12 +216,6 @@ async function requestSubscription(req, res) {
   if (!allowed.includes(String(receipt.contentType || "").toLowerCase())) {
     return fail(res, 400, "نوع الإيصال غير مدعوم. ارفع صورة PNG/JPG/WEBP أو PDF.", "invalid_file_type");
   }
-  const existingActive = await sql`
-    SELECT id FROM teacher_subscriptions
-    WHERE user_id = ${userId} AND grade = ${grade} AND status = 'active'
-    LIMIT 1;
-  `;
-  if (existingActive?.[0]) return send(res, 200, { ok: true, alreadyActive: true, message: "اشتراك هذا الصف مفعل بالفعل." });
   const blob = await put(`receipts/${userId}/${Date.now()}-${receipt.fileName}`, receipt.buffer, {
     access: "public",
     contentType: receipt.contentType,
@@ -221,11 +225,20 @@ async function requestSubscription(req, res) {
     INSERT INTO teacher_subscriptions (
       user_id, grade, status, receipt_url, receipt_file_name, receipt_file_type, admin_note, created_at, updated_at
     ) VALUES (
-      ${userId}, ${grade}, 'pending', ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, '', NOW(), NOW()
+      ${userId}, ${grade}, 'active', ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, '', NOW(), NOW()
     )
+    ON CONFLICT (user_id)
+    DO UPDATE SET
+      grade = EXCLUDED.grade,
+      status = 'active',
+      receipt_url = EXCLUDED.receipt_url,
+      receipt_file_name = EXCLUDED.receipt_file_name,
+      receipt_file_type = EXCLUDED.receipt_file_type,
+      admin_note = '',
+      updated_at = NOW()
     RETURNING *;
   `;
-  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), message: "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. ستتم مراجعة الإيصال من الإدارة لاحقًا." });
+  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), message: "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. تم تحديث إيصال المستخدم الحالي في صفحة الإدارة." });
 }
 
 async function adminList(req, res) {
@@ -274,5 +287,7 @@ export default async function handler(req, res) {
     return fail(res, error?.statusCode || 500, String(error?.message || error), "server_error");
   }
 }
+
+
 
 
