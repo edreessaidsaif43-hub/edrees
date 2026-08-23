@@ -1467,8 +1467,19 @@ function isGradeSubscribed(grade) {
 }
 
 function getSubscriptionUserId() {
-  const session = typeof getUnifiedSession === 'function' ? getUnifiedSession() : null;
-  return String(session?.userId || '').trim();
+  const session = typeof getUnifiedSession === 'function'
+    ? getUnifiedSession()
+    : (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
+  if (session?.userId) return String(session.userId).trim();
+  const keys = ['lesson_platform_backend_session_v1', 'enjazy_session_v1', 'lesson_platform_current_user_v1'];
+  for (const key of keys) {
+    try {
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed?.userId) return String(parsed.userId).trim();
+    } catch (e) {}
+  }
+  return '';
 }
 
 function updateSubscriptionPanel() {
@@ -2579,6 +2590,7 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
 
 
 
