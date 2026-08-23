@@ -1498,12 +1498,12 @@ function updateSubscriptionPanel() {
     const stopped = latestBlocked.status === 'stopped';
     badge.textContent = stopped ? 'تم إيقاف الاشتراك' : 'تم رفض الإيصال';
     text.innerHTML = stopped
-      ? 'تم إيقاف اشتراكك لهذا الصف بعد مراجعة الإيصال. يمكنك إرسال إيصال صحيح مرة أخرى.'
-      : 'تم رفض الإيصال بعد المراجعة. يمكنك إرسال إيصال صحيح مرة أخرى.';
+      ? 'تم إيقاف اشتراكك لهذا الصف بعد مراجعة الإيصال. لإعادة الاشتراك يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong> ثم رفع إيصال صحيح مرة أخرى.'
+      : 'تم رفض الإيصال بعد المراجعة. يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong> ثم رفع إيصال صحيح مرة أخرى.';
     status.textContent = 'الصف: ' + latestBlocked.grade + (latestBlocked.adminNote ? ' - ملاحظة الإدارة: ' + latestBlocked.adminNote : '');
   } else if (active.length) {
     badge.textContent = 'مفعل: ' + active.join('، ');
-    text.innerHTML = 'اشتراكك مفعل. ستظهر لك الصفوف المشترك فيها فقط في التحضير الذكي والتحضير بالذكاء الاصطناعي. ستتم مراجعة الإيصال من الإدارة لاحقًا.';
+    text.innerHTML = 'اشتراكك مفعل. ستظهر لك الصفوف المشترك فيها فقط في التحضير الذكي والتحضير بالذكاء الاصطناعي. للاشتراك في صف آخر يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong> ثم رفع صورة الإيصال أو PDF الإيصال من النموذج أدناه.';
     status.textContent = 'الصفوف المتاحة الآن: ' + active.join('، ');
   } else if (pending.length) {
     badge.textContent = 'بانتظار المراجعة';
@@ -2599,6 +2599,7 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
 
 
 
