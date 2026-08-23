@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -938,6 +938,22 @@
     .auth-btn { flex-basis: 100%; }
   }
 </style>
+<style id="subscription-style">
+.subscription-card{background:#fff;border:1px solid #dbe7f5;border-radius:12px;padding:16px;margin:16px 0;box-shadow:0 8px 24px rgba(15,23,42,.06);direction:rtl;text-align:right}
+.subscription-card.active{border-color:#b7e4c7;background:#f7fff9}
+.subscription-card.pending{border-color:#fde68a;background:#fffbea}
+.subscription-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.subscription-title{font-weight:900;color:#163b72;font-size:16px}
+.subscription-badge{background:#e8f1ff;color:#174ea6;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800}
+.subscription-text{color:#475569;font-size:13px;line-height:1.8;margin:6px 0 12px}
+.subscription-form{display:grid;grid-template-columns:minmax(160px,1fr) minmax(180px,1.2fr) auto;gap:10px;align-items:end}
+.subscription-form label{display:block;font-size:12px;font-weight:800;color:#334155;margin-bottom:5px}
+.subscription-form select,.subscription-form input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font-family:inherit;font-size:13px}
+.subscription-form button,.subscription-action{border:none;border-radius:8px;padding:10px 14px;background:#1a56a0;color:#fff;font-family:inherit;font-weight:900;cursor:pointer;min-height:39px}
+.subscription-form button:disabled{opacity:.65;cursor:not-allowed}
+.subscription-status{font-size:12px;color:#64748b;margin-top:10px;line-height:1.7}
+@media(max-width:760px){.subscription-form{grid-template-columns:1fr}.subscription-form button{width:100%}}
+</style>
 </head>
 <body>
 
@@ -1108,6 +1124,30 @@
         </div>
       </div>
     </div>
+
+    <!-- SUBSCRIPTION -->
+    <div class="subscription-card" id="subscription-card">
+      <div class="subscription-head">
+        <div class="subscription-title">اشتراك الصفوف</div>
+        <div class="subscription-badge" id="subscription-badge">قيمة موحدة للصفحتين</div>
+      </div>
+      <div class="subscription-text" id="subscription-text">
+        للاشتراك يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong>، علمًا بأن الرقم مفعل للتحويل، ثم أرسل صورة الإيصال أو PDF الإيصال للتأكد وتفعيل الاشتراك. الاشتراك الواحد يفتح الصف المشترك فيه في التحضير الذكي والتحضير بالذكاء الاصطناعي.
+      </div>
+      <div class="subscription-form">
+        <div>
+          <label for="subscription-grade">الصف المطلوب</label>
+          <select id="subscription-grade"></select>
+        </div>
+        <div>
+          <label for="subscription-receipt">صورة الإيصال أو PDF</label>
+          <input id="subscription-receipt" type="file" accept="image/png,image/jpeg,image/webp,application/pdf">
+        </div>
+        <button type="button" id="subscription-submit" onclick="submitSubscriptionRequest()">إرسال الإيصال</button>
+      </div>
+      <div class="subscription-status" id="subscription-status">سجل الدخول ثم أرسل الإيصال ليتم تفعيل الصف.</div>
+    </div>
+
 
     <!-- SELECTION FORM -->
     <div class="form-card">
@@ -1400,6 +1440,137 @@ const PRODUCTION_URL = 'https://altahdir.app/ai/index.html';
 if (window.location.protocol === 'file:') {
   window.location.replace(PRODUCTION_URL);
 }
+
+let subscriptionState = { loaded: false, activeGrades: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
+let subscriptionGradeOptions = [];
+
+function subscriptionApiUrl(path) {
+  const base = window.location.protocol === 'file:' ? 'https://altahdir.app' : '';
+  return base + path;
+}
+
+function normalizeSubscriptionGrade(value) {
+  return String(value || '').replace(/^الصف\s+/, '').trim();
+}
+
+function isGradeSubscribed(grade) {
+  const wanted = normalizeSubscriptionGrade(grade);
+  return subscriptionState.activeGrades.some(g => normalizeSubscriptionGrade(g) === wanted);
+}
+
+function getSubscriptionUserId() {
+  const session = typeof getUnifiedSession === 'function' ? getUnifiedSession() : null;
+  return String(session?.userId || '').trim();
+}
+
+function updateSubscriptionPanel() {
+  const card = document.getElementById('subscription-card');
+  const badge = document.getElementById('subscription-badge');
+  const text = document.getElementById('subscription-text');
+  const status = document.getElementById('subscription-status');
+  if (!card || !badge || !text || !status) return;
+  const active = subscriptionState.activeGrades || [];
+  const pending = subscriptionState.pending || [];
+  card.classList.toggle('active', active.length > 0);
+  card.classList.toggle('pending', !active.length && pending.length > 0);
+  if (active.length) {
+    badge.textContent = 'مفعل: ' + active.join('، ');
+    text.innerHTML = 'اشتراكك مفعل. ستظهر لك الصفوف المشترك فيها فقط في التحضير الذكي والتحضير بالذكاء الاصطناعي.';
+    status.textContent = 'الصفوف المتاحة الآن: ' + active.join('، ');
+  } else if (pending.length) {
+    badge.textContent = 'بانتظار المراجعة';
+    text.innerHTML = 'تم استلام الإيصال. سيتم تفعيل الصف بعد التحقق من صحة التحويل إلى الرقم <strong>91470590</strong>.';
+    status.textContent = 'طلبات قيد المراجعة: ' + pending.map(p => p.grade).join('، ');
+  } else {
+    badge.textContent = 'قيمة موحدة للصفحتين';
+    text.innerHTML = 'للاشتراك يرجى إرسال المبلغ إلى الرقم <strong>91470590</strong>، علمًا بأن الرقم مفعل للتحويل، ثم أرسل صورة الإيصال أو PDF الإيصال للتأكد وتفعيل الاشتراك. الاشتراك الواحد يفتح الصف المشترك فيه في التحضير الذكي والتحضير بالذكاء الاصطناعي.';
+    status.textContent = getSubscriptionUserId() ? 'اختر الصف وارفع الإيصال.' : 'سجل الدخول ثم أرسل الإيصال ليتم تفعيل الصف.';
+  }
+}
+
+function fillSubscriptionGradeOptions(values = subscriptionGradeOptions) {
+  const select = document.getElementById('subscription-grade');
+  if (!select) return;
+  const previous = select.value;
+  const list = values.length ? values : ['الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع','الصف الخامس','الصف السادس','الصف السابع','الصف الثامن','الصف التاسع','الصف العاشر','الصف الحادي عشر','الصف الثاني عشر'];
+  select.innerHTML = '<option value="">اختر الصف...</option>';
+  list.forEach((grade) => {
+    const option = document.createElement('option');
+    option.value = grade;
+    option.textContent = grade;
+    select.appendChild(option);
+  });
+  if (list.includes(previous)) select.value = previous;
+}
+
+async function refreshSubscriptionStatus() {
+  const userId = getSubscriptionUserId();
+  if (!userId) {
+    subscriptionState = { loaded: true, activeGrades: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
+    updateSubscriptionPanel();
+    return subscriptionState;
+  }
+  try {
+    const response = await fetch(subscriptionApiUrl('/api/subscriptions?action=status&userId=' + encodeURIComponent(userId)));
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || 'تعذر جلب حالة الاشتراك.');
+    subscriptionState = {
+      loaded: true,
+      activeGrades: Array.isArray(data.activeGrades) ? data.activeGrades : [],
+      pending: Array.isArray(data.pending) ? data.pending : [],
+      subscriptions: Array.isArray(data.subscriptions) ? data.subscriptions : [],
+      paymentNumber: data.paymentNumber || '91470590'
+    };
+  } catch (error) {
+    subscriptionState = { loaded: true, activeGrades: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
+    console.warn('subscription status failed', error);
+  }
+  updateSubscriptionPanel();
+  return subscriptionState;
+}
+
+async function submitSubscriptionRequest() {
+  const userId = getSubscriptionUserId();
+  if (!userId) {
+    if (typeof showMessage === 'function') showMessage('يرجى تسجيل الدخول أولًا لإرسال الإيصال.', 'error');
+    else if (typeof showToast === 'function') showToast('يرجى تسجيل الدخول أولًا لإرسال الإيصال.', true);
+    if (typeof goToUnifiedLogin === 'function') setTimeout(goToUnifiedLogin, 700);
+    else if (typeof goUnifiedAuth === 'function') setTimeout(() => goUnifiedAuth('login'), 700);
+    return;
+  }
+  const grade = document.getElementById('subscription-grade')?.value || '';
+  const file = document.getElementById('subscription-receipt')?.files?.[0] || null;
+  if (!grade || !file) {
+    if (typeof showMessage === 'function') showMessage('اختر الصف وارفع الإيصال.', 'error');
+    else if (typeof showToast === 'function') showToast('اختر الصف وارفع الإيصال.', true);
+    return;
+  }
+  const btn = document.getElementById('subscription-submit');
+  if (btn) { btn.disabled = true; btn.textContent = 'جاري الإرسال...'; }
+  try {
+    const form = new FormData();
+    form.append('userId', userId);
+    form.append('grade', grade);
+    form.append('receipt', file);
+    const response = await fetch(subscriptionApiUrl('/api/subscriptions?action=request'), { method: 'POST', body: form });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || 'تعذر إرسال الإيصال.');
+    if (typeof showMessage === 'function') showMessage(data.message || 'تم إرسال الإيصال للمراجعة.', 'success');
+    else if (typeof showToast === 'function') showToast(data.message || 'تم إرسال الإيصال للمراجعة.');
+    const input = document.getElementById('subscription-receipt');
+    if (input) input.value = '';
+    await refreshSubscriptionStatus();
+    if (typeof applySubscriptionToGrades === 'function') applySubscriptionToGrades();
+    if (typeof populateTeacherFilters === 'function') populateTeacherFilters();
+  } catch (error) {
+    if (typeof showMessage === 'function') showMessage(error.message, 'error');
+    else if (typeof showToast === 'function') showToast(error.message, true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'إرسال الإيصال'; }
+  }
+}
+
+
 let lessons = [];
 let attachments = [];
 const API_BASE = '/api/ai';
@@ -1599,11 +1770,26 @@ async function loadDatabase() {
   const data = await apiRequest('/api/lessons');
   lessons = Array.isArray(data?.lessons) ? data.lessons : [];
   attachments = Array.isArray(data?.attachments) ? data.attachments : [];
+  subscriptionGradeOptions = uniqueValues(activeLessons(), 'grade');
+  fillSubscriptionGradeOptions(subscriptionGradeOptions);
+  await refreshSubscriptionStatus();
   populateTeacherFilters();
 }
 
 function activeLessons() {
   return lessons.filter(l => l.status === 'active');
+}
+
+function availableTeacherLessons() {
+  const all = activeLessons();
+  if (!subscriptionState.activeGrades.length) return [];
+  return all.filter(lesson => isGradeSubscribed(lesson.grade));
+}
+
+function applySubscriptionToGrades() {
+  subscriptionGradeOptions = uniqueValues(activeLessons(), 'grade');
+  fillSubscriptionGradeOptions(subscriptionGradeOptions);
+  populateTeacherFilters();
 }
 
 function uniqueValues(items, key) {
@@ -1647,7 +1833,7 @@ function setLessonOptions(items) {
 }
 
 function populateTeacherFilters(changedId = '') {
-  const all = activeLessons();
+  const all = availableTeacherLessons();
 
   let grade = document.getElementById('t-grade')?.value || '';
   let subject = document.getElementById('t-subject')?.value || '';
@@ -1724,6 +1910,14 @@ async function generateLesson() {
   const lessonId = document.getElementById('t-lesson').value;
 
   hideError();
+  if (!subscriptionState.activeGrades.length) {
+    showError('يلزم تفعيل اشتراك الصف أولًا. أرسل الإيصال من بطاقة الاشتراك.');
+    return;
+  }
+  if (grade && !isGradeSubscribed(grade)) {
+    showError('هذا الصف غير مشمول في اشتراكك. ستظهر لك الصفوف المشترك فيها فقط.');
+    return;
+  }
   if (!grade || !subject || !semester || !lessonId) {
     showError('يرجى اختيار جميع الحقول المطلوبة قبل التوليد.');
     return;
@@ -2377,6 +2571,8 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
+
 
 
 
