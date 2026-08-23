@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+﻿import { neon } from "@neondatabase/serverless";
 import { put } from "@vercel/blob";
 import { requireAdmin } from "../enjazy/server_api/_lib/admin-auth.js";
 
@@ -142,6 +142,26 @@ function parseMultipart(buffer, contentType = "") {
   return { fields, files };
 }
 
+function canonicalGradeName(value) {
+  const raw = String(value || '').replace(/^الصف\s+/, '').trim();
+  const compact = raw.replace(/أ/g, 'ا').replace(/إ/g, 'ا').replace(/آ/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim();
+  const names = {
+    'الاول': 'الأول',
+    'الثاني': 'الثاني',
+    'الثالث': 'الثالث',
+    'الرابع': 'الرابع',
+    'الخامس': 'الخامس',
+    'السادس': 'السادس',
+    'السابع': 'السابع',
+    'الثامن': 'الثامن',
+    'التاسع': 'التاسع',
+    'العاشر': 'العاشر',
+    'الحادي عشر': 'الحادي عشر',
+    'الثاني عشر': 'الثاني عشر'
+  };
+  const name = names[compact] || raw;
+  return name ? `الصف ${name}` : '';
+}
 function rowToSubscription(row) {
   return {
     id: row.id,
@@ -177,7 +197,7 @@ async function requestSubscription(req, res) {
   const body = await readBodyBuffer(req);
   const { fields, files } = parseMultipart(body, String(req.headers["content-type"] || ""));
   const userId = String(fields.userId || "").trim();
-  const grade = String(fields.grade || "").trim();
+  const grade = canonicalGradeName(fields.grade);
   const receipt = files.receipt;
   if (!userId || !grade) return fail(res, 400, "اختر الصف وسجل الدخول قبل إرسال طلب الاشتراك.", "invalid_payload");
   if (!receipt || !receipt.buffer?.length) return fail(res, 400, "يرجى رفع صورة الإيصال أو ملف PDF الإيصال.", "missing_receipt");
@@ -254,3 +274,4 @@ export default async function handler(req, res) {
     return fail(res, error?.statusCode || 500, String(error?.message || error), "server_error");
   }
 }
+
