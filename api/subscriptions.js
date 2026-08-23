@@ -53,6 +53,10 @@ async function ensureSchema() {
       `;
       await sql`
         ALTER TABLE teacher_subscriptions
+        ADD COLUMN IF NOT EXISTS subjects JSONB NOT NULL DEFAULT '[]'::jsonb;
+      `;
+      await sql`
+        ALTER TABLE teacher_subscriptions
         ADD COLUMN IF NOT EXISTS receipt_history JSONB NOT NULL DEFAULT '[]'::jsonb;
       `;
       await sql`
@@ -209,36 +213,81 @@ function parseMultipart(buffer, contentType = "") {
   return { fields, files };
 }
 
-function canonicalGradeName(value) {
-  const raw = String(value || '').replace(/^الصف\s+/, '').trim();
-  const compact = raw.replace(/أ/g, 'ا').replace(/إ/g, 'ا').replace(/آ/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim();
-  const names = {
-    'الاول': 'الأول',
-    'الثاني': 'الثاني',
-    'الثالث': 'الثالث',
-    'الرابع': 'الرابع',
-    'الخامس': 'الخامس',
-    'السادس': 'السادس',
-    'السابع': 'السابع',
-    'الثامن': 'الثامن',
-    'التاسع': 'التاسع',
-    'العاشر': 'العاشر',
-    'الحادي عشر': 'الحادي عشر',
-    'الثاني عشر': 'الثاني عشر'
-  };
-  const name = names[compact] || raw;
-  return name ? `الصف ${name}` : '';
+function splitGradeValues(value) {
+  if (Array.isArray(value)) return value.flatMap(splitGradeValues);
+  const text = String(value || '').trim();
+  if (!text) return [];
+  const normalized = normalizeGradeKey(text);
+  const found = [];
+  gradeDefinitions().forEach((item) => {
+    item.aliases.forEach((alias) => {
+      const pattern = alias.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+      const matches = normalized.match(new RegExp('(^|\\s)' + pattern + '(?=\\s|$)', 'g'));
+      if (matches) matches.forEach(() => found.push(item.display));
+    });
+  });
+  if (found.length) return found.map((grade) => 'الصف ' + grade);
+  return text.split(/[،,]/).map((part) => part.trim()).filter(Boolean);
 }
+
+function gradeDefinitions() {
+  return [
+    { key: 'الحادي عشر', display: 'الحادي عشر', aliases: ['الحادي عشر', '11', '١١'] },
+    { key: 'الثاني عشر', display: 'الثاني عشر', aliases: ['الثاني عشر', '12', '١٢'] },
+    { key: 'الاول', display: 'الأول', aliases: ['الاول', '1', '١'] },
+    { key: 'الثاني', display: 'الثاني', aliases: ['الثاني', '2', '٢'] },
+    { key: 'الثالث', display: 'الثالث', aliases: ['الثالث', '3', '٣'] },
+    { key: 'الرابع', display: 'الرابع', aliases: ['الرابع', '4', '٤'] },
+    { key: 'الخامس', display: 'الخامس', aliases: ['الخامس', '5', '٥'] },
+    { key: 'السادس', display: 'السادس', aliases: ['السادس', '6', '٦'] },
+    { key: 'السابع', display: 'السابع', aliases: ['السابع', '7', '٧'] },
+    { key: 'الثامن', display: 'الثامن', aliases: ['الثامن', '8', '٨'] },
+    { key: 'التاسع', display: 'التاسع', aliases: ['التاسع', '9', '٩'] },
+    { key: 'العاشر', display: 'العاشر', aliases: ['العاشر', '10', '١٠'] }
+  ];
+}
+
+function normalizeGradeKey(value) {
+  return String(value || '')
+    .replace(/\bgrade\b/gi, '')
+    .replace(/الصف/g, '')
+    .replace(/صف/g, '')
+    .replace(/أ/g, 'ا')
+    .replace(/إ/g, 'ا')
+    .replace(/آ/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/[،,؛;|/\\_\-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function canonicalGradeName(value) {
+  const key = normalizeGradeKey(value);
+  const found = gradeDefinitions().find((item) => item.key === key || item.aliases.includes(key));
+  return found ? `الصف ${found.display}` : String(value || '').trim();
+}
+
+function uniqueCanonicalGrades(values) {
+  const seen = new Set();
+  const out = [];
+  splitGradeValues(values).forEach((value) => {
+    const grade = canonicalGradeName(value);
+    const key = normalizeGradeKey(grade);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(grade);
+  });
+  return out;
+}
+
 function subscriptionGrades(row) {
   const values = Array.isArray(row?.grades) ? row.grades : [];
-  const list = values.map(canonicalGradeName).filter(Boolean);
-  const legacy = canonicalGradeName(row?.grade || '');
-  if (legacy) list.push(legacy);
-  return [...new Set(list)];
+  return uniqueCanonicalGrades([values, row?.grade || '']);
 }
 
 function joinGrades(grades) {
-  return [...new Set((grades || []).map(canonicalGradeName).filter(Boolean))].join('، ');
+  return uniqueCanonicalGrades(grades || []).join('، ');
 }
 
 function parseRequestedGrades(fields = {}) {
@@ -249,11 +298,83 @@ function parseRequestedGrades(fields = {}) {
       const parsed = JSON.parse(rawGrades);
       if (Array.isArray(parsed)) values = parsed;
     } catch {
-      values = rawGrades.split(/[،,]/);
+      values = splitGradeValues(rawGrades);
     }
   }
-  if (!values.length && fields.grade) values = [fields.grade];
-  return [...new Set(values.map(canonicalGradeName).filter(Boolean))];
+  if (!values.length && fields.grade) values = splitGradeValues(fields.grade);
+  return uniqueCanonicalGrades(values);
+}
+
+function normalizeSubjectName(value) {
+  return String(value || '')
+    .replace(/أ/g, 'ا')
+    .replace(/إ/g, 'ا')
+    .replace(/آ/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function subjectKey(item) {
+  return normalizeGradeKey(item?.grade || '') + '::' + normalizeSubjectName(item?.subject || '');
+}
+
+function subscriptionExpiryDate(now = new Date()) {
+  const year = now.getMonth() > 5 || (now.getMonth() === 5 && now.getDate() > 10)
+    ? now.getFullYear() + 1
+    : now.getFullYear();
+  return String(year).padStart(4, '0') + '-06-10';
+}
+
+function isSubjectEntryActive(item, now = new Date()) {
+  if (!item?.subject) return false;
+  if (item.status && item.status !== 'active') return false;
+  const expiresAt = String(item.expiresAt || item.expires_at || '').slice(0, 10);
+  if (!expiresAt) return true;
+  const end = new Date(expiresAt + 'T23:59:59');
+  return !Number.isFinite(end.getTime()) || end >= now;
+}
+
+function uniqueSubscriptionSubjects(values) {
+  const out = [];
+  const seen = new Set();
+  (Array.isArray(values) ? values : []).forEach((item) => {
+    const grade = canonicalGradeName(item?.grade || '');
+    const subject = String(item?.subject || '').trim();
+    if (!grade || !subject) return;
+    const next = {
+      grade,
+      subject,
+      expiresAt: item.expiresAt || item.expires_at || '',
+      status: item.status || 'active',
+      createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+    };
+    const key = subjectKey(next);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(next);
+  });
+  return out;
+}
+
+function subscriptionSubjects(row) {
+  return uniqueSubscriptionSubjects(Array.isArray(row?.subjects) ? row.subjects : []);
+}
+
+function parseRequestedSubjects(fields = {}) {
+  const grade = canonicalGradeName(fields.grade || '');
+  let values = [];
+  const raw = String(fields.subjects || '').trim();
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      values = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      values = raw.split(/[،,]/).map((part) => part.trim()).filter(Boolean);
+    }
+  }
+  return uniqueSubscriptionSubjects(values.map((subject) => ({ grade, subject })));
 }
 
 function subscriptionHistory(row) {
@@ -261,11 +382,13 @@ function subscriptionHistory(row) {
 }
 function rowToSubscription(row) {
   const grades = subscriptionGrades(row);
+  const subjects = subscriptionSubjects(row);
   return {
     id: row.id,
     userId: row.user_id,
     grade: joinGrades(grades) || row.grade,
     grades,
+    subjects,
     status: row.status,
     receiptUrl: row.receipt_url,
     receiptFileName: row.receipt_file_name,
@@ -287,9 +410,13 @@ async function getStatus(req, res) {
     ORDER BY updated_at DESC, id DESC;
   `;
   const subscriptions = (rows || []).map(rowToSubscription);
-  const activeGrades = [...new Set(subscriptions.filter((s) => s.status === "active").flatMap((s) => Array.isArray(s.grades) ? s.grades : [s.grade]).filter(Boolean))];
+  const activeSubjects = uniqueSubscriptionSubjects(subscriptions.filter((s) => s.status === "active").flatMap((s) => subscriptionSubjects(s))).filter((item) => isSubjectEntryActive(item));
+  const activeGrades = uniqueCanonicalGrades([
+    ...activeSubjects.map((item) => item.grade),
+    ...subscriptions.filter((s) => s.status === "active" && !subscriptionSubjects(s).length).flatMap((s) => subscriptionGrades(s)),
+  ]);
   const pending = subscriptions.filter((s) => s.status === "pending");
-  send(res, 200, { activeGrades, pending, subscriptions, paymentNumber: PAYMENT_NUMBER });
+  send(res, 200, { activeGrades, activeSubjects, pending, subscriptions, paymentNumber: PAYMENT_NUMBER });
 }
 
 async function requestSubscription(req, res) {
@@ -297,9 +424,10 @@ async function requestSubscription(req, res) {
   const body = await readBodyBuffer(req);
   const { fields, files } = parseMultipart(body, String(req.headers["content-type"] || ""));
   const userId = String(fields.userId || "").trim();
-  const requestedGrades = parseRequestedGrades(fields);
+  const requestedSubjects = parseRequestedSubjects(fields);
+  const requestedGrades = requestedSubjects.length ? uniqueCanonicalGrades(requestedSubjects.map((item) => item.grade)) : parseRequestedGrades(fields);
   const receipt = files.receipt;
-  if (!userId || !requestedGrades.length) return fail(res, 400, "اختر صفًا واحدًا على الأقل وسجل الدخول قبل إرسال طلب الاشتراك.", "invalid_payload");
+  if (!userId || (!requestedSubjects.length && !requestedGrades.length)) return fail(res, 400, "اختر الصف والمادة وسجل الدخول قبل إرسال طلب الاشتراك.", "invalid_payload");
   if (!receipt || !receipt.buffer?.length) return fail(res, 400, "يرجى رفع صورة الإيصال أو ملف PDF الإيصال.", "missing_receipt");
   if (receipt.buffer.length > MAX_RECEIPT_SIZE) return fail(res, 413, "حجم الإيصال أكبر من 12MB.", "file_too_large");
   const allowed = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
@@ -313,12 +441,20 @@ async function requestSubscription(req, res) {
   `;
   const existing = existingRows?.[0] || {};
   const existingGrades = subscriptionGrades(existing);
+  const existingSubjects = subscriptionSubjects(existing);
   const existingHistory = subscriptionHistory(existing);
-  const nextGrades = [...new Set([...existingGrades, ...requestedGrades])];
-  const gradeText = joinGrades(nextGrades);
-  const selectedGradeText = joinGrades(requestedGrades);
-  const amountOmr = requestedGrades.length;
+  const activeExistingSubjects = existingSubjects.filter((item) => isSubjectEntryActive(item));
+  const activeSubjectKeys = new Set(activeExistingSubjects.map(subjectKey));
+  const expiryDate = subscriptionExpiryDate();
+  const requestedNewSubjects = requestedSubjects.filter((item) => !activeSubjectKeys.has(subjectKey(item)));
+  if (requestedSubjects.length && !requestedNewSubjects.length) return fail(res, 409, "هذه المادة مشتركة مسبقًا ولن تظهر ضمن مواد الاشتراك الجديدة.", "already_subscribed");
   const operationAt = new Date().toISOString();
+  const stampedSubjects = requestedNewSubjects.map((item) => ({ ...item, expiresAt: expiryDate, status: 'active', createdAt: operationAt }));
+  const nextSubjects = uniqueSubscriptionSubjects([...stampedSubjects, ...existingSubjects]);
+  const nextGrades = uniqueCanonicalGrades([existingGrades, requestedGrades, nextSubjects.map((item) => item.grade)]);
+  const gradeText = joinGrades(nextGrades);
+  const selectedGradeText = requestedNewSubjects.length ? requestedNewSubjects.map((item) => item.grade + ' - ' + item.subject).join('، ') : joinGrades(requestedGrades);
+  const amountOmr = requestedNewSubjects.length || requestedGrades.length;
   const blob = await put(`receipts/${userId}/${Date.now()}-${receipt.fileName}`, receipt.buffer, {
     access: "public",
     contentType: receipt.contentType,
@@ -328,8 +464,11 @@ async function requestSubscription(req, res) {
     {
       grade: selectedGradeText,
       grades: requestedGrades,
+      subjects: stampedSubjects,
       allGrades: nextGrades,
+      allSubjects: nextSubjects,
       amountOmr,
+      expiresAt: expiryDate,
       receiptUrl: blob.url,
       receiptFileName: receipt.fileName,
       receiptFileType: receipt.contentType,
@@ -341,14 +480,15 @@ async function requestSubscription(req, res) {
   ].slice(0, 50);
   const rows = await sql`
     INSERT INTO teacher_subscriptions (
-      user_id, grade, grades, status, receipt_url, receipt_file_name, receipt_file_type, receipt_history, admin_note, created_at, updated_at
+      user_id, grade, grades, subjects, status, receipt_url, receipt_file_name, receipt_file_type, receipt_history, admin_note, created_at, updated_at
     ) VALUES (
-      ${userId}, ${gradeText}, ${JSON.stringify(nextGrades)}::jsonb, 'active', ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, ${JSON.stringify(nextHistory)}::jsonb, '', NOW(), NOW()
+      ${userId}, ${gradeText}, ${JSON.stringify(nextGrades)}::jsonb, ${JSON.stringify(nextSubjects)}::jsonb, 'active', ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, ${JSON.stringify(nextHistory)}::jsonb, '', NOW(), NOW()
     )
     ON CONFLICT (user_id)
     DO UPDATE SET
       grade = EXCLUDED.grade,
       grades = EXCLUDED.grades,
+      subjects = EXCLUDED.subjects,
       status = 'active',
       receipt_url = EXCLUDED.receipt_url,
       receipt_file_name = EXCLUDED.receipt_file_name,
@@ -358,7 +498,7 @@ async function requestSubscription(req, res) {
       updated_at = NOW()
     RETURNING *;
   `;
-  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), amountOmr, message: "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. المبلغ المطلوب: " + amountOmr + " ريال عماني، وتم الاحتفاظ بالصفوف السابقة." });
+  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), amountOmr, message: "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. المبلغ المطلوب: " + amountOmr + " ريال عماني. ينتهي الاشتراك في " + expiryDate + "." });
 }
 
 async function adminList(req, res) {

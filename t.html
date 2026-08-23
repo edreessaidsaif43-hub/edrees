@@ -638,25 +638,29 @@
 
     <div class="subscription-card" id="subscription-card">
       <div class="subscription-head">
-        <div class="subscription-title">اشتراك الصفوف</div>
-        <div class="subscription-badge" id="subscription-badge">قيمة موحدة للصفحتين</div>
+        <div class="subscription-title">اشتراك المواد</div>
+        <div class="subscription-badge" id="subscription-badge">1 ريال لكل مادة</div>
       </div>
       <div class="subscription-text" id="subscription-text">
-        اختر الصفوف المطلوبة، حوّل قيمة الاشتراك إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع الإيصال. قيمة الاشتراك: 1 ريال عماني لكل صف.
+        اختر الصف ثم المادة، حوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع الإيصال. الاشتراك ينتهي في 10/06 من كل سنة.
       </div>
       <div class="subscription-form">
         <div>
-          <label for="subscription-grade">الصفوف المطلوبة</label>
-          <select id="subscription-grade" multiple onchange="updateSubscriptionAmount()"></select>
+          <label for="subscription-grade">الصف</label>
+          <select id="subscription-grade" onchange="fillSubscriptionSubjectOptions()"></select>
+        </div>
+        <div>
+          <label for="subscription-subject">المواد المطلوبة</label>
+          <select id="subscription-subject" multiple onchange="updateSubscriptionAmount()"></select>
         </div>
         <div>
           <label for="subscription-receipt">صورة الإيصال أو PDF</label>
           <input id="subscription-receipt" type="file" accept="image/png,image/jpeg,image/webp,application/pdf">
         </div>
         <button type="button" id="subscription-submit" onclick="submitSubscriptionRequest()">إرسال الإيصال</button>
-        <div class="subscription-amount" id="subscription-amount">قيمة الاشتراك: 1 ريال عماني لكل صف</div>
+        <div class="subscription-amount" id="subscription-amount">قيمة الاشتراك: 1 ريال عماني لكل مادة</div>
       </div>
-      <div class="subscription-status" id="subscription-status">سجل الدخول ثم أرسل الإيصال ليتم تفعيل الصف.</div>
+      <div class="subscription-status" id="subscription-status">سجل الدخول ثم أرسل الإيصال ليتم تفعيل المادة.</div>
     </div>
 
     <div class="mb-3"><label class="block text-gray-700 font-semibold mb-1 text-right text-xs">🎓 الصف</label> <select id="grade" onchange="updateSubjects()" class="w-full p-2 border-2 border-gray-300 rounded-lg text-right text-sm input-focus transition-all duration-300 bg-white"> <option value="">اختر الصف</option> </select>
@@ -707,7 +711,7 @@
     const CSV_CACHE_KEY = 'lesson_system_csv_cache_v2';
     const CSV_CACHE_TTL_MS = 1000 * 60 * 60 * 8;
 
-let subscriptionState = { loaded: false, activeGrades: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
+let subscriptionState = { loaded: false, activeGrades: [], activeSubjects: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
 let subscriptionGradeOptions = [];
 
 function subscriptionApiUrl(path) {
@@ -810,36 +814,111 @@ function updateSubscriptionPanel() {
   const text = document.getElementById('subscription-text');
   const status = document.getElementById('subscription-status');
   if (!card || !badge || !text || !status) return;
+  const activeSubjects = getActiveSubscriptionSubjects();
   const active = uniqueSubscriptionGrades(subscriptionState.activeGrades || []);
   const pending = subscriptionState.pending || [];
   const blocked = (subscriptionState.subscriptions || []).filter(item => ['rejected', 'stopped'].includes(item.status));
   const latestBlocked = blocked[0] || null;
-  card.classList.toggle('active', active.length > 0 && !latestBlocked);
-  card.classList.toggle('pending', !active.length && (pending.length > 0 || !!latestBlocked));
+  const hasActive = activeSubjects.length > 0 || active.length > 0;
+  card.classList.toggle('active', hasActive && !latestBlocked);
+  card.classList.toggle('pending', !hasActive && (pending.length > 0 || !!latestBlocked));
   if (latestBlocked) {
     const stopped = latestBlocked.status === 'stopped';
     badge.textContent = stopped ? 'تم إيقاف الاشتراك' : 'تم رفض الإيصال';
     text.innerHTML = stopped
-      ? 'لإعادة التفعيل: حوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع إيصالًا صحيحًا.'
-      : 'تم رفض الإيصال. حوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع إيصالًا صحيحًا.';
-    status.textContent = 'الصف: ' + latestBlocked.grade + (latestBlocked.adminNote ? ' - ملاحظة الإدارة: ' + latestBlocked.adminNote : '');
+      ? 'لإعادة التفعيل: اختر المادة وحوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع إيصالًا صحيحًا.'
+      : 'تم رفض الإيصال. اختر المادة وحوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع إيصالًا صحيحًا.';
+    status.textContent = 'الطلب: ' + (latestBlocked.subjects?.map(formatSubscriptionSubject).join('، ') || latestBlocked.grade || '') + (latestBlocked.adminNote ? ' - ملاحظة الإدارة: ' + latestBlocked.adminNote : '');
+  } else if (activeSubjects.length) {
+    badge.textContent = 'مفعل: ' + activeSubjects.length + ' مادة';
+    text.innerHTML = 'اشتراكك مفعل للمواد المحددة. لإضافة مادة: حوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع الإيصال.';
+    status.textContent = 'المواد المتاحة: ' + activeSubjects.map(formatSubscriptionSubject).join('، ') + ' - ينتهي الاشتراك في ' + formatSubscriptionExpiry(activeSubjects[0]?.expiresAt);
   } else if (active.length) {
     badge.textContent = 'مفعل: ' + active.join('، ');
-    text.innerHTML = 'اشتراكك مفعل للصفوف المحددة. لإضافة صف: حوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع الإيصال.';
+    text.innerHTML = 'اشتراكك القديم مفعل حسب الصف. الاشتراكات الجديدة تكون حسب المادة الواحدة.';
     status.textContent = 'الصفوف المتاحة الآن: ' + active.join('، ');
   } else if (pending.length) {
     badge.textContent = 'بانتظار المراجعة';
     text.innerHTML = 'تم استلام الإيصال، وسيتم التحقق من التحويل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span>.';
-    status.textContent = 'طلبات قيد المراجعة: ' + pending.map(p => p.grade).join('، ');
+    status.textContent = 'طلبات قيد المراجعة: ' + pending.map(p => p.subjects?.map(formatSubscriptionSubject).join('، ') || p.grade).join('، ');
   } else {
-    badge.textContent = 'قيمة موحدة للصفحتين';
-    text.innerHTML = 'اختر الصفوف المطلوبة، حوّل قيمة الاشتراك إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع الإيصال. قيمة الاشتراك: 1 ريال عماني لكل صف.';
-    status.textContent = getSubscriptionUserId() ? 'اختر الصف وارفع الإيصال.' : 'سجل الدخول ثم أرسل الإيصال ليتم تفعيل الصف.';
+    badge.textContent = '1 ريال لكل مادة';
+    text.innerHTML = 'اختر الصف ثم المادة، حوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع الإيصال. الاشتراك ينتهي في 10/06 من كل سنة.';
+    status.textContent = getSubscriptionUserId() ? 'اختر الصف والمادة وارفع الإيصال.' : 'سجل الدخول ثم أرسل الإيصال ليتم تفعيل المادة.';
   }
 }
 
-function getSelectedSubscriptionGrades() {
+function normalizeSubscriptionSubject(value) {
+  return String(value || '')
+    .replace(/أ/g, 'ا')
+    .replace(/إ/g, 'ا')
+    .replace(/آ/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function subscriptionSubjectKey(grade, subject) {
+  return normalizeSubscriptionGrade(grade) + '::' + normalizeSubscriptionSubject(subject);
+}
+
+function isSameSubscriptionGrade(a, b) {
+  return normalizeSubscriptionGrade(a) === normalizeSubscriptionGrade(b);
+}
+
+function getActiveSubscriptionSubjects() {
+  const direct = Array.isArray(subscriptionState.activeSubjects) ? subscriptionState.activeSubjects : [];
+  const fromSubscriptions = (subscriptionState.subscriptions || [])
+    .filter(item => item.status === 'active')
+    .flatMap(item => Array.isArray(item.subjects) ? item.subjects : []);
+  const seen = new Set();
+  const out = [];
+  [...direct, ...fromSubscriptions].forEach((item) => {
+    const grade = displaySubscriptionGrade(item?.grade || '');
+    const subject = String(item?.subject || '').trim();
+    const expiresAt = item?.expiresAt || item?.expires_at || '';
+    if (!grade || !subject || isSubscriptionExpired(expiresAt)) return;
+    const key = subscriptionSubjectKey(grade, subject);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ grade, subject, expiresAt });
+  });
+  return out;
+}
+
+function isSubscriptionExpired(expiresAt) {
+  if (!expiresAt) return false;
+  const end = new Date(String(expiresAt).slice(0, 10) + 'T23:59:59');
+  return Number.isFinite(end.getTime()) && end < new Date();
+}
+
+function formatSubscriptionExpiry(expiresAt) {
+  const value = String(expiresAt || '').slice(0, 10);
+  const parts = value.split('-');
+  return parts.length === 3 ? parts[2] + '/' + parts[1] + '/' + parts[0] : '10/06';
+}
+
+function formatSubscriptionSubject(item) {
+  return (item?.grade || '') + ' - ' + (item?.subject || '');
+}
+
+function isSubjectSubscribed(grade, subject) {
+  const wanted = subscriptionSubjectKey(grade, subject);
+  const activeSubjects = getActiveSubscriptionSubjects();
+  if (activeSubjects.length) {
+    return activeSubjects.some(item => subscriptionSubjectKey(item.grade, item.subject) === wanted);
+  }
+  return isGradeSubscribed(grade);
+}
+
+function getSelectedSubscriptionGrade() {
   const select = document.getElementById('subscription-grade');
+  return select ? select.value : '';
+}
+
+function getSelectedSubscriptionSubjects() {
+  const select = document.getElementById('subscription-subject');
   if (!select) return [];
   return Array.from(select.selectedOptions).map(option => option.value).filter(Boolean);
 }
@@ -847,25 +926,61 @@ function getSelectedSubscriptionGrades() {
 function updateSubscriptionAmount() {
   const box = document.getElementById('subscription-amount');
   if (!box) return;
-  const count = getSelectedSubscriptionGrades().length;
-  const total = count;
+  const count = getSelectedSubscriptionSubjects().length;
   box.textContent = count
-    ? 'قيمة الاشتراك: ' + count + ' صف × 1 ريال عماني = ' + total + ' ريال عماني'
-    : 'قيمة الاشتراك: 1 ريال عماني لكل صف';
+    ? 'قيمة الاشتراك: ' + count + ' مادة × 1 ريال عماني = ' + count + ' ريال عماني'
+    : 'قيمة الاشتراك: 1 ريال عماني لكل مادة';
+}
+
+function getSubscriptionSubjectsForGrade(grade) {
+  if (!grade) return [];
+  let subjects = [];
+  if (typeof activeLessons === 'function') {
+    subjects = activeLessons().filter(item => isSameSubscriptionGrade(item.grade, grade)).map(item => item.subject);
+  } else if (Array.isArray(D)) {
+    subjects = D.filter(row => isSameSubscriptionGrade(row["1"], grade)).map(row => row["2"]);
+  }
+  return [...new Set(subjects.filter(value => value && String(value).trim()))]
+    .sort()
+    .filter(subject => !getActiveSubscriptionSubjects().some(item => subscriptionSubjectKey(item.grade, item.subject) === subscriptionSubjectKey(grade, subject)));
 }
 
 function fillSubscriptionGradeOptions(values = subscriptionGradeOptions) {
   const select = document.getElementById('subscription-grade');
   if (!select) return;
-  const previous = getSelectedSubscriptionGrades();
+  const previous = getSelectedSubscriptionGrade();
   const list = values.length ? values : ['الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع','الصف الخامس','الصف السادس','الصف السابع','الصف الثامن','الصف التاسع','الصف العاشر','الصف الحادي عشر','الصف الثاني عشر'];
-  select.innerHTML = '';
+  select.innerHTML = '<option value="">اختر الصف...</option>';
   list.forEach((grade) => {
     const option = document.createElement('option');
     option.value = grade;
     option.textContent = grade;
     select.appendChild(option);
   });
+  select.value = list.includes(previous) ? previous : '';
+  fillSubscriptionSubjectOptions();
+}
+
+function fillSubscriptionSubjectOptions() {
+  const select = document.getElementById('subscription-subject');
+  if (!select) return;
+  const previous = getSelectedSubscriptionSubjects();
+  const subjects = getSubscriptionSubjectsForGrade(getSelectedSubscriptionGrade());
+  select.innerHTML = '';
+  if (!subjects.length) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = getSelectedSubscriptionGrade() ? 'كل مواد هذا الصف مشتركة أو غير متاحة' : 'اختر الصف أولًا';
+    option.disabled = true;
+    select.appendChild(option);
+  } else {
+    subjects.forEach((subject) => {
+      const option = document.createElement('option');
+      option.value = subject;
+      option.textContent = subject;
+      select.appendChild(option);
+    });
+  }
   Array.from(select.options).forEach(option => { option.selected = previous.includes(option.value); });
   updateSubscriptionAmount();
 }
@@ -873,7 +988,7 @@ function fillSubscriptionGradeOptions(values = subscriptionGradeOptions) {
 async function refreshSubscriptionStatus() {
   const userId = getSubscriptionUserId();
   if (!userId) {
-    subscriptionState = { loaded: true, activeGrades: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
+    subscriptionState = { loaded: true, activeGrades: [], activeSubjects: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
     updateSubscriptionPanel();
     return subscriptionState;
   }
@@ -884,12 +999,13 @@ async function refreshSubscriptionStatus() {
     subscriptionState = {
       loaded: true,
       activeGrades: uniqueSubscriptionGrades(Array.isArray(data.activeGrades) ? data.activeGrades : []),
+      activeSubjects: Array.isArray(data.activeSubjects) ? data.activeSubjects : [],
       pending: Array.isArray(data.pending) ? data.pending : [],
       subscriptions: Array.isArray(data.subscriptions) ? data.subscriptions : [],
       paymentNumber: data.paymentNumber || '91470590'
     };
   } catch (error) {
-    subscriptionState = { loaded: true, activeGrades: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
+    subscriptionState = { loaded: true, activeGrades: [], activeSubjects: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
     console.warn('subscription status failed', error);
   }
   updateSubscriptionPanel();
@@ -905,11 +1021,12 @@ async function submitSubscriptionRequest() {
     else if (typeof goUnifiedAuth === 'function') setTimeout(() => goUnifiedAuth('login'), 700);
     return;
   }
-  const selectedGrades = getSelectedSubscriptionGrades();
+  const selectedGrade = getSelectedSubscriptionGrade();
+  const selectedSubjects = getSelectedSubscriptionSubjects();
   const file = document.getElementById('subscription-receipt')?.files?.[0] || null;
-  if (!selectedGrades.length || !file) {
-    if (typeof showMessage === 'function') showMessage('اختر صفًا واحدًا على الأقل وارفع الإيصال.', 'error');
-    else if (typeof showToast === 'function') showToast('اختر صفًا واحدًا على الأقل وارفع الإيصال.', true);
+  if (!selectedGrade || !selectedSubjects.length || !file) {
+    if (typeof showMessage === 'function') showMessage('اختر الصف والمادة وارفع الإيصال.', 'error');
+    else if (typeof showToast === 'function') showToast('اختر الصف والمادة وارفع الإيصال.', true);
     return;
   }
   const btn = document.getElementById('subscription-submit');
@@ -917,8 +1034,9 @@ async function submitSubscriptionRequest() {
   try {
     const form = new FormData();
     form.append('userId', userId);
-    form.append('grades', JSON.stringify(selectedGrades));
-    form.append('grade', selectedGrades[0]);
+    form.append('grade', selectedGrade);
+    form.append('grades', JSON.stringify([selectedGrade]));
+    form.append('subjects', JSON.stringify(selectedSubjects));
     form.append('receipt', file);
     const response = await fetch(subscriptionApiUrl('/api/subscriptions?action=request'), { method: 'POST', body: form });
     const data = await response.json().catch(() => ({}));
@@ -927,7 +1045,10 @@ async function submitSubscriptionRequest() {
     else if (typeof showToast === 'function') showToast(data.message || 'تم إرسال الإيصال للمراجعة.');
     const input = document.getElementById('subscription-receipt');
     if (input) input.value = '';
+    const subjectSelect = document.getElementById('subscription-subject');
+    if (subjectSelect) Array.from(subjectSelect.options).forEach(option => { option.selected = false; });
     await refreshSubscriptionStatus();
+    fillSubscriptionSubjectOptions();
     if (typeof applySubscriptionToGrades === 'function') applySubscriptionToGrades();
     if (typeof populateTeacherFilters === 'function') populateTeacherFilters();
   } catch (error) {
@@ -1039,6 +1160,7 @@ function getCachedCsv() {
       });
       subscriptionGradeOptions = grades.map(g => g.startsWith('الصف ') ? g : 'الصف ' + g);
       fillSubscriptionGradeOptions(subscriptionGradeOptions);
+      fillSubscriptionSubjectOptions();
       applySubscriptionToGrades();
     }
     
@@ -1047,7 +1169,10 @@ function getCachedCsv() {
       if (!gradeSelect) return;
       const previous = gradeSelect.value;
       const grades = uniqueSubscriptionGrades(subscriptionGradeOptions || []).map(g => normalizeSubscriptionGrade(g));
-      const visibleGrades = uniqueSubscriptionGrades(subscriptionState.activeGrades).length ? grades.filter(g => isGradeSubscribed(g)).map(displaySubscriptionGrade) : [];
+      const activeSubjects = getActiveSubscriptionSubjects();
+      const visibleGrades = activeSubjects.length
+        ? uniqueSubscriptionGrades(activeSubjects.map(item => item.grade))
+        : (uniqueSubscriptionGrades(subscriptionState.activeGrades).length ? grades.filter(g => isGradeSubscribed(g)).map(displaySubscriptionGrade) : []);
       gradeSelect.innerHTML = '<option value="">اختر...</option>';
       visibleGrades.forEach(grade => {
         const opt = document.createElement('option');
@@ -1256,7 +1381,7 @@ function getCachedCsv() {
       
       if (!grade) return;
       
-      const subjects = [...new Set(D.filter(r => r["1"] === grade).map(r => r["2"]).filter(v => v && v.trim()))].sort();
+      const subjects = [...new Set(D.filter(r => isSameSubscriptionGrade(r["1"], grade) && isSubjectSubscribed(grade, r["2"])).map(r => r["2"]).filter(v => v && v.trim()))].sort();
       subjects.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s;
@@ -1276,7 +1401,7 @@ function getCachedCsv() {
       
       if (!grade || !subject) return;
       
-      const semesters = [...new Set(D.filter(r => r["1"] === grade && r["2"] === subject).map(r => r["3"]).filter(v => v && v.trim()))].sort();
+      const semesters = [...new Set(D.filter(r => isSameSubscriptionGrade(r["1"], grade) && r["2"] === subject).map(r => r["3"]).filter(v => v && v.trim()))].sort();
       semesters.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s;
@@ -1299,7 +1424,7 @@ function getCachedCsv() {
       const unitsSet = new Set();
       const unitsList = [];
       D.forEach(r => {
-        if (r["1"] === grade && r["2"] === subject && r["3"] === semester) {
+        if (isSameSubscriptionGrade(r["1"], grade) && r["2"] === subject && r["3"] === semester) {
           const u = r["4"];
           if (u && u.trim() && !unitsSet.has(u)) {
             unitsList.push(u);
@@ -1330,7 +1455,7 @@ function getCachedCsv() {
       const lessonsSet = new Set();
       const lessonsList = [];
       D.forEach(r => {
-        if (r["1"] === grade && r["2"] === subject && r["3"] === semester && r["4"] === unit) {
+        if (isSameSubscriptionGrade(r["1"], grade) && r["2"] === subject && r["3"] === semester && r["4"] === unit) {
           const l = r["5"];
           if (l && l.trim() && !lessonsSet.has(l)) {
             lessonsList.push(l);
@@ -1377,12 +1502,12 @@ function getCachedCsv() {
       const unit = document.getElementById('unit').value;
       const lesson = document.getElementById('lesson').value;
       
-      if (!subscriptionState.activeGrades.length) {
-        showMessage('يلزم تفعيل اشتراك الصف أولًا. أرسل الإيصال من بطاقة الاشتراك.', 'error');
+      if (!getActiveSubscriptionSubjects().length && !subscriptionState.activeGrades.length) {
+        showMessage('يلزم تفعيل اشتراك المادة أولًا. أرسل الإيصال من بطاقة الاشتراك.', 'error');
         return;
       }
-      if (grade && !isGradeSubscribed(grade)) {
-        showMessage('هذا الصف غير مشمول في اشتراكك.', 'error');
+      if (grade && subject && !isSubjectSubscribed(grade, subject)) {
+        showMessage('هذه المادة غير مشمولة في اشتراكك.', 'error');
         return;
       }
       if (!grade || !subject || !semester || !unit || !lesson) {
@@ -1396,7 +1521,7 @@ function getCachedCsv() {
         return;
       }
       
-      const lessonData = D.find(r => r["1"] === grade && r["2"] === subject && r["3"] === semester && r["4"] === unit && r["5"] === lesson);
+      const lessonData = D.find(r => isSameSubscriptionGrade(r["1"], grade) && r["2"] === subject && r["3"] === semester && r["4"] === unit && r["5"] === lesson);
       if (!lessonData) {
         showMessage('الدرس غير موجود', 'error');
         return;
