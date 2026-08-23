@@ -480,7 +480,7 @@
   .subscription-amount{grid-column:3;grid-row:1;align-self:start;min-height:44px;display:flex;align-items:center}
   #subscription-grade{height:43px}
   #subscription-subject{min-height:190px}
-  #subscription-subject option{padding:7px 10px}
+  #subscription-subject option{padding:7px 10px;cursor:pointer}
 }
 @media(max-width:760px){.subscription-form{grid-template-columns:1fr}.subscription-form button{width:100%}}
 </style>
@@ -662,7 +662,7 @@
           <select id="subscription-grade" onchange="fillSubscriptionSubjectOptions()"></select>
         </div>
         <div>
-          <label for="subscription-subject">المواد المطلوبة</label>
+          <label for="subscription-subject">المواد المطلوبة <span style="font-weight:700;color:#64748b;font-size:11px">(اضغط للتحديد أو الإلغاء)</span></label>
           <select id="subscription-subject" multiple onchange="updateSubscriptionAmount()"></select>
         </div>
         <div>
@@ -994,7 +994,21 @@ function fillSubscriptionSubjectOptions() {
     });
   }
   Array.from(select.options).forEach(option => { option.selected = previous.includes(option.value); });
+  enableSubscriptionSubjectToggle(select);
   updateSubscriptionAmount();
+}
+
+function enableSubscriptionSubjectToggle(select) {
+  if (!select || select.dataset.toggleReady === '1') return;
+  select.dataset.toggleReady = '1';
+  select.addEventListener('mousedown', (event) => {
+    if (event.target.tagName !== 'OPTION') return;
+    event.preventDefault();
+    const option = event.target;
+    option.selected = !option.selected;
+    select.focus();
+    updateSubscriptionAmount();
+  });
 }
 
 async function refreshSubscriptionStatus() {
