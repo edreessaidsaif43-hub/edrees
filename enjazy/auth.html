@@ -501,6 +501,14 @@
       };
     }
 
+    function clearIncompleteStoredSession() {
+      const session = readStoredSession();
+      if (session.userId) return;
+      try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+      try { localStorage.removeItem(M_BACKEND_SESSION_STORAGE_KEY); } catch (e) {}
+      try { localStorage.removeItem("lesson_platform_current_user_v1"); } catch (e) {}
+    }
+
     function readBackendSessionProfile() {
       const readJson = (key) => {
         try {
@@ -535,10 +543,14 @@
     function autoRedirectIfLoggedIn() {
       if (isProfileEditMode) return false;
       const session = readStoredSession();
-      if (!session.userId && !session.email) return false;
+      if (!session.userId) return false;
       showMessage("أنت مسجل الدخول بالفعل. جارٍ التحويل...", true);
       setTimeout(() => {
-        window.location.href = safeReturnPath();
+        redirectAfterAuth({
+          userId: session.userId,
+          email: session.email,
+          full_name: readBackendSessionProfile().name || ""
+        });
       }, 120);
       return true;
     }
@@ -796,6 +808,8 @@
       if (confirmInput) confirmInput.placeholder = "اكتب التأكيد فقط عند تغيير كلمة المرور";
       showMessage("عدّل الاسم أو الرقم/البريد. اترك كلمة المرور فارغة إذا كنت تريد الإبقاء على القديمة.", true);
     }
+
+    if (mode === "login" && !isProfileEditMode) clearIncompleteStoredSession();
 
     if (!autoRedirectIfLoggedIn()) {
       (async () => {
