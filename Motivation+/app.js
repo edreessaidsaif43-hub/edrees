@@ -3593,10 +3593,11 @@ function renderDirectPointsCard() {
   status.textContent = "يمكنك إضافة نقاط (+) أو خصم نقاط (-).";
 }
 
+let activeTeacherPanelName = "students";
+
 function setupTeacherSidePanels() {
   const teacherApp = document.getElementById("teacher-app");
-  if (!teacherApp || teacherApp.dataset.panelsReady === "1") return;
-  teacherApp.dataset.panelsReady = "1";
+  if (!teacherApp) return;
 
   teacherApp.querySelectorAll(":scope > .grid > article, :scope > .grid > .card, :scope > .card.wide, :scope > #reports-panel").forEach((node) => {
     if (!node.dataset.teacherPanel) node.dataset.teacherPanel = "setup";
@@ -3625,6 +3626,8 @@ function setupTeacherSidePanels() {
   links.forEach((link) => {
     const href = link.getAttribute("href") || "";
     link.dataset.teacherPanelTrigger = panelByHref[href] || "setup";
+    if (link.dataset.teacherPanelBound === "1") return;
+    link.dataset.teacherPanelBound = "1";
     link.addEventListener("click", (event) => {
       event.preventDefault();
       showTeacherPanel(link.dataset.teacherPanelTrigger || "setup", link);
@@ -3632,7 +3635,7 @@ function setupTeacherSidePanels() {
     });
   });
 
-  showTeacherPanel("students");
+  showTeacherPanel(activeTeacherPanelName);
 }
 
 function getTeacherPanelTargets() {
@@ -3671,7 +3674,9 @@ function keepTeacherPanelPosition() {
 function showTeacherPanel(panelName, activeLink = null) {
   const validPanels = new Set(["setup", "addStudents", "rewards", "gifts", "points", "students", "teams", "challenges", "random", "timer", "reports"]);
   const normalized = validPanels.has(panelName) ? panelName : "students";
+  activeTeacherPanelName = normalized;
   const teacherApp = document.getElementById("teacher-app");
+  if (teacherApp) teacherApp.dataset.activeTeacherPanel = normalized;
   Object.entries(getTeacherPanelTargets()).forEach(([name, nodes]) => {
     nodes.filter(Boolean).forEach((node) => {
       node.dataset.teacherPanel = name;
@@ -3683,6 +3688,7 @@ function showTeacherPanel(panelName, activeLink = null) {
   panelNodes.forEach((node) => {
     const isVisible = node.dataset.teacherPanel === normalized;
     node.hidden = !isVisible;
+    node.classList.toggle("teacher-panel-active", isVisible);
     if (isVisible) {
       node.style.removeProperty("display");
     } else {

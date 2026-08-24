@@ -3818,3 +3818,24 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 #teacher-app [data-teacher-panel][hidden] {
   display: none !important;
 }
+
+/* Final teacher side navigation guard.
+   Only the panel selected from the side menu may be visible. */
+#teacher-app[data-active-teacher-panel] [data-teacher-panel]:not(.teacher-panel-active) {
+  display: none !important;
+}
+
+#teacher-app[data-active-teacher-panel] > .grid > [data-teacher-panel].teacher-panel-active,
+#teacher-app[data-active-teacher-panel] > .card.wide[data-teacher-panel].teacher-panel-active {
+  display: block !important;
+}
+
+#teacher-app[data-active-teacher-panel] > #reports-panel[data-teacher-panel].teacher-panel-active {
+  display: grid !important;
+}
+
+#teacher-app[hidden],
+#teacher-app[hidden] [data-teacher-panel],
+#teacher-app:not([data-active-teacher-panel]) [data-teacher-panel] {
+  display: none !important;
+}
