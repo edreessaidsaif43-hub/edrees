@@ -10,6 +10,10 @@ const UNIFIED_AUTH_SESSION_KEY = "enjazy_session_v1";
 const UNIFIED_CURRENT_USER_KEY = "lesson_platform_current_user_v1";
 const MOTIVATION_API_LOAD = "/api/motivation";
 const MOTIVATION_API_SAVE = "/api/motivation";
+const SUBSCRIPTIONS_API = "/api/subscriptions";
+const MOTIVATION_SUBSCRIPTION_PRODUCT = "motivation";
+const MOTIVATION_SUBSCRIPTION_GRADE = "تحفيز+";
+const MOTIVATION_SUBSCRIPTION_SUBJECT = "اشتراك تحفيز+";
 const API_BASE = "";
 const DEPLOY_FALLBACK_ORIGIN = "https://altahdir.app";
 const RUNTIME_ORIGIN = (typeof window !== "undefined" && window.location && /^https?:$/i.test(window.location.protocol || ""))
@@ -1029,6 +1033,7 @@ async function pullRemoteStateIfNeeded(forceRemote = false) {
 }
 
 let currentTeacher = null;
+let motivationSubscriptionState = { loaded: false, active: false, pending: false, message: "" };
 let state = createDefaultState();
 let wheelRotation = 0;
 let wheelBusy = false;
@@ -1133,9 +1138,15 @@ function findStudentByCodeInLocalState(code) {
   return null;
 }
 
+function ensureMotivationSubscriptionOrNotify() {
+  if (motivationSubscriptionState.active) return true;
+  showAuthMessage("يلزم تفعيل اشتراك تحفيز+ أولًا. قيمة الاشتراك 2 ريال عماني.", true);
+  return false;
+}
+
 function ensureAuthOrNotify() {
-  if (currentTeacher) return true;
-  showAuthMessage("يجب تسجيل الدخول من البوابة الموحدة أولاً.", true);
+  if (currentTeacher && ensureMotivationSubscriptionOrNotify()) return true;
+  if (!currentTeacher) showAuthMessage("يجب تسجيل الدخول من البوابة الموحدة أولاً.", true);
   return false;
 }
 
@@ -1170,17 +1181,22 @@ function updateSessionUI() {
   const app = document.getElementById("teacher-app");
   const openAuthBtn = document.getElementById("open-unified-auth");
   const accountCard = document.querySelector(".teacher-account-card");
+  const subscriptionCard = document.getElementById("motivation-subscription-card");
+  const tabsNav = document.querySelector(".tabs");
 
   if (currentTeacher) {
     info.textContent = `المعلم الحالي: ${currentTeacher.name}`;
     logoutBtn.style.display = "inline-block";
-    if (syncBtn) syncBtn.style.display = "inline-block";
+    if (syncBtn) syncBtn.style.display = motivationSubscriptionState.active ? "inline-block" : "none";
     if (editProfileBtn) editProfileBtn.style.display = "inline-block";
     if (openAuthBtn) openAuthBtn.style.display = "none";
     if (accountCard) accountCard.style.display = "none";
-    app.hidden = false;
+    if (subscriptionCard) subscriptionCard.style.display = motivationSubscriptionState.active ? "none" : "block";
+    if (tabsNav) tabsNav.style.display = motivationSubscriptionState.active ? "flex" : "none";
+    app.hidden = !motivationSubscriptionState.active;
     app.classList.remove("logged-out-preview");
-    app.style.display = "grid";
+    app.style.display = motivationSubscriptionState.active ? "grid" : "none";
+    renderMotivationSubscriptionStatus();
   } else {
     info.textContent = "غير مسجل";
     logoutBtn.style.display = "none";
@@ -1188,6 +1204,8 @@ function updateSessionUI() {
     if (editProfileBtn) editProfileBtn.style.display = "none";
     if (openAuthBtn) openAuthBtn.style.display = "inline-block";
     if (accountCard) accountCard.style.display = "block";
+    if (subscriptionCard) subscriptionCard.style.display = "none";
+    if (tabsNav) tabsNav.style.display = "none";
     app.hidden = true;
     app.classList.remove("logged-out-preview");
     app.style.display = "none";
@@ -3706,6 +3724,8 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   if (btn) btn.disabled = false;
 });
 
+document.getElementById("motivation-subscribe-btn")?.addEventListener("click", submitMotivationSubscription);
+
 document.getElementById("sync-now-btn").addEventListener("click", async () => {
   if (!ensureAuthOrNotify()) return;
   const btn = document.getElementById("sync-now-btn");
@@ -4315,12 +4335,17 @@ async function bootstrapApp() {
   state = currentTeacher ? loadTeacherData(currentTeacher.id) : (loadPublicStateCache() || createDefaultState());
 
   if (currentTeacher && currentTeacher.userId) {
-    await pullRemoteStateIfNeeded(false);
-    const upgraded = upgradeAllStudentCodesIfNeeded();
-    if (upgraded) {
-      await flushRemoteSaveNow();
+    await refreshMotivationSubscriptionStatus();
+    if (motivationSubscriptionState.active) {
+      await pullRemoteStateIfNeeded(false);
     }
-    savePublicStateCache(state);
+    if (motivationSubscriptionState.active) {
+      const upgraded = upgradeAllStudentCodesIfNeeded();
+      if (upgraded) {
+        await flushRemoteSaveNow();
+      }
+      savePublicStateCache(state);
+    }
   }
 
   remoteSyncReady = true;
@@ -4331,7 +4356,7 @@ async function bootstrapApp() {
 }
 
 bootstrapApp();
-window.addEventListener("focus", () => {
+window.addEventListener("focus", async () => {
   const prevId = currentTeacher ? currentTeacher.id : "";
   const nextTeacher = getCurrentTeacher();
   const nextId = nextTeacher ? nextTeacher.id : "";
@@ -4340,8 +4365,9 @@ window.addEventListener("focus", () => {
     state = currentTeacher ? loadTeacherData(currentTeacher.id) : (loadPublicStateCache() || createDefaultState());
     wheelRotation = 0;
     remoteSyncReady = !currentTeacher;
+    if (currentTeacher && currentTeacher.userId) await refreshMotivationSubscriptionStatus();
     renderAll();
-    if (currentTeacher && currentTeacher.userId) {
+    if (currentTeacher && currentTeacher.userId && motivationSubscriptionState.active) {
       pullRemoteStateIfNeeded().finally(() => {
         const upgraded = upgradeAllStudentCodesIfNeeded();
         if (upgraded) {
@@ -4353,7 +4379,7 @@ window.addEventListener("focus", () => {
     }
     return;
   }
-  if (currentTeacher && currentTeacher.userId) {
+  if (currentTeacher && currentTeacher.userId && motivationSubscriptionState.active) {
     pullRemoteStateIfNeeded(false);
   }
 });

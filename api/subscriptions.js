@@ -348,6 +348,7 @@ function uniqueSubscriptionSubjects(values) {
       subject,
       expiresAt: item.expiresAt || item.expires_at || '',
       status: item.status || 'active',
+      product: item.product || '',
       createdAt: item.createdAt || item.created_at || new Date().toISOString(),
     };
     const key = subjectKey(next);
@@ -360,6 +361,16 @@ function uniqueSubscriptionSubjects(values) {
 
 function subscriptionSubjects(row) {
   return uniqueSubscriptionSubjects(Array.isArray(row?.subjects) ? row.subjects : []);
+}
+
+function subscriptionAmountOmr(fields = {}, subjects = [], grades = []) {
+  if (String(fields.product || "") === "motivation") return 2;
+  return subjects.length || grades.length || 1;
+}
+
+function subscriptionInitialStatus(fields = {}) {
+  if (String(fields.product || "") === "motivation") return "pending";
+  return "active";
 }
 
 function parseRequestedSubjects(fields = {}) {
@@ -376,9 +387,9 @@ function parseRequestedSubjects(fields = {}) {
   }
   return uniqueSubscriptionSubjects(values.map((item) => {
     if (item && typeof item === 'object') {
-      return { grade: item.grade || grade, subject: item.subject || item.name || '' };
+      return { grade: item.grade || grade, subject: item.subject || item.name || '', product: item.product || fields.product || '' };
     }
-    return { grade, subject: item };
+    return { grade, subject: item, product: fields.product || '' };
   }));
 }
 
@@ -415,12 +426,15 @@ async function getStatus(req, res) {
     ORDER BY updated_at DESC, id DESC;
   `;
   const subscriptions = (rows || []).map(rowToSubscription);
-  const activeSubjects = uniqueSubscriptionSubjects(subscriptions.filter((s) => s.status === "active").flatMap((s) => subscriptionSubjects(s))).filter((item) => isSubjectEntryActive(item));
+  const allSubjects = subscriptions.flatMap((s) => subscriptionSubjects(s));
+  const activeSubjects = uniqueSubscriptionSubjects(allSubjects).filter((item) => isSubjectEntryActive(item));
   const activeGrades = uniqueCanonicalGrades([
     ...activeSubjects.map((item) => item.grade),
     ...subscriptions.filter((s) => s.status === "active" && !subscriptionSubjects(s).length).flatMap((s) => subscriptionGrades(s)),
   ]);
-  const pending = subscriptions.filter((s) => s.status === "pending");
+  const pending = subscriptions
+    .map((s) => ({ ...s, subjects: subscriptionSubjects(s).filter((item) => item.status === "pending") }))
+    .filter((s) => s.status === "pending" || s.subjects.length);
   send(res, 200, { activeGrades, activeSubjects, pending, subscriptions, paymentNumber: PAYMENT_NUMBER });
 }
 
@@ -448,20 +462,21 @@ async function requestSubscription(req, res) {
   const existingGrades = subscriptionGrades(existing);
   const existingSubjects = subscriptionSubjects(existing);
   const existingHistory = subscriptionHistory(existing);
-  const keepExistingSubjects = existing.status === "active";
-  const reusableExistingSubjects = keepExistingSubjects ? existingSubjects : [];
-  const activeExistingSubjects = reusableExistingSubjects.filter((item) => isSubjectEntryActive(item));
+  const reusableExistingSubjects = existingSubjects.filter((item) => isSubjectEntryActive(item));
+  const keepLegacyGrades = existing.status === "active" && !existingSubjects.length;
+  const activeExistingSubjects = reusableExistingSubjects;
   const activeSubjectKeys = new Set(activeExistingSubjects.map(subjectKey));
   const expiryDate = subscriptionExpiryDate();
   const requestedNewSubjects = requestedSubjects.filter((item) => !activeSubjectKeys.has(subjectKey(item)));
   if (requestedSubjects.length && !requestedNewSubjects.length) return fail(res, 409, "هذه المادة مشتركة مسبقًا ولن تظهر ضمن مواد الاشتراك الجديدة.", "already_subscribed");
+  const requestStatus = subscriptionInitialStatus(fields);
   const operationAt = new Date().toISOString();
-  const stampedSubjects = requestedNewSubjects.map((item) => ({ ...item, expiresAt: expiryDate, status: 'active', createdAt: operationAt }));
+  const stampedSubjects = requestedNewSubjects.map((item) => ({ ...item, expiresAt: expiryDate, status: requestStatus, createdAt: operationAt }));
   const nextSubjects = uniqueSubscriptionSubjects([...stampedSubjects, ...reusableExistingSubjects]);
-  const nextGrades = uniqueCanonicalGrades([keepExistingSubjects ? existingGrades : [], requestedGrades, nextSubjects.map((item) => item.grade)]);
+  const nextGrades = uniqueCanonicalGrades([keepLegacyGrades ? existingGrades : [], requestedGrades, nextSubjects.map((item) => item.grade)]);
   const gradeText = joinGrades(nextGrades);
   const selectedGradeText = requestedNewSubjects.length ? requestedNewSubjects.map((item) => item.grade + ' - ' + item.subject).join('، ') : joinGrades(requestedGrades);
-  const amountOmr = requestedNewSubjects.length || requestedGrades.length;
+  const amountOmr = subscriptionAmountOmr(fields, requestedNewSubjects, requestedGrades);
   const blob = await put(`receipts/${userId}/${Date.now()}-${receipt.fileName}`, receipt.buffer, {
     access: "public",
     contentType: receipt.contentType,
@@ -479,7 +494,8 @@ async function requestSubscription(req, res) {
       receiptUrl: blob.url,
       receiptFileName: receipt.fileName,
       receiptFileType: receipt.contentType,
-      status: 'active',
+      status: requestStatus,
+      product: fields.product || '',
       operation: 'subscription_request',
       createdAt: operationAt,
     },
@@ -489,14 +505,14 @@ async function requestSubscription(req, res) {
     INSERT INTO teacher_subscriptions (
       user_id, grade, grades, subjects, status, receipt_url, receipt_file_name, receipt_file_type, receipt_history, admin_note, created_at, updated_at
     ) VALUES (
-      ${userId}, ${gradeText}, ${JSON.stringify(nextGrades)}::jsonb, ${JSON.stringify(nextSubjects)}::jsonb, 'active', ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, ${JSON.stringify(nextHistory)}::jsonb, '', NOW(), NOW()
+      ${userId}, ${gradeText}, ${JSON.stringify(nextGrades)}::jsonb, ${JSON.stringify(nextSubjects)}::jsonb, ${requestStatus}, ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, ${JSON.stringify(nextHistory)}::jsonb, '', NOW(), NOW()
     )
     ON CONFLICT (user_id)
     DO UPDATE SET
       grade = EXCLUDED.grade,
       grades = EXCLUDED.grades,
       subjects = EXCLUDED.subjects,
-      status = 'active',
+      status = EXCLUDED.status,
       receipt_url = EXCLUDED.receipt_url,
       receipt_file_name = EXCLUDED.receipt_file_name,
       receipt_file_type = EXCLUDED.receipt_file_type,
@@ -505,7 +521,7 @@ async function requestSubscription(req, res) {
       updated_at = NOW()
     RETURNING *;
   `;
-  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), amountOmr, message: "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. المبلغ المطلوب: " + amountOmr + " ريال عماني. ينتهي الاشتراك في " + expiryDate + "." });
+  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), amountOmr, message: (requestStatus === "pending" ? "تم إرسال الإيصال للمراجعة. المبلغ المطلوب: " : "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. المبلغ المطلوب: ") + amountOmr + " ريال عماني. ينتهي الاشتراك في " + expiryDate + "." });
 }
 
 async function adminList(req, res) {

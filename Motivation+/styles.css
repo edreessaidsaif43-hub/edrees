@@ -3759,3 +3759,57 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
     box-shadow: inset 0 -4px 0 #0f766e !important;
   }
 }
+
+
+.motivation-subscription-card {
+  width: min(100%, 760px);
+  margin: 28px auto 0 !important;
+  padding: clamp(24px, 4vw, 40px) !important;
+  text-align: center;
+  border: 1px solid #bfdbfe !important;
+  border-radius: 24px !important;
+  background: linear-gradient(135deg, #ffffff, #f8fbff) !important;
+  box-shadow: 0 24px 58px rgba(15, 23, 42, 0.10) !important;
+}
+.motivation-subscription-icon {
+  width: 66px;
+  height: 66px;
+  margin: 0 auto 14px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  background: #eff6ff;
+  font-size: 30px;
+}
+.motivation-transfer-number {
+  display: inline-flex;
+  direction: ltr;
+  align-items: center;
+  border: 1px solid #fdba74;
+  background: #fff7ed;
+  color: #9a3412;
+  border-radius: 10px;
+  padding: 4px 10px;
+  margin: 0 4px;
+  font-weight: 900;
+}
+.motivation-subscription-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 18px;
+}
+.motivation-subscription-form input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 11px;
+  background: #fff;
+  font-family: inherit;
+}
+@media (max-width: 680px) {
+  .motivation-subscription-form {
+    grid-template-columns: 1fr;
+  }
+}
