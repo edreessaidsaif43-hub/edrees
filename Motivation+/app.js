@@ -3568,6 +3568,10 @@ function setupTeacherSidePanels() {
     reports: [document.getElementById("reports-panel")]
   };
 
+  teacherApp.querySelectorAll(":scope > .grid > article, :scope > .grid > .card, :scope > .card.wide, :scope > #reports-panel").forEach((node) => {
+    if (!node.dataset.teacherPanel) node.dataset.teacherPanel = "setup";
+  });
+
   Object.entries(panelTargets).forEach(([name, nodes]) => {
     nodes.filter(Boolean).forEach((node) => {
       node.dataset.teacherPanel = name;
@@ -3614,7 +3618,11 @@ function keepTeacherPanelPosition() {
 }
 function showTeacherPanel(panelName, activeLink = null) {
   const normalized = panelName || "setup";
-  document.querySelectorAll("[data-teacher-panel]").forEach((node) => {
+  const teacherApp = document.getElementById("teacher-app");
+  const panelNodes = teacherApp
+    ? teacherApp.querySelectorAll("[data-teacher-panel]")
+    : document.querySelectorAll("[data-teacher-panel]");
+  panelNodes.forEach((node) => {
     node.hidden = node.dataset.teacherPanel !== normalized;
   });
   const links = Array.from(document.querySelectorAll(".teacher-side-link"));

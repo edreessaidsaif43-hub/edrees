@@ -3813,3 +3813,8 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
     grid-template-columns: 1fr;
   }
 }
+
+
+#teacher-app [data-teacher-panel][hidden] {
+  display: none !important;
+}
