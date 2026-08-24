@@ -929,23 +929,25 @@ function readUnifiedSession() {
       currentProfile && currentProfile.contact,
       currentProfile && currentProfile.email
     );
-    const userId = pick(
+    const rawUserId = pick(
       backend && backend.userId,
       backend && backend.user_id,
       backend && backend.id,
       backendProfile && backendProfile.userId,
       backendProfile && backendProfile.user_id,
+      backendProfile && backendProfile.id,
       authSession && authSession.userId,
       authSession && authSession.user_id,
       authSession && authSession.id,
       authProfile && authProfile.userId,
       authProfile && authProfile.user_id,
+      authProfile && authProfile.id,
       currentUser && currentUser.userId,
       currentUser && currentUser.user_id,
       currentUser && currentUser.id,
       currentProfile && currentProfile.userId,
       currentProfile && currentProfile.user_id,
-      email
+      currentProfile && currentProfile.id
     );
     const name = pick(
       backend && backend.full_name,
@@ -967,6 +969,7 @@ function readUnifiedSession() {
       currentProfile && currentProfile.full_name,
       currentProfile && currentProfile.fullName
     );
+    const userId = rawUserId || email || name;
 
     if (!userId) return null;
     return {
