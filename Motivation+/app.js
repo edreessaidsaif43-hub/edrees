@@ -1182,7 +1182,6 @@ function updateSessionUI() {
   const openAuthBtn = document.getElementById("open-unified-auth");
   const accountCard = document.querySelector(".teacher-account-card");
   const subscriptionCard = document.getElementById("motivation-subscription-card");
-  const tabsNav = document.querySelector(".tabs");
 
   if (currentTeacher) {
     info.textContent = `المعلم الحالي: ${currentTeacher.name}`;
@@ -1192,7 +1191,6 @@ function updateSessionUI() {
     if (openAuthBtn) openAuthBtn.style.display = "none";
     if (accountCard) accountCard.style.display = "none";
     if (subscriptionCard) subscriptionCard.style.display = motivationSubscriptionState.active ? "none" : "block";
-    if (tabsNav) tabsNav.style.display = motivationSubscriptionState.active ? "flex" : "none";
     app.hidden = !motivationSubscriptionState.active;
     app.classList.remove("logged-out-preview");
     app.style.display = motivationSubscriptionState.active ? "grid" : "none";
@@ -1205,7 +1203,6 @@ function updateSessionUI() {
     if (openAuthBtn) openAuthBtn.style.display = "inline-block";
     if (accountCard) accountCard.style.display = "block";
     if (subscriptionCard) subscriptionCard.style.display = "none";
-    if (tabsNav) tabsNav.style.display = "none";
     app.hidden = true;
     app.classList.remove("logged-out-preview");
     app.style.display = "none";
@@ -3685,6 +3682,12 @@ function activateMainTab(tabName) {
 
 tabs.forEach((tab) => {
   tab.addEventListener("click", () => {
+    if (currentTeacher && !motivationSubscriptionState.active) {
+      activateMainTab("teacher");
+      renderMotivationSubscriptionStatus();
+      showAuthMessage("يلزم تفعيل اشتراك تحفيز+ أولًا. قيمة الاشتراك 2 ريال عماني.", true);
+      return;
+    }
     if (tab.dataset.tab === "live") {
       activateMainTab("teacher");
       return;
