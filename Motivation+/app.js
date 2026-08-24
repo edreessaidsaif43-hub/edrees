@@ -61,7 +61,8 @@ function normalizeName(v) {
 }
 
 function normalizeEmail(v) {
-  return (v || "").trim().toLowerCase();
+  const raw = String(v || "").trim();
+  return raw.includes("@") ? raw.toLowerCase() : raw.replace(/[\s\-()]/g, "");
 }
 
 function normalizeCodeToken(v) {
@@ -906,6 +907,23 @@ function readUnifiedSession() {
     }
     return "";
   };
+  const readStorageSessionCandidates = () => {
+    const candidates = [];
+    try {
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i) || "";
+        if (!/(session|user|auth|login|account|teacher|enjazy|lesson_platform)/i.test(key)) continue;
+        const parsed = parseStorageJson(key);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) continue;
+        candidates.push(parsed);
+        if (parsed.profile && typeof parsed.profile === "object") candidates.push(parsed.profile);
+        if (parsed.user && typeof parsed.user === "object") candidates.push(parsed.user);
+        if (parsed.currentUser && typeof parsed.currentUser === "object") candidates.push(parsed.currentUser);
+        if (parsed.account && typeof parsed.account === "object") candidates.push(parsed.account);
+      }
+    } catch {}
+    return candidates;
+  };
 
   try {
     const backend = parseStorageJson(UNIFIED_BACKEND_SESSION_KEY);
@@ -920,9 +938,10 @@ function readUnifiedSession() {
     const bridgedBackend = bridgedSession.backend && typeof bridgedSession.backend === "object" ? bridgedSession.backend : {};
     const bridgedAuth = bridgedSession.auth && typeof bridgedSession.auth === "object" ? bridgedSession.auth : {};
     const bridgedCurrent = bridgedSession.current && typeof bridgedSession.current === "object" ? bridgedSession.current : {};
+    const storageCandidates = readStorageSessionCandidates();
     const navUserText = (() => {
       try {
-        const text = document.querySelector(".nav-user-pill")?.textContent || "";
+        const text = document.querySelector(".nav-user-pill")?.textContent || document.getElementById("nav-user-area")?.textContent || "";
         return text.replace(/[👤▼]/g, "").trim();
       } catch {
         return "";
@@ -950,6 +969,7 @@ function readUnifiedSession() {
       bridgedAuth && bridgedAuth.contact,
       bridgedCurrent && bridgedCurrent.email,
       bridgedCurrent && bridgedCurrent.contact,
+      ...storageCandidates.flatMap((item) => [item.email, item.contact, item.phone, item.mobile, item.username]),
       navUserText && navUserText.includes("@") ? navUserText : ""
     );
     const rawUserId = pick(
@@ -983,6 +1003,7 @@ function readUnifiedSession() {
       bridgedCurrent && bridgedCurrent.userId,
       bridgedCurrent && bridgedCurrent.user_id,
       bridgedCurrent && bridgedCurrent.id,
+      ...storageCandidates.flatMap((item) => [item.userId, item.user_id, item.id, item.uid, item.teacherId, item.teacher_id]),
       navUserText
     );
     const name = pick(
@@ -1016,6 +1037,7 @@ function readUnifiedSession() {
       bridgedCurrent && bridgedCurrent.full_name,
       bridgedCurrent && bridgedCurrent.fullName,
       bridgedCurrent && bridgedCurrent.name,
+      ...storageCandidates.flatMap((item) => [item.full_name, item.fullName, item.name, item.displayName, item.teacherName]),
       navUserText
     );
     const userId = rawUserId || email || name;
