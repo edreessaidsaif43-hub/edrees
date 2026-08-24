@@ -3819,6 +3819,19 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   display: none !important;
 }
 
+/* Authentication gate: teacher sidebar and panels stay hidden until
+   Motivation+ itself has confirmed a logged-in session. */
+#teacher-app:not(.teacher-authenticated),
+#teacher-app[data-session-state="out"],
+#teacher-app:not(.teacher-authenticated) .teacher-side-nav,
+#teacher-app:not(.teacher-authenticated) [data-teacher-panel],
+#teacher-app[data-session-state="out"] .teacher-side-nav,
+#teacher-app[data-session-state="out"] [data-teacher-panel] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 /* Final teacher side navigation guard.
    Only the panel selected from the side menu may be visible. */
 #teacher-app[data-active-teacher-panel] [data-teacher-panel]:not(.teacher-panel-active) {

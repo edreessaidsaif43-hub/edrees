@@ -1316,6 +1316,9 @@ function updateSessionUI() {
 
   if (currentTeacher) {
     info.textContent = `المعلم الحالي: ${currentTeacher.name}`;
+    app.dataset.sessionState = "in";
+    app.classList.add("teacher-authenticated");
+    if (!app.dataset.activeTeacherPanel) app.dataset.activeTeacherPanel = activeTeacherPanelName || "students";
     logoutBtn.style.setProperty("display", "inline-block");
     if (syncBtn) syncBtn.style.setProperty("display", motivationSubscriptionState.active ? "inline-block" : "none", "important");
     if (editProfileBtn) editProfileBtn.style.setProperty("display", "inline-block");
@@ -1328,6 +1331,14 @@ function updateSessionUI() {
     renderMotivationSubscriptionStatus();
   } else {
     info.textContent = "غير مسجل";
+    app.dataset.sessionState = "out";
+    delete app.dataset.activeTeacherPanel;
+    app.classList.remove("teacher-authenticated", "logged-out-preview");
+    app.querySelectorAll("[data-teacher-panel]").forEach((node) => {
+      node.hidden = true;
+      node.classList.remove("teacher-panel-active");
+      node.style.setProperty("display", "none", "important");
+    });
     logoutBtn.style.setProperty("display", "none", "important");
     if (syncBtn) syncBtn.style.setProperty("display", "none", "important");
     if (editProfileBtn) editProfileBtn.style.setProperty("display", "none", "important");
@@ -1335,7 +1346,6 @@ function updateSessionUI() {
     if (accountCard) accountCard.style.setProperty("display", "block");
     if (subscriptionCard) subscriptionCard.style.setProperty("display", "none", "important");
     app.hidden = true;
-    app.classList.remove("logged-out-preview");
     app.style.setProperty("display", "none", "important");
   }
 }
