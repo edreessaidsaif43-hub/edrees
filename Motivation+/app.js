@@ -1342,8 +1342,16 @@ function updateSessionUI() {
     logoutBtn.style.setProperty("display", "none", "important");
     if (syncBtn) syncBtn.style.setProperty("display", "none", "important");
     if (editProfileBtn) editProfileBtn.style.setProperty("display", "none", "important");
-    if (openAuthBtn) openAuthBtn.style.setProperty("display", "inline-block");
-    if (accountCard) accountCard.style.setProperty("display", "block");
+    if (openAuthBtn) {
+      openAuthBtn.hidden = false;
+      openAuthBtn.style.setProperty("display", "inline-flex", "important");
+      openAuthBtn.style.setProperty("visibility", "visible", "important");
+    }
+    if (accountCard) {
+      accountCard.hidden = false;
+      accountCard.style.setProperty("display", "block", "important");
+      accountCard.style.setProperty("visibility", "visible", "important");
+    }
     if (subscriptionCard) subscriptionCard.style.setProperty("display", "none", "important");
     app.hidden = true;
     app.style.setProperty("display", "none", "important");

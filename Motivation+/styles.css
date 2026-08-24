@@ -3832,6 +3832,23 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   pointer-events: none !important;
 }
 
+#teacher.view.active .teacher-account-card:not([hidden]) {
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+#teacher.view.active .teacher-account-card .auth-cta-actions {
+  display: flex !important;
+  justify-content: center !important;
+}
+
+#teacher.view.active #open-unified-auth:not([hidden]) {
+  display: inline-flex !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
 /* Final teacher side navigation guard.
    Only the panel selected from the side menu may be visible. */
 #teacher-app[data-active-teacher-panel] [data-teacher-panel]:not(.teacher-panel-active) {
