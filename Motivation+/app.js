@@ -4573,6 +4573,19 @@ async function bootstrapApp() {
 }
 
 bootstrapApp();
+let navbarSessionWatchCount = 0;
+const navbarSessionWatchTimer = setInterval(() => {
+  navbarSessionWatchCount += 1;
+  if (!currentTeacher) {
+    const fallback = getNavbarTeacherFallback();
+    if (fallback) {
+      currentTeacher = fallback;
+      state = loadTeacherData(currentTeacher.id);
+      renderAll();
+    }
+  }
+  if (currentTeacher || navbarSessionWatchCount >= 20) clearInterval(navbarSessionWatchTimer);
+}, 300);
 async function refreshUnifiedSessionState() {
   const prevId = currentTeacher ? currentTeacher.id : "";
   const nextTeacher = getCurrentTeacher() || getNavbarTeacherFallback();
