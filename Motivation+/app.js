@@ -1045,7 +1045,40 @@ function buildUnifiedProfileEditUrl() {
 
 function getCurrentTeacher() {
   const unified = readUnifiedSession();
-  return unified || null;
+  return unified || readNavbarCompatibleSession() || null;
+}
+
+function readNavbarCompatibleSession() {
+  const parse = (key) => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+  const session = parse(UNIFIED_BACKEND_SESSION_KEY) || parse(UNIFIED_AUTH_SESSION_KEY);
+  if (!session || typeof session !== "object") return null;
+  const userId = normalizeName(
+    session.userId ||
+    session.user_id ||
+    session.id ||
+    session.email ||
+    session.contact ||
+    session.full_name ||
+    session.fullName ||
+    session.name ||
+    ""
+  );
+  if (!userId) return null;
+  const email = normalizeEmail(session.email || session.contact || "");
+  const name = normalizeName(session.full_name || session.fullName || session.name || email || userId || "معلم");
+  return {
+    id: `U-${userId}`,
+    userId,
+    name,
+    email
+  };
 }
 
 
