@@ -892,29 +892,79 @@ function readUnifiedSession() {
       return null;
     }
   };
+  const pick = (...values) => {
+    for (const value of values) {
+      const clean = normalizeName(value);
+      if (clean) return clean;
+    }
+    return "";
+  };
+  const pickEmail = (...values) => {
+    for (const value of values) {
+      const clean = normalizeEmail(value);
+      if (clean) return clean;
+    }
+    return "";
+  };
 
   try {
     const backend = parseStorageJson(UNIFIED_BACKEND_SESSION_KEY);
     const authSession = parseStorageJson(UNIFIED_AUTH_SESSION_KEY);
     const currentUser = parseStorageJson(UNIFIED_CURRENT_USER_KEY);
+    const backendProfile = backend && typeof backend.profile === "object" ? backend.profile : {};
+    const authProfile = authSession && typeof authSession.profile === "object" ? authSession.profile : {};
+    const currentProfile = currentUser && typeof currentUser.profile === "object" ? currentUser.profile : {};
 
-    const userId = normalizeName(
-      (backend && backend.userId) ||
-      (authSession && authSession.userId) ||
-      (currentUser && currentUser.userId) ||
-      ""
+    const userId = pick(
+      backend && backend.userId,
+      backend && backend.user_id,
+      backend && backend.id,
+      backendProfile && backendProfile.userId,
+      backendProfile && backendProfile.user_id,
+      authSession && authSession.userId,
+      authSession && authSession.user_id,
+      authSession && authSession.id,
+      authProfile && authProfile.userId,
+      authProfile && authProfile.user_id,
+      currentUser && currentUser.userId,
+      currentUser && currentUser.user_id,
+      currentUser && currentUser.id,
+      currentProfile && currentProfile.userId,
+      currentProfile && currentProfile.user_id
     );
-    const email = normalizeEmail(
-      (backend && backend.email) ||
-      (currentUser && currentUser.contact) ||
-      (currentUser && currentUser.email) ||
-      ""
+    const email = pickEmail(
+      backend && backend.email,
+      backend && backend.contact,
+      backendProfile && backendProfile.email,
+      backendProfile && backendProfile.contact,
+      authSession && authSession.email,
+      authSession && authSession.contact,
+      authProfile && authProfile.email,
+      authProfile && authProfile.contact,
+      currentUser && currentUser.contact,
+      currentUser && currentUser.email,
+      currentProfile && currentProfile.contact,
+      currentProfile && currentProfile.email
     );
-    const name = normalizeName(
-      (backend && backend.full_name) ||
-      (currentUser && currentUser.name) ||
-      (currentUser && currentUser.full_name) ||
-      ""
+    const name = pick(
+      backend && backend.full_name,
+      backend && backend.fullName,
+      backend && backend.name,
+      backendProfile && backendProfile.full_name,
+      backendProfile && backendProfile.fullName,
+      backendProfile && backendProfile.name,
+      authSession && authSession.full_name,
+      authSession && authSession.fullName,
+      authSession && authSession.name,
+      authProfile && authProfile.full_name,
+      authProfile && authProfile.fullName,
+      authProfile && authProfile.name,
+      currentUser && currentUser.name,
+      currentUser && currentUser.full_name,
+      currentUser && currentUser.fullName,
+      currentProfile && currentProfile.name,
+      currentProfile && currentProfile.full_name,
+      currentProfile && currentProfile.fullName
     );
 
     if (!userId) return null;
