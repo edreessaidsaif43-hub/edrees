@@ -911,9 +911,15 @@ function readUnifiedSession() {
     const backend = parseStorageJson(UNIFIED_BACKEND_SESSION_KEY);
     const authSession = parseStorageJson(UNIFIED_AUTH_SESSION_KEY);
     const currentUser = parseStorageJson(UNIFIED_CURRENT_USER_KEY);
+    const bridgedSession = (typeof window !== "undefined" && window.MOTIVATION_NAV_SESSION && typeof window.MOTIVATION_NAV_SESSION === "object")
+      ? window.MOTIVATION_NAV_SESSION
+      : {};
     const backendProfile = backend && typeof backend.profile === "object" ? backend.profile : {};
     const authProfile = authSession && typeof authSession.profile === "object" ? authSession.profile : {};
     const currentProfile = currentUser && typeof currentUser.profile === "object" ? currentUser.profile : {};
+    const bridgedBackend = bridgedSession.backend && typeof bridgedSession.backend === "object" ? bridgedSession.backend : {};
+    const bridgedAuth = bridgedSession.auth && typeof bridgedSession.auth === "object" ? bridgedSession.auth : {};
+    const bridgedCurrent = bridgedSession.current && typeof bridgedSession.current === "object" ? bridgedSession.current : {};
 
     const email = pickEmail(
       backend && backend.email,
@@ -927,7 +933,15 @@ function readUnifiedSession() {
       currentUser && currentUser.contact,
       currentUser && currentUser.email,
       currentProfile && currentProfile.contact,
-      currentProfile && currentProfile.email
+      currentProfile && currentProfile.email,
+      bridgedSession && bridgedSession.email,
+      bridgedSession && bridgedSession.contact,
+      bridgedBackend && bridgedBackend.email,
+      bridgedBackend && bridgedBackend.contact,
+      bridgedAuth && bridgedAuth.email,
+      bridgedAuth && bridgedAuth.contact,
+      bridgedCurrent && bridgedCurrent.email,
+      bridgedCurrent && bridgedCurrent.contact
     );
     const rawUserId = pick(
       backend && backend.userId,
@@ -947,7 +961,19 @@ function readUnifiedSession() {
       currentUser && currentUser.id,
       currentProfile && currentProfile.userId,
       currentProfile && currentProfile.user_id,
-      currentProfile && currentProfile.id
+      currentProfile && currentProfile.id,
+      bridgedSession && bridgedSession.userId,
+      bridgedSession && bridgedSession.user_id,
+      bridgedSession && bridgedSession.id,
+      bridgedBackend && bridgedBackend.userId,
+      bridgedBackend && bridgedBackend.user_id,
+      bridgedBackend && bridgedBackend.id,
+      bridgedAuth && bridgedAuth.userId,
+      bridgedAuth && bridgedAuth.user_id,
+      bridgedAuth && bridgedAuth.id,
+      bridgedCurrent && bridgedCurrent.userId,
+      bridgedCurrent && bridgedCurrent.user_id,
+      bridgedCurrent && bridgedCurrent.id
     );
     const name = pick(
       backend && backend.full_name,
@@ -967,7 +993,19 @@ function readUnifiedSession() {
       currentUser && currentUser.fullName,
       currentProfile && currentProfile.name,
       currentProfile && currentProfile.full_name,
-      currentProfile && currentProfile.fullName
+      currentProfile && currentProfile.fullName,
+      bridgedSession && bridgedSession.full_name,
+      bridgedSession && bridgedSession.fullName,
+      bridgedSession && bridgedSession.name,
+      bridgedBackend && bridgedBackend.full_name,
+      bridgedBackend && bridgedBackend.fullName,
+      bridgedBackend && bridgedBackend.name,
+      bridgedAuth && bridgedAuth.full_name,
+      bridgedAuth && bridgedAuth.fullName,
+      bridgedAuth && bridgedAuth.name,
+      bridgedCurrent && bridgedCurrent.full_name,
+      bridgedCurrent && bridgedCurrent.fullName,
+      bridgedCurrent && bridgedCurrent.name
     );
     const userId = rawUserId || email || name;
 

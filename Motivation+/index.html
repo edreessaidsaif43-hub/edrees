@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/Motivation+/styles.css" />
+  <link rel="stylesheet" href="/Motivation+/styles.css?v=20260824-login-bridge-1" />
 <style id="copied-index-navbar-style">
   @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Cairo:wght@300;400;600;700;900&display=swap');
   :root{--blue:#1a56c8;--blue2:#0f3d9e;--green:#1a8a3a;--ink:#0a1628;--ink3:#5a7a9a;--paper:#f7f9fc;--paper2:#eef2f8;--line:#d0dcea;--w:#fff}
@@ -565,7 +565,34 @@
       }
     });
   </script>
-  <script src="/Motivation+/app.js"></script>
+  <script>
+    (function(){
+      function readJson(key){
+        try {
+          var raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : null;
+        } catch(e) {
+          return null;
+        }
+      }
+      var backend = readJson("lesson_platform_backend_session_v1") || {};
+      var auth = readJson("enjazy_session_v1") || {};
+      var current = readJson("lesson_platform_current_user_v1") || {};
+      var session = {
+        userId: String(backend.userId || backend.user_id || backend.id || auth.userId || auth.user_id || auth.id || current.userId || current.user_id || current.id || "").trim(),
+        email: String(backend.email || backend.contact || auth.email || auth.contact || current.email || current.contact || "").trim(),
+        full_name: String(backend.full_name || backend.fullName || backend.name || auth.full_name || auth.fullName || auth.name || current.full_name || current.fullName || current.name || "").trim(),
+        backend: backend,
+        auth: auth,
+        current: current
+      };
+      window.MOTIVATION_NAV_SESSION = session;
+      if (session.userId || session.email || session.full_name) {
+        window.dispatchEvent(new CustomEvent("enjazy-session-changed", { detail: { loggedIn: true, session: session } }));
+      }
+    })();
+  </script>
+  <script src="/Motivation+/app.js?v=20260824-login-bridge-1"></script>
 </body>
 </html>
 
