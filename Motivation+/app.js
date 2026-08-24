@@ -1298,9 +1298,30 @@ function showAuthMessage(msg, isError = false) {
   box.style.color = isError ? "#b91c1c" : "#334e68";
 }
 
+function getNavbarTeacherFallback() {
+  try {
+    const navArea = document.getElementById("nav-user-area");
+    const pill = navArea?.querySelector(".nav-user-pill");
+    if (!pill) return null;
+    const text = normalizeName((pill.textContent || "").replace(/[👤▼]/g, ""));
+    if (!text || /دخول|تسجيل/.test(text)) return null;
+    const base = readUnifiedSession();
+    const userId = normalizeName(base?.userId || base?.email || text);
+    if (!userId) return null;
+    return {
+      id: `U-${userId}`,
+      userId,
+      name: normalizeName(base?.name || text || "معلم"),
+      email: normalizeEmail(base?.email || "")
+    };
+  } catch {
+    return null;
+  }
+}
+
 function updateSessionUI() {
   if (!currentTeacher) {
-    currentTeacher = getCurrentTeacher();
+    currentTeacher = getCurrentTeacher() || getNavbarTeacherFallback();
     if (currentTeacher) {
       state = loadTeacherData(currentTeacher.id);
     }
@@ -1322,8 +1343,15 @@ function updateSessionUI() {
     logoutBtn.style.setProperty("display", "inline-block");
     if (syncBtn) syncBtn.style.setProperty("display", motivationSubscriptionState.active ? "inline-block" : "none", "important");
     if (editProfileBtn) editProfileBtn.style.setProperty("display", "inline-block");
-    if (openAuthBtn) openAuthBtn.style.setProperty("display", "none", "important");
-    if (accountCard) accountCard.style.setProperty("display", "none", "important");
+    if (openAuthBtn) {
+      openAuthBtn.hidden = true;
+      openAuthBtn.style.setProperty("display", "none", "important");
+    }
+    if (accountCard) {
+      accountCard.hidden = true;
+      accountCard.style.setProperty("display", "none", "important");
+      accountCard.style.setProperty("visibility", "hidden", "important");
+    }
     if (subscriptionCard) subscriptionCard.style.setProperty("display", motivationSubscriptionState.active ? "none" : "block", "important");
     app.hidden = !motivationSubscriptionState.active;
     app.classList.remove("logged-out-preview");
@@ -4510,7 +4538,7 @@ function ensureRemoteAutoPull() {
   }, 1000);
 }
 async function bootstrapApp() {
-  currentTeacher = getCurrentTeacher();
+  currentTeacher = getCurrentTeacher() || getNavbarTeacherFallback();
   if (currentTeacher && currentTeacher.userId) {
     try {
       const out = await fetchJsonSafe(`/api/portfolio/load?userId=${encodeURIComponent(currentTeacher.userId)}`, { method: "GET", cache: "no-store" });
@@ -4547,7 +4575,7 @@ async function bootstrapApp() {
 bootstrapApp();
 async function refreshUnifiedSessionState() {
   const prevId = currentTeacher ? currentTeacher.id : "";
-  const nextTeacher = getCurrentTeacher();
+  const nextTeacher = getCurrentTeacher() || getNavbarTeacherFallback();
   const nextId = nextTeacher ? nextTeacher.id : "";
   if (prevId !== nextId) {
     currentTeacher = nextTeacher;
