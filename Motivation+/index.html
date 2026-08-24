@@ -187,25 +187,25 @@
         <p id="motivation-subscription-status" class="muted"></p>
       </article>
 
-      <div id="teacher-app" class="teacher-app" style="display:none">
+      <div id="teacher-app" class="teacher-app" data-active-teacher-panel="students" style="display:none">
         <aside class="teacher-side-nav" aria-label="أقسام لوحة المعلم">
           <span class="teacher-side-title">🎯 داخل الحصة</span>
-          <a href="#students-table" class="teacher-side-link side-students active">📋 قائمة الطلاب</a>
-          <a href="#feature-points" class="teacher-side-link side-points">⭐ تعديل النقاط</a>
-          <a href="#teams-panel" class="teacher-side-link side-teams">👥 الفرق</a>
-          <a href="#challenge-panel" class="teacher-side-link side-challenges">🏅 التحديات</a>
-          <a href="#feature-wheel" class="teacher-side-link side-random">🎲 الاختيار العشوائي</a>
-          <a href="#feature-countdown" class="teacher-side-link side-timer">⏱️ المؤقت</a>
+          <a href="javascript:void(0)" onclick="showTeacherPanel('students', this); return false;" data-teacher-panel-trigger="students" class="teacher-side-link side-students active">📋 قائمة الطلاب</a>
+          <a href="javascript:void(0)" onclick="showTeacherPanel('points', this); return false;" data-teacher-panel-trigger="points" class="teacher-side-link side-points">⭐ تعديل النقاط</a>
+          <a href="javascript:void(0)" onclick="showTeacherPanel('teams', this); return false;" data-teacher-panel-trigger="teams" class="teacher-side-link side-teams">👥 الفرق</a>
+          <a href="javascript:void(0)" onclick="showTeacherPanel('challenges', this); return false;" data-teacher-panel-trigger="challenges" class="teacher-side-link side-challenges">🏅 التحديات</a>
+          <a href="javascript:void(0)" onclick="showTeacherPanel('random', this); return false;" data-teacher-panel-trigger="random" class="teacher-side-link side-random">🎲 الاختيار العشوائي</a>
+          <a href="javascript:void(0)" onclick="showTeacherPanel('timer', this); return false;" data-teacher-panel-trigger="timer" class="teacher-side-link side-timer">⏱️ المؤقت</a>
           <span class="teacher-side-title">⚙️ الإعداد الأساسي</span>
-          <a href="#class-management" class="teacher-side-link side-class">🏫 الصف</a>
-          <a href="#student-name" class="teacher-side-link side-add-students">👨‍🎓 الطلبة</a>
-          <a href="#rewards-panel" class="teacher-side-link side-rewards">🎁 المكافآت</a>
-          <a href="#gift-panel" class="teacher-side-link side-gifts">🎀 الهدايا</a>
+          <a href="javascript:void(0)" onclick="showTeacherPanel('setup', this); return false;" data-teacher-panel-trigger="setup" class="teacher-side-link side-class">🏫 الصف</a>
+          <a href="javascript:void(0)" onclick="showTeacherPanel('addStudents', this); return false;" data-teacher-panel-trigger="addStudents" class="teacher-side-link side-add-students">👨‍🎓 الطلبة</a>
+          <a href="javascript:void(0)" onclick="showTeacherPanel('rewards', this); return false;" data-teacher-panel-trigger="rewards" class="teacher-side-link side-rewards">🎁 المكافآت</a>
+          <a href="javascript:void(0)" onclick="showTeacherPanel('gifts', this); return false;" data-teacher-panel-trigger="gifts" class="teacher-side-link side-gifts">🎀 الهدايا</a>
           <span class="teacher-side-title">📊 التقارير</span>
-          <a href="#reports-panel" class="teacher-side-link side-reports">📈 التقارير والرسائل</a>
+          <a href="javascript:void(0)" onclick="showTeacherPanel('reports', this); return false;" data-teacher-panel-trigger="reports" class="teacher-side-link side-reports">📈 التقارير والرسائل</a>
         </aside>
         <div class="grid">
-          <article id="class-management" class="card section-1">
+          <article id="class-management" class="card section-1" data-teacher-panel="setup">
             <h2>إدارة الصفوف</h2>
             <div class="field-row">
               <h3 style="margin:0">أ) إضافة صف جديد</h3>
@@ -237,7 +237,7 @@
             </div>
           </article>
 
-          <article class="card section-2">
+          <article class="card section-2" data-teacher-panel="addStudents">
             <h2>إضافة الطلاب</h2>
             <div class="field-row">
               <input id="student-name" placeholder="اسم الطالب" />
@@ -250,7 +250,7 @@
             <small>ملاحظة: ارفع ملف Excel أو CSV، وسيتم أخذ أسماء الطلاب من العمود الأول تلقائيًا.</small>
           </article>
 
-          <article id="rewards-panel" class="card section-3">
+          <article id="rewards-panel" class="card section-3" data-teacher-panel="rewards">
             <h2>نظام المكافآت</h2>
             <h3>أ) مكافآت الإنجاز حسب النقاط</h3>
             <div id="rewards-list"></div>
@@ -261,7 +261,7 @@
             </div>
           </article>
 
-          <article id="gift-panel" class="card section-4">
+          <article id="gift-panel" class="card section-4" data-teacher-panel="gifts">
             <h2>قائمة هدايا المتجر (بدون خصم نقاط)</h2>
             <div id="gift-store-list"></div>
             <div class="field-row">
@@ -272,7 +272,7 @@
             <small>الطالب يستلم الهدية عند توفر النقاط المطلوبة، ولا يتم خصم نقاطه.</small>
           </article>
 
-          <article id="challenge-panel" class="card section-5">
+          <article id="challenge-panel" class="card section-5" data-teacher-panel="challenges">
             <h2>التحدي الأسبوعي</h2>
             <div class="field-row">
               <input id="challenge-title" placeholder="مثال: أفضل سلوك هذا الأسبوع" />
@@ -288,7 +288,7 @@
             </div>
             <p id="challenge-view" class="muted"></p>
           </article>
-          <article id="mini-challenge-panel" class="card section-6">
+          <article id="mini-challenge-panel" class="card section-6" data-teacher-panel="challenges">
             <h2>تحدي مصغر (5 دقائق)</h2>
             <div class="field-row">
               <input id="mini-challenge-title" placeholder="عنوان التحدي المصغر (مثال: أسرع حل)" />
@@ -314,7 +314,7 @@
             <p id="mini-challenge-status" class="muted">لا يوجد تحدي مصغر نشط.</p>
           </article>
 
-          <article id="teams-panel" class="card section-5">
+          <article id="teams-panel" class="card section-5" data-teacher-panel="teams">
             <h2>نظام الفرق</h2>
             <div class="field-row">
               <input id="teams-count" type="number" min="1" max="12" value="3" placeholder="عدد المجموعات" />
@@ -330,7 +330,7 @@
             <div id="teams-view" class="muted"></div>
           </article>
 
-          <article id="feature-wheel" class="card feature-card section-8">
+          <article id="feature-wheel" class="card feature-card section-8" data-teacher-panel="random">
             <h2>لعبة العجلة الدوارة</h2>
             <div class="wheel-wrap wheel-canvas-wrap">
               <div class="wheel-pointer" aria-hidden="true"></div>
@@ -346,7 +346,7 @@
             <p id="wheel-result" class="muted">اضغط تدوير لاختيار طالب عشوائي.</p>
           </article>
 
-          <article id="feature-lucky" class="card feature-card section-9">
+          <article id="feature-lucky" class="card feature-card section-9" data-teacher-panel="random">
             <h2>لعبة صندوق الحظ</h2>
             <div id="lucky-grid" class="lucky-grid"></div>
             <div class="field-row">
@@ -356,7 +356,7 @@
             <p id="lucky-result" class="muted">اضغط ابدأ اللعبة لاختيار طالب عشوائي.</p>
           </article>
 
-          <article id="feature-countdown" class="card feature-card section-10">
+          <article id="feature-countdown" class="card feature-card section-10" data-teacher-panel="timer">
             <h2>التوقيت التنازلي</h2>
             <p class="muted">هذا المؤقت للوقت فقط ولا يضيف أو يخصم أي نقاط.</p>
             <div class="field-row">
@@ -412,7 +412,7 @@
           </article>
 
 
-          <article id="feature-points" class="card section-11">
+          <article id="feature-points" class="card section-11" data-teacher-panel="points">
             <h2>تعديل نقاط الطالب (إضافة / خصم)</h2>
             <p class="muted">اختر الطالب ثم أدخل عدد النقاط. القيمة الموجبة للإضافة والسالبة للخصم.</p>
             <div class="field-row">
@@ -426,7 +426,7 @@
 
         </div>
 
-        <article class="card wide">
+        <article class="card wide teacher-panel-active" data-teacher-panel="students">
           <div class="field-row">
             <h2 style="margin:0">لوحة الطلاب السريعة</h2>
             <input id="quick-student-search" placeholder="بحث عن طالب بالاسم أو الكود" />
@@ -435,7 +435,7 @@
           <div id="students-table"></div>
         </article>
 
-        <div id="reports-panel" class="grid">
+        <div id="reports-panel" class="grid" data-teacher-panel="reports">
           <article class="card">
             <h2>لوحة التحليل الذكي</h2>
             <ul id="insights"></ul>

@@ -3625,13 +3625,12 @@ function setupTeacherSidePanels() {
   };
   links.forEach((link) => {
     const href = link.getAttribute("href") || "";
-    link.dataset.teacherPanelTrigger = panelByHref[href] || "setup";
+    link.dataset.teacherPanelTrigger = link.dataset.teacherPanelTrigger || panelByHref[href] || "setup";
     if (link.dataset.teacherPanelBound === "1") return;
     link.dataset.teacherPanelBound = "1";
     link.addEventListener("click", (event) => {
       event.preventDefault();
       showTeacherPanel(link.dataset.teacherPanelTrigger || "setup", link);
-      keepTeacherPanelPosition();
     });
   });
 
