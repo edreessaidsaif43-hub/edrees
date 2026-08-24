@@ -4,7 +4,7 @@ const DATA_PREFIX = "smart_points_data_";
 const SHARED_CLASSES_KEY = "smart_points_shared_classes_v1";
 const PUBLIC_STATE_CACHE_KEY = "motivation_public_state_cache_v1";
 const UNIFIED_AUTH_URL = "file:///C:/Users/Irfan%20Bashir/Documents/New%20project2/enjazy/auth.html";
-const UNIFIED_AUTH_WEB_PATH = "/enjazy";
+const UNIFIED_AUTH_WEB_PATH = "/enjazy/auth.html";
 const UNIFIED_BACKEND_SESSION_KEY = "lesson_platform_backend_session_v1";
 const UNIFIED_AUTH_SESSION_KEY = "enjazy_session_v1";
 const UNIFIED_CURRENT_USER_KEY = "lesson_platform_current_user_v1";
@@ -929,24 +929,10 @@ function readUnifiedSession() {
     const backend = parseStorageJson(UNIFIED_BACKEND_SESSION_KEY);
     const authSession = parseStorageJson(UNIFIED_AUTH_SESSION_KEY);
     const currentUser = parseStorageJson(UNIFIED_CURRENT_USER_KEY);
-    const bridgedSession = (typeof window !== "undefined" && window.MOTIVATION_NAV_SESSION && typeof window.MOTIVATION_NAV_SESSION === "object")
-      ? window.MOTIVATION_NAV_SESSION
-      : {};
     const backendProfile = backend && typeof backend.profile === "object" ? backend.profile : {};
     const authProfile = authSession && typeof authSession.profile === "object" ? authSession.profile : {};
     const currentProfile = currentUser && typeof currentUser.profile === "object" ? currentUser.profile : {};
-    const bridgedBackend = bridgedSession.backend && typeof bridgedSession.backend === "object" ? bridgedSession.backend : {};
-    const bridgedAuth = bridgedSession.auth && typeof bridgedSession.auth === "object" ? bridgedSession.auth : {};
-    const bridgedCurrent = bridgedSession.current && typeof bridgedSession.current === "object" ? bridgedSession.current : {};
     const storageCandidates = readStorageSessionCandidates();
-    const navUserText = (() => {
-      try {
-        const text = document.querySelector(".nav-user-pill")?.textContent || document.getElementById("nav-user-area")?.textContent || "";
-        return text.replace(/[👤▼]/g, "").trim();
-      } catch {
-        return "";
-      }
-    })();
 
     const email = pickEmail(
       backend && backend.email,
@@ -961,16 +947,7 @@ function readUnifiedSession() {
       currentUser && currentUser.email,
       currentProfile && currentProfile.contact,
       currentProfile && currentProfile.email,
-      bridgedSession && bridgedSession.email,
-      bridgedSession && bridgedSession.contact,
-      bridgedBackend && bridgedBackend.email,
-      bridgedBackend && bridgedBackend.contact,
-      bridgedAuth && bridgedAuth.email,
-      bridgedAuth && bridgedAuth.contact,
-      bridgedCurrent && bridgedCurrent.email,
-      bridgedCurrent && bridgedCurrent.contact,
-      ...storageCandidates.flatMap((item) => [item.email, item.contact, item.phone, item.mobile, item.username]),
-      navUserText && navUserText.includes("@") ? navUserText : ""
+      ...storageCandidates.flatMap((item) => [item.email, item.contact, item.phone, item.mobile, item.username])
     );
     const rawUserId = pick(
       backend && backend.userId,
@@ -991,20 +968,7 @@ function readUnifiedSession() {
       currentProfile && currentProfile.userId,
       currentProfile && currentProfile.user_id,
       currentProfile && currentProfile.id,
-      bridgedSession && bridgedSession.userId,
-      bridgedSession && bridgedSession.user_id,
-      bridgedSession && bridgedSession.id,
-      bridgedBackend && bridgedBackend.userId,
-      bridgedBackend && bridgedBackend.user_id,
-      bridgedBackend && bridgedBackend.id,
-      bridgedAuth && bridgedAuth.userId,
-      bridgedAuth && bridgedAuth.user_id,
-      bridgedAuth && bridgedAuth.id,
-      bridgedCurrent && bridgedCurrent.userId,
-      bridgedCurrent && bridgedCurrent.user_id,
-      bridgedCurrent && bridgedCurrent.id,
-      ...storageCandidates.flatMap((item) => [item.userId, item.user_id, item.id, item.uid, item.teacherId, item.teacher_id]),
-      navUserText
+      ...storageCandidates.flatMap((item) => [item.userId, item.user_id, item.id, item.uid, item.teacherId, item.teacher_id])
     );
     const name = pick(
       backend && backend.full_name,
@@ -1025,20 +989,7 @@ function readUnifiedSession() {
       currentProfile && currentProfile.name,
       currentProfile && currentProfile.full_name,
       currentProfile && currentProfile.fullName,
-      bridgedSession && bridgedSession.full_name,
-      bridgedSession && bridgedSession.fullName,
-      bridgedSession && bridgedSession.name,
-      bridgedBackend && bridgedBackend.full_name,
-      bridgedBackend && bridgedBackend.fullName,
-      bridgedBackend && bridgedBackend.name,
-      bridgedAuth && bridgedAuth.full_name,
-      bridgedAuth && bridgedAuth.fullName,
-      bridgedAuth && bridgedAuth.name,
-      bridgedCurrent && bridgedCurrent.full_name,
-      bridgedCurrent && bridgedCurrent.fullName,
-      bridgedCurrent && bridgedCurrent.name,
-      ...storageCandidates.flatMap((item) => [item.full_name, item.fullName, item.name, item.displayName, item.teacherName]),
-      navUserText
+      ...storageCandidates.flatMap((item) => [item.full_name, item.fullName, item.name, item.displayName, item.teacherName])
     );
     const userId = rawUserId || email || name;
 
@@ -1067,6 +1018,8 @@ function buildUnifiedAuthUrl() {
       ? new URL(UNIFIED_AUTH_WEB_PATH, window.location.origin)
       : new URL(UNIFIED_AUTH_URL);
     const returnPath = `${window.location.pathname || "/"}${window.location.search || ""}${window.location.hash || ""}`;
+    baseUrl.searchParams.set("v", "20260824-direct-auth-1");
+    baseUrl.searchParams.set("mode", "login");
     baseUrl.searchParams.set("return", returnPath);
     return baseUrl.toString();
   } catch {
@@ -1298,30 +1251,9 @@ function showAuthMessage(msg, isError = false) {
   box.style.color = isError ? "#b91c1c" : "#334e68";
 }
 
-function getNavbarTeacherFallback() {
-  try {
-    const navArea = document.getElementById("nav-user-area");
-    const pill = navArea?.querySelector(".nav-user-pill");
-    if (!pill) return null;
-    const text = normalizeName((pill.textContent || "").replace(/[👤▼]/g, ""));
-    if (!text || /دخول|تسجيل/.test(text)) return null;
-    const base = readUnifiedSession();
-    const userId = normalizeName(base?.userId || base?.email || text);
-    if (!userId) return null;
-    return {
-      id: `U-${userId}`,
-      userId,
-      name: normalizeName(base?.name || text || "معلم"),
-      email: normalizeEmail(base?.email || "")
-    };
-  } catch {
-    return null;
-  }
-}
-
 function updateSessionUI() {
   if (!currentTeacher) {
-    currentTeacher = getCurrentTeacher() || getNavbarTeacherFallback();
+    currentTeacher = getCurrentTeacher();
     if (currentTeacher) {
       state = loadTeacherData(currentTeacher.id);
     }
@@ -4538,7 +4470,7 @@ function ensureRemoteAutoPull() {
   }, 1000);
 }
 async function bootstrapApp() {
-  currentTeacher = getCurrentTeacher() || getNavbarTeacherFallback();
+  currentTeacher = getCurrentTeacher();
   if (currentTeacher && currentTeacher.userId) {
     try {
       const out = await fetchJsonSafe(`/api/portfolio/load?userId=${encodeURIComponent(currentTeacher.userId)}`, { method: "GET", cache: "no-store" });
@@ -4573,22 +4505,9 @@ async function bootstrapApp() {
 }
 
 bootstrapApp();
-let navbarSessionWatchCount = 0;
-const navbarSessionWatchTimer = setInterval(() => {
-  navbarSessionWatchCount += 1;
-  if (!currentTeacher) {
-    const fallback = getNavbarTeacherFallback();
-    if (fallback) {
-      currentTeacher = fallback;
-      state = loadTeacherData(currentTeacher.id);
-      renderAll();
-    }
-  }
-  if (currentTeacher || navbarSessionWatchCount >= 20) clearInterval(navbarSessionWatchTimer);
-}, 300);
 async function refreshUnifiedSessionState() {
   const prevId = currentTeacher ? currentTeacher.id : "";
-  const nextTeacher = getCurrentTeacher() || getNavbarTeacherFallback();
+  const nextTeacher = getCurrentTeacher();
   const nextId = nextTeacher ? nextTeacher.id : "";
   if (prevId !== nextId) {
     currentTeacher = nextTeacher;
