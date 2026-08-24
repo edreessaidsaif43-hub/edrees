@@ -1235,27 +1235,27 @@ function updateSessionUI() {
 
   if (currentTeacher) {
     info.textContent = `المعلم الحالي: ${currentTeacher.name}`;
-    logoutBtn.style.display = "inline-block";
-    if (syncBtn) syncBtn.style.display = motivationSubscriptionState.active ? "inline-block" : "none";
-    if (editProfileBtn) editProfileBtn.style.display = "inline-block";
-    if (openAuthBtn) openAuthBtn.style.display = "none";
-    if (accountCard) accountCard.style.display = "none";
-    if (subscriptionCard) subscriptionCard.style.display = motivationSubscriptionState.active ? "none" : "block";
+    logoutBtn.style.setProperty("display", "inline-block");
+    if (syncBtn) syncBtn.style.setProperty("display", motivationSubscriptionState.active ? "inline-block" : "none", "important");
+    if (editProfileBtn) editProfileBtn.style.setProperty("display", "inline-block");
+    if (openAuthBtn) openAuthBtn.style.setProperty("display", "none", "important");
+    if (accountCard) accountCard.style.setProperty("display", "none", "important");
+    if (subscriptionCard) subscriptionCard.style.setProperty("display", motivationSubscriptionState.active ? "none" : "block", "important");
     app.hidden = !motivationSubscriptionState.active;
     app.classList.remove("logged-out-preview");
-    app.style.display = motivationSubscriptionState.active ? "grid" : "none";
+    app.style.setProperty("display", motivationSubscriptionState.active ? "grid" : "none", "important");
     renderMotivationSubscriptionStatus();
   } else {
     info.textContent = "غير مسجل";
-    logoutBtn.style.display = "none";
-    if (syncBtn) syncBtn.style.display = "none";
-    if (editProfileBtn) editProfileBtn.style.display = "none";
-    if (openAuthBtn) openAuthBtn.style.display = "inline-block";
-    if (accountCard) accountCard.style.display = "block";
-    if (subscriptionCard) subscriptionCard.style.display = "none";
+    logoutBtn.style.setProperty("display", "none", "important");
+    if (syncBtn) syncBtn.style.setProperty("display", "none", "important");
+    if (editProfileBtn) editProfileBtn.style.setProperty("display", "none", "important");
+    if (openAuthBtn) openAuthBtn.style.setProperty("display", "inline-block");
+    if (accountCard) accountCard.style.setProperty("display", "block");
+    if (subscriptionCard) subscriptionCard.style.setProperty("display", "none", "important");
     app.hidden = true;
     app.classList.remove("logged-out-preview");
-    app.style.display = "none";
+    app.style.setProperty("display", "none", "important");
   }
 }
 
@@ -3683,7 +3683,11 @@ function showTeacherPanel(panelName, activeLink = null) {
   panelNodes.forEach((node) => {
     const isVisible = node.dataset.teacherPanel === normalized;
     node.hidden = !isVisible;
-    node.style.display = isVisible ? "" : "none";
+    if (isVisible) {
+      node.style.removeProperty("display");
+    } else {
+      node.style.setProperty("display", "none", "important");
+    }
   });
   const links = Array.from(document.querySelectorAll(".teacher-side-link"));
   const fallback = links.find((link) => link.dataset.teacherPanelTrigger === normalized) || null;
@@ -4427,7 +4431,7 @@ async function bootstrapApp() {
 }
 
 bootstrapApp();
-window.addEventListener("focus", async () => {
+async function refreshUnifiedSessionState() {
   const prevId = currentTeacher ? currentTeacher.id : "";
   const nextTeacher = getCurrentTeacher();
   const nextId = nextTeacher ? nextTeacher.id : "";
@@ -4436,6 +4440,10 @@ window.addEventListener("focus", async () => {
     state = currentTeacher ? loadTeacherData(currentTeacher.id) : (loadPublicStateCache() || createDefaultState());
     wheelRotation = 0;
     remoteSyncReady = !currentTeacher;
+    if (!currentTeacher) {
+      motivationSubscriptionState = { loaded: false, active: false, pending: false, paymentNumber: "91470590" };
+      setSession("");
+    }
     if (currentTeacher && currentTeacher.userId) await refreshMotivationSubscriptionStatus();
     renderAll();
     if (currentTeacher && currentTeacher.userId && motivationSubscriptionState.active) {
@@ -4452,6 +4460,14 @@ window.addEventListener("focus", async () => {
   }
   if (currentTeacher && currentTeacher.userId && motivationSubscriptionState.active) {
     pullRemoteStateIfNeeded(false);
+  }
+}
+
+window.addEventListener("focus", refreshUnifiedSessionState);
+window.addEventListener("enjazy-session-changed", refreshUnifiedSessionState);
+window.addEventListener("storage", (event) => {
+  if ([UNIFIED_BACKEND_SESSION_KEY, UNIFIED_AUTH_SESSION_KEY, UNIFIED_CURRENT_USER_KEY].includes(event.key)) {
+    refreshUnifiedSessionState();
   }
 });
 

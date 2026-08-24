@@ -101,6 +101,7 @@
     localStorage.removeItem(SK);localStorage.removeItem(MK);localStorage.removeItem('lesson_platform_current_user_v1');
     updateNavUser(null);
     document.getElementById('user-menu')?.remove();
+    window.dispatchEvent(new CustomEvent('enjazy-session-changed', { detail: { loggedIn: false } }));
   };
   window.showUnifiedUserMenu=function(el){
     const old=document.getElementById('user-menu');
