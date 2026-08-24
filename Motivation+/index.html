@@ -119,6 +119,7 @@
     if(session&&(session.userId||session.full_name||session.email)){
       const name=String(session.full_name||session.email||'المعلم').split(' ')[0];
       area.innerHTML='<button class="nav-user-pill" onclick="showUnifiedUserMenu(this)">👤 '+name+' <span style="font-size:10px;opacity:.6">▼</span></button>';
+      window.dispatchEvent(new CustomEvent('enjazy-session-changed', { detail: { loggedIn: true } }));
     }else{
       area.innerHTML='<button class="nav-auth-btn" onclick="goUnifiedAuth()"><span>👤</span> دخول / تسجيل</button>';
     }

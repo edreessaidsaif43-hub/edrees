@@ -915,6 +915,20 @@ function readUnifiedSession() {
     const authProfile = authSession && typeof authSession.profile === "object" ? authSession.profile : {};
     const currentProfile = currentUser && typeof currentUser.profile === "object" ? currentUser.profile : {};
 
+    const email = pickEmail(
+      backend && backend.email,
+      backend && backend.contact,
+      backendProfile && backendProfile.email,
+      backendProfile && backendProfile.contact,
+      authSession && authSession.email,
+      authSession && authSession.contact,
+      authProfile && authProfile.email,
+      authProfile && authProfile.contact,
+      currentUser && currentUser.contact,
+      currentUser && currentUser.email,
+      currentProfile && currentProfile.contact,
+      currentProfile && currentProfile.email
+    );
     const userId = pick(
       backend && backend.userId,
       backend && backend.user_id,
@@ -930,21 +944,8 @@ function readUnifiedSession() {
       currentUser && currentUser.user_id,
       currentUser && currentUser.id,
       currentProfile && currentProfile.userId,
-      currentProfile && currentProfile.user_id
-    );
-    const email = pickEmail(
-      backend && backend.email,
-      backend && backend.contact,
-      backendProfile && backendProfile.email,
-      backendProfile && backendProfile.contact,
-      authSession && authSession.email,
-      authSession && authSession.contact,
-      authProfile && authProfile.email,
-      authProfile && authProfile.contact,
-      currentUser && currentUser.contact,
-      currentUser && currentUser.email,
-      currentProfile && currentProfile.contact,
-      currentProfile && currentProfile.email
+      currentProfile && currentProfile.user_id,
+      email
     );
     const name = pick(
       backend && backend.full_name,
