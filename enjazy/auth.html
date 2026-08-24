@@ -567,6 +567,8 @@
       };
       localStorage.setItem(SESSION_KEY, JSON.stringify({
         userId,
+        contact: session.email,
+        full_name: session.full_name,
         savedAt: session.savedAt
       }));
       localStorage.setItem(M_BACKEND_SESSION_STORAGE_KEY, JSON.stringify(session));
