@@ -4,7 +4,7 @@ const DATA_PREFIX = "smart_points_data_";
 const SHARED_CLASSES_KEY = "smart_points_shared_classes_v1";
 const PUBLIC_STATE_CACHE_KEY = "motivation_public_state_cache_v1";
 const UNIFIED_AUTH_URL = "file:///C:/Users/Irfan%20Bashir/Documents/New%20project2/enjazy/auth.html";
-const UNIFIED_AUTH_WEB_PATH = "/enjazy/auth.html";
+const UNIFIED_AUTH_WEB_PATH = "/enjazy";
 const UNIFIED_BACKEND_SESSION_KEY = "lesson_platform_backend_session_v1";
 const UNIFIED_AUTH_SESSION_KEY = "enjazy_session_v1";
 const UNIFIED_CURRENT_USER_KEY = "lesson_platform_current_user_v1";
@@ -1067,7 +1067,6 @@ function buildUnifiedAuthUrl() {
       ? new URL(UNIFIED_AUTH_WEB_PATH, window.location.origin)
       : new URL(UNIFIED_AUTH_URL);
     const returnPath = `${window.location.pathname || "/"}${window.location.search || ""}${window.location.hash || ""}`;
-    baseUrl.searchParams.set("v", "20260824-login-fix-2");
     baseUrl.searchParams.set("return", returnPath);
     return baseUrl.toString();
   } catch {
@@ -4512,6 +4511,16 @@ function ensureRemoteAutoPull() {
 }
 async function bootstrapApp() {
   currentTeacher = getCurrentTeacher();
+  if (currentTeacher && currentTeacher.userId) {
+    try {
+      const out = await fetchJsonSafe(`/api/portfolio/load?userId=${encodeURIComponent(currentTeacher.userId)}`, { method: "GET", cache: "no-store" });
+      const profile = out && out.profile ? out.profile : null;
+      if (profile) {
+        currentTeacher.name = normalizeName(profile.name || currentTeacher.name || "");
+        currentTeacher.email = normalizeEmail(profile.contact || currentTeacher.email || "");
+      }
+    } catch {}
+  }
   state = currentTeacher ? loadTeacherData(currentTeacher.id) : (loadPublicStateCache() || createDefaultState());
 
   if (currentTeacher && currentTeacher.userId) {
