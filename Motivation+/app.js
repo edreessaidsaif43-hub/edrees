@@ -920,6 +920,14 @@ function readUnifiedSession() {
     const bridgedBackend = bridgedSession.backend && typeof bridgedSession.backend === "object" ? bridgedSession.backend : {};
     const bridgedAuth = bridgedSession.auth && typeof bridgedSession.auth === "object" ? bridgedSession.auth : {};
     const bridgedCurrent = bridgedSession.current && typeof bridgedSession.current === "object" ? bridgedSession.current : {};
+    const navUserText = (() => {
+      try {
+        const text = document.querySelector(".nav-user-pill")?.textContent || "";
+        return text.replace(/[👤▼]/g, "").trim();
+      } catch {
+        return "";
+      }
+    })();
 
     const email = pickEmail(
       backend && backend.email,
@@ -941,7 +949,8 @@ function readUnifiedSession() {
       bridgedAuth && bridgedAuth.email,
       bridgedAuth && bridgedAuth.contact,
       bridgedCurrent && bridgedCurrent.email,
-      bridgedCurrent && bridgedCurrent.contact
+      bridgedCurrent && bridgedCurrent.contact,
+      navUserText && navUserText.includes("@") ? navUserText : ""
     );
     const rawUserId = pick(
       backend && backend.userId,
@@ -973,7 +982,8 @@ function readUnifiedSession() {
       bridgedAuth && bridgedAuth.id,
       bridgedCurrent && bridgedCurrent.userId,
       bridgedCurrent && bridgedCurrent.user_id,
-      bridgedCurrent && bridgedCurrent.id
+      bridgedCurrent && bridgedCurrent.id,
+      navUserText
     );
     const name = pick(
       backend && backend.full_name,
@@ -1005,7 +1015,8 @@ function readUnifiedSession() {
       bridgedAuth && bridgedAuth.name,
       bridgedCurrent && bridgedCurrent.full_name,
       bridgedCurrent && bridgedCurrent.fullName,
-      bridgedCurrent && bridgedCurrent.name
+      bridgedCurrent && bridgedCurrent.name,
+      navUserText
     );
     const userId = rawUserId || email || name;
 
@@ -1266,6 +1277,12 @@ function showAuthMessage(msg, isError = false) {
 }
 
 function updateSessionUI() {
+  if (!currentTeacher) {
+    currentTeacher = getCurrentTeacher();
+    if (currentTeacher) {
+      state = loadTeacherData(currentTeacher.id);
+    }
+  }
   const info = document.getElementById("session-info");
   const logoutBtn = document.getElementById("logout-btn");
   const syncBtn = document.getElementById("sync-now-btn");
