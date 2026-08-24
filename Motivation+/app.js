@@ -1067,7 +1067,7 @@ function buildUnifiedAuthUrl() {
       ? new URL(UNIFIED_AUTH_WEB_PATH, window.location.origin)
       : new URL(UNIFIED_AUTH_URL);
     const returnPath = `${window.location.pathname || "/"}${window.location.search || ""}${window.location.hash || ""}`;
-    baseUrl.searchParams.set("v", "20260824-return-session-1");
+    baseUrl.searchParams.set("v", "20260824-login-fix-2");
     baseUrl.searchParams.set("return", returnPath);
     return baseUrl.toString();
   } catch {
