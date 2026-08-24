@@ -546,17 +546,32 @@
     function persistSession(payload) {
       const userId = String(payload?.userId || "");
       const profile = payload?.profile || {};
-      if (!userId) return;
-      localStorage.setItem(SESSION_KEY, JSON.stringify({
-        userId,
-        savedAt: Date.now()
-      }));
-      localStorage.setItem(M_BACKEND_SESSION_STORAGE_KEY, JSON.stringify({
+      if (!userId) return null;
+      const session = {
         userId,
         email: String(profile.contact || "").trim(),
         full_name: String(profile.name || "").trim(),
         savedAt: Date.now()
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        userId,
+        savedAt: session.savedAt
       }));
+      localStorage.setItem(M_BACKEND_SESSION_STORAGE_KEY, JSON.stringify(session));
+      return session;
+    }
+
+    function redirectAfterAuth(session) {
+      const target = safeReturnPath();
+      try {
+        const url = new URL(target, window.location.origin);
+        if (session?.userId) url.searchParams.set("enjazyUserId", session.userId);
+        if (session?.email) url.searchParams.set("enjazyContact", session.email);
+        if (session?.full_name) url.searchParams.set("enjazyName", session.full_name);
+        window.location.href = url.pathname + url.search + url.hash;
+      } catch (e) {
+        window.location.href = target;
+      }
     }
 
     async function fetchApiWithFallback(path, options = {}) {
@@ -603,9 +618,9 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contact, password })
       });
-      persistSession(out);
+      const session = persistSession(out);
       showMessage("تم تسجيل الدخول بنجاح. جارٍ التحويل...", true);
-      window.location.href = safeReturnPath();
+      redirectAfterAuth(session);
     }
 
     async function doRegister() {
@@ -647,9 +662,9 @@
             newPassword: password || ""
           })
         });
-        persistSession(out);
+        const nextSession = persistSession(out);
         showMessage("تم تحديث بياناتك بنجاح. جارٍ التحويل...", true);
-        window.location.href = safeReturnPath();
+        redirectAfterAuth(nextSession);
         return;
       }
 
@@ -665,9 +680,9 @@
           password
         })
       });
-      persistSession(out);
+      const nextSession = persistSession(out);
       showMessage("تم إنشاء الحساب بنجاح. جارٍ التحويل...", true);
-      window.location.href = safeReturnPath();
+      redirectAfterAuth(nextSession);
     }
 
 

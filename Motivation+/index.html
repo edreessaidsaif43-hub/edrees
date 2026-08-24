@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/Motivation+/styles.css?v=20260824-auth-cta-1" />
+  <link rel="stylesheet" href="/Motivation+/styles.css?v=20260824-return-session-1" />
 <style id="copied-index-navbar-style">
   @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Cairo:wght@300;400;600;700;900&display=swap');
   :root{--blue:#1a56c8;--blue2:#0f3d9e;--green:#1a8a3a;--ink:#0a1628;--ink3:#5a7a9a;--paper:#f7f9fc;--paper2:#eef2f8;--line:#d0dcea;--w:#fff}
@@ -171,7 +171,7 @@
         <h2>ابدأ رحلة التحفيز مع طلابك</h2>
         <p class="muted">سجّل دخولك أو أنشئ حسابك لتدير الصفوف، وتمنح النقاط، وتتابع إنجاز الطلاب بطريقة ممتعة ومنظمة.</p>
         <div class="field-row auth-cta-actions">
-          <a id="open-unified-auth" class="btn" href="/enjazy/auth.html?mode=login&return=%2FMotivation%2B%2F">تسجيل الدخول أو إنشاء حساب</a>
+          <a id="open-unified-auth" class="btn" href="/enjazy/auth.html?v=20260824-return-session-1&mode=login&return=%2FMotivation%2B%2F">تسجيل الدخول أو إنشاء حساب</a>
         </div>
         <small>سيتم تحويلك إلى صفحة التسجيل الموحد ثم العودة تلقائيًا إلى تحفيز+.</small>
         <p id="auth-message" class="muted"></p>
@@ -578,10 +578,11 @@
       var backend = readJson("lesson_platform_backend_session_v1") || {};
       var auth = readJson("enjazy_session_v1") || {};
       var current = readJson("lesson_platform_current_user_v1") || {};
+      var params = new URLSearchParams(window.location.search || "");
       var session = {
-        userId: String(backend.userId || backend.user_id || backend.id || auth.userId || auth.user_id || auth.id || current.userId || current.user_id || current.id || "").trim(),
-        email: String(backend.email || backend.contact || auth.email || auth.contact || current.email || current.contact || "").trim(),
-        full_name: String(backend.full_name || backend.fullName || backend.name || auth.full_name || auth.fullName || auth.name || current.full_name || current.fullName || current.name || "").trim(),
+        userId: String(params.get("enjazyUserId") || backend.userId || backend.user_id || backend.id || auth.userId || auth.user_id || auth.id || current.userId || current.user_id || current.id || "").trim(),
+        email: String(params.get("enjazyContact") || backend.email || backend.contact || auth.email || auth.contact || current.email || current.contact || "").trim(),
+        full_name: String(params.get("enjazyName") || backend.full_name || backend.fullName || backend.name || auth.full_name || auth.fullName || auth.name || current.full_name || current.fullName || current.name || "").trim(),
         backend: backend,
         auth: auth,
         current: current
@@ -602,6 +603,15 @@
             savedAt: Date.now()
           }));
         } catch(e) {}
+        if (params.has("enjazyUserId") || params.has("enjazyContact") || params.has("enjazyName")) {
+          try {
+            params.delete("enjazyUserId");
+            params.delete("enjazyContact");
+            params.delete("enjazyName");
+            var clean = window.location.pathname + (params.toString() ? "?" + params.toString() : "") + window.location.hash;
+            window.history.replaceState({}, "", clean);
+          } catch(e) {}
+        }
       }
       window.MOTIVATION_NAV_SESSION = session;
       if (session.userId || session.email || session.full_name) {
@@ -609,7 +619,7 @@
       }
     })();
   </script>
-  <script src="/Motivation+/app.js?v=20260824-auth-cta-1"></script>
+  <script src="/Motivation+/app.js?v=20260824-return-session-1"></script>
 </body>
 </html>
 
