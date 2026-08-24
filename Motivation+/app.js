@@ -1363,7 +1363,7 @@ function triggerCelebration(title, message, duration = 2200) {
 
 function enterFeatureFullscreen(featureId) {
   if (["feature-wheel", "feature-lucky", "feature-countdown"].includes(featureId)) {
-    try { showTeacherPanel("games"); } catch {}
+    try { showTeacherPanel(featureId === "feature-countdown" ? "timer" : "random"); } catch {}
   }
   const feature = document.getElementById(featureId);
   if (!feature) return;
@@ -3598,31 +3598,11 @@ function setupTeacherSidePanels() {
   if (!teacherApp || teacherApp.dataset.panelsReady === "1") return;
   teacherApp.dataset.panelsReady = "1";
 
-  const panelTargets = {
-    setup: [document.getElementById("class-management")],
-    addStudents: [document.getElementById("student-name")?.closest("article")],
-    rewards: [document.getElementById("rewards-panel")],
-    gifts: [document.getElementById("gift-panel")],
-    points: [document.getElementById("feature-points")],
-    students: [document.getElementById("students-table")?.closest("article")],
-    teams: [document.getElementById("teams-panel")],
-    challenges: [
-      document.getElementById("challenge-panel"),
-      document.getElementById("mini-challenge-panel")
-    ],
-    random: [
-      document.getElementById("feature-wheel"),
-      document.getElementById("feature-lucky")
-    ],
-    timer: [document.getElementById("feature-countdown")],
-    reports: [document.getElementById("reports-panel")]
-  };
-
   teacherApp.querySelectorAll(":scope > .grid > article, :scope > .grid > .card, :scope > .card.wide, :scope > #reports-panel").forEach((node) => {
     if (!node.dataset.teacherPanel) node.dataset.teacherPanel = "setup";
   });
 
-  Object.entries(panelTargets).forEach(([name, nodes]) => {
+  Object.entries(getTeacherPanelTargets()).forEach(([name, nodes]) => {
     nodes.filter(Boolean).forEach((node) => {
       node.dataset.teacherPanel = name;
     });
@@ -3655,6 +3635,28 @@ function setupTeacherSidePanels() {
   showTeacherPanel("students");
 }
 
+function getTeacherPanelTargets() {
+  return {
+    setup: [document.getElementById("class-management")],
+    addStudents: [document.getElementById("student-name")?.closest("article")],
+    rewards: [document.getElementById("rewards-panel")],
+    gifts: [document.getElementById("gift-panel")],
+    points: [document.getElementById("feature-points")],
+    students: [document.getElementById("students-table")?.closest("article")],
+    teams: [document.getElementById("teams-panel")],
+    challenges: [
+      document.getElementById("challenge-panel"),
+      document.getElementById("mini-challenge-panel")
+    ],
+    random: [
+      document.getElementById("feature-wheel"),
+      document.getElementById("feature-lucky")
+    ],
+    timer: [document.getElementById("feature-countdown")],
+    reports: [document.getElementById("reports-panel")]
+  };
+}
+
 function keepTeacherPanelPosition() {
   const teacherApp = document.getElementById("teacher-app");
   if (!teacherApp) return;
@@ -3667,13 +3669,21 @@ function keepTeacherPanelPosition() {
   });
 }
 function showTeacherPanel(panelName, activeLink = null) {
-  const normalized = panelName || "setup";
+  const validPanels = new Set(["setup", "addStudents", "rewards", "gifts", "points", "students", "teams", "challenges", "random", "timer", "reports"]);
+  const normalized = validPanels.has(panelName) ? panelName : "students";
   const teacherApp = document.getElementById("teacher-app");
+  Object.entries(getTeacherPanelTargets()).forEach(([name, nodes]) => {
+    nodes.filter(Boolean).forEach((node) => {
+      node.dataset.teacherPanel = name;
+    });
+  });
   const panelNodes = teacherApp
     ? teacherApp.querySelectorAll("[data-teacher-panel]")
     : document.querySelectorAll("[data-teacher-panel]");
   panelNodes.forEach((node) => {
-    node.hidden = node.dataset.teacherPanel !== normalized;
+    const isVisible = node.dataset.teacherPanel === normalized;
+    node.hidden = !isVisible;
+    node.style.display = isVisible ? "" : "none";
   });
   const links = Array.from(document.querySelectorAll(".teacher-side-link"));
   const fallback = links.find((link) => link.dataset.teacherPanelTrigger === normalized) || null;
