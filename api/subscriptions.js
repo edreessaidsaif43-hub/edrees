@@ -369,7 +369,7 @@ function subscriptionAmountOmr(fields = {}, subjects = [], grades = []) {
 }
 
 function subscriptionInitialStatus(fields = {}) {
-  if (String(fields.product || "") === "motivation") return "pending";
+  if (String(fields.product || "") === "motivation") return "active";
   return "active";
 }
 
@@ -396,16 +396,33 @@ function parseRequestedSubjects(fields = {}) {
 function subscriptionHistory(row) {
   return Array.isArray(row?.receipt_history) ? row.receipt_history : [];
 }
+
+function isMotivationSubscription(row, subjects = []) {
+  const history = subscriptionHistory(row);
+  const text = [
+    row?.grade,
+    ...(Array.isArray(row?.grades) ? row.grades : []),
+    ...subjects.flatMap((item) => [item?.product, item?.grade, item?.subject]),
+    ...history.flatMap((item) => [item?.product, item?.grade, ...(Array.isArray(item?.grades) ? item.grades : [])])
+  ].join(" ");
+  return /motivation|تحفيز/i.test(text);
+}
+
 function rowToSubscription(row) {
   const grades = subscriptionGrades(row);
   const subjects = subscriptionSubjects(row);
+  const motivation = isMotivationSubscription(row, subjects);
+  const status = motivation && row.status === "pending" ? "active" : row.status;
+  const normalizedSubjects = motivation
+    ? subjects.map((item) => item.status === "pending" ? { ...item, status: "active" } : item)
+    : subjects;
   return {
     id: row.id,
     userId: row.user_id,
     grade: joinGrades(grades) || row.grade,
     grades,
-    subjects,
-    status: row.status,
+    subjects: normalizedSubjects,
+    status,
     receiptUrl: row.receipt_url,
     receiptFileName: row.receipt_file_name,
     receiptFileType: row.receipt_file_type,
