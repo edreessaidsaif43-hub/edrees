@@ -1655,12 +1655,13 @@
 
     function getOwnedContentIdsForUser(user) {
       const email = normalizeEmail(user?.email || '');
-      const nameKey = normalizeTeacherName(user?.full_name || '');
+      const userId = String(user?.user_id || user?.userId || '').trim();
       const ids = [];
       allGames.forEach(item => {
+        const itemUserId = String(item.teacher_user_id || item.teacherUserId || '').trim();
         const ownerByEmail = normalizeEmail(item.teacher_email || item.teacher_username || '') === email;
-        const ownerByName = normalizeTeacherName(item.teacher_name || '') === nameKey;
-        if (ownerByEmail || ownerByName) ids.push(getContentId(item));
+        const ownerByUserId = !!userId && itemUserId === userId;
+        if (ownerByUserId || ownerByEmail) ids.push(getContentId(item));
       });
       return ids;
     }
@@ -1932,14 +1933,12 @@
 
     function isSubmissionOwnedByUser(item, user) {
       const emailKey = normalizeEmail(user?.email || '');
-      const userNameKey = normalizeTeacherName(user?.full_name || '');
+      const userId = String(user?.user_id || user?.userId || '').trim();
+      const itemUserId = String(item?.teacher_user_id || item?.teacherUserId || '').trim();
       const itemEmail = normalizeEmail(item?.teacher_email || item?.teacher_username || '');
-      const itemNameKey = normalizeTeacherName(item?.teacher_name || '');
-      const itemTeacherKey = normalizeTeacherName(item?.teacher_key || getTeacherKey(item) || '');
       return (
-        (!!emailKey && itemEmail === emailKey) ||
-        (!!userNameKey && itemNameKey === userNameKey) ||
-        (!!userNameKey && itemTeacherKey === userNameKey)
+        (!!userId && itemUserId === userId) ||
+        (!!emailKey && itemEmail === emailKey)
       );
     }
 
@@ -2161,6 +2160,7 @@
           status: 'pending',
           gameLink,
           teacher_name: currentUser.full_name,
+          teacher_user_id: currentUser.user_id || '',
           teacher_email: currentUser.email,
           teacher_key: getTeacherKey(currentUser.full_name),
           grade: grades,
@@ -2233,16 +2233,20 @@
       }
     }
 
-    function getMemberStats(email, fullName) {
-      const activeTeacherKey = normalizeTeacherName(fullName || '');
+    function getMemberStats(email, fullName, userId = '') {
+      const normalizedEmail = normalizeEmail(email || '');
+      const cleanUserId = String(userId || '').trim();
       const approved = allGames.filter(g =>
         g.status === 'approved' &&
-        normalizeTeacherName(g.teacher_name || '') === activeTeacherKey
+        (
+          (!!cleanUserId && String(g.teacher_user_id || g.teacherUserId || '').trim() === cleanUserId) ||
+          (!!normalizedEmail && normalizeEmail(g.teacher_email || g.teacher_username || '') === normalizedEmail)
+        )
       );
       let commentsCount = 0;
       Object.values(contentComments).forEach(list => {
         if (!Array.isArray(list)) return;
-        commentsCount += list.filter(c => normalizeEmail(c.user_email || c.username || '') === normalizeEmail(email || '')).length;
+        commentsCount += list.filter(c => normalizeEmail(c.user_email || c.username || '') === normalizedEmail).length;
       });
       return { approvedCount: approved.length, commentsCount };
     }
@@ -2257,7 +2261,7 @@
       }
       panel.classList.remove('hidden');
 
-      const stats = getMemberStats(currentUser.email, currentUser.full_name);
+      const stats = getMemberStats(currentUser.email, currentUser.full_name, currentUser.user_id);
       const selectedGender = currentUser.gender === 'female' ? 'female' : 'male';
       const profileImage = getDefaultProfileImageByGender(selectedGender);
 
@@ -3692,6 +3696,7 @@
       try {
         const gameData = {
           teacher_name: currentUser.full_name,
+          teacher_user_id: currentUser.user_id || '',
           teacher_email: currentUser.email,
           teacher_key: teacherKey,
           grade: selectedGrades,

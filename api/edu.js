@@ -73,6 +73,7 @@ function normalizeContent(input = {}) {
   return {
     id: String(input.id || randomId()),
     teacher_name: String(input.teacher_name || "").trim(),
+    teacher_user_id: String(input.teacher_user_id || input.teacherUserId || "").trim(),
     teacher_email: String(input.teacher_email || "").trim().toLowerCase(),
     teacher_key: String(input.teacher_key || "").trim(),
     grade: stringifyArray(input.grade),
@@ -392,6 +393,7 @@ export default async function handler(req, res) {
           ...current,
           ...(body.game || {}),
           teacher_name: body.teacher_name ?? body.game?.teacher_name ?? current.teacher_name,
+          teacher_user_id: body.teacher_user_id ?? body.teacherUserId ?? body.game?.teacher_user_id ?? body.game?.teacherUserId ?? current.teacher_user_id,
           teacher_email: body.teacher_email ?? body.game?.teacher_email ?? current.teacher_email,
           teacher_key: body.teacher_key ?? body.game?.teacher_key ?? current.teacher_key,
           grade: body.grade ?? body.game?.grade ?? current.grade,
