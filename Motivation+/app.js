@@ -1016,8 +1016,10 @@ function buildUnifiedAuthUrl() {
     const isWeb = !!(window.location && /^https?:$/i.test(window.location.protocol || ""));
     const baseUrl = isWeb
       ? new URL(UNIFIED_AUTH_WEB_PATH, window.location.origin)
-      : new URL(UNIFIED_AUTH_URL);
-    const returnPath = `${window.location.pathname || "/"}${window.location.search || ""}${window.location.hash || ""}`;
+      : new URL("../enjazy/auth.html", window.location.href || UNIFIED_AUTH_URL);
+    const returnPath = isWeb
+      ? `${window.location.pathname || "/"}${window.location.search || ""}${window.location.hash || ""}`
+      : window.location.href;
     baseUrl.searchParams.set("v", "20260824-direct-auth-1");
     baseUrl.searchParams.set("mode", "login");
     baseUrl.searchParams.set("return", returnPath);
@@ -1035,7 +1037,10 @@ function buildUnifiedProfileEditUrl() {
     url.searchParams.set("intent", "profile_edit");
     if (currentTeacher?.name) url.searchParams.set("name", currentTeacher.name);
     if (currentTeacher?.email) url.searchParams.set("email", currentTeacher.email);
-    const returnPath = `${window.location.pathname || "/"}${window.location.search || ""}${window.location.hash || ""}`;
+    const isWeb = !!(window.location && /^https?:$/i.test(window.location.protocol || ""));
+    const returnPath = isWeb
+      ? `${window.location.pathname || "/"}${window.location.search || ""}${window.location.hash || ""}`
+      : window.location.href;
     url.searchParams.set("return", returnPath);
     return url.toString();
   } catch {
