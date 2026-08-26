@@ -1260,6 +1260,131 @@ function ensureMotivationSubscriptionOrNotify() {
   return false;
 }
 
+function getMotivationSubscriptionItems(data) {
+  const subscriptions = Array.isArray(data?.subscriptions) ? data.subscriptions : [];
+  const activeSubjects = Array.isArray(data?.activeSubjects) ? data.activeSubjects : [];
+  const pending = Array.isArray(data?.pending) ? data.pending : [];
+  const isMotivationItem = (item) => {
+    const text = [
+      item?.product,
+      item?.grade,
+      item?.subject,
+      ...(Array.isArray(item?.grades) ? item.grades : []),
+      ...(Array.isArray(item?.subjects) ? item.subjects.flatMap((subject) => [subject?.product, subject?.grade, subject?.subject]) : [])
+    ].join(" ");
+    return /motivation|تحفيز/i.test(text);
+  };
+  return {
+    active: activeSubjects.filter(isMotivationItem),
+    pending: pending.filter(isMotivationItem),
+    subscriptions: subscriptions.filter(isMotivationItem)
+  };
+}
+
+async function refreshMotivationSubscriptionStatus() {
+  const userId = getUnifiedUserId();
+  if (!userId) {
+    motivationSubscriptionState = { loaded: true, active: false, pending: false, subscriptions: [], paymentNumber: "91470590" };
+    renderMotivationSubscriptionStatus();
+    return motivationSubscriptionState;
+  }
+  try {
+    const data = await fetchJsonSafe(`${SUBSCRIPTIONS_API}?action=status&userId=${encodeURIComponent(userId)}`, {
+      method: "GET",
+      cache: "no-store"
+    });
+    const motivation = getMotivationSubscriptionItems(data);
+    const active = motivation.active.length > 0 || motivation.subscriptions.some((item) => item.status === "active");
+    const pending = !active && (motivation.pending.length > 0 || motivation.subscriptions.some((item) => item.status === "pending"));
+    motivationSubscriptionState = {
+      loaded: true,
+      active,
+      pending,
+      subscriptions: motivation.subscriptions,
+      paymentNumber: data?.paymentNumber || "91470590"
+    };
+  } catch (error) {
+    motivationSubscriptionState = {
+      loaded: true,
+      active: false,
+      pending: false,
+      subscriptions: [],
+      paymentNumber: "91470590",
+      message: "تعذر التحقق من الاشتراك حاليًا. حاول تحديث الصفحة بعد قليل."
+    };
+    console.warn("motivation subscription status failed", error);
+  }
+  renderMotivationSubscriptionStatus();
+  return motivationSubscriptionState;
+}
+
+function renderMotivationSubscriptionStatus() {
+  const status = document.getElementById("motivation-subscription-status");
+  const number = document.querySelector(".motivation-transfer-number");
+  if (number) number.textContent = motivationSubscriptionState.paymentNumber || "91470590";
+  if (!status) return;
+  if (!currentTeacher) {
+    status.textContent = "";
+    return;
+  }
+  if (motivationSubscriptionState.active) {
+    status.textContent = "اشتراك تحفيز+ مفعل.";
+    status.style.color = "#166534";
+    return;
+  }
+  if (motivationSubscriptionState.pending) {
+    status.textContent = "تم استلام طلب الاشتراك وهو بانتظار اعتماد الإدارة.";
+    status.style.color = "#92400e";
+    return;
+  }
+  status.textContent = motivationSubscriptionState.message || "يلزم تفعيل اشتراك تحفيز+ للدخول إلى أدوات المعلم.";
+  status.style.color = "#334e68";
+}
+
+async function submitMotivationSubscription() {
+  const userId = getUnifiedUserId();
+  if (!userId) {
+    showAuthMessage("يرجى تسجيل الدخول أولًا لإرسال الإيصال.", true);
+    return;
+  }
+  const file = document.getElementById("motivation-receipt")?.files?.[0] || null;
+  if (!file) {
+    showAuthMessage("ارفع صورة الإيصال أو ملف PDF أولًا.", true);
+    return;
+  }
+  const btn = document.getElementById("motivation-subscribe-btn");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "جاري الإرسال...";
+  }
+  try {
+    const form = new FormData();
+    form.append("userId", userId);
+    form.append("product", MOTIVATION_SUBSCRIPTION_PRODUCT);
+    form.append("grade", MOTIVATION_SUBSCRIPTION_GRADE);
+    form.append("grades", JSON.stringify([MOTIVATION_SUBSCRIPTION_GRADE]));
+    form.append("subjects", JSON.stringify([{
+      grade: MOTIVATION_SUBSCRIPTION_GRADE,
+      subject: MOTIVATION_SUBSCRIPTION_SUBJECT,
+      product: MOTIVATION_SUBSCRIPTION_PRODUCT
+    }]));
+    form.append("receipt", file);
+    const data = await fetchJsonSafe(`${SUBSCRIPTIONS_API}?action=request`, { method: "POST", body: form });
+    const input = document.getElementById("motivation-receipt");
+    if (input) input.value = "";
+    showAuthMessage(data?.message || "تم إرسال الإيصال للمراجعة.");
+    await refreshMotivationSubscriptionStatus();
+    updateSessionUI();
+  } catch (error) {
+    showAuthMessage(error?.message || "تعذر إرسال الإيصال.", true);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "إرسال الإيصال للتفعيل";
+    }
+  }
+}
+
 function ensureAuthOrNotify() {
   if (currentTeacher && ensureMotivationSubscriptionOrNotify()) return true;
   if (!currentTeacher) showAuthMessage("يجب تسجيل الدخول من البوابة الموحدة أولاً.", true);
