@@ -1661,7 +1661,7 @@
         const itemUserId = String(item.teacher_user_id || item.teacherUserId || '').trim();
         const ownerByEmail = normalizeEmail(item.teacher_email || item.teacher_username || '') === email;
         const ownerByUserId = !!userId && itemUserId === userId;
-        if (ownerByUserId || ownerByEmail) ids.push(getContentId(item));
+        if (ownerByUserId || ownerByEmail || isLegacyOwnerlessSubmissionForUser(item, user)) ids.push(getContentId(item));
       });
       return ids;
     }
@@ -1938,8 +1938,47 @@
       const itemEmail = normalizeEmail(item?.teacher_email || item?.teacher_username || '');
       return (
         (!!userId && itemUserId === userId) ||
-        (!!emailKey && itemEmail === emailKey)
+        (!!emailKey && itemEmail === emailKey) ||
+        isLegacyOwnerlessSubmissionForUser(item, user)
       );
+    }
+
+    function isLegacyOwnerlessSubmissionForUser(item, user) {
+      const hasOwnerId = !!String(item?.teacher_user_id || item?.teacherUserId || '').trim();
+      const hasOwnerEmail = !!normalizeEmail(item?.teacher_email || item?.teacher_username || '');
+      if (hasOwnerId || hasOwnerEmail) return false;
+      const userNameKey = normalizeTeacherName(user?.full_name || '');
+      if (!userNameKey) return false;
+      const itemNameKey = normalizeTeacherName(item?.teacher_name || '');
+      const itemTeacherKey = normalizeTeacherName(item?.teacher_key || getTeacherKey(item) || '');
+      return itemNameKey === userNameKey || itemTeacherKey === userNameKey;
+    }
+
+    async function claimLegacySubmissionsForUser(items, user) {
+      const userId = String(user?.user_id || user?.userId || '').trim();
+      const email = normalizeEmail(user?.email || '');
+      if (!userId && !email) return;
+      const legacyItems = (Array.isArray(items) ? items : [])
+        .filter(item => item && item.id && isLegacyOwnerlessSubmissionForUser(item, user));
+      if (!legacyItems.length) return;
+      for (const item of legacyItems) {
+        try {
+          await apiPost({
+            action: 'updateGame',
+            gameId: item.id,
+            teacher_user_id: userId,
+            teacher_email: email,
+            teacher_name: user.full_name || item.teacher_name || '',
+            teacher_key: getTeacherKey(user.full_name || item.teacher_name || '')
+          }, 18000);
+          item.teacher_user_id = userId;
+          item.teacher_email = email;
+          item.teacher_name = user.full_name || item.teacher_name || '';
+          item.teacher_key = getTeacherKey(user.full_name || item.teacher_name || '');
+        } catch (error) {
+          console.warn('legacy submission claim failed', item.id, error);
+        }
+      }
     }
 
     function getSubmissionStatusLabel(status) {
@@ -2072,16 +2111,20 @@
           sourceItems = mySubmissionsCache;
         }
 
-        mySubmissionsCache = (Array.isArray(sourceItems) ? sourceItems : [])
+        const ownedItems = (Array.isArray(sourceItems) ? sourceItems : [])
           .filter(item => isSubmissionOwnedByUser(item, currentUser))
           .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        mySubmissionsCache = ownedItems;
+        claimLegacySubmissionsForUser(ownedItems, currentUser).catch(console.warn);
 
         renderMySubmissions();
       } catch (e) {
         console.error(e);
-        mySubmissionsCache = allGames
+        const ownedItems = allGames
           .filter(item => isSubmissionOwnedByUser(item, currentUser))
           .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        mySubmissionsCache = ownedItems;
+        claimLegacySubmissionsForUser(ownedItems, currentUser).catch(console.warn);
         renderMySubmissions();
       }
     }
@@ -2235,13 +2278,10 @@
 
     function getMemberStats(email, fullName, userId = '') {
       const normalizedEmail = normalizeEmail(email || '');
-      const cleanUserId = String(userId || '').trim();
+      const statsUser = { email: normalizedEmail, full_name: fullName || '', user_id: String(userId || '').trim() };
       const approved = allGames.filter(g =>
         g.status === 'approved' &&
-        (
-          (!!cleanUserId && String(g.teacher_user_id || g.teacherUserId || '').trim() === cleanUserId) ||
-          (!!normalizedEmail && normalizeEmail(g.teacher_email || g.teacher_username || '') === normalizedEmail)
-        )
+        isSubmissionOwnedByUser(g, statsUser)
       );
       let commentsCount = 0;
       Object.values(contentComments).forEach(list => {
