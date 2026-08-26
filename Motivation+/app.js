@@ -714,20 +714,46 @@ function accountDataKey(accountId) {
   return `${DATA_PREFIX}${accountId}`;
 }
 
+function filterStateForTeacher(stateObj, teacherId) {
+  const merged = mergeState(stateObj);
+  const cleanTeacherId = normalizeName(teacherId || "");
+  if (!cleanTeacherId || !Array.isArray(merged.classes)) return merged;
+  const classes = merged.classes.filter((cls) => {
+    const ownerId = normalizeName(cls && cls.ownerTeacherId ? cls.ownerTeacherId : "");
+    const teacherIds = Array.isArray(cls && cls.teacherIds)
+      ? cls.teacherIds.map((id) => normalizeName(id)).filter(Boolean)
+      : [];
+    return !ownerId || ownerId === cleanTeacherId || teacherIds.includes(cleanTeacherId);
+  });
+  const activeClassId = classes.some((cls) => cls.id === merged.activeClassId)
+    ? merged.activeClassId
+    : (classes[0]?.id || "");
+  return {
+    ...merged,
+    classes,
+    activeClassId,
+  };
+}
+
 function loadTeacherData(accountId) {
   try {
     const key = accountDataKey(accountId || "");
     const raw = localStorage.getItem(key);
     if (raw) {
       const parsed = JSON.parse(raw);
-      const merged = mergeState(parsed);
-      if (Number(parsed.pointsRepairVersion || 0) < 1 && Number(merged.pointsRepairVersion || 0) >= 1) {
+      const merged = filterStateForTeacher(parsed, accountId || "");
+      const parsedClassCount = Array.isArray(parsed.classes) ? parsed.classes.length : 0;
+      const filteredClassCount = Array.isArray(merged.classes) ? merged.classes.length : 0;
+      if (
+        filteredClassCount !== parsedClassCount ||
+        (Number(parsed.pointsRepairVersion || 0) < 1 && Number(merged.pointsRepairVersion || 0) >= 1)
+      ) {
         localStorage.setItem(key, JSON.stringify(merged));
       }
       return merged;
     }
   } catch {}
-  return loadPublicStateCache() || createDefaultState();
+  return createDefaultState();
 }
 
 function loadPublicStateCache() {
@@ -828,7 +854,7 @@ async function loadStateFromRemote(userId) {
     const q = `${MOTIVATION_API_LOAD}?userId=${encodeURIComponent(userId)}`;
     const out = await fetchJsonSafe(q, { method: "GET", cache: "no-store" });
     if (!out || !out.state || typeof out.state !== "object") return null;
-    return mergeState(out.state);
+    return filterStateForTeacher(out.state, `U-${userId}`);
   } catch (err) {
     const reason = String((err && err.message) || "");
     if (!remoteSyncWarningShown && reason.includes("endpoint_not_found")) {
