@@ -1063,6 +1063,36 @@ async function saveAttachmentText(req, res, id) {
   return send(res, 200, { ok: true, attachmentId: id, textLength: text.length });
 }
 
+async function addLessonsToExisting(req, res, id) {
+  if (!(await dbReady(res))) return;
+  const rows = await sql`SELECT * FROM ai_lessons WHERE id = ${id} LIMIT 1;`;
+  const source = rows?.[0];
+  if (!source) return fail(res, 404, "لم يتم العثور على الدرس الأصلي", "not_found");
+
+  const body = await readJsonBody(req);
+  const rawTitles = Array.isArray(body.titles)
+    ? body.titles
+    : String(body.titlesText || body.title || "").split(/\r?\n|،|,/);
+  const titles = rawTitles.map((value) => cleanDbText(value, 300)).filter(Boolean);
+  if (!titles.length) return fail(res, 400, "أضف عنوان درس واحد على الأقل", "invalid_payload");
+
+  const attachmentIds = normalizeAttachmentIdsFromRow(source);
+  const primaryAttachmentId = attachmentIds[0] || null;
+  const unit = cleanDbText(body.unit || source.unit);
+  const status = cleanDbText(body.status || source.status || "active", 60);
+  let lessonCount = 0;
+
+  for (const title of titles) {
+    await sql`
+      INSERT INTO ai_lessons (grade, subject, semester, unit, title, attachment_id, attachment_ids, status, created_at)
+      VALUES (${cleanDbText(source.grade)}, ${cleanDbText(source.subject)}, ${cleanDbText(source.semester)}, ${unit}, ${title}, ${primaryAttachmentId}, ${JSON.stringify(attachmentIds)}::jsonb, ${status}, ${today()});
+    `;
+    lessonCount += 1;
+  }
+
+  return send(res, 200, { ok: true, lessonCount, attachmentIds });
+}
+
 async function updateOrDeleteLesson(req, res, id) {
   if (!(await dbReady(res))) return;
   const rows = await sql`SELECT * FROM ai_lessons WHERE id = ${id} LIMIT 1;`;
@@ -1071,7 +1101,10 @@ async function updateOrDeleteLesson(req, res, id) {
     const body = await readJsonBody(req);
     await sql`
       UPDATE ai_lessons
-      SET title = COALESCE(${body.title == null ? null : cleanDbText(body.title)}, title),
+      SET grade = COALESCE(${body.grade == null ? null : cleanDbText(body.grade)}, grade),
+          subject = COALESCE(${body.subject == null ? null : cleanDbText(body.subject)}, subject),
+          semester = COALESCE(${body.semester == null ? null : cleanDbText(body.semester)}, semester),
+          title = COALESCE(${body.title == null ? null : cleanDbText(body.title)}, title),
           unit = COALESCE(${body.unit == null ? null : cleanDbText(body.unit)}, unit),
           status = COALESCE(${body.status == null ? null : cleanDbText(body.status, 60)}, status)
       WHERE id = ${id};
@@ -1102,6 +1135,8 @@ export default async function handler(req, res) {
     if (req.method === "POST" && attachmentReplaceMatch) return await replaceAttachment(req, res, Number(attachmentReplaceMatch[1]));
     const attachmentTextMatch = path.match(/^\/api\/attachments\/(\d+)\/text$/);
     if (req.method === "POST" && attachmentTextMatch) return await saveAttachmentText(req, res, Number(attachmentTextMatch[1]));
+    const addLessonsMatch = path.match(/^\/api\/lessons\/(\d+)\/add$/);
+    if (req.method === "POST" && addLessonsMatch) return await addLessonsToExisting(req, res, Number(addLessonsMatch[1]));
     const match = path.match(/^\/api\/lessons\/(\d+)$/);
     if (match) return await updateOrDeleteLesson(req, res, Number(match[1]));
     return fail(res, 404, "Ø§Ù„Ù…Ø³Ø§Ø± ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯", "not_found");

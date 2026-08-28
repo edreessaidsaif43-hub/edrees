@@ -851,7 +851,7 @@
     background: white;
     border-radius: var(--radius-xl);
     padding: 2rem;
-    max-width: 480px;
+    max-width: 560px;
     width: 100%;
     box-shadow: 0 20px 60px rgba(0,0,0,0.2);
   }
@@ -861,6 +861,8 @@
   .modal-close:hover { background: var(--bg); color: var(--text); }
   .modal-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 1rem; }
   .modal-field label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  .modal-field textarea { min-height: 130px; resize: vertical; }
+  .modal-note { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; color: var(--text-secondary); font-size: 13px; line-height: 1.7; margin-bottom: 1rem; }
 
   @media (max-width: 768px) {
     html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
@@ -1348,6 +1350,18 @@
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
     <div class="modal-field">
+      <label>الصف</label>
+      <input type="text" id="edit-grade" style="background-image:none !important;">
+    </div>
+    <div class="modal-field">
+      <label>المادة</label>
+      <input type="text" id="edit-subject" style="background-image:none !important;">
+    </div>
+    <div class="modal-field">
+      <label>الفصل</label>
+      <input type="text" id="edit-semester" style="background-image:none !important;">
+    </div>
+    <div class="modal-field">
       <label>اسم الدرس</label>
       <input type="text" id="edit-title" style="background-image:none !important;">
     </div>
@@ -1369,6 +1383,36 @@
   </div>
 </div>
 
+<!-- ADD LINKED LESSONS MODAL -->
+<div class="modal-overlay" id="add-linked-lessons-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">➕ إضافة دروس لنفس الوحدة</div>
+      <button class="modal-close" onclick="closeAddLinkedLessonsModal()">×</button>
+    </div>
+    <div class="modal-note" id="add-linked-lessons-summary"></div>
+    <div class="modal-field">
+      <label>عناوين الدروس الجديدة</label>
+      <textarea id="add-linked-lessons-titles" placeholder="اكتب كل درس في سطر مستقل" style="background-image:none !important;"></textarea>
+    </div>
+    <div class="modal-field">
+      <label>الوحدة</label>
+      <input type="text" id="add-linked-lessons-unit" style="background-image:none !important;">
+    </div>
+    <div class="modal-field">
+      <label>الحالة</label>
+      <select id="add-linked-lessons-status">
+        <option value="active">مفعل</option>
+        <option value="inactive">غير مفعل</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem;">
+      <button class="btn btn-outline" onclick="closeAddLinkedLessonsModal()">إلغاء</button>
+      <button class="btn btn-primary" id="save-linked-lessons-btn" onclick="saveLinkedLessons()">💾 حفظ الدروس الجديدة</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast">✅ <span id="toast-msg">تم بنجاح</span></div>
 
@@ -1382,6 +1426,7 @@ let lessons = [];
 let attachments = [];
 const API_BASE = '/api/ai';
 let editingId = null;
+let addingLinkedSourceId = null;
 let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
 const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
@@ -2868,6 +2913,7 @@ function renderTable() {
       <td>
         <div class="tbl-actions">
           <button class="tbl-btn tbl-btn-edit" onclick="openEdit(${l.id})">✏️ تعديل</button>
+          <button class="tbl-btn tbl-btn-edit" onclick="openAddLinkedLessons(${l.id})">➕ إضافة دروس هنا</button>
           <button class="tbl-btn ${l.status==='active'?'tbl-btn-toggle-off':'tbl-btn-toggle-on'}" onclick="toggleStatus(${l.id})">${l.status==='active'?'🔴 إيقاف':'🟢 تفعيل'}</button>
           <button class="tbl-btn tbl-btn-del" onclick="deleteLesson(${l.id})">🗑️ حذف</button>
         </div>
@@ -2897,6 +2943,9 @@ function openEdit(id) {
   const lesson = lessons.find(l => l.id == id);
   if (!lesson) return;
   editingId = id;
+  document.getElementById('edit-grade').value = lesson.grade;
+  document.getElementById('edit-subject').value = lesson.subject;
+  document.getElementById('edit-semester').value = lesson.semester;
   document.getElementById('edit-title').value = lesson.title;
   document.getElementById('edit-unit').value = lesson.unit;
   document.getElementById('edit-status').value = lesson.status;
@@ -2906,13 +2955,25 @@ function openEdit(id) {
 async function saveEdit() {
   const lesson = lessons.find(l => l.id == editingId);
   if (!lesson) return;
+  const grade = document.getElementById('edit-grade').value.trim();
+  const subject = document.getElementById('edit-subject').value.trim();
+  const semester = document.getElementById('edit-semester').value.trim();
+  const title = document.getElementById('edit-title').value.trim();
+  const unit = document.getElementById('edit-unit').value.trim();
+  if (!grade || !subject || !semester || !title || !unit) {
+    showToast('يرجى تعبئة بيانات الصف والمادة والفصل والوحدة والدرس', true);
+    return;
+  }
   try {
     await apiRequest('/api/lessons/' + editingId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: document.getElementById('edit-title').value.trim(),
-        unit: document.getElementById('edit-unit').value.trim(),
+        grade,
+        subject,
+        semester,
+        title,
+        unit,
         status: document.getElementById('edit-status').value
       })
     });
@@ -2921,6 +2982,58 @@ async function saveEdit() {
     showToast('تم تحديث الدرس');
   } catch (err) {
     showToast(err.message, true);
+  }
+}
+
+function openAddLinkedLessons(id) {
+  const lesson = lessons.find(l => l.id == id);
+  if (!lesson) return;
+  addingLinkedSourceId = id;
+  document.getElementById('add-linked-lessons-summary').textContent =
+    `${lesson.grade} - ${lesson.subject} - ${lesson.semester} - ${lesson.unit}`;
+  document.getElementById('add-linked-lessons-titles').value = '';
+  document.getElementById('add-linked-lessons-unit').value = lesson.unit;
+  document.getElementById('add-linked-lessons-status').value = 'active';
+  document.getElementById('add-linked-lessons-modal').classList.add('show');
+}
+
+function closeAddLinkedLessonsModal() {
+  document.getElementById('add-linked-lessons-modal').classList.remove('show');
+  addingLinkedSourceId = null;
+}
+
+async function saveLinkedLessons() {
+  const lesson = lessons.find(l => l.id == addingLinkedSourceId);
+  if (!lesson) return;
+  const btn = document.getElementById('save-linked-lessons-btn');
+  const titles = document.getElementById('add-linked-lessons-titles').value
+    .split(/\r?\n|،|,/)
+    .map(text => text.trim())
+    .filter(Boolean);
+  const unit = document.getElementById('add-linked-lessons-unit').value.trim();
+  const status = document.getElementById('add-linked-lessons-status').value;
+  if (!titles.length) {
+    showToast('اكتب عنوان درس واحد على الأقل', true);
+    return;
+  }
+  if (!unit) {
+    showToast('اكتب اسم الوحدة', true);
+    return;
+  }
+  setButtonBusy(btn, true, 'جاري حفظ الدروس...');
+  try {
+    const data = await apiRequest('/api/lessons/' + addingLinkedSourceId + '/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ titles, unit, status })
+    });
+    await loadDatabase();
+    closeAddLinkedLessonsModal();
+    showToast('تمت إضافة ' + (data.lessonCount || titles.length) + ' درس جديد لنفس المرفقات');
+  } catch (err) {
+    showToast(formatAdminRequestError(err), true);
+  } finally {
+    setButtonBusy(btn, false);
   }
 }
 
