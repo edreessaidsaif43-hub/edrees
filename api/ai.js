@@ -361,7 +361,7 @@ function assertPdfUpload(upload) {
   }
 }
 
-async function receiveClientUpload(upload, meta) {
+async function receiveClientUpload(upload, meta, options = {}) {
   assertPdfUpload(upload);
   const fileName = safeFileName(upload?.fileName || upload?.pathname?.split("/").pop() || "upload.pdf");
   const fileType = "application/pdf";
@@ -378,12 +378,16 @@ async function receiveClientUpload(upload, meta) {
     err.statusCode = 413;
     throw err;
   }
+  const providedText = normalizeExtractedText(meta?.extractedText || upload?.extractedText || "");
+  const extractedText = options.extractText === false
+    ? (providedText || attachmentPlaceholder(fileName, fileSize, meta))
+    : await extractText(Buffer.alloc(0), fileName, fileType, fileSize, { ...meta, extractedText: providedText }, filePath);
   return {
     fileName,
     fileType,
     fileSize,
     filePath,
-    extractedText: await extractText(Buffer.alloc(0), fileName, fileType, fileSize, meta, filePath),
+    extractedText,
   };
 }
 
@@ -489,7 +493,7 @@ async function saveSingle(req, res) {
   for (const field of ["grade", "subject", "semester", "unit", "title"]) {
     if (!meta[field]) return fail(res, 400, "ÙŠØ±Ø¬Ù‰ ØªØ¹Ø¨Ø¦Ø© Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø­Ù‚ÙˆÙ„ Ø§Ù„Ù…Ø·Ù„ÙˆØ¨Ø©", "invalid_payload");
   }
-  const upload = body.upload ? await receiveClientUpload(body.upload, meta) : await receiveUpload(req, meta);
+  const upload = body.upload ? await receiveClientUpload(body.upload, meta, { extractText: false }) : await receiveUpload(req, meta);
   const attachmentId = await insertAttachment(upload, `${meta.unit} - ${meta.title}`);
   await sql`
     INSERT INTO ai_lessons (grade, subject, semester, unit, title, attachment_id, attachment_ids, status, created_at)
@@ -517,7 +521,7 @@ async function saveMulti(req, res) {
       const upload = await receiveClientUpload(uploadPayload, {
         unit: "Ù…Ø±ÙÙ‚Ø§Øª Ù…Ø´ØªØ±ÙƒØ©",
         extractedText: units.map((unitItem) => String(unitItem?.extractedText || "").trim()).filter(Boolean).join("\n\n")
-      });
+      }, { extractText: false });
       const attachmentId = await insertAttachment(upload, "Ù…Ø±ÙÙ‚Ø§Øª Ù…Ø´ØªØ±ÙƒØ© Ù„ÙƒÙ„ Ø§Ù„ÙˆØ­Ø¯Ø§Øª");
       attachmentIds.push(attachmentId);
     }
@@ -545,7 +549,7 @@ async function saveMulti(req, res) {
   if (!meta.grade || !meta.subject || !meta.semester || !meta.unit || !titles.length) {
     return fail(res, 400, "ÙŠØ±Ø¬Ù‰ ØªØ¹Ø¨Ø¦Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ÙˆØ¥Ø¶Ø§ÙØ© Ø¯Ø±Ø³ ÙˆØ§Ø­Ø¯ Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„", "invalid_payload");
   }
-  const upload = body.upload ? await receiveClientUpload(body.upload, meta) : await receiveUpload(req, meta);
+  const upload = body.upload ? await receiveClientUpload(body.upload, meta, { extractText: false }) : await receiveUpload(req, meta);
   const attachmentId = await insertAttachment(upload, meta.unit);
   for (const title of titles) {
     await sql`

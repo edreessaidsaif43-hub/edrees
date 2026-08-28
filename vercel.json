@@ -30,6 +30,20 @@
       ]
     },
     {
+      "source": "/ai/index.html",
+      "headers": [
+        { "key": "Content-Type", "value": "text/html; charset=UTF-8" },
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
+      ]
+    },
+    {
+      "source": "/ai/admin.html",
+      "headers": [
+        { "key": "Content-Type", "value": "text/html; charset=UTF-8" },
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
+      ]
+    },
+    {
       "source": "/enjazy/admin",
       "headers": [
         { "key": "Content-Type", "value": "text/html; charset=UTF-8" },

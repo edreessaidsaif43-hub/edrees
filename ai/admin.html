@@ -1218,7 +1218,7 @@
             <button class="btn btn-outline" id="convert-single-file-btn" onclick="convertSingleFileToText()">📄 تحويل الملف إلى نص أولًا</button>
             <span id="single-convert-status" style="font-size:12px;color:var(--text-muted);font-weight:700;">لم يتم تحويل الملف بعد</span>
           </div>
-          <button class="btn btn-primary" onclick="saveSingleLesson()" style="min-width:180px;justify-content:center;">
+          <button class="btn btn-primary" id="save-single-lesson-btn" onclick="saveSingleLesson()" style="min-width:180px;justify-content:center;">
             💾 حفظ الدرس في قاعدة البيانات
           </button>
         </div>
@@ -1283,7 +1283,7 @@
             </button>
           </div>
 
-          <button class="btn btn-primary" onclick="saveMultiLessons()" style="min-width:200px;justify-content:center;">
+          <button class="btn btn-primary" id="save-multi-lessons-btn" onclick="saveMultiLessons()" style="min-width:200px;justify-content:center;">
             💾 حفظ جميع الدروس
           </button>
         </div>
@@ -1554,6 +1554,15 @@ async function uploadFileToBlob(file) {
     fileType: 'application/pdf',
     fileSize: file.size
   };
+}
+
+function setButtonBusy(btn, busy, text) {
+  if (!btn) return '';
+  const oldText = btn.dataset.originalText || btn.textContent;
+  if (!btn.dataset.originalText) btn.dataset.originalText = oldText;
+  btn.disabled = !!busy;
+  btn.textContent = busy ? text : oldText;
+  return oldText;
 }
 
 async function uploadLessonFile(path, meta, file) {
@@ -2431,6 +2440,7 @@ async function saveSingleLesson() {
   const title = document.getElementById('a-lesson-title').value.trim();
   const status = document.getElementById('a-status').value;
   const fileInput = document.getElementById('a-file');
+  const btn = document.getElementById('save-single-lesson-btn');
 
   if (!grade || !subject || !semester || !unit || !title) {
     showToast('يرجى تعبئة جميع الحقول المطلوبة', true); return;
@@ -2443,6 +2453,8 @@ async function saveSingleLesson() {
     return;
   }
 
+  setButtonBusy(btn, true, 'جاري حفظ الدرس...');
+  showToast('جاري حفظ الدرس في قاعدة البيانات...');
   try {
     await uploadLessonFile('/api/lessons/single', {
       grade, subject, semester, unit, title, status,
@@ -2463,12 +2475,15 @@ async function saveSingleLesson() {
     if (convertStatus) convertStatus.textContent = 'لم يتم تحويل الملف بعد';
     showToast('تم حفظ الدرس في قاعدة البيانات بنجاح!');
   } catch (err) {
-    showToast(err.message, true);
+    showToast(formatAdminRequestError(err), true);
+  } finally {
+    setButtonBusy(btn, false);
   }
 }
 
 // SAVE MULTI
 async function saveMultiLessons() {
+  const btn = document.getElementById('save-multi-lessons-btn');
   const grade = document.getElementById('m-grade').value;
   const subject = document.getElementById('m-subject').value;
   const semester = document.getElementById('m-semester').value;
@@ -2499,9 +2514,14 @@ async function saveMultiLessons() {
   const totalLessons = units.reduce((sum, item) => sum + item.titles.length, 0);
   const totalFiles = sharedFiles.length;
 
+  setButtonBusy(btn, true, 'جاري رفع المرفقات...');
+  showToast('جاري رفع المرفقات وحفظ الدروس، انتظر حتى تظهر رسالة النجاح.');
   try {
     const sharedUploads = [];
-    for (const file of sharedFiles) {
+    for (let index = 0; index < sharedFiles.length; index += 1) {
+      const file = sharedFiles[index];
+      setButtonBusy(btn, true, 'رفع المرفق ' + (index + 1) + '/' + totalFiles + '...');
+      showToast('جاري رفع المرفق ' + (index + 1) + ' من ' + totalFiles + ': ' + file.name);
       sharedUploads.push(await uploadFileToBlob(file));
     }
     const payloadUnits = units.map(item => ({
@@ -2510,15 +2530,14 @@ async function saveMultiLessons() {
       extractedText: item.extractedText
     }));
 
-    const response = await fetch(apiUrl('/api/lessons/multi'), {
+    setButtonBusy(btn, true, 'جاري حفظ الدروس...');
+    await apiRequest('/api/lessons/multi', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ meta: { grade, subject, semester, units: payloadUnits, uploads: sharedUploads } })
     });
-    let data = null;
-    try { data = await response.json(); } catch {}
-    if (!response.ok) throw new Error(data?.message || data?.error || 'تعذر حفظ الدروس');
 
+    setButtonBusy(btn, true, 'تحديث القائمة...');
     await loadDatabase();
     document.getElementById('m-grade').value = '';
     document.getElementById('m-subject').value = '';
@@ -2529,7 +2548,9 @@ async function saveMultiLessons() {
     resetMultiUnits();
     showToast(`تم حفظ ${totalLessons} درس مع ${totalFiles} مرفق مشترك بنجاح!`);
   } catch (err) {
-    showToast(err.message, true);
+    showToast(formatAdminRequestError(err), true);
+  } finally {
+    setButtonBusy(btn, false);
   }
 }
 
