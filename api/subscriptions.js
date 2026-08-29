@@ -450,7 +450,20 @@ async function getStatus(req, res) {
   const userId = String(req.query?.userId || "").trim();
   if (!userId) return send(res, 200, { activeGrades: [], pending: [], subscriptions: [], paymentNumber: PAYMENT_NUMBER });
   const rows = await sql`
-    SELECT * FROM teacher_subscriptions
+    SELECT
+      id,
+      user_id,
+      grade,
+      grades,
+      subjects,
+      status,
+      receipt_url,
+      receipt_file_name,
+      receipt_file_type,
+      admin_note,
+      created_at,
+      updated_at
+    FROM teacher_subscriptions
     WHERE user_id = ${userId}
     ORDER BY updated_at DESC, id DESC;
   `;
@@ -483,14 +496,26 @@ async function requestSubscription(req, res) {
     return fail(res, 400, "نوع الإيصال غير مدعوم. ارفع صورة PNG/JPG/WEBP أو PDF.", "invalid_file_type");
   }
   const existingRows = await sql`
-    SELECT * FROM teacher_subscriptions
+    SELECT
+      id,
+      user_id,
+      grade,
+      grades,
+      subjects,
+      status,
+      receipt_url,
+      receipt_file_name,
+      receipt_file_type,
+      admin_note,
+      created_at,
+      updated_at
+    FROM teacher_subscriptions
     WHERE user_id = ${userId}
     LIMIT 1;
   `;
   const existing = existingRows?.[0] || {};
   const existingGrades = subscriptionGrades(existing);
   const existingSubjects = subscriptionSubjects(existing);
-  const existingHistory = subscriptionHistory(existing);
   const reusableExistingSubjects = existingSubjects.filter((item) => isSubjectEntryActive(item));
   const keepLegacyGrades = existing.status === "active" && !existingSubjects.length;
   const activeExistingSubjects = reusableExistingSubjects;
@@ -511,30 +536,27 @@ async function requestSubscription(req, res) {
     contentType: receipt.contentType,
     addRandomSuffix: true,
   });
-  const nextHistory = [
-    {
-      grade: selectedGradeText,
-      grades: requestedGrades,
-      subjects: stampedSubjects,
-      allGrades: nextGrades,
-      allSubjects: nextSubjects,
-      amountOmr,
-      expiresAt: expiryDate,
-      receiptUrl: blob.url,
-      receiptFileName: receipt.fileName,
-      receiptFileType: receipt.contentType,
-      status: requestStatus,
-      product: fields.product || '',
-      operation: 'subscription_request',
-      createdAt: operationAt,
-    },
-    ...existingHistory,
-  ].slice(0, 50);
+  const nextHistoryEntry = {
+    grade: selectedGradeText,
+    grades: requestedGrades,
+    subjects: stampedSubjects,
+    allGrades: nextGrades,
+    allSubjects: nextSubjects,
+    amountOmr,
+    expiresAt: expiryDate,
+    receiptUrl: blob.url,
+    receiptFileName: receipt.fileName,
+    receiptFileType: receipt.contentType,
+    status: requestStatus,
+    product: fields.product || '',
+    operation: 'subscription_request',
+    createdAt: operationAt,
+  };
   const rows = await sql`
     INSERT INTO teacher_subscriptions (
       user_id, grade, grades, subjects, status, receipt_url, receipt_file_name, receipt_file_type, receipt_history, admin_note, created_at, updated_at
     ) VALUES (
-      ${userId}, ${gradeText}, ${JSON.stringify(nextGrades)}::jsonb, ${JSON.stringify(nextSubjects)}::jsonb, ${requestStatus}, ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, ${JSON.stringify(nextHistory)}::jsonb, '', NOW(), NOW()
+      ${userId}, ${gradeText}, ${JSON.stringify(nextGrades)}::jsonb, ${JSON.stringify(nextSubjects)}::jsonb, ${requestStatus}, ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, ${JSON.stringify([nextHistoryEntry])}::jsonb, '', NOW(), NOW()
     )
     ON CONFLICT (user_id)
     DO UPDATE SET
@@ -548,7 +570,19 @@ async function requestSubscription(req, res) {
       receipt_history = EXCLUDED.receipt_history,
       admin_note = '',
       updated_at = NOW()
-    RETURNING *;
+    RETURNING
+      id,
+      user_id,
+      grade,
+      grades,
+      subjects,
+      status,
+      receipt_url,
+      receipt_file_name,
+      receipt_file_type,
+      admin_note,
+      created_at,
+      updated_at;
   `;
   send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), amountOmr, message: (requestStatus === "pending" ? "تم إرسال الإيصال للمراجعة. المبلغ المطلوب: " : "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. المبلغ المطلوب: ") + amountOmr + " ريال عماني. ينتهي الاشتراك في " + expiryDate + "." });
 }
@@ -574,12 +608,6 @@ async function adminList(req, res) {
       s.admin_note,
       s.created_at,
       s.updated_at,
-      COALESCE((
-        SELECT jsonb_agg(history.value ORDER BY history.ord)
-        FROM jsonb_array_elements(COALESCE(s.receipt_history, '[]'::jsonb)) WITH ORDINALITY AS history(value, ord)
-        WHERE history.ord <= 10
-      ), '[]'::jsonb) AS receipt_history,
-      jsonb_array_length(COALESCE(s.receipt_history, '[]'::jsonb))::int AS receipt_history_count,
       jsonb_build_object(
         'name', COALESCE(u.profile->>'name', ''),
         'contact', COALESCE(u.profile->>'contact', '')
@@ -590,14 +618,12 @@ async function adminList(req, res) {
     LIMIT ${fetchLimit} OFFSET ${offset};
   `;
   const pageRows = (rows || []).slice(0, limit);
-  const subscriptions = pageRows.map((row) => {
-    const subscription = rowToSubscription(row);
-    return {
-      ...subscription,
-      receiptHistoryCount: row.receipt_history_count || 0,
-      profile: row.profile || {},
-    };
-  });
+  const subscriptions = pageRows.map((row) => ({
+    ...rowToSubscription(row),
+    receiptHistory: [],
+    receiptHistoryCount: 0,
+    profile: row.profile || {},
+  }));
   send(res, 200, {
     subscriptions,
     limit,
@@ -618,7 +644,8 @@ async function adminUpdate(req, res) {
   const allowed = new Set(["pending", "active", "rejected", "stopped"]);
   if (!id || !allowed.has(status)) return fail(res, 400, "بيانات تحديث الاشتراك غير صحيحة.", "invalid_payload");
   const existingRows = await sql`
-    SELECT * FROM teacher_subscriptions
+    SELECT id, subjects
+    FROM teacher_subscriptions
     WHERE id = ${id}
     LIMIT 1;
   `;
@@ -628,7 +655,19 @@ async function adminUpdate(req, res) {
     UPDATE teacher_subscriptions
     SET status = ${status}, subjects = ${JSON.stringify(updatedSubjects)}::jsonb, admin_note = ${note}, updated_at = NOW()
     WHERE id = ${id}
-    RETURNING *;
+    RETURNING
+      id,
+      user_id,
+      grade,
+      grades,
+      subjects,
+      status,
+      receipt_url,
+      receipt_file_name,
+      receipt_file_type,
+      admin_note,
+      created_at,
+      updated_at;
   `;
   send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]) });
 }
