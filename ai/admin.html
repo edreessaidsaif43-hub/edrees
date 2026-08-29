@@ -1297,7 +1297,6 @@
           <h3 style="font-size:16px;font-weight:700;color:var(--primary);">📋 جميع الدروس المضافة</h3>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <input type="text" id="search-lessons" placeholder="🔍 بحث عن درس..." onkeyup="filterLessons()" style="min-width:220px;background-image:none !important;">
-            <button class="btn btn-outline btn-sm" id="delete-selected-lessons-btn" onclick="deleteSelectedLessons()" disabled>🗑️ حذف المحدد</button>
             <button class="btn btn-outline btn-sm" onclick="exportData()">⬇️ تصدير</button>
           </div>
         </div>
@@ -1315,7 +1314,6 @@
           <table>
             <thead>
               <tr>
-                <th><input type="checkbox" id="select-all-lessons" onchange="toggleAllLessonSelection(this)"></th>
                 <th>#</th>
                 <th>الصف</th>
                 <th>المادة</th>
@@ -1530,6 +1528,40 @@ const teacherPlaceholders = {
   't-unit': '— اختر الوحدة —',
   't-lesson': '— اختر الدرس —'
 };
+const ADDITIONAL_AI_SUBJECTS = [
+  'الفنون البصرية',
+  'الهوية والمواطنة',
+  'الفنون الموسيقية',
+  'الرياضيات الاساسية',
+  'الرياضيات المتقدمة'
+];
+
+function uniqueSubjectValues(values = []) {
+  const seen = new Set();
+  const list = [];
+  [...values, ...ADDITIONAL_AI_SUBJECTS].forEach((value) => {
+    const text = String(value || '').trim();
+    if (!text || seen.has(text)) return;
+    seen.add(text);
+    list.push(text);
+  });
+  return list;
+}
+
+function ensureStaticSubjectOptions(ids = []) {
+  ids.forEach((id) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const existing = new Set(Array.from(select.options).map(option => option.value || option.textContent));
+    ADDITIONAL_AI_SUBJECTS.forEach((subject) => {
+      if (existing.has(subject)) return;
+      const option = document.createElement('option');
+      option.value = subject;
+      option.textContent = subject;
+      select.appendChild(option);
+    });
+  });
+}
 
 function apiUrl(path, params = {}) {
   const query = new URLSearchParams({ path, ...params }).toString();
@@ -1764,7 +1796,7 @@ function populateTeacherFilters(changedId = '') {
 
   const byGrade = all.filter(l => !grade || l.grade === grade);
   if (!changedId || changedId === 't-grade' || changedId === 't-subject') {
-    subject = setSelectOptions('t-subject', uniqueValues(byGrade, 'subject'), subject);
+    subject = setSelectOptions('t-subject', uniqueSubjectValues(uniqueValues(byGrade, 'subject')), subject);
   }
 
   const bySubject = byGrade.filter(l => !subject || l.subject === subject);
@@ -2894,7 +2926,6 @@ function renderTable() {
   if (filtered.length === 0) {
     tbody.innerHTML = '';
     document.getElementById('no-lessons').style.display = 'block';
-    updateBulkDeleteButton();
     return;
   }
   document.getElementById('no-lessons').style.display = 'none';
@@ -2902,7 +2933,6 @@ function renderTable() {
   tbody.innerHTML = filtered.map((l, i) => {
     const lessonFiles = getLessonTableAttachments(l);
     return `<tr>
-      <td><input type="checkbox" class="lesson-select" data-id="${Number(l.id)}" onchange="updateBulkDeleteButton()"></td>
       <td style="color:var(--text-muted);font-weight:600">${i+1}</td>
       <td>${escapeHtml(l.grade)}</td>
       <td>${escapeHtml(l.subject)}</td>
@@ -2924,38 +2954,9 @@ function renderTable() {
       </td>
     </tr>`;
   }).join('');
-  updateBulkDeleteButton();
 }
 
 function filterLessons() { renderTable(); }
-
-function selectedLessonIds() {
-  return Array.from(document.querySelectorAll('.lesson-select:checked'))
-    .map(input => Number(input.dataset.id || 0))
-    .filter(Boolean);
-}
-
-function updateBulkDeleteButton() {
-  const ids = selectedLessonIds();
-  const btn = document.getElementById('delete-selected-lessons-btn');
-  const selectAll = document.getElementById('select-all-lessons');
-  const boxes = Array.from(document.querySelectorAll('.lesson-select'));
-  if (btn) {
-    btn.disabled = ids.length === 0;
-    btn.textContent = ids.length ? '🗑️ حذف المحدد (' + ids.length + ')' : '🗑️ حذف المحدد';
-  }
-  if (selectAll) {
-    selectAll.checked = boxes.length > 0 && ids.length === boxes.length;
-    selectAll.indeterminate = ids.length > 0 && ids.length < boxes.length;
-  }
-}
-
-function toggleAllLessonSelection(input) {
-  document.querySelectorAll('.lesson-select').forEach(box => {
-    box.checked = input.checked;
-  });
-  updateBulkDeleteButton();
-}
 
 document.addEventListener('click', (event) => {
   const extractBtn = event.target.closest('.js-extract-lesson-text');
@@ -3103,33 +3104,6 @@ async function deleteLesson(id) {
   }
 }
 
-async function deleteSelectedLessons() {
-  const ids = selectedLessonIds();
-  if (!ids.length) {
-    showToast('حدد درسًا واحدًا على الأقل للحذف', true);
-    return;
-  }
-  if (!confirm('سيتم حذف ' + ids.length + ' درس. هل تريد المتابعة؟')) return;
-  const btn = document.getElementById('delete-selected-lessons-btn');
-  setButtonBusy(btn, true, 'جاري الحذف...');
-  let deleted = 0;
-  try {
-    for (const id of ids) {
-      await apiRequest('/api/lessons/' + id, { method: 'DELETE' });
-      deleted += 1;
-      if (btn) btn.textContent = 'جاري الحذف ' + deleted + '/' + ids.length;
-    }
-    await loadDatabase();
-    showToast('تم حذف ' + deleted + ' درس');
-  } catch (err) {
-    await loadDatabase().catch(() => {});
-    showToast('تم حذف ' + deleted + ' درس، ثم حدث خطأ: ' + (err.message || err), true);
-  } finally {
-    setButtonBusy(btn, false);
-    updateBulkDeleteButton();
-  }
-}
-
 function updateStats() {
   const convertedCount = attachments.filter(hasUsableAttachmentText).length;
   document.getElementById('stat-lessons').textContent = lessons.length;
@@ -3182,6 +3156,7 @@ function loadDemoData() {
   }
 }
 
+ensureStaticSubjectOptions(['a-subject', 'm-subject', 't-subject']);
 updateStats();
 populateTeacherFilters();
 loadAiSettings();

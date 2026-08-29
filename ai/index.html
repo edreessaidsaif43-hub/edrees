@@ -1988,6 +1988,40 @@ const teacherPlaceholders = {
   't-unit': '— اختر الوحدة —',
   't-lesson': '— اختر الدرس —'
 };
+const ADDITIONAL_AI_SUBJECTS = [
+  'الفنون البصرية',
+  'الهوية والمواطنة',
+  'الفنون الموسيقية',
+  'الرياضيات الاساسية',
+  'الرياضيات المتقدمة'
+];
+
+function uniqueSubjectValues(values = []) {
+  const seen = new Set();
+  const list = [];
+  [...values, ...ADDITIONAL_AI_SUBJECTS].forEach((value) => {
+    const text = String(value || '').trim();
+    if (!text || seen.has(text)) return;
+    seen.add(text);
+    list.push(text);
+  });
+  return list;
+}
+
+function ensureStaticSubjectOptions(ids = []) {
+  ids.forEach((id) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const existing = new Set(Array.from(select.options).map(option => option.value || option.textContent));
+    ADDITIONAL_AI_SUBJECTS.forEach((subject) => {
+      if (existing.has(subject)) return;
+      const option = document.createElement('option');
+      option.value = subject;
+      option.textContent = subject;
+      select.appendChild(option);
+    });
+  });
+}
 
 function apiUrl(path, params = {}) {
   const query = new URLSearchParams({ path, ...params }).toString();
@@ -2160,7 +2194,7 @@ function populateTeacherFilters(changedId = '') {
 
   const byGrade = all.filter(l => !grade || l.grade === grade);
   if (!changedId || changedId === 't-grade' || changedId === 't-subject') {
-    subject = setSelectOptions('t-subject', uniqueValues(byGrade, 'subject'), subject);
+    subject = setSelectOptions('t-subject', uniqueSubjectValues(uniqueValues(byGrade, 'subject')), subject);
   }
 
   const bySubject = byGrade.filter(l => !subject || l.subject === subject);
@@ -2878,6 +2912,7 @@ function loadDemoData() {
   }
 }
 
+ensureStaticSubjectOptions(['t-subject']);
 populateTeacherFilters();
 loadAiSettings();
 updateUnifiedAuthUI();
