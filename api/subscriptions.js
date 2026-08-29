@@ -18,6 +18,7 @@ const MAX_RECEIPT_SIZE = 12 * 1024 * 1024;
 const PAYMENT_NUMBER = "91470590";
 const ADMIN_LIST_DEFAULT_LIMIT = 25;
 const ADMIN_LIST_MAX_LIMIT = 50;
+const RUN_SCHEMA_MIGRATIONS = process.env.RUN_SUBSCRIPTION_SCHEMA_MIGRATIONS === "1";
 
 function sqlClient() {
   if (!DATABASE_URL) return null;
@@ -66,26 +67,28 @@ async function ensureSchema() {
         ALTER TABLE teacher_subscriptions
         ADD COLUMN IF NOT EXISTS receipt_history JSONB NOT NULL DEFAULT '[]'::jsonb;
       `;
-      await sql`
-        UPDATE teacher_subscriptions
-        SET grades = jsonb_build_array(grade)
-        WHERE (grades IS NULL OR grades = '[]'::jsonb)
-          AND COALESCE(grade, '') <> '';
-      `;
-      await sql`
-        UPDATE teacher_subscriptions
-        SET receipt_history = jsonb_build_array(jsonb_build_object(
-          'grade', grade,
-          'grades', grades,
-          'receiptUrl', receipt_url,
-          'receiptFileName', receipt_file_name,
-          'receiptFileType', receipt_file_type,
-          'status', status,
-          'createdAt', updated_at
-        ))
-        WHERE (receipt_history IS NULL OR receipt_history = '[]'::jsonb)
-          AND COALESCE(receipt_url, '') <> '';
-      `;
+      if (RUN_SCHEMA_MIGRATIONS) {
+        await sql`
+          UPDATE teacher_subscriptions
+          SET grades = jsonb_build_array(grade)
+          WHERE (grades IS NULL OR grades = '[]'::jsonb)
+            AND COALESCE(grade, '') <> '';
+        `;
+        await sql`
+          UPDATE teacher_subscriptions
+          SET receipt_history = jsonb_build_array(jsonb_build_object(
+            'grade', grade,
+            'grades', grades,
+            'receiptUrl', receipt_url,
+            'receiptFileName', receipt_file_name,
+            'receiptFileType', receipt_file_type,
+            'status', status,
+            'createdAt', updated_at
+          ))
+          WHERE (receipt_history IS NULL OR receipt_history = '[]'::jsonb)
+            AND COALESCE(receipt_url, '') <> '';
+        `;
+      }
       await sql`
         CREATE INDEX IF NOT EXISTS idx_teacher_subscriptions_user_status
         ON teacher_subscriptions (user_id, status, updated_at DESC);
@@ -94,40 +97,42 @@ async function ensureSchema() {
         CREATE INDEX IF NOT EXISTS idx_teacher_subscriptions_updated_at
         ON teacher_subscriptions (updated_at DESC, id DESC);
       `;
-      await sql`
-        WITH flattened_subscription_grades AS (
-          SELECT user_id, jsonb_array_elements_text(COALESCE(grades, '[]'::jsonb)) AS grade_name
-          FROM teacher_subscriptions
-          UNION ALL
-          SELECT user_id, grade AS grade_name
-          FROM teacher_subscriptions
-          WHERE COALESCE(grade, '') <> ''
-        ), merged_subscription_grades AS (
-          SELECT
-            user_id,
-            jsonb_agg(DISTINCT grade_name) FILTER (WHERE COALESCE(grade_name, '') <> '') AS grades,
-            string_agg(DISTINCT grade_name, '، ') FILTER (WHERE COALESCE(grade_name, '') <> '') AS grade_text
-          FROM flattened_subscription_grades
-          GROUP BY user_id
-        ), keepers AS (
-          SELECT user_id, MAX(id) AS keep_id
-          FROM teacher_subscriptions
-          GROUP BY user_id
-        )
-        UPDATE teacher_subscriptions target
-        SET
-          grades = COALESCE(merged_subscription_grades.grades, '[]'::jsonb),
-          grade = COALESCE(merged_subscription_grades.grade_text, target.grade)
-        FROM merged_subscription_grades, keepers
-        WHERE target.id = keepers.keep_id
-          AND keepers.user_id = merged_subscription_grades.user_id;
-      `;
-      await sql`
-        DELETE FROM teacher_subscriptions a
-        USING teacher_subscriptions b
-        WHERE a.user_id = b.user_id
-          AND a.id < b.id;
-      `;
+      if (RUN_SCHEMA_MIGRATIONS) {
+        await sql`
+          WITH flattened_subscription_grades AS (
+            SELECT user_id, jsonb_array_elements_text(COALESCE(grades, '[]'::jsonb)) AS grade_name
+            FROM teacher_subscriptions
+            UNION ALL
+            SELECT user_id, grade AS grade_name
+            FROM teacher_subscriptions
+            WHERE COALESCE(grade, '') <> ''
+          ), merged_subscription_grades AS (
+            SELECT
+              user_id,
+              jsonb_agg(DISTINCT grade_name) FILTER (WHERE COALESCE(grade_name, '') <> '') AS grades,
+              string_agg(DISTINCT grade_name, '، ') FILTER (WHERE COALESCE(grade_name, '') <> '') AS grade_text
+            FROM flattened_subscription_grades
+            GROUP BY user_id
+          ), keepers AS (
+            SELECT user_id, MAX(id) AS keep_id
+            FROM teacher_subscriptions
+            GROUP BY user_id
+          )
+          UPDATE teacher_subscriptions target
+          SET
+            grades = COALESCE(merged_subscription_grades.grades, '[]'::jsonb),
+            grade = COALESCE(merged_subscription_grades.grade_text, target.grade)
+          FROM merged_subscription_grades, keepers
+          WHERE target.id = keepers.keep_id
+            AND keepers.user_id = merged_subscription_grades.user_id;
+        `;
+        await sql`
+          DELETE FROM teacher_subscriptions a
+          USING teacher_subscriptions b
+          WHERE a.user_id = b.user_id
+            AND a.id < b.id;
+        `;
+      }
       await sql`
         CREATE UNIQUE INDEX IF NOT EXISTS uniq_teacher_subscriptions_user_id
         ON teacher_subscriptions (user_id);
@@ -138,12 +143,12 @@ async function ensureSchema() {
   return true;
 }
 
-async function dbReady(res) {
+async function dbReady(res, ensure = true) {
   if (!sql) {
     fail(res, 500, "قاعدة البيانات غير مفعلة. أضف DATABASE_URL أو POSTGRES_URL في Vercel.", "db_not_configured");
     return false;
   }
-  await ensureSchema();
+  if (ensure) await ensureSchema();
   return true;
 }
 
@@ -549,44 +554,61 @@ async function requestSubscription(req, res) {
 }
 
 async function adminList(req, res) {
-  if (!(await dbReady(res))) return;
+  if (!(await dbReady(res, false))) return;
   const auth = requireAdmin(req);
   if (!auth.ok) return send(res, auth.status, { error: auth.error, message: auth.message });
   const limit = boundedInt(req.query?.limit, ADMIN_LIST_DEFAULT_LIMIT, 1, ADMIN_LIST_MAX_LIMIT);
   const offset = boundedInt(req.query?.offset, 0, 0, 1000000);
-  const countRows = await sql`
-    SELECT COUNT(*)::int AS total
-    FROM teacher_subscriptions;
-  `;
+  const fetchLimit = limit + 1;
   const rows = await sql`
-    SELECT s.*, u.profile
+    SELECT
+      s.id,
+      s.user_id,
+      s.grade,
+      s.grades,
+      s.subjects,
+      s.status,
+      s.receipt_url,
+      s.receipt_file_name,
+      s.receipt_file_type,
+      s.admin_note,
+      s.created_at,
+      s.updated_at,
+      COALESCE((
+        SELECT jsonb_agg(history.value ORDER BY history.ord)
+        FROM jsonb_array_elements(COALESCE(s.receipt_history, '[]'::jsonb)) WITH ORDINALITY AS history(value, ord)
+        WHERE history.ord <= 10
+      ), '[]'::jsonb) AS receipt_history,
+      jsonb_array_length(COALESCE(s.receipt_history, '[]'::jsonb))::int AS receipt_history_count,
+      jsonb_build_object(
+        'name', COALESCE(u.profile->>'name', ''),
+        'contact', COALESCE(u.profile->>'contact', '')
+      ) AS profile
     FROM teacher_subscriptions s
     LEFT JOIN teacher_users u ON u.id = s.user_id
     ORDER BY s.updated_at DESC, s.id DESC
-    LIMIT ${limit} OFFSET ${offset};
+    LIMIT ${fetchLimit} OFFSET ${offset};
   `;
-  const subscriptions = (rows || []).map((row) => {
+  const pageRows = (rows || []).slice(0, limit);
+  const subscriptions = pageRows.map((row) => {
     const subscription = rowToSubscription(row);
-    const receiptHistory = Array.isArray(subscription.receiptHistory) ? subscription.receiptHistory : [];
     return {
       ...subscription,
-      receiptHistory: receiptHistory.slice(0, 10),
-      receiptHistoryCount: receiptHistory.length,
+      receiptHistoryCount: row.receipt_history_count || 0,
       profile: row.profile || {},
     };
   });
   send(res, 200, {
     subscriptions,
-    total: countRows?.[0]?.total || 0,
     limit,
     offset,
-    hasMore: offset + subscriptions.length < (countRows?.[0]?.total || 0),
+    hasMore: (rows || []).length > limit,
     paymentNumber: PAYMENT_NUMBER,
   });
 }
 
 async function adminUpdate(req, res) {
-  if (!(await dbReady(res))) return;
+  if (!(await dbReady(res, false))) return;
   const auth = requireAdmin(req);
   if (!auth.ok) return send(res, auth.status, { error: auth.error, message: auth.message });
   const body = await readJsonBody(req);

@@ -44,6 +44,20 @@
       ]
     },
     {
+      "source": "/subscriptions-admin.html",
+      "headers": [
+        { "key": "Content-Type", "value": "text/html; charset=UTF-8" },
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
+      ]
+    },
+    {
+      "source": "/subscriptions-admin",
+      "headers": [
+        { "key": "Content-Type", "value": "text/html; charset=UTF-8" },
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
+      ]
+    },
+    {
       "source": "/enjazy/admin",
       "headers": [
         { "key": "Content-Type", "value": "text/html; charset=UTF-8" },
@@ -59,6 +73,7 @@
     { "source": "/enjazy/auth", "destination": "/enjazy/auth.html" },
     { "source": "/enjazy/admin", "destination": "/enjazy/admin.html" },
     { "source": "/enjazy/admin-v2", "destination": "/enjazy/admin-v2.html" },
+    { "source": "/subscriptions-admin", "destination": "/subscriptions-admin.html" },
     { "source": "/t", "destination": "/t.html" },
     { "source": "/m", "destination": "/m.html" },
     { "source": "/mash", "destination": "/mash/index.html" },

@@ -138,11 +138,14 @@ function renderOperations(item){
   }).join('') + '</details>';
 }
 
-function renderPager(total, page, limit, count){
-  const totalPages = Math.max(1, Math.ceil(total / limit));
-  const start = total ? ((page - 1) * limit) + 1 : 0;
-  const end = total ? start + count - 1 : 0;
-  return '<div class="pager"><div>عرض ' + start + ' - ' + end + ' من ' + total + '</div><div class="pager-actions"><button class="btn-muted" onclick="loadSubscriptions(' + (page - 1) + ')" ' + (page <= 1 ? 'disabled' : '') + '>السابق</button><span>صفحة ' + page + ' / ' + totalPages + '</span><button class="btn-muted" onclick="loadSubscriptions(' + (page + 1) + ')" ' + (page >= totalPages ? 'disabled' : '') + '>التالي</button></div></div>';
+function renderPager(total, page, limit, count, hasMore){
+  const hasTotal = Number.isFinite(total);
+  const totalPages = hasTotal ? Math.max(1, Math.ceil(total / limit)) : null;
+  const start = count ? ((page - 1) * limit) + 1 : 0;
+  const end = count ? start + count - 1 : 0;
+  const rangeText = hasTotal ? 'عرض ' + start + ' - ' + end + ' من ' + total : 'عرض ' + start + ' - ' + end;
+  const pageText = hasTotal ? 'صفحة ' + page + ' / ' + totalPages : 'صفحة ' + page;
+  return '<div class="pager"><div>' + rangeText + '</div><div class="pager-actions"><button class="btn-muted" onclick="loadSubscriptions(' + (page - 1) + ')" ' + (page <= 1 ? 'disabled' : '') + '>السابق</button><span>' + pageText + '</span><button class="btn-muted" onclick="loadSubscriptions(' + (page + 1) + ')" ' + (!hasMore ? 'disabled' : '') + '>التالي</button></div></div>';
 }
 
 async function loginAdmin(){
@@ -165,7 +168,8 @@ async function loadSubscriptions(page = adminPage){
     const rawItems = Array.isArray(data.subscriptions) ? data.subscriptions : [];
     const serverPaged = data.total !== undefined || data.limit !== undefined || data.offset !== undefined;
     const items = serverPaged ? rawItems : rawItems.slice(offset, offset + ADMIN_PAGE_SIZE);
-    const total = Number(data.total || rawItems.length);
+    const total = data.total !== undefined && data.total !== null ? Number(data.total) : (serverPaged ? NaN : rawItems.length);
+    const hasMore = serverPaged ? !!data.hasMore : offset + items.length < rawItems.length;
     const limit = Number(data.limit || ADMIN_PAGE_SIZE);
     if(adminPage > 1 && !items.length){ return loadSubscriptions(adminPage - 1); }
     if(!items.length){ list.innerHTML = '<div class="empty">لا توجد إيصالات حتى الآن.</div>'; return; }
@@ -180,7 +184,7 @@ async function loadSubscriptions(page = adminPage){
         '<td data-label="ملاحظة وإجراءات"><textarea class="note" id="note-' + item.id + '" placeholder="ملاحظة إدارية اختيارية">' + esc(item.adminNote || '') + '</textarea><div class="actions"><button class="btn-ok" onclick="updateSub(' + item.id + ', \'active\')">تفعيل</button><button class="btn-danger" onclick="updateSub(' + item.id + ', \'stopped\')">إيقاف</button><button class="btn-muted" onclick="updateSub(' + item.id + ', \'rejected\')">رفض</button></div></td>' +
       '</tr>';
     }).join('') + '</tbody></table></div>';
-    const pager = renderPager(total, adminPage, limit, items.length);
+    const pager = renderPager(total, adminPage, limit, items.length, hasMore);
     list.innerHTML = pager + table + pager;
   }catch(e){ list.innerHTML = '<div class="empty">'+esc(e.message)+'</div>'; }
 }
