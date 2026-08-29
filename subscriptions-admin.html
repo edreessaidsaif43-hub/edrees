@@ -35,12 +35,14 @@
     .receipt-link{display:block;color:inherit;text-decoration:none}
     .receipt-preview{width:180px;height:130px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;overflow:hidden;display:flex;align-items:center;justify-content:center}
     .receipt-preview img{width:100%;height:100%;object-fit:contain;background:#fff}
-    .receipt-preview iframe{width:100%;height:100%;border:0;background:#fff;pointer-events:none}
     .file-preview{padding:12px;text-align:center;color:#334155;font-weight:900}
     .file-name{display:block;width:180px;margin-top:6px;color:#1a56a0;font-size:12px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .note{width:220px;min-width:220px;min-height:58px;resize:vertical}
     .actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
     .actions button{padding:8px 10px;font-size:12px}
+    .pager{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;color:#475569;font-size:13px;font-weight:800}
+    .pager-actions{display:flex;gap:8px;align-items:center}
+    .pager button:disabled{background:#cbd5e1;cursor:not-allowed}
     details{margin-top:8px;color:#475569}
     summary{cursor:pointer;font-weight:900;color:#334155}
     .op{padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;margin-top:6px;font-size:12px;line-height:1.7}
@@ -94,6 +96,8 @@
 
 <script>
 let adminPassword = '';
+let adminPage = 1;
+const ADMIN_PAGE_SIZE = 25;
 
 function api(path){ return (location.protocol === 'file:' ? 'https://altahdir.app' : '') + path; }
 function esc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -115,27 +119,30 @@ function receiptPreview(item){
   if(!item.receiptUrl) return '<div class="meta">لا يوجد إيصال</div>';
   const url = esc(item.receiptUrl);
   const name = esc(item.receiptFileName || 'receipt');
-  let preview = '';
-  if(isImageReceipt(item)){
-    preview = '<div class="receipt-preview"><img src="' + url + '" alt="إيصال الاشتراك" loading="lazy"></div>';
-  } else if(isPdfReceipt(item)){
-    preview = '<div class="receipt-preview"><iframe src="' + url + '#toolbar=0&navpanes=0" title="معاينة PDF"></iframe></div>';
-  } else {
-    preview = '<div class="receipt-preview"><div class="file-preview">ملف إيصال<br>اضغط للفتح</div></div>';
-  }
+  const label = isPdfReceipt(item) ? 'ملف PDF' : (isImageReceipt(item) ? 'صورة إيصال' : 'ملف إيصال');
+  const preview = '<div class="receipt-preview"><div class="file-preview">' + label + '<br>اضغط للفتح</div></div>';
   return '<a class="receipt-link" href="' + url + '" target="_blank" rel="noopener" title="فتح الإيصال">' + preview + '<span class="file-name">' + name + '</span></a>';
 }
 
 function renderOperations(item){
   const ops = Array.isArray(item.receiptHistory) ? item.receiptHistory : [];
   if(!ops.length) return '';
-  return '<details><summary>كل عمليات المستخدم (' + ops.length + ')</summary>' + ops.map((op, idx) => {
+  const total = Number(item.receiptHistoryCount || ops.length);
+  const note = total > ops.length ? '<div class="meta">يعرض أحدث ' + ops.length + ' عمليات من أصل ' + total + '.</div>' : '';
+  return '<details><summary>عمليات المستخدم (' + total + ')</summary>' + note + ops.map((op, idx) => {
     const subjects = Array.isArray(op.subjects) && op.subjects.length
       ? op.subjects.map(s => esc((s.grade || '') + ' - ' + (s.subject || ''))).join('، ')
       : esc(op.grade || '');
     const link = op.receiptUrl ? '<br><a href="' + esc(op.receiptUrl) + '" target="_blank" rel="noopener">فتح إيصال العملية: ' + esc(op.receiptFileName || 'receipt') + '</a>' : '';
     return '<div class="op"><strong>' + (idx + 1) + '. ' + subjects + '</strong><br>التاريخ: ' + esc(formatDate(op.createdAt)) + '<br>المبلغ: ' + esc(op.amountOmr || 1) + ' ريال عماني' + link + '</div>';
   }).join('') + '</details>';
+}
+
+function renderPager(total, page, limit, count){
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const start = total ? ((page - 1) * limit) + 1 : 0;
+  const end = total ? start + count - 1 : 0;
+  return '<div class="pager"><div>عرض ' + start + ' - ' + end + ' من ' + total + '</div><div class="pager-actions"><button class="btn-muted" onclick="loadSubscriptions(' + (page - 1) + ')" ' + (page <= 1 ? 'disabled' : '') + '>السابق</button><span>صفحة ' + page + ' / ' + totalPages + '</span><button class="btn-muted" onclick="loadSubscriptions(' + (page + 1) + ')" ' + (page >= totalPages ? 'disabled' : '') + '>التالي</button></div></div>';
 }
 
 async function loginAdmin(){
@@ -146,16 +153,23 @@ async function loginAdmin(){
   await loadSubscriptions();
 }
 
-async function loadSubscriptions(){
+async function loadSubscriptions(page = adminPage){
+  adminPage = Math.max(1, Number(page) || 1);
+  const offset = (adminPage - 1) * ADMIN_PAGE_SIZE;
   const list = document.getElementById('list');
   list.innerHTML = '<div class="empty">جاري التحميل...</div>';
   try{
-    const res = await fetch(api('/api/subscriptions?action=admin_list'), { headers: { 'x-admin-password': adminPassword } });
+    const res = await fetch(api('/api/subscriptions?action=admin_list&limit=' + ADMIN_PAGE_SIZE + '&offset=' + offset), { headers: { 'x-admin-password': adminPassword } });
     const data = await res.json().catch(() => ({}));
     if(!res.ok) throw new Error(data.message || 'تعذر تحميل الاشتراكات.');
-    const items = data.subscriptions || [];
+    const rawItems = Array.isArray(data.subscriptions) ? data.subscriptions : [];
+    const serverPaged = data.total !== undefined || data.limit !== undefined || data.offset !== undefined;
+    const items = serverPaged ? rawItems : rawItems.slice(offset, offset + ADMIN_PAGE_SIZE);
+    const total = Number(data.total || rawItems.length);
+    const limit = Number(data.limit || ADMIN_PAGE_SIZE);
+    if(adminPage > 1 && !items.length){ return loadSubscriptions(adminPage - 1); }
     if(!items.length){ list.innerHTML = '<div class="empty">لا توجد إيصالات حتى الآن.</div>'; return; }
-    list.innerHTML = '<div class="table-wrap"><table><thead><tr><th>المستخدم</th><th>الاشتراك</th><th>الحالة</th><th>الإيصال</th><th>آخر تحديث</th><th>ملاحظة وإجراءات</th></tr></thead><tbody>' + items.map(item => {
+    const table = '<div class="table-wrap"><table><thead><tr><th>المستخدم</th><th>الاشتراك</th><th>الحالة</th><th>الإيصال</th><th>آخر تحديث</th><th>ملاحظة وإجراءات</th></tr></thead><tbody>' + items.map(item => {
       const p = item.profile || {};
       return '<tr>' +
         '<td data-label="المستخدم"><div class="name">' + esc(p.name || item.userId) + '</div><div class="meta">ID: ' + esc(item.userId) + '<br>التواصل: ' + esc(p.contact || '') + '</div></td>' +
@@ -166,6 +180,8 @@ async function loadSubscriptions(){
         '<td data-label="ملاحظة وإجراءات"><textarea class="note" id="note-' + item.id + '" placeholder="ملاحظة إدارية اختيارية">' + esc(item.adminNote || '') + '</textarea><div class="actions"><button class="btn-ok" onclick="updateSub(' + item.id + ', \'active\')">تفعيل</button><button class="btn-danger" onclick="updateSub(' + item.id + ', \'stopped\')">إيقاف</button><button class="btn-muted" onclick="updateSub(' + item.id + ', \'rejected\')">رفض</button></div></td>' +
       '</tr>';
     }).join('') + '</tbody></table></div>';
+    const pager = renderPager(total, adminPage, limit, items.length);
+    list.innerHTML = pager + table + pager;
   }catch(e){ list.innerHTML = '<div class="empty">'+esc(e.message)+'</div>'; }
 }
 
@@ -178,7 +194,7 @@ async function updateSub(id,status){
   });
   const data = await res.json().catch(() => ({}));
   if(!res.ok){ alert(data.message || 'تعذر تحديث الاشتراك.'); return; }
-  await loadSubscriptions();
+  await loadSubscriptions(adminPage);
 }
 </script>
 </body>

@@ -16,6 +16,8 @@ const DATABASE_URL =
   "";
 const MAX_RECEIPT_SIZE = 12 * 1024 * 1024;
 const PAYMENT_NUMBER = "91470590";
+const ADMIN_LIST_DEFAULT_LIMIT = 25;
+const ADMIN_LIST_MAX_LIMIT = 50;
 
 function sqlClient() {
   if (!DATABASE_URL) return null;
@@ -27,6 +29,11 @@ let schemaPromise = null;
 
 function send(res, status, payload) { res.status(status).json(payload); }
 function fail(res, status, message, error = "request_failed") { send(res, status, { error, message }); }
+function boundedInt(value, fallback, min, max) {
+  const number = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, number));
+}
 
 async function ensureSchema() {
   if (!sql) return false;
@@ -545,14 +552,37 @@ async function adminList(req, res) {
   if (!(await dbReady(res))) return;
   const auth = requireAdmin(req);
   if (!auth.ok) return send(res, auth.status, { error: auth.error, message: auth.message });
+  const limit = boundedInt(req.query?.limit, ADMIN_LIST_DEFAULT_LIMIT, 1, ADMIN_LIST_MAX_LIMIT);
+  const offset = boundedInt(req.query?.offset, 0, 0, 1000000);
+  const countRows = await sql`
+    SELECT COUNT(*)::int AS total
+    FROM teacher_subscriptions;
+  `;
   const rows = await sql`
     SELECT s.*, u.profile
     FROM teacher_subscriptions s
     LEFT JOIN teacher_users u ON u.id = s.user_id
-    ORDER BY s.updated_at DESC, s.id DESC;
+    ORDER BY s.updated_at DESC, s.id DESC
+    LIMIT ${limit} OFFSET ${offset};
   `;
-  const subscriptions = (rows || []).map((row) => ({ ...rowToSubscription(row), profile: row.profile || {} }));
-  send(res, 200, { subscriptions, paymentNumber: PAYMENT_NUMBER });
+  const subscriptions = (rows || []).map((row) => {
+    const subscription = rowToSubscription(row);
+    const receiptHistory = Array.isArray(subscription.receiptHistory) ? subscription.receiptHistory : [];
+    return {
+      ...subscription,
+      receiptHistory: receiptHistory.slice(0, 10),
+      receiptHistoryCount: receiptHistory.length,
+      profile: row.profile || {},
+    };
+  });
+  send(res, 200, {
+    subscriptions,
+    total: countRows?.[0]?.total || 0,
+    limit,
+    offset,
+    hasMore: offset + subscriptions.length < (countRows?.[0]?.total || 0),
+    paymentNumber: PAYMENT_NUMBER,
+  });
 }
 
 async function adminUpdate(req, res) {
