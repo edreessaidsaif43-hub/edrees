@@ -457,10 +457,10 @@ async function getStatus(req, res) {
       CASE WHEN pg_column_size(grades) <= 1048576 THEN grades ELSE '[]'::jsonb END AS grades,
       CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END AS subjects,
       status,
-      receipt_url,
-      receipt_file_name,
-      receipt_file_type,
-      admin_note,
+      CASE WHEN pg_column_size(receipt_url) <= 4096 AND receipt_url NOT LIKE 'data:%' THEN receipt_url ELSE '' END AS receipt_url,
+      LEFT(receipt_file_name, 180) AS receipt_file_name,
+      LEFT(receipt_file_type, 80) AS receipt_file_type,
+      LEFT(admin_note, 500) AS admin_note,
       created_at,
       updated_at
     FROM teacher_subscriptions
@@ -504,10 +504,10 @@ async function requestSubscription(req, res) {
       CASE WHEN pg_column_size(grades) <= 1048576 THEN grades ELSE '[]'::jsonb END AS grades,
       CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END AS subjects,
       status,
-      receipt_url,
-      receipt_file_name,
-      receipt_file_type,
-      admin_note,
+      CASE WHEN pg_column_size(receipt_url) <= 4096 AND receipt_url NOT LIKE 'data:%' THEN receipt_url ELSE '' END AS receipt_url,
+      LEFT(receipt_file_name, 180) AS receipt_file_name,
+      LEFT(receipt_file_type, 80) AS receipt_file_type,
+      LEFT(admin_note, 500) AS admin_note,
       created_at,
       updated_at
     FROM teacher_subscriptions
@@ -578,10 +578,10 @@ async function requestSubscription(req, res) {
       CASE WHEN pg_column_size(grades) <= 1048576 THEN grades ELSE '[]'::jsonb END AS grades,
       CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END AS subjects,
       status,
-      receipt_url,
-      receipt_file_name,
-      receipt_file_type,
-      admin_note,
+      CASE WHEN pg_column_size(receipt_url) <= 4096 AND receipt_url NOT LIKE 'data:%' THEN receipt_url ELSE '' END AS receipt_url,
+      LEFT(receipt_file_name, 180) AS receipt_file_name,
+      LEFT(receipt_file_type, 80) AS receipt_file_type,
+      LEFT(admin_note, 500) AS admin_note,
       created_at,
       updated_at;
   `;
@@ -601,15 +601,15 @@ async function adminList(req, res) {
       s.user_id,
       s.grade,
       s.status,
-      s.receipt_url,
-      s.receipt_file_name,
-      s.receipt_file_type,
-      s.admin_note,
+      CASE WHEN pg_column_size(s.receipt_url) <= 4096 AND s.receipt_url NOT LIKE 'data:%' THEN s.receipt_url ELSE '' END AS receipt_url,
+      LEFT(s.receipt_file_name, 180) AS receipt_file_name,
+      LEFT(s.receipt_file_type, 80) AS receipt_file_type,
+      LEFT(s.admin_note, 500) AS admin_note,
       s.created_at,
       s.updated_at,
       jsonb_build_object(
-        'name', COALESCE(u.profile->>'name', ''),
-        'contact', COALESCE(u.profile->>'contact', '')
+        'name', CASE WHEN pg_column_size(u.profile) <= 1048576 THEN COALESCE(u.profile->>'name', '') ELSE '' END,
+        'contact', CASE WHEN pg_column_size(u.profile) <= 1048576 THEN COALESCE(u.profile->>'contact', '') ELSE '' END
       ) AS profile
     FROM teacher_subscriptions s
     LEFT JOIN teacher_users u ON u.id = s.user_id
@@ -656,15 +656,15 @@ async function adminActiveList(req, res) {
       s.user_id,
       s.grade,
       s.status,
-      s.receipt_url,
-      s.receipt_file_name,
-      s.receipt_file_type,
-      s.admin_note,
+      CASE WHEN pg_column_size(s.receipt_url) <= 4096 AND s.receipt_url NOT LIKE 'data:%' THEN s.receipt_url ELSE '' END AS receipt_url,
+      LEFT(s.receipt_file_name, 180) AS receipt_file_name,
+      LEFT(s.receipt_file_type, 80) AS receipt_file_type,
+      LEFT(s.admin_note, 500) AS admin_note,
       s.created_at,
       s.updated_at,
       jsonb_build_object(
-        'name', COALESCE(u.profile->>'name', ''),
-        'contact', COALESCE(u.profile->>'contact', '')
+        'name', CASE WHEN pg_column_size(u.profile) <= 1048576 THEN COALESCE(u.profile->>'name', '') ELSE '' END,
+        'contact', CASE WHEN pg_column_size(u.profile) <= 1048576 THEN COALESCE(u.profile->>'contact', '') ELSE '' END
       ) AS profile
     FROM teacher_subscriptions s
     LEFT JOIN teacher_users u ON u.id = s.user_id
@@ -727,10 +727,10 @@ async function adminUpdate(req, res) {
       CASE WHEN pg_column_size(grades) <= 1048576 THEN grades ELSE '[]'::jsonb END AS grades,
       CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END AS subjects,
       status,
-      receipt_url,
-      receipt_file_name,
-      receipt_file_type,
-      admin_note,
+      CASE WHEN pg_column_size(receipt_url) <= 4096 AND receipt_url NOT LIKE 'data:%' THEN receipt_url ELSE '' END AS receipt_url,
+      LEFT(receipt_file_name, 180) AS receipt_file_name,
+      LEFT(receipt_file_type, 80) AS receipt_file_type,
+      LEFT(admin_note, 500) AS admin_note,
       created_at,
       updated_at;
   `;
