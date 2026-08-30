@@ -454,8 +454,8 @@ async function getStatus(req, res) {
       id,
       user_id,
       grade,
-      grades,
-      subjects,
+      CASE WHEN pg_column_size(grades) <= 1048576 THEN grades ELSE '[]'::jsonb END AS grades,
+      CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END AS subjects,
       status,
       receipt_url,
       receipt_file_name,
@@ -489,19 +489,18 @@ async function requestSubscription(req, res) {
   const requestedGrades = requestedSubjects.length ? uniqueCanonicalGrades(requestedSubjects.map((item) => item.grade)) : parseRequestedGrades(fields);
   const receipt = files.receipt;
   if (!userId || (!requestedSubjects.length && !requestedGrades.length)) return fail(res, 400, "اختر الصف والمادة وسجل الدخول قبل إرسال طلب الاشتراك.", "invalid_payload");
-  if (!receipt || !receipt.buffer?.length) return fail(res, 400, "يرجى رفع صورة الإيصال أو ملف PDF الإيصال.", "missing_receipt");
+  if (!receipt || !receipt.buffer?.length) return fail(res, 400, "يرجى رفع صورة الإيصال.", "missing_receipt");
   if (receipt.buffer.length > MAX_RECEIPT_SIZE) return fail(res, 413, "حجم الإيصال أكبر من 12MB.", "file_too_large");
-  const allowed = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
-  if (!allowed.includes(String(receipt.contentType || "").toLowerCase())) {
-    return fail(res, 400, "نوع الإيصال غير مدعوم. ارفع صورة PNG/JPG/WEBP أو PDF.", "invalid_file_type");
+  if (!String(receipt.contentType || "").toLowerCase().startsWith("image/")) {
+    return fail(res, 400, "نوع الإيصال غير مدعوم. ارفع صورة فقط، ملفات PDF غير مقبولة.", "invalid_file_type");
   }
   const existingRows = await sql`
     SELECT
       id,
       user_id,
       grade,
-      grades,
-      subjects,
+      CASE WHEN pg_column_size(grades) <= 1048576 THEN grades ELSE '[]'::jsonb END AS grades,
+      CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END AS subjects,
       status,
       receipt_url,
       receipt_file_name,
@@ -574,8 +573,8 @@ async function requestSubscription(req, res) {
       id,
       user_id,
       grade,
-      grades,
-      subjects,
+      CASE WHEN pg_column_size(grades) <= 1048576 THEN grades ELSE '[]'::jsonb END AS grades,
+      CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END AS subjects,
       status,
       receipt_url,
       receipt_file_name,
@@ -599,8 +598,6 @@ async function adminList(req, res) {
       s.id,
       s.user_id,
       s.grade,
-      s.grades,
-      s.subjects,
       s.status,
       s.receipt_url,
       s.receipt_file_name,
@@ -619,7 +616,18 @@ async function adminList(req, res) {
   `;
   const pageRows = (rows || []).slice(0, limit);
   const subscriptions = pageRows.map((row) => ({
-    ...rowToSubscription(row),
+    id: row.id,
+    userId: row.user_id,
+    grade: row.grade,
+    grades: row.grade ? [row.grade] : [],
+    subjects: [],
+    status: row.status,
+    receiptUrl: row.receipt_url,
+    receiptFileName: row.receipt_file_name,
+    receiptFileType: row.receipt_file_type,
+    adminNote: row.admin_note,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
     receiptHistory: [],
     receiptHistoryCount: 0,
     profile: row.profile || {},
@@ -644,7 +652,9 @@ async function adminUpdate(req, res) {
   const allowed = new Set(["pending", "active", "rejected", "stopped"]);
   if (!id || !allowed.has(status)) return fail(res, 400, "بيانات تحديث الاشتراك غير صحيحة.", "invalid_payload");
   const existingRows = await sql`
-    SELECT id, subjects
+    SELECT
+      id,
+      CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END AS subjects
     FROM teacher_subscriptions
     WHERE id = ${id}
     LIMIT 1;
@@ -659,8 +669,8 @@ async function adminUpdate(req, res) {
       id,
       user_id,
       grade,
-      grades,
-      subjects,
+      CASE WHEN pg_column_size(grades) <= 1048576 THEN grades ELSE '[]'::jsonb END AS grades,
+      CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END AS subjects,
       status,
       receipt_url,
       receipt_file_name,

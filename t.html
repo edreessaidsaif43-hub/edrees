@@ -666,8 +666,8 @@
           <select id="subscription-subject" multiple onchange="updateSubscriptionAmount()"></select>
         </div>
         <div>
-          <label for="subscription-receipt">صورة الإيصال أو PDF</label>
-          <input id="subscription-receipt" type="file" accept="image/png,image/jpeg,image/webp,application/pdf">
+          <label for="subscription-receipt">صورة الإيصال فقط</label>
+          <input id="subscription-receipt" type="file" accept="image/*">
         </div>
         <button type="button" id="subscription-submit" onclick="submitSubscriptionRequest()">إرسال الإيصال</button>
         <div class="subscription-amount" id="subscription-amount">قيمة الاشتراك: 1 ريال عماني لكل مادة</div>
@@ -1114,6 +1114,11 @@ async function submitSubscriptionRequest() {
   if (!selectedSubjects.length || !file) {
     if (typeof showMessage === 'function') showMessage('اختر الصف والمادة وارفع الإيصال.', 'error');
     else if (typeof showToast === 'function') showToast('اختر الصف والمادة وارفع الإيصال.', true);
+    return;
+  }
+  if (!String(file.type || '').startsWith('image/')) {
+    if (typeof showMessage === 'function') showMessage('يجب رفع صورة للإيصال فقط. ملفات PDF غير مقبولة.', 'error');
+    else if (typeof showToast === 'function') showToast('يجب رفع صورة للإيصال فقط. ملفات PDF غير مقبولة.', true);
     return;
   }
   const btn = document.getElementById('subscription-submit');

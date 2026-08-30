@@ -1046,7 +1046,7 @@ function buildUnifiedAuthUrl() {
     const returnPath = isWeb
       ? `${window.location.pathname || "/"}${window.location.search || ""}${window.location.hash || ""}`
       : window.location.href;
-    baseUrl.searchParams.set("v", "20260824-direct-auth-1");
+    baseUrl.searchParams.set("v", "20260830-auth-sync-1");
     baseUrl.searchParams.set("mode", "login");
     baseUrl.searchParams.set("return", returnPath);
     return baseUrl.toString();
@@ -1375,7 +1375,11 @@ async function submitMotivationSubscription() {
   }
   const file = document.getElementById("motivation-receipt")?.files?.[0] || null;
   if (!file) {
-    showAuthMessage("ارفع صورة الإيصال أو ملف PDF أولًا.", true);
+    showAuthMessage("ارفع صورة الإيصال أولًا.", true);
+    return;
+  }
+  if (!String(file.type || "").startsWith("image/")) {
+    showAuthMessage("يجب رفع صورة للإيصال فقط. ملفات PDF غير مقبولة.", true);
     return;
   }
   const btn = document.getElementById("motivation-subscribe-btn");
