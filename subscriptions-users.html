@@ -33,6 +33,8 @@
     tr:hover td{background:#fbfdff}
     .name{font-weight:900;color:#163b72;font-size:14px}
     .status{display:inline-block;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:900;background:#dcfce7;color:#166534;white-space:nowrap}
+    .active-items{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .active-chip{display:inline-flex;max-width:100%;border:1px solid #bfdbfe;background:#eff6ff;color:#174ea6;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:900}
     .receipt-link{display:flex;align-items:center;gap:10px;color:#1a56a0;text-decoration:none;font-weight:900}
     .receipt-thumb{width:92px;height:70px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;object-fit:cover}
     .receipt-fallback{width:92px;height:70px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:12px;font-weight:900;text-align:center}
@@ -94,6 +96,7 @@ const PAGE_SIZE = 25;
 
 function api(path){ return (location.protocol === 'file:' ? 'https://altahdir.app' : '') + path; }
 function esc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function jsString(v){ return JSON.stringify(String(v ?? '')); }
 function formatDate(value){ const d = value ? new Date(value) : null; return d && Number.isFinite(d.getTime()) ? d.toLocaleString('ar-OM') : ''; }
 function isImageReceipt(item){ return String(item?.receiptFileType || '').startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(String(item?.receiptUrl || item?.receiptFileName || '')); }
 
@@ -105,6 +108,16 @@ function receiptCell(item){
     ? '<img class="receipt-thumb" src="' + url + '" alt="صورة الإيصال" loading="lazy">'
     : '<div class="receipt-fallback">ملف غير صورة</div>';
   return '<a class="receipt-link" href="' + url + '" target="_blank" rel="noopener">' + thumb + '<span>' + name + '</span></a>';
+}
+
+function activeItemsCell(item){
+  const values = String(item.activeItems || item.grade || '')
+    .split('،')
+    .map(value => value.trim())
+    .filter(Boolean);
+  const unique = [...new Set(values)];
+  if(!unique.length) return '<div class="meta">لم يتم تحديد مادة.</div>';
+  return '<div class="active-items">' + unique.map(value => '<span class="active-chip">' + esc(value) + '</span>').join('') + '</div>';
 }
 
 function renderPager(page, count, hasMore){
@@ -133,14 +146,14 @@ async function loadUsers(page = usersPage){
     const items = Array.isArray(data.subscriptions) ? data.subscriptions : [];
     if(usersPage > 1 && !items.length) return loadUsers(usersPage - 1);
     if(!items.length){ list.innerHTML = '<div class="empty">لا توجد اشتراكات مفعلة حالياً.</div>'; return; }
-    const table = '<div class="table-wrap"><table><thead><tr><th>المستخدم</th><th>الصف / الاشتراك</th><th>الإيصال</th><th>آخر تحديث</th><th>الإجراء</th></tr></thead><tbody>' + items.map(item => {
+    const table = '<div class="table-wrap"><table><thead><tr><th>المستخدم</th><th>الصف / المادة المفعلة</th><th>الإيصال</th><th>آخر تحديث</th><th>الإجراء</th></tr></thead><tbody>' + items.map(item => {
       const p = item.profile || {};
       return '<tr>' +
         '<td data-label="المستخدم"><div class="name">' + esc(p.name || item.userId) + '</div><div class="meta">ID: ' + esc(item.userId) + '<br>التواصل: ' + esc(p.contact || '') + '</div></td>' +
-        '<td data-label="الصف / الاشتراك"><span class="status">مفعل</span><div class="meta">' + esc(item.grade || '') + '</div></td>' +
+        '<td data-label="الصف / المادة المفعلة"><span class="status">مفعل</span>' + activeItemsCell(item) + '</td>' +
         '<td data-label="الإيصال">' + receiptCell(item) + '</td>' +
         '<td data-label="آخر تحديث"><div class="meta">' + esc(formatDate(item.updatedAt)) + '</div></td>' +
-        '<td data-label="الإجراء"><button class="btn-danger" onclick="stopSubscription(' + item.id + ')">إيقاف التفعيل</button></td>' +
+        '<td data-label="الإجراء"><button class="btn-danger" onclick="stopUserSubscription(' + jsString(item.userId) + ')">إيقاف التفعيل</button></td>' +
       '</tr>';
     }).join('') + '</tbody></table></div>';
     const pager = renderPager(usersPage, items.length, !!data.hasMore);
@@ -150,12 +163,12 @@ async function loadUsers(page = usersPage){
   }
 }
 
-async function stopSubscription(id){
-  if(!confirm('هل تريد إيقاف تفعيل هذا الاشتراك؟')) return;
-  const res = await fetch(api('/api/subscriptions?action=admin_update'), {
+async function stopUserSubscription(userId){
+  if(!confirm('هل تريد إيقاف تفعيل كل اشتراكات هذا المستخدم؟')) return;
+  const res = await fetch(api('/api/subscriptions?action=admin_stop_user'), {
     method:'POST',
     headers:{ 'Content-Type':'application/json', 'x-admin-password': adminPassword },
-    body: JSON.stringify({ id, status: 'stopped', note: 'تم إيقاف التفعيل من صفحة متابعة المستخدمين المشتركين' })
+    body: JSON.stringify({ userId, note: 'تم إيقاف التفعيل من صفحة متابعة المستخدمين المشتركين' })
   });
   const data = await res.json().catch(() => ({}));
   if(!res.ok){ alert(data.message || 'تعذر إيقاف الاشتراك.'); return; }
