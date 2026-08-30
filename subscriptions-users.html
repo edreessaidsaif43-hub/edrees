@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>متابعة المستخدمين المشتركين</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Tajawal,Arial,sans-serif;background:#f6f8fb;color:#0f172a;padding:24px}
+    .wrap{max-width:1180px;margin:auto}
+    .top{display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+    h1{margin:0;font-size:26px;color:#163b72}
+    .meta{font-size:13px;color:#64748b;line-height:1.8}
+    .panel{background:#fff;border:1px solid #dbe4ef;border-radius:12px;box-shadow:0 10px 28px rgba(15,23,42,.06);padding:16px}
+    .login{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+    .field{display:flex;flex-direction:column;gap:5px}
+    .field label{font-size:12px;font-weight:800;color:#475569}
+    input,button{font-family:inherit}
+    input{border:1px solid #cbd5e1;border-radius:8px;padding:10px;min-width:220px}
+    button{border:none;border-radius:8px;padding:10px 14px;background:#1a56a0;color:white;font-weight:900;cursor:pointer}
+    button:disabled{background:#cbd5e1;cursor:not-allowed}
+    .btn-danger{background:#dc2626}
+    .btn-muted{background:#64748b}
+    .hidden{display:none}
+    .msg{font-size:13px;margin-top:8px;color:#64748b}
+    .empty{text-align:center;color:#64748b;padding:30px}
+    .table-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:12px;background:#fff}
+    table{width:100%;border-collapse:collapse;min-width:920px}
+    th,td{border-bottom:1px solid #e2e8f0;padding:10px;vertical-align:middle;text-align:right}
+    th{background:#f8fafc;color:#334155;font-size:12px;font-weight:900;position:sticky;top:0;z-index:1}
+    td{font-size:13px}
+    tr:hover td{background:#fbfdff}
+    .name{font-weight:900;color:#163b72;font-size:14px}
+    .status{display:inline-block;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:900;background:#dcfce7;color:#166534;white-space:nowrap}
+    .receipt-link{display:flex;align-items:center;gap:10px;color:#1a56a0;text-decoration:none;font-weight:900}
+    .receipt-thumb{width:92px;height:70px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;object-fit:cover}
+    .receipt-fallback{width:92px;height:70px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:12px;font-weight:900;text-align:center}
+    .pager{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;color:#475569;font-size:13px;font-weight:800}
+    .pager-actions{display:flex;gap:8px;align-items:center}
+    @media(max-width:760px){
+      body{padding:12px}
+      .table-wrap{border:0;overflow:visible;background:transparent}
+      table,thead,tbody,tr,td{display:block;width:100%;min-width:0}
+      table{min-width:0}
+      thead{display:none}
+      tr{background:#fff;border:1px solid #dbe4ef;border-radius:12px;box-shadow:0 8px 22px rgba(15,23,42,.06);margin-bottom:12px;overflow:hidden}
+      td{border-bottom:1px solid #eef2f7}
+      td::before{content:attr(data-label);display:block;font-size:11px;font-weight:900;color:#64748b;margin-bottom:5px}
+      .receipt-thumb,.receipt-fallback{width:100%;height:190px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>متابعة المستخدمين المشتركين</h1>
+        <div class="meta">عرض المستخدمين أصحاب الاشتراكات المفعلة مع صورة الإيصال وخيار إيقاف التفعيل.</div>
+      </div>
+      <div class="top">
+        <a href="/subscriptions-admin.html" style="color:#1a56a0;font-weight:900;text-decoration:none">إدارة كل الاشتراكات</a>
+        <a href="/" style="color:#1a56a0;font-weight:900;text-decoration:none">العودة للرئيسية</a>
+      </div>
+    </div>
+
+    <div class="panel" id="login-panel">
+      <div class="login">
+        <div class="field">
+          <label>كلمة مرور الإدارة</label>
+          <input id="admin-password" type="password" placeholder="أدخل كلمة المرور">
+        </div>
+        <button onclick="loginAdmin()">دخول</button>
+      </div>
+      <div class="msg" id="login-msg"></div>
+    </div>
+
+    <div class="panel hidden" id="users-panel">
+      <div class="top">
+        <div>
+          <strong>المستخدمون المشتركين</strong>
+          <div class="meta">تظهر هنا الاشتراكات المفعلة فقط.</div>
+        </div>
+        <button class="btn-muted" onclick="loadUsers(1)">تحديث</button>
+      </div>
+      <div id="list"></div>
+    </div>
+  </div>
+
+<script>
+let adminPassword = '';
+let usersPage = 1;
+const PAGE_SIZE = 25;
+
+function api(path){ return (location.protocol === 'file:' ? 'https://altahdir.app' : '') + path; }
+function esc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function formatDate(value){ const d = value ? new Date(value) : null; return d && Number.isFinite(d.getTime()) ? d.toLocaleString('ar-OM') : ''; }
+function isImageReceipt(item){ return String(item?.receiptFileType || '').startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(String(item?.receiptUrl || item?.receiptFileName || '')); }
+
+function receiptCell(item){
+  if(!item.receiptUrl) return '<div class="meta">لا يوجد إيصال</div>';
+  const url = esc(item.receiptUrl);
+  const name = esc(item.receiptFileName || 'receipt');
+  const thumb = isImageReceipt(item)
+    ? '<img class="receipt-thumb" src="' + url + '" alt="صورة الإيصال" loading="lazy">'
+    : '<div class="receipt-fallback">ملف غير صورة</div>';
+  return '<a class="receipt-link" href="' + url + '" target="_blank" rel="noopener">' + thumb + '<span>' + name + '</span></a>';
+}
+
+function renderPager(page, count, hasMore){
+  const start = count ? ((page - 1) * PAGE_SIZE) + 1 : 0;
+  const end = count ? start + count - 1 : 0;
+  return '<div class="pager"><div>عرض ' + start + ' - ' + end + '</div><div class="pager-actions"><button class="btn-muted" onclick="loadUsers(' + (page - 1) + ')" ' + (page <= 1 ? 'disabled' : '') + '>السابق</button><span>صفحة ' + page + '</span><button class="btn-muted" onclick="loadUsers(' + (page + 1) + ')" ' + (!hasMore ? 'disabled' : '') + '>التالي</button></div></div>';
+}
+
+async function loginAdmin(){
+  adminPassword = document.getElementById('admin-password').value.trim();
+  if(!adminPassword){ document.getElementById('login-msg').textContent='أدخل كلمة مرور الإدارة.'; return; }
+  document.getElementById('login-panel').classList.add('hidden');
+  document.getElementById('users-panel').classList.remove('hidden');
+  await loadUsers(1);
+}
+
+async function loadUsers(page = usersPage){
+  usersPage = Math.max(1, Number(page) || 1);
+  const offset = (usersPage - 1) * PAGE_SIZE;
+  const list = document.getElementById('list');
+  list.innerHTML = '<div class="empty">جاري التحميل...</div>';
+  try{
+    const res = await fetch(api('/api/subscriptions?action=admin_active_list&limit=' + PAGE_SIZE + '&offset=' + offset), { headers: { 'x-admin-password': adminPassword } });
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok) throw new Error(data.message || 'تعذر تحميل المستخدمين المشتركين.');
+    const items = Array.isArray(data.subscriptions) ? data.subscriptions : [];
+    if(usersPage > 1 && !items.length) return loadUsers(usersPage - 1);
+    if(!items.length){ list.innerHTML = '<div class="empty">لا توجد اشتراكات مفعلة حالياً.</div>'; return; }
+    const table = '<div class="table-wrap"><table><thead><tr><th>المستخدم</th><th>الصف / الاشتراك</th><th>الإيصال</th><th>آخر تحديث</th><th>الإجراء</th></tr></thead><tbody>' + items.map(item => {
+      const p = item.profile || {};
+      return '<tr>' +
+        '<td data-label="المستخدم"><div class="name">' + esc(p.name || item.userId) + '</div><div class="meta">ID: ' + esc(item.userId) + '<br>التواصل: ' + esc(p.contact || '') + '</div></td>' +
+        '<td data-label="الصف / الاشتراك"><span class="status">مفعل</span><div class="meta">' + esc(item.grade || '') + '</div></td>' +
+        '<td data-label="الإيصال">' + receiptCell(item) + '</td>' +
+        '<td data-label="آخر تحديث"><div class="meta">' + esc(formatDate(item.updatedAt)) + '</div></td>' +
+        '<td data-label="الإجراء"><button class="btn-danger" onclick="stopSubscription(' + item.id + ')">إيقاف التفعيل</button></td>' +
+      '</tr>';
+    }).join('') + '</tbody></table></div>';
+    const pager = renderPager(usersPage, items.length, !!data.hasMore);
+    list.innerHTML = pager + table + pager;
+  }catch(e){
+    list.innerHTML = '<div class="empty">' + esc(e.message) + '</div>';
+  }
+}
+
+async function stopSubscription(id){
+  if(!confirm('هل تريد إيقاف تفعيل هذا الاشتراك؟')) return;
+  const res = await fetch(api('/api/subscriptions?action=admin_update'), {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'x-admin-password': adminPassword },
+    body: JSON.stringify({ id, status: 'stopped', note: 'تم إيقاف التفعيل من صفحة متابعة المستخدمين المشتركين' })
+  });
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok){ alert(data.message || 'تعذر إيقاف الاشتراك.'); return; }
+  await loadUsers(usersPage);
+}
+</script>
+</body>
+</html>

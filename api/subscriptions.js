@@ -468,7 +468,9 @@ async function getStatus(req, res) {
     ORDER BY updated_at DESC, id DESC;
   `;
   const subscriptions = (rows || []).map(rowToSubscription);
-  const allSubjects = subscriptions.flatMap((s) => subscriptionSubjects(s));
+  const allSubjects = subscriptions
+    .filter((s) => s.status === "active")
+    .flatMap((s) => subscriptionSubjects(s));
   const activeSubjects = uniqueSubscriptionSubjects(allSubjects).filter((item) => isSubjectEntryActive(item));
   const activeGrades = uniqueCanonicalGrades([
     ...activeSubjects.map((item) => item.grade),
@@ -641,6 +643,59 @@ async function adminList(req, res) {
   });
 }
 
+async function adminActiveList(req, res) {
+  if (!(await dbReady(res, false))) return;
+  const auth = requireAdmin(req);
+  if (!auth.ok) return send(res, auth.status, { error: auth.error, message: auth.message });
+  const limit = boundedInt(req.query?.limit, ADMIN_LIST_DEFAULT_LIMIT, 1, ADMIN_LIST_MAX_LIMIT);
+  const offset = boundedInt(req.query?.offset, 0, 0, 1000000);
+  const fetchLimit = limit + 1;
+  const rows = await sql`
+    SELECT
+      s.id,
+      s.user_id,
+      s.grade,
+      s.status,
+      s.receipt_url,
+      s.receipt_file_name,
+      s.receipt_file_type,
+      s.admin_note,
+      s.created_at,
+      s.updated_at,
+      jsonb_build_object(
+        'name', COALESCE(u.profile->>'name', ''),
+        'contact', COALESCE(u.profile->>'contact', '')
+      ) AS profile
+    FROM teacher_subscriptions s
+    LEFT JOIN teacher_users u ON u.id = s.user_id
+    WHERE s.status = 'active'
+    ORDER BY s.updated_at DESC, s.id DESC
+    LIMIT ${fetchLimit} OFFSET ${offset};
+  `;
+  const subscriptions = (rows || []).slice(0, limit).map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    grade: row.grade,
+    grades: row.grade ? [row.grade] : [],
+    subjects: [],
+    status: row.status,
+    receiptUrl: row.receipt_url,
+    receiptFileName: row.receipt_file_name,
+    receiptFileType: row.receipt_file_type,
+    adminNote: row.admin_note,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    profile: row.profile || {},
+  }));
+  send(res, 200, {
+    subscriptions,
+    limit,
+    offset,
+    hasMore: (rows || []).length > limit,
+    paymentNumber: PAYMENT_NUMBER,
+  });
+}
+
 async function adminUpdate(req, res) {
   if (!(await dbReady(res, false))) return;
   const auth = requireAdmin(req);
@@ -688,6 +743,7 @@ export default async function handler(req, res) {
     if (req.method === "GET" && action === "status") return await getStatus(req, res);
     if (req.method === "POST" && action === "request") return await requestSubscription(req, res);
     if (req.method === "GET" && action === "admin_list") return await adminList(req, res);
+    if (req.method === "GET" && action === "admin_active_list") return await adminActiveList(req, res);
     if (req.method === "POST" && action === "admin_update") return await adminUpdate(req, res);
     return send(res, 404, { error: "unknown_action" });
   } catch (error) {
