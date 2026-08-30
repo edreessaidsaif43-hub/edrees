@@ -415,6 +415,18 @@ function safeReceiptUrl(value) {
   return url;
 }
 
+function parseAdminSubjectLines(value) {
+  const lines = String(value || "")
+    .split(/\r?\n|[؛;]/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return uniqueSubscriptionSubjects(lines.map((line) => {
+    const parts = line.split(/\s+-\s+|[|]/).map((part) => part.trim()).filter(Boolean);
+    if (parts.length >= 2) return { grade: parts[0], subject: parts.slice(1).join(" - "), status: "active" };
+    return { grade: "", subject: line, status: "active" };
+  }));
+}
+
 function isMotivationSubscription(row, subjects = []) {
   const history = subscriptionHistory(row);
   const text = [
@@ -657,37 +669,138 @@ async function adminActiveList(req, res) {
   const offset = boundedInt(req.query?.offset, 0, 0, 1000000);
   const fetchLimit = limit + 1;
   const rows = await sql`
+    WITH active_users AS (
+      SELECT
+        user_id,
+        MAX(updated_at) AS latest_updated_at,
+        MAX(id) AS latest_id
+      FROM teacher_subscriptions
+      WHERE status = 'active'
+      GROUP BY user_id
+      ORDER BY MAX(updated_at) DESC, MAX(id) DESC
+      LIMIT ${fetchLimit} OFFSET ${offset}
+    ),
+    latest_rows AS (
+      SELECT DISTINCT ON (s.user_id)
+        s.id,
+        s.user_id,
+        s.grade,
+        s.status,
+        s.receipt_url,
+        s.receipt_file_name,
+        s.receipt_file_type,
+        s.admin_note,
+        s.created_at,
+        s.updated_at
+      FROM teacher_subscriptions s
+      INNER JOIN active_users au ON au.user_id = s.user_id
+      WHERE s.status = 'active'
+      ORDER BY s.user_id, s.updated_at DESC, s.id DESC
+    ),
+    active_subjects AS (
+      SELECT
+        s.user_id,
+        LEFT(COALESCE(subject_item.value->>'grade', ''), 120) AS grade,
+        LEFT(COALESCE(subject_item.value->>'subject', ''), 160) AS subject,
+        NULLIF(TRIM(
+          CONCAT_WS(' - ',
+            NULLIF(LEFT(COALESCE(subject_item.value->>'grade', ''), 120), ''),
+            NULLIF(LEFT(COALESCE(subject_item.value->>'subject', ''), 160), '')
+          )
+        ), '') AS label
+      FROM teacher_subscriptions s
+      INNER JOIN active_users au ON au.user_id = s.user_id
+      CROSS JOIN LATERAL jsonb_array_elements(
+        CASE WHEN pg_column_size(s.subjects) <= 1048576 THEN s.subjects ELSE '[]'::jsonb END
+      ) AS subject_item(value)
+      WHERE s.status = 'active'
+        AND COALESCE(subject_item.value->>'status', 'active') = 'active'
+    ),
+    active_labels AS (
+      SELECT
+        au.user_id,
+        COALESCE(
+          STRING_AGG(DISTINCT active_subjects.label, '، ' ORDER BY active_subjects.label) FILTER (WHERE active_subjects.label IS NOT NULL),
+          STRING_AGG(DISTINCT LEFT(s.grade, 300), '، ' ORDER BY LEFT(s.grade, 300)) FILTER (WHERE COALESCE(s.grade, '') <> '')
+        ) AS active_items,
+        COALESCE(
+          jsonb_agg(DISTINCT jsonb_build_object('grade', active_subjects.grade, 'subject', active_subjects.subject)) FILTER (WHERE active_subjects.subject <> ''),
+          '[]'::jsonb
+        ) AS active_subjects
+      FROM active_users au
+      LEFT JOIN active_subjects ON active_subjects.user_id = au.user_id
+      LEFT JOIN teacher_subscriptions s ON s.user_id = au.user_id AND s.status = 'active'
+      GROUP BY au.user_id
+    ),
+    receipt_rows AS (
+      SELECT
+        s.user_id,
+        CASE WHEN LEFT(s.receipt_url, 5) = 'data:' THEN '' ELSE LEFT(s.receipt_url, 4097) END AS receipt_url,
+        LEFT(s.receipt_file_name, 180) AS receipt_file_name,
+        LEFT(s.receipt_file_type, 80) AS receipt_file_type,
+        s.updated_at,
+        ROW_NUMBER() OVER (PARTITION BY s.user_id ORDER BY s.updated_at DESC, s.id DESC) AS rn
+      FROM teacher_subscriptions s
+      INNER JOIN active_users au ON au.user_id = s.user_id
+      WHERE s.status = 'active'
+        AND COALESCE(s.receipt_url, '') <> ''
+    ),
+    active_receipts AS (
+      SELECT
+        user_id,
+        jsonb_agg(jsonb_build_object(
+          'url', receipt_url,
+          'fileName', receipt_file_name,
+          'fileType', receipt_file_type,
+          'updatedAt', updated_at
+        ) ORDER BY updated_at DESC) AS receipts
+      FROM receipt_rows
+      WHERE rn <= 5
+        AND receipt_url <> ''
+      GROUP BY user_id
+    )
     SELECT
-      s.id,
-      LEFT(s.user_id, 160) AS user_id,
-      LEFT(s.grade, 300) AS grade,
-      s.status,
-      CASE WHEN LEFT(s.receipt_url, 5) = 'data:' THEN '' ELSE LEFT(s.receipt_url, 4097) END AS receipt_url,
-      LEFT(s.receipt_file_name, 180) AS receipt_file_name,
-      LEFT(s.receipt_file_type, 80) AS receipt_file_type,
-      LEFT(s.admin_note, 500) AS admin_note,
-      s.created_at,
-      s.updated_at,
+      latest_rows.id,
+      LEFT(latest_rows.user_id, 160) AS user_id,
+      LEFT(COALESCE(active_labels.active_items, latest_rows.grade, ''), 1000) AS active_items,
+      COALESCE(active_labels.active_subjects, '[]'::jsonb) AS active_subjects,
+      COALESCE(active_receipts.receipts, '[]'::jsonb) AS receipts,
+      latest_rows.status,
+      CASE WHEN LEFT(latest_rows.receipt_url, 5) = 'data:' THEN '' ELSE LEFT(latest_rows.receipt_url, 4097) END AS receipt_url,
+      LEFT(latest_rows.receipt_file_name, 180) AS receipt_file_name,
+      LEFT(latest_rows.receipt_file_type, 80) AS receipt_file_type,
+      LEFT(latest_rows.admin_note, 500) AS admin_note,
+      latest_rows.created_at,
+      latest_rows.updated_at,
       jsonb_build_object(
         'name', LEFT(COALESCE(u.profile->>'name', ''), 160),
         'contact', LEFT(COALESCE(u.profile->>'contact', ''), 120)
       ) AS profile
-    FROM teacher_subscriptions s
-    LEFT JOIN teacher_users u ON u.id = s.user_id
-    WHERE s.status = 'active'
-    ORDER BY s.updated_at DESC, s.id DESC
-    LIMIT ${fetchLimit} OFFSET ${offset};
+    FROM latest_rows
+    INNER JOIN active_users au ON au.user_id = latest_rows.user_id
+    LEFT JOIN active_labels ON active_labels.user_id = latest_rows.user_id
+    LEFT JOIN active_receipts ON active_receipts.user_id = latest_rows.user_id
+    LEFT JOIN teacher_users u ON u.id = latest_rows.user_id
+    ORDER BY au.latest_updated_at DESC, au.latest_id DESC;
   `;
   const subscriptions = (rows || []).slice(0, limit).map((row) => ({
     id: row.id,
     userId: row.user_id,
-    grade: row.grade,
-    grades: row.grade ? [row.grade] : [],
+    activeItems: row.active_items || '',
+    activeSubjects: Array.isArray(row.active_subjects) ? row.active_subjects : [],
+    grade: row.active_items || '',
+    grades: row.active_items ? [row.active_items] : [],
     subjects: [],
     status: row.status,
     receiptUrl: safeReceiptUrl(row.receipt_url),
     receiptFileName: row.receipt_file_name,
     receiptFileType: row.receipt_file_type,
+    receipts: Array.isArray(row.receipts) ? row.receipts.map((receipt) => ({
+      url: safeReceiptUrl(receipt?.url),
+      fileName: String(receipt?.fileName || "").slice(0, 180),
+      fileType: String(receipt?.fileType || "").slice(0, 80),
+      updatedAt: receipt?.updatedAt || "",
+    })).filter((receipt) => receipt.url).slice(0, 5) : [],
     adminNote: row.admin_note,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -700,6 +813,55 @@ async function adminActiveList(req, res) {
     hasMore: (rows || []).length > limit,
     paymentNumber: PAYMENT_NUMBER,
   });
+}
+
+async function adminStopUser(req, res) {
+  if (!(await dbReady(res, false))) return;
+  const auth = requireAdmin(req);
+  if (!auth.ok) return send(res, auth.status, { error: auth.error, message: auth.message });
+  const body = await readJsonBody(req);
+  const userId = String(body.userId || "").trim();
+  const note = String(body.note || "تم إيقاف التفعيل من صفحة متابعة المستخدمين المشتركين").trim();
+  if (!userId) return fail(res, 400, "بيانات المستخدم غير صحيحة.", "invalid_payload");
+  const rows = await sql`
+    UPDATE teacher_subscriptions
+    SET status = 'stopped', admin_note = ${note}, updated_at = NOW()
+    WHERE user_id = ${userId}
+      AND status = 'active'
+    RETURNING id;
+  `;
+  send(res, 200, { ok: true, stopped: rows?.length || 0 });
+}
+
+async function adminUpdateUserSelection(req, res) {
+  if (!(await dbReady(res, false))) return;
+  const auth = requireAdmin(req);
+  if (!auth.ok) return send(res, auth.status, { error: auth.error, message: auth.message });
+  const body = await readJsonBody(req);
+  const userId = String(body.userId || "").trim();
+  const activeItems = String(body.activeItems || "").trim();
+  if (!userId) return fail(res, 400, "بيانات المستخدم غير صحيحة.", "invalid_payload");
+  const subjects = parseAdminSubjectLines(activeItems).map((item) => ({
+    ...item,
+    status: "active",
+    expiresAt: item.expiresAt || subscriptionExpiryDate(),
+  }));
+  if (!subjects.length) return fail(res, 400, "أدخل الصف والمواد بصيغة: الصف - المادة.", "invalid_payload");
+  const grades = uniqueCanonicalGrades(subjects.map((item) => item.grade));
+  const gradeText = subjects.map((item) => item.grade + " - " + item.subject).join("، ");
+  const rows = await sql`
+    UPDATE teacher_subscriptions
+    SET
+      grade = ${gradeText},
+      grades = ${JSON.stringify(grades)}::jsonb,
+      subjects = ${JSON.stringify(subjects)}::jsonb,
+      updated_at = NOW()
+    WHERE user_id = ${userId}
+      AND status = 'active'
+    RETURNING id;
+  `;
+  if (!rows?.length) return fail(res, 404, "لا يوجد اشتراك مفعل لهذا المستخدم.", "not_found");
+  send(res, 200, { ok: true, updated: rows.length });
 }
 
 async function adminUpdate(req, res) {
@@ -750,6 +912,8 @@ export default async function handler(req, res) {
     if (req.method === "POST" && action === "request") return await requestSubscription(req, res);
     if (req.method === "GET" && action === "admin_list") return await adminList(req, res);
     if (req.method === "GET" && action === "admin_active_list") return await adminActiveList(req, res);
+    if (req.method === "POST" && action === "admin_stop_user") return await adminStopUser(req, res);
+    if (req.method === "POST" && action === "admin_update_user_selection") return await adminUpdateUserSelection(req, res);
     if (req.method === "POST" && action === "admin_update") return await adminUpdate(req, res);
     return send(res, 404, { error: "unknown_action" });
   } catch (error) {

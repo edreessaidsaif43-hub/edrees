@@ -16,8 +16,9 @@
     .login{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
     .field{display:flex;flex-direction:column;gap:5px}
     .field label{font-size:12px;font-weight:800;color:#475569}
-    input,button{font-family:inherit}
-    input{border:1px solid #cbd5e1;border-radius:8px;padding:10px;min-width:220px}
+    input,button,textarea{font-family:inherit}
+    input,textarea{border:1px solid #cbd5e1;border-radius:8px;padding:10px;min-width:220px}
+    textarea{width:100%;min-height:78px;resize:vertical;font-size:13px;line-height:1.7;margin-top:8px}
     button{border:none;border-radius:8px;padding:10px 14px;background:#1a56a0;color:white;font-weight:900;cursor:pointer}
     button:disabled{background:#cbd5e1;cursor:not-allowed}
     .btn-danger{background:#dc2626}
@@ -35,9 +36,12 @@
     .status{display:inline-block;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:900;background:#dcfce7;color:#166534;white-space:nowrap}
     .active-items{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
     .active-chip{display:inline-flex;max-width:100%;border:1px solid #bfdbfe;background:#eff6ff;color:#174ea6;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:900}
-    .receipt-link{display:flex;align-items:center;gap:10px;color:#1a56a0;text-decoration:none;font-weight:900}
+    .receipt-list{display:flex;gap:8px;flex-wrap:wrap}
+    .receipt-item{width:98px}
     .receipt-thumb{width:92px;height:70px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;object-fit:cover}
     .receipt-fallback{width:92px;height:70px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:12px;font-weight:900;text-align:center}
+    .receipt-name{display:block;margin-top:4px;color:#475569;font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .edit-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
     .pager{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;color:#475569;font-size:13px;font-weight:800}
     .pager-actions{display:flex;gap:8px;align-items:center}
     @media(max-width:760px){
@@ -101,13 +105,18 @@ function formatDate(value){ const d = value ? new Date(value) : null; return d &
 function isImageReceipt(item){ return String(item?.receiptFileType || '').startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(String(item?.receiptUrl || item?.receiptFileName || '')); }
 
 function receiptCell(item){
-  if(!item.receiptUrl) return '<div class="meta">لا يوجد إيصال</div>';
-  const url = esc(item.receiptUrl);
-  const name = esc(item.receiptFileName || 'receipt');
-  const thumb = isImageReceipt(item)
-    ? '<img class="receipt-thumb" src="' + url + '" alt="صورة الإيصال" loading="lazy">'
-    : '<div class="receipt-fallback">ملف غير صورة</div>';
-  return '<a class="receipt-link" href="' + url + '" target="_blank" rel="noopener">' + thumb + '<span>' + name + '</span></a>';
+  const receipts = Array.isArray(item.receipts) && item.receipts.length
+    ? item.receipts
+    : (item.receiptUrl ? [{ url: item.receiptUrl, fileName: item.receiptFileName, fileType: item.receiptFileType }] : []);
+  const safeReceipts = receipts.slice(0, 5).filter(receipt => receipt && receipt.url);
+  if(!safeReceipts.length) return '<div class="meta">لا توجد صورة إيصال آمنة للعرض.</div>';
+  return '<div class="receipt-list">' + safeReceipts.map((receipt, index) => {
+    const previewItem = { receiptUrl: receipt.url, receiptFileName: receipt.fileName, receiptFileType: receipt.fileType };
+    const thumb = isImageReceipt(previewItem)
+      ? '<img class="receipt-thumb" src="' + esc(receipt.url) + '" alt="صورة الإيصال ' + (index + 1) + '" loading="lazy">'
+      : '<div class="receipt-fallback">ملف غير صورة</div>';
+    return '<div class="receipt-item">' + thumb + '<span class="receipt-name">' + esc(receipt.fileName || ('إيصال ' + (index + 1))) + '</span></div>';
+  }).join('') + '</div>';
 }
 
 function activeItemsCell(item){
@@ -118,6 +127,17 @@ function activeItemsCell(item){
   const unique = [...new Set(values)];
   if(!unique.length) return '<div class="meta">لم يتم تحديد مادة.</div>';
   return '<div class="active-items">' + unique.map(value => '<span class="active-chip">' + esc(value) + '</span>').join('') + '</div>';
+}
+
+function editableItemsValue(item){
+  const subjects = Array.isArray(item.activeSubjects) ? item.activeSubjects : [];
+  if(subjects.length){
+    return subjects
+      .map(subject => ((subject.grade || '').trim() + ' - ' + (subject.subject || '').trim()).trim())
+      .filter(value => value !== '-')
+      .join('\n');
+  }
+  return String(item.activeItems || item.grade || '').split('،').map(value => value.trim()).filter(Boolean).join('\n');
 }
 
 function renderPager(page, count, hasMore){
@@ -150,7 +170,7 @@ async function loadUsers(page = usersPage){
       const p = item.profile || {};
       return '<tr>' +
         '<td data-label="المستخدم"><div class="name">' + esc(p.name || item.userId) + '</div><div class="meta">ID: ' + esc(item.userId) + '<br>التواصل: ' + esc(p.contact || '') + '</div></td>' +
-        '<td data-label="الصف / المادة المفعلة"><span class="status">مفعل</span>' + activeItemsCell(item) + '</td>' +
+        '<td data-label="الصف / المادة المفعلة"><span class="status">مفعل</span>' + activeItemsCell(item) + '<textarea id="selection-' + item.id + '" placeholder="مثال: الصف الخامس - الرياضيات">' + esc(editableItemsValue(item)) + '</textarea><div class="edit-actions"><button class="btn-muted" onclick="saveUserSelection(' + jsString(item.userId) + ', ' + item.id + ')">حفظ الصف والمواد</button></div></td>' +
         '<td data-label="الإيصال">' + receiptCell(item) + '</td>' +
         '<td data-label="آخر تحديث"><div class="meta">' + esc(formatDate(item.updatedAt)) + '</div></td>' +
         '<td data-label="الإجراء"><button class="btn-danger" onclick="stopUserSubscription(' + jsString(item.userId) + ')">إيقاف التفعيل</button></td>' +
@@ -172,6 +192,20 @@ async function stopUserSubscription(userId){
   });
   const data = await res.json().catch(() => ({}));
   if(!res.ok){ alert(data.message || 'تعذر إيقاف الاشتراك.'); return; }
+  await loadUsers(usersPage);
+}
+
+async function saveUserSelection(userId, id){
+  const input = document.getElementById('selection-' + id);
+  const activeItems = input ? input.value.trim() : '';
+  if(!activeItems){ alert('أدخل الصف والمواد بصيغة: الصف - المادة.'); return; }
+  const res = await fetch(api('/api/subscriptions?action=admin_update_user_selection'), {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'x-admin-password': adminPassword },
+    body: JSON.stringify({ userId, activeItems })
+  });
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok){ alert(data.message || 'تعذر حفظ الصف والمواد.'); return; }
   await loadUsers(usersPage);
 }
 </script>
