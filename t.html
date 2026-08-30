@@ -470,6 +470,15 @@
 .subscription-form button,.subscription-action{border:none;border-radius:8px;padding:10px 14px;background:#1a56a0;color:#fff;font-family:inherit;font-weight:900;cursor:pointer;min-height:39px}
 .subscription-form button:disabled{opacity:.65;cursor:not-allowed}
 .subscription-status{font-size:12px;color:#64748b;margin-top:10px;line-height:1.7}
+#subscription-subject{display:none}
+.subscription-subject-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;min-height:96px;max-height:220px;overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid #dbe7f5;border-radius:10px;background:#f8fafc;padding:8px}
+.subscription-subject-choice{display:flex!important;align-items:center;gap:7px;margin:0!important;padding:8px 9px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#334155;font-size:13px;line-height:1.45;cursor:pointer;min-height:42px}
+.subscription-subject-choice:has(input:checked){border-color:#60a5fa;background:#eff6ff;color:#174ea6}
+.subscription-subject-choice input{width:auto!important;min-width:16px;margin:0;flex:0 0 auto}
+.subscription-subject-choice span{min-width:0;overflow-wrap:anywhere}
+.subscription-subject-empty{grid-column:1 / -1;color:#64748b;font-size:13px;padding:10px;line-height:1.7}
+.subscription-subject-summary{display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-top:8px;color:#64748b;font-size:12px}
+.subscription-subject-chip{border:1px solid #bfdbfe;background:#eff6ff;color:#174ea6;border-radius:999px;padding:5px 9px;font-family:inherit;font-weight:800;cursor:pointer;max-width:100%;white-space:normal;text-align:right;line-height:1.5}
 @media(min-width:761px){
   .subscription-card{padding:18px 20px}
   .subscription-form{grid-template-columns:minmax(190px,.75fr) minmax(340px,1.45fr) minmax(180px,.65fr);align-items:stretch;gap:12px}
@@ -480,9 +489,19 @@
   .subscription-amount{grid-column:3;grid-row:1;align-self:start;min-height:44px;display:flex;align-items:center}
   #subscription-grade{height:43px}
   #subscription-subject{min-height:190px}
-  #subscription-subject{display:none}.subscription-subject-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;min-height:96px;max-height:220px;overflow:auto;border:1px solid #dbe7f5;border-radius:10px;background:#f8fafc;padding:8px}.subscription-subject-choice{display:flex!important;align-items:center;gap:7px;margin:0!important;padding:8px 9px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#334155;font-size:13px;cursor:pointer}.subscription-subject-choice:has(input:checked){border-color:#60a5fa;background:#eff6ff;color:#174ea6}.subscription-subject-choice input{width:auto!important;margin:0}.subscription-subject-empty{grid-column:1 / -1;color:#64748b;font-size:13px;padding:10px}.subscription-subject-summary{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:6px;min-height:28px;color:#64748b;font-size:12px}.subscription-subject-chip{border:1px solid #bfdbfe;background:#eff6ff;color:#174ea6;border-radius:999px;padding:5px 9px;font-family:inherit;font-weight:800;cursor:pointer}
 }
-@media(max-width:760px){.subscription-form{grid-template-columns:1fr}.subscription-form button{width:100%}}
+@media(max-width:760px){
+  .subscription-card{padding:14px;margin:12px 0;border-radius:10px}
+  .subscription-head{align-items:flex-start}
+  .subscription-badge{border-radius:8px}
+  .subscription-form{grid-template-columns:1fr;gap:12px;align-items:stretch}
+  .subscription-form select,.subscription-form input,.subscription-form button{min-height:44px;font-size:14px}
+  .subscription-form button{width:100%}
+  .subscription-subject-picker{grid-template-columns:1fr;max-height:280px;padding:10px;gap:9px}
+  .subscription-subject-choice{min-height:46px;padding:10px 11px;font-size:14px}
+  .subscription-subject-summary{margin-top:10px}
+  .subscription-subject-chip{border-radius:8px}
+}
 </style>
 </head>
  <body style="padding: 8px; padding-bottom: 100px; overflow-x: hidden;">
