@@ -38,9 +38,17 @@
     .active-chip{display:inline-flex;max-width:100%;border:1px solid #bfdbfe;background:#eff6ff;color:#174ea6;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:900}
     .receipt-list{display:flex;gap:8px;flex-wrap:wrap}
     .receipt-item{width:98px}
-    .receipt-thumb{width:92px;height:70px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;object-fit:cover}
+    .receipt-view-button{display:block;width:92px;padding:0;border:0;border-radius:8px;background:transparent;color:inherit;cursor:pointer}
+    .receipt-view-button:focus-visible{outline:3px solid rgba(26,86,160,.28);outline-offset:3px}
+    .receipt-thumb{display:block;width:92px;height:70px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;object-fit:cover}
     .receipt-fallback{width:92px;height:70px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:12px;font-weight:900;text-align:center}
     .receipt-name{display:block;margin-top:4px;color:#475569;font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .receipt-modal{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(15,23,42,.76)}
+    .receipt-modal.open{display:flex}
+    .receipt-modal-content{position:relative;max-width:min(1100px,96vw);max-height:92vh;background:#fff;border-radius:8px;box-shadow:0 24px 70px rgba(15,23,42,.35);padding:14px}
+    .receipt-modal-close{position:absolute;top:10px;left:10px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#0f172a;color:#fff;font-size:24px;line-height:1;padding:0}
+    .receipt-modal-title{display:block;margin:0 48px 10px 0;color:#334155;font-size:13px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(96vw - 100px)}
+    .receipt-modal-img{display:block;max-width:calc(96vw - 28px);max-height:calc(92vh - 72px);width:auto;height:auto;object-fit:contain}
     .edit-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
     .pager{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;color:#475569;font-size:13px;font-weight:800}
     .pager-actions{display:flex;gap:8px;align-items:center}
@@ -53,7 +61,10 @@
       tr{background:#fff;border:1px solid #dbe4ef;border-radius:12px;box-shadow:0 8px 22px rgba(15,23,42,.06);margin-bottom:12px;overflow:hidden}
       td{border-bottom:1px solid #eef2f7}
       td::before{content:attr(data-label);display:block;font-size:11px;font-weight:900;color:#64748b;margin-bottom:5px}
-      .receipt-thumb,.receipt-fallback{width:100%;height:190px}
+      .receipt-view-button,.receipt-thumb,.receipt-fallback{width:100%;height:190px}
+      .receipt-modal{padding:10px}
+      .receipt-modal-content{max-width:100%;max-height:94vh;padding:10px}
+      .receipt-modal-img{max-width:calc(100vw - 20px);max-height:calc(94vh - 68px)}
     }
   </style>
 </head>
@@ -93,6 +104,14 @@
     </div>
   </div>
 
+  <div class="receipt-modal" id="receipt-modal" role="dialog" aria-modal="true" aria-label="معاينة صورة الإيصال" onclick="closeReceiptModal(event)">
+    <div class="receipt-modal-content" onclick="event.stopPropagation()">
+      <button class="receipt-modal-close" type="button" aria-label="إغلاق" onclick="closeReceiptModal()">×</button>
+      <span class="receipt-modal-title" id="receipt-modal-title"></span>
+      <img class="receipt-modal-img" id="receipt-modal-img" alt="صورة الإيصال بالحجم الطبيعي">
+    </div>
+  </div>
+
 <script>
 let adminPassword = '';
 let usersPage = 1;
@@ -104,6 +123,25 @@ function jsString(v){ return JSON.stringify(String(v ?? '')); }
 function formatDate(value){ const d = value ? new Date(value) : null; return d && Number.isFinite(d.getTime()) ? d.toLocaleString('ar-OM') : ''; }
 function isImageReceipt(item){ return String(item?.receiptFileType || '').startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(String(item?.receiptUrl || item?.receiptFileName || '')); }
 
+function openReceiptModal(url, name){
+  const modal = document.getElementById('receipt-modal');
+  const image = document.getElementById('receipt-modal-img');
+  const title = document.getElementById('receipt-modal-title');
+  if(!modal || !image) return;
+  image.src = url;
+  image.alt = name || 'صورة الإيصال بالحجم الطبيعي';
+  if(title) title.textContent = name || 'صورة الإيصال';
+  modal.classList.add('open');
+}
+
+function closeReceiptModal(event){
+  if(event && event.currentTarget !== event.target) return;
+  const modal = document.getElementById('receipt-modal');
+  const image = document.getElementById('receipt-modal-img');
+  if(modal) modal.classList.remove('open');
+  if(image) image.src = '';
+}
+
 function receiptCell(item){
   const receipts = Array.isArray(item.receipts) && item.receipts.length
     ? item.receipts
@@ -112,12 +150,17 @@ function receiptCell(item){
   if(!safeReceipts.length) return '<div class="meta">لا توجد صورة إيصال آمنة للعرض.</div>';
   return '<div class="receipt-list">' + safeReceipts.map((receipt, index) => {
     const previewItem = { receiptUrl: receipt.url, receiptFileName: receipt.fileName, receiptFileType: receipt.fileType };
+    const name = receipt.fileName || ('إيصال ' + (index + 1));
     const thumb = isImageReceipt(previewItem)
-      ? '<img class="receipt-thumb" src="' + esc(receipt.url) + '" alt="صورة الإيصال ' + (index + 1) + '" loading="lazy">'
+      ? '<button class="receipt-view-button" type="button" title="عرض الإيصال بالحجم الطبيعي" onclick="openReceiptModal(' + jsString(receipt.url) + ', ' + jsString(name) + ')"><img class="receipt-thumb" src="' + esc(receipt.url) + '" alt="صورة الإيصال ' + (index + 1) + '" loading="lazy"></button>'
       : '<div class="receipt-fallback">ملف غير صورة</div>';
-    return '<div class="receipt-item">' + thumb + '<span class="receipt-name">' + esc(receipt.fileName || ('إيصال ' + (index + 1))) + '</span></div>';
+    return '<div class="receipt-item">' + thumb + '<span class="receipt-name">' + esc(name) + '</span></div>';
   }).join('') + '</div>';
 }
+
+document.addEventListener('keydown', event => {
+  if(event.key === 'Escape') closeReceiptModal();
+});
 
 function activeItemsCell(item){
   const values = String(item.activeItems || item.grade || '')
