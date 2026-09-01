@@ -1615,6 +1615,10 @@ function isSameSubscriptionGrade(a, b) {
   return normalizeSubscriptionGrade(a) === normalizeSubscriptionGrade(b);
 }
 
+function isSameSubscriptionSubject(a, b) {
+  return normalizeSubscriptionSubject(a) === normalizeSubscriptionSubject(b);
+}
+
 function getActiveSubscriptionSubjects() {
   const direct = Array.isArray(subscriptionState.activeSubjects) ? subscriptionState.activeSubjects : [];
   const fromSubscriptions = (subscriptionState.subscriptions || [])
@@ -1680,15 +1684,21 @@ function updateSubscriptionAmount() {
 
 function getSubscriptionSubjectsForGrade(grade) {
   if (!grade) return [];
-  let subjects = [];
-  if (typeof activeLessons === 'function') {
-    subjects = activeLessons().filter(item => isSameSubscriptionGrade(item.grade, grade)).map(item => item.subject);
-  } else if (Array.isArray(D)) {
-    subjects = D.filter(row => isSameSubscriptionGrade(row["1"], grade)).map(row => row["2"]);
-  }
-  return [...new Set(subjects.filter(value => value && String(value).trim()))]
-    .sort()
-    .filter(subject => !getActiveSubscriptionSubjects().some(item => subscriptionSubjectKey(item.grade, item.subject) === subscriptionSubjectKey(grade, subject)));
+  const rows = typeof activeLessons === 'function'
+    ? activeLessons().map(item => ({ grade: item.grade, subject: item.subject }))
+    : (Array.isArray(D) ? D.map(row => ({ grade: row["1"], subject: row["2"] })) : []);
+  const activeKeys = new Set(getActiveSubscriptionSubjects().map(item => subscriptionSubjectKey(item.grade, item.subject)));
+  const seen = new Set();
+  const subjects = [];
+  rows.forEach((item) => {
+    const subject = String(item.subject || '').trim();
+    if (!subject || !isSameSubscriptionGrade(item.grade, grade)) return;
+    const key = normalizeSubscriptionSubject(subject);
+    if (!key || seen.has(key) || activeKeys.has(subscriptionSubjectKey(grade, subject))) return;
+    seen.add(key);
+    subjects.push(subject);
+  });
+  return subjects.sort();
 }
 
 function fillSubscriptionGradeOptions(values = subscriptionGradeOptions) {
@@ -2006,8 +2016,9 @@ function uniqueSubjectValues(values = []) {
   const list = [];
   [...values, ...ADDITIONAL_AI_SUBJECTS].forEach((value) => {
     const text = String(value || '').trim();
-    if (!text || seen.has(text)) return;
-    seen.add(text);
+    const key = normalizeSubscriptionSubject(text);
+    if (!text || !key || seen.has(key)) return;
+    seen.add(key);
     list.push(text);
   });
   return list;
@@ -2194,15 +2205,15 @@ function populateTeacherFilters(changedId = '') {
   let unit = document.getElementById('t-unit')?.value || '';
 
   if (!changedId || changedId === 't-grade') {
-    grade = setSelectOptions('t-grade', uniqueValues(all, 'grade'), grade);
+    grade = setSelectOptions('t-grade', uniqueSubscriptionGrades(uniqueValues(all, 'grade')), grade);
   }
 
-  const byGrade = all.filter(l => !grade || l.grade === grade);
+  const byGrade = all.filter(l => !grade || isSameSubscriptionGrade(l.grade, grade));
   if (!changedId || changedId === 't-grade' || changedId === 't-subject') {
     subject = setSelectOptions('t-subject', uniqueSubjectValues(uniqueValues(byGrade, 'subject')), subject);
   }
 
-  const bySubject = byGrade.filter(l => !subject || l.subject === subject);
+  const bySubject = byGrade.filter(l => !subject || isSameSubscriptionSubject(l.subject, subject));
   if (!changedId || ['t-grade','t-subject','t-semester'].includes(changedId)) {
     semester = setSelectOptions('t-semester', uniqueValues(bySubject, 'semester'), semester);
   }

@@ -531,9 +531,14 @@
   #nmob.o{display:flex}
   #nmob a{padding:10px 14px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:700;color:var(--ink);transition:.15s}
   #nmob a:hover,#nmob a.on{background:var(--paper2);color:var(--blue)}
+  #nav button{width:auto!important;min-height:0!important}
+  #nav .nav-auth-btn{width:auto!important;min-height:35px!important;padding:8px 16px!important;border-radius:8px!important;font-size:12.5px!important}
+  #nav .nav-user-pill{width:auto!important;min-height:35px!important;padding:6px 12px!important;border-radius:8px!important;font-size:12.5px!important}
+  #nav #ntog{width:38px!important;height:38px!important;min-height:38px!important;padding:0!important;border-radius:7px!important}
+  #nav #ntog span{width:16px!important;height:1.5px!important;padding:0!important;min-height:0!important}
   body{padding-top:62px!important}
   @media(max-width:1100px){.nl a{font-size:11.5px;padding:7px 8px}.nb-name{font-size:14px}}
-  @media(max-width:920px){#nav{padding:0 16px}.nl{display:none}#ntog{display:flex}}
+  @media(max-width:920px){#nav{padding:0 16px}.nl{display:none}#ntog{display:flex!important}}
 </style>
 <nav id="nav">
   <a href="https://altahdir.app/" class="nb">
@@ -899,6 +904,10 @@ function isSameSubscriptionGrade(a, b) {
   return normalizeSubscriptionGrade(a) === normalizeSubscriptionGrade(b);
 }
 
+function isSameSubscriptionSubject(a, b) {
+  return normalizeSubscriptionSubject(a) === normalizeSubscriptionSubject(b);
+}
+
 function getActiveSubscriptionSubjects() {
   const direct = Array.isArray(subscriptionState.activeSubjects) ? subscriptionState.activeSubjects : [];
   const fromSubscriptions = (subscriptionState.subscriptions || [])
@@ -964,15 +973,21 @@ function updateSubscriptionAmount() {
 
 function getSubscriptionSubjectsForGrade(grade) {
   if (!grade) return [];
-  let subjects = [];
-  if (typeof activeLessons === 'function') {
-    subjects = activeLessons().filter(item => isSameSubscriptionGrade(item.grade, grade)).map(item => item.subject);
-  } else if (Array.isArray(D)) {
-    subjects = D.filter(row => isSameSubscriptionGrade(row["1"], grade)).map(row => row["2"]);
-  }
-  return [...new Set(subjects.filter(value => value && String(value).trim()))]
-    .sort()
-    .filter(subject => !getActiveSubscriptionSubjects().some(item => subscriptionSubjectKey(item.grade, item.subject) === subscriptionSubjectKey(grade, subject)));
+  const rows = typeof activeLessons === 'function'
+    ? activeLessons().map(item => ({ grade: item.grade, subject: item.subject }))
+    : (Array.isArray(D) ? D.map(row => ({ grade: row["1"], subject: row["2"] })) : []);
+  const activeKeys = new Set(getActiveSubscriptionSubjects().map(item => subscriptionSubjectKey(item.grade, item.subject)));
+  const seen = new Set();
+  const subjects = [];
+  rows.forEach((item) => {
+    const subject = String(item.subject || '').trim();
+    if (!subject || !isSameSubscriptionGrade(item.grade, grade)) return;
+    const key = normalizeSubscriptionSubject(subject);
+    if (!key || seen.has(key) || activeKeys.has(subscriptionSubjectKey(grade, subject))) return;
+    seen.add(key);
+    subjects.push(subject);
+  });
+  return subjects.sort();
 }
 
 function fillSubscriptionGradeOptions(values = subscriptionGradeOptions) {
@@ -1513,7 +1528,7 @@ function getCachedCsv() {
       
       if (!grade || !subject) return;
       
-      const semesters = [...new Set(D.filter(r => isSameSubscriptionGrade(r["1"], grade) && r["2"] === subject).map(r => r["3"]).filter(v => v && v.trim()))].sort();
+      const semesters = [...new Set(D.filter(r => isSameSubscriptionGrade(r["1"], grade) && isSameSubscriptionSubject(r["2"], subject)).map(r => r["3"]).filter(v => v && v.trim()))].sort();
       semesters.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s;
@@ -1536,7 +1551,7 @@ function getCachedCsv() {
       const unitsSet = new Set();
       const unitsList = [];
       D.forEach(r => {
-        if (isSameSubscriptionGrade(r["1"], grade) && r["2"] === subject && r["3"] === semester) {
+        if (isSameSubscriptionGrade(r["1"], grade) && isSameSubscriptionSubject(r["2"], subject) && r["3"] === semester) {
           const u = r["4"];
           if (u && u.trim() && !unitsSet.has(u)) {
             unitsList.push(u);
@@ -1567,7 +1582,7 @@ function getCachedCsv() {
       const lessonsSet = new Set();
       const lessonsList = [];
       D.forEach(r => {
-        if (isSameSubscriptionGrade(r["1"], grade) && r["2"] === subject && r["3"] === semester && r["4"] === unit) {
+        if (isSameSubscriptionGrade(r["1"], grade) && isSameSubscriptionSubject(r["2"], subject) && r["3"] === semester && r["4"] === unit) {
           const l = r["5"];
           if (l && l.trim() && !lessonsSet.has(l)) {
             lessonsList.push(l);
@@ -1633,7 +1648,7 @@ function getCachedCsv() {
         return;
       }
       
-      const lessonData = D.find(r => isSameSubscriptionGrade(r["1"], grade) && r["2"] === subject && r["3"] === semester && r["4"] === unit && r["5"] === lesson);
+      const lessonData = D.find(r => isSameSubscriptionGrade(r["1"], grade) && isSameSubscriptionSubject(r["2"], subject) && r["3"] === semester && r["4"] === unit && r["5"] === lesson);
       if (!lessonData) {
         showMessage('الدرس غير موجود', 'error');
         return;
