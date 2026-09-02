@@ -1165,7 +1165,6 @@
       <div class="subscription-status" id="subscription-status">سجل الدخول ثم أرسل الإيصال ليتم تفعيل المادة.</div>
     </div>
 
-
     <!-- SELECTION FORM -->
     <div class="form-card">
       <div class="form-card-title">
@@ -1897,7 +1896,6 @@ async function submitSubscriptionRequest() {
   }
 }
 
-
 let lessons = [];
 let attachments = [];
 const API_BASE = '/api/ai';
@@ -2385,7 +2383,7 @@ async function generateLesson() {
     }
 
     window.__currentLessonForNormalize = lesson;
-    lastResult = normalizeAiResult(result);
+    lastResult = normalizeAiResult(result, lesson);
     delete window.__currentLessonForNormalize;
     setGenerationProgressStage('render');
     finishGenerationProgress();
@@ -2444,7 +2442,44 @@ function updateAiStatus() {
   status.textContent = `Gemini محمي من الخادم عبر ${settings.model}`;
 }
 
+function containsArabicScript(value) {
+  return /[\u0600-\u06FF]/.test(String(value || ''));
+}
+
+function isEnglishSubject(subject) {
+  const raw = String(subject || '').toLowerCase();
+  const normalized = normalizeSubscriptionSubject(subject).toLowerCase();
+  return raw.includes('english') || normalized.includes('اللغه الانجليزيه') || normalized.includes('انجليزي');
+}
+
+function isEnglishLesson(lesson = {}) {
+  return isEnglishSubject(lesson.subject);
+}
+
+function lessonUnavailableText(lesson = {}) {
+  return isEnglishLesson(lesson) ? 'Not mentioned in the attachment.' : 'غير مذكور في المرفق';
+}
+
+function safeEnglishText(value, fallback) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text && !containsArabicScript(text) ? text : fallback;
+}
+
+function getLessonLanguageRule(lesson = {}) {
+  if (!isEnglishLesson(lesson)) {
+    return '- اكتب جميع قيم JSON باللغة العربية.';
+  }
+  return [
+    '- بما أن المادة هي اللغة الإنجليزية، اكتب جميع قيم JSON باللغة الإنجليزية فقط.',
+    '- يجب أن تكون كل الأقسام باللغة الإنجليزية، بما في ذلك parentNotes وhomework1 وhomework2 وclassroomGames وcitizenship وmotivation وattendance وboardPlan.',
+    '- لا تكتب أي جملة عربية داخل قيم JSON لمادة اللغة الإنجليزية.',
+    '- إذا لم تجد معلومة واضحة في المرفق اكتب بالإنجليزية: Not mentioned in the attachment.'
+  ].join('\n');
+}
+
 function buildPdfLessonPrompt(lesson) {
+  const languageRule = getLessonLanguageRule(lesson);
+  const unavailable = lessonUnavailableText(lesson);
   return `أنت مساعد تعليمي لإعداد تحضير درس للمعلمين في سلطنة عُمان.
 
 المطلوب: اقرأ ملف PDF المرفق بصريًا ونصيًا، ثم أعد تحضير درس واحد فقط.
@@ -2461,10 +2496,11 @@ function buildPdfLessonPrompt(lesson) {
 - الحقول الخمسة الأولى لمنصة نور يجب أن تكون من ملف PDF المرفق فقط: objectives, intro, procedures, formativeAssessment, closingAssessment.
 - ركز فقط على الدرس المطلوب: "${lesson.title}".
 - تجاهل الدروس الأخرى الموجودة في نفس الملف.
-- لا تضف معلومات خارج الملف في حقول منصة نور، وإذا لم تجد معلومة واضحة اكتب: غير مذكور في المرفق.
+- لا تضف معلومات خارج الملف في حقول منصة نور، وإذا لم تجد معلومة واضحة اكتب: ${unavailable}
 - parentNotes يولد حسب الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويكون مناسبًا لولي الأمر.
 - القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويستفيد من معلومات المرفق إن وجدت. إذا لم توجد تفاصيل كافية في المرفق فلا تكتب "غير مذكور في المرفق" في حقول الإثراء، بل ولّد محتوى تربويًا مناسبًا للدرس والمرحلة.
 - اجعل كل حقل عمليًا ومباشرًا وجاهزًا للنسخ في منصة المعلم.
+${languageRule}
 
 أخرج النتيجة بصيغة JSON فقط بالشكل التالي بدون أي نص إضافي:
 {"objectives":"","intro":"","procedures":"","formativeAssessment":"","closingAssessment":"","parentNotes":"","homework1":"","homework2":"","classroomGames":"","citizenship":"","motivation":"","attendance":"","boardPlan":""}`;
@@ -2477,6 +2513,8 @@ function pickRelevantAttachmentText(text, lesson) {
 
 function buildLessonPrompt(lesson, attachment) {
   const relevantText = pickRelevantAttachmentText(attachment.extractedText, lesson);
+  const languageRule = getLessonLanguageRule(lesson);
+  const unavailable = lessonUnavailableText(lesson);
   return `أنت مساعد تعليمي لإعداد تحضير درس للمعلمين في سلطنة عُمان.
 
 المطلوب: إعداد تحضير درس واحد فقط من النص المرفق.
@@ -2495,10 +2533,11 @@ ${relevantText}
 - الحقول الخمسة الأولى لمنصة نور يجب أن تكون من النص المرفق فقط: objectives, intro, procedures, formativeAssessment, closingAssessment.
 - ركز فقط على الدرس المطلوب: "${lesson.title}".
 - لا تستخدم أجزاء تخص دروسًا أخرى في نفس المرفق.
-- لا تضف معلومات خارج المرفق في حقول منصة نور، وإذا لم تجد معلومة واضحة اكتب: غير مذكور في المرفق.
+- لا تضف معلومات خارج المرفق في حقول منصة نور، وإذا لم تجد معلومة واضحة اكتب: ${unavailable}
 - parentNotes يولد حسب الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويكون مناسبًا لولي الأمر.
 - القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويستفيد من معلومات المرفق إن وجدت. إذا لم توجد تفاصيل كافية في المرفق فلا تكتب "غير مذكور في المرفق" في حقول الإثراء، بل ولّد محتوى تربويًا مناسبًا للدرس والمرحلة.
 - اجعل كل حقل عمليًا ومباشرًا وجاهزًا للنسخ في منصة المعلم.
+${languageRule}
 
 أخرج النتيجة بصيغة JSON فقط بالشكل التالي بدون أي نص إضافي:
 {"objectives":"","intro":"","procedures":"","formativeAssessment":"","closingAssessment":"","parentNotes":"","homework1":"","homework2":"","classroomGames":"","citizenship":"","motivation":"","attendance":"","boardPlan":""}`;
@@ -2625,9 +2664,37 @@ function parseAiJson(text) {
   return fallbackParse(clean);
 }
 
-function normalizeAiResult(result) {
-  const fallback = fallbackParse('', window.__currentLessonForNormalize || {});
-  return { ...fallback, ...(result || {}) };
+function getEnglishFieldFallback(key, lesson = {}) {
+  const title = safeEnglishText(lesson.title, 'the selected lesson');
+  const unit = safeEnglishText(lesson.unit, 'the selected unit');
+  const values = {
+    objectives: `Students are expected to identify the main ideas in "${title}" from the attachment, explain the key concepts, and apply them in a short classroom activity.`,
+    intro: `The teacher begins with a short question related to "${title}", then uses a relevant part of the attachment to activate students' prior knowledge.`,
+    procedures: `1. Present the lesson title and unit: ${unit}.\n2. Read the relevant information from the attachment.\n3. Identify the key ideas and concepts from the source text only.\n4. Ask students to support their answers with evidence from the attachment.\n5. Summarize the lesson without adding information from outside the attachment.`,
+    formativeAssessment: 'Use oral questions during the lesson and observe how students extract accurate information from the attachment.',
+    closingAssessment: 'Ask students to summarize the most important idea from the lesson in one clear sentence.',
+    parentNotes: `The parent reviews the lesson title "${title}" with the student and asks the student to explain one idea learned in simple English.`,
+    homework1: `Write three points you learned from "${title}" and include one example from the attachment.`,
+    homework2: `Answer two short questions based on "${title}", then write one question you would like to discuss in the next lesson.`,
+    classroomGames: `Quick card game: students match key terms from "${title}" with the correct explanations based on the attachment.`,
+    citizenship: `Citizenship link: students discuss how responsibility or cooperation can be applied in Oman through an idea connected to "${title}".`,
+    motivation: 'Give immediate verbal encouragement when students use evidence from the attachment, and award participation points for accurate answers.',
+    attendance: 'Connect regular attendance with active participation at the start of the lesson through a short question linked to the lesson.',
+    boardPlan: `Right side: lesson title and objectives. Center: key concepts and examples. Left side: assessment and homework. Bottom: key vocabulary from "${title}".`
+  };
+  return values[key] || 'Not mentioned in the attachment.';
+}
+
+function normalizeAiResult(result, lesson = window.__currentLessonForNormalize || {}) {
+  const fallback = fallbackParse('', lesson);
+  const normalized = { ...fallback, ...(result || {}) };
+  if (isEnglishLesson(lesson)) {
+    getResultKeys().forEach(k => {
+      const value = String(normalized[k] || '').trim();
+      if (!value || containsArabicScript(value)) normalized[k] = getEnglishFieldFallback(k, lesson);
+    });
+  }
+  return normalized;
 }
 
 function isPdfAttachment(attachment) {
@@ -2690,9 +2757,29 @@ function pickLessonText(text, title) {
 
 function localGenerateLesson(lesson, attachment) {
   const lessonText = pickLessonText(attachment.extractedText, lesson.title);
-  const unavailable = 'غير مذكور في المرفق';
+  const unavailable = lessonUnavailableText(lesson);
   if (!hasUsableAttachmentText(attachment) || !lessonText) return fallbackParse('', lesson);
   const compactText = lessonText.replace(/\s+/g, ' ').trim();
+  if (isEnglishLesson(lesson)) {
+    const title = safeEnglishText(lesson.title, 'the selected lesson');
+    const unit = safeEnglishText(lesson.unit, 'the selected unit');
+    const sourceText = compactText && !containsArabicScript(compactText) ? compactText : 'the relevant information in the attachment';
+    return {
+      objectives: `Students are expected to identify the main ideas in "${title}" from the attachment, explain the key concepts, and apply them in a short classroom activity.`,
+      intro: `The teacher begins with a short question related to "${title}", then presents a short excerpt from the attachment to activate students' prior knowledge.`,
+      procedures: `1. Present the lesson title and unit: ${unit}.\n2. Read the source text from the attachment: ${sourceText}\n3. Extract the key concepts and ideas from the source text only.\n4. Ask students to identify evidence from the text for each answer.\n5. Summarize the information from the attachment without adding external content.`,
+      formativeAssessment: 'Use oral questions during the lesson and observe students as they identify accurate details from the attachment.',
+      closingAssessment: 'Ask students to summarize the most important idea from the lesson in one clear sentence.',
+      parentNotes: lessonText.length > 40 ? `The parent reviews the lesson title "${title}" with the student and asks the student to explain one idea learned in simple English.` : unavailable,
+      homework1: `Write three points you learned from "${title}" and include one example from the attachment.`,
+      homework2: `Answer two short questions based on the concepts in "${title}", then write one question you would like to discuss in the next lesson.`,
+      classroomGames: `Quick card game: the teacher gives students key terms from "${title}" and asks them to match each term with the correct explanation from the attachment.`,
+      citizenship: `Citizenship link: students discuss how responsibility or service to the community in Oman can be connected to an idea from "${title}".`,
+      motivation: 'Give immediate verbal encouragement when students use evidence from the attachment, and award participation points to the most accurate groups.',
+      attendance: 'Connect regular attendance with participation at the beginning of the lesson through a short activity that depends on being present and attentive.',
+      boardPlan: `Right side: lesson title and objectives. Center: key concepts and main ideas. Left side: assessment and homework. Bottom: key vocabulary from "${title}".`
+    };
+  }
   return {
     objectives: `يتوقع من الطالب أن يحدد الأفكار الأساسية في درس "${lesson.title}" اعتمادًا على المرفق، وأن يشرح المفاهيم الواردة فيه، وأن يطبقها في نشاط قصير داخل الصف.`,
     intro: `يمهد المعلم للدرس بسؤال قصير مرتبط بعنوان "${lesson.title}"، ثم يعرض مقتطفًا من المرفق لمناقشة المعرفة السابقة لدى الطلاب.`,
@@ -2715,6 +2802,19 @@ function getResultKeys() {
 }
 
 function buildEnrichmentFallback(lesson = {}) {
+  if (isEnglishLesson(lesson)) {
+    const title = safeEnglishText(lesson.title, 'the selected lesson');
+    const grade = safeEnglishText(lesson.grade, 'the selected grade');
+    return {
+      homework1: `Homework for ${grade}: write three ideas you learned from "${title}", then choose one idea and explain it in your own words.`,
+      homework2: `Applied homework: create two questions about "${title}" with short model answers, then share one question in the next lesson.`,
+      classroomGames: `Classroom game: divide students into groups and ask each group to arrange concept cards related to "${title}" while explaining the reason for each choice.`,
+      citizenship: `Citizenship link: students discuss how responsibility or cooperation can be practiced in Oman through an idea connected to "${title}".`,
+      motivation: `Motivation: award excellence points to students who connect an accurate answer from "${title}" to a clear example, while encouraging calm and organized participation.`,
+      attendance: `Student attendance: begin the lesson with a short attendance question related to "${title}", and include early participation in follow-up points.`,
+      boardPlan: `Board plan: right side: "${title}" and objectives. Center: key concepts and examples. Left side: assessment and homework. Bottom: lesson keywords.`
+    };
+  }
   const title = String(lesson.title || 'الدرس').trim() || 'الدرس';
   const grade = String(lesson.grade || 'المرحلة الدراسية').trim() || 'المرحلة الدراسية';
   return {
@@ -2730,7 +2830,8 @@ function buildEnrichmentFallback(lesson = {}) {
 
 function fallbackParse(text, lesson = {}) {
   const result = {};
-  getResultKeys().forEach(k => { result[k] = 'غير مذكور في المرفق'; });
+  const unavailable = lessonUnavailableText(lesson);
+  getResultKeys().forEach(k => { result[k] = unavailable; });
   return { ...result, ...buildEnrichmentFallback(lesson) };
 }
 
@@ -2823,8 +2924,166 @@ function resetResultReveal() {
   });
 }
 
+const RESULT_SECTION_CARD_IDS = {
+  objectives: 'card-objectives',
+  intro: 'card-intro',
+  procedures: 'card-procedures',
+  formativeAssessment: 'card-formative',
+  closingAssessment: 'card-closing',
+  parentNotes: 'card-parent',
+  homework1: 'card-homework1',
+  homework2: 'card-homework2',
+  classroomGames: 'card-classroomGames',
+  citizenship: 'card-citizenship',
+  motivation: 'card-motivation',
+  attendance: 'card-attendance',
+  boardPlan: 'card-boardPlan'
+};
+
+const RESULT_UI_TEXTS = {
+  ar: {
+    resultsTitle: '✅ تحضير الدرس',
+    noorTitle: 'أقسام التحضير في منصة نور',
+    noorSubtitle: 'هذه الحقول تعتمد على المرفق، مع ملاحظات ولي الأمر وفق الدرس والمرحلة الدراسية في سلطنة عمان',
+    enrichmentTitle: 'القسم الإثرائي',
+    enrichmentSubtitle: 'يولد حسب اسم الدرس والمرحلة الدراسية والمعلومات الموجودة في المرفق',
+    copyButton: '📋 نسخ',
+    copiedButton: '✅ تم النسخ',
+    copyAllButton: '📋 نسخ التحضير كاملًا',
+    copySuccess: 'تم نسخ القسم بنجاح ✅',
+    copyAllSuccess: 'تم نسخ التحضير كاملًا ✅',
+    noorCopyHeader: '【 أقسام التحضير في منصة نور 】',
+    enrichmentCopyHeader: '【 القسم الإثرائي 】',
+    labels: {
+      objectives: 'أهداف الدرس',
+      intro: 'التمهيد',
+      procedures: 'إجراءات تنفيذ الدرس',
+      formativeAssessment: 'التقويم التكويني',
+      closingAssessment: 'التقويم الختامي',
+      parentNotes: 'ملاحظات ولي الأمر',
+      homework1: 'الواجب الأول',
+      homework2: 'الواجب الثاني',
+      classroomGames: 'ألعاب صفية',
+      citizenship: 'المواطنة',
+      motivation: 'التحفيز',
+      attendance: 'الانتظام الطلابي',
+      boardPlan: 'تقسيم السبورة'
+    },
+    footers: {
+      objectives: '📎 مستخرج من المرفق فقط',
+      intro: '📎 مستخرج من المرفق فقط',
+      procedures: '📎 مستخرج من المرفق فقط',
+      formativeAssessment: '📎 مستخرج من المرفق فقط',
+      closingAssessment: '📎 مستخرج من المرفق فقط',
+      parentNotes: '📎 مستخرج من المرفق فقط',
+      homework1: '✨ إثرائي حسب الدرس والمرحلة',
+      homework2: '✨ إثرائي حسب الدرس والمرحلة',
+      classroomGames: '✨ إثرائي حسب الدرس والمرحلة',
+      citizenship: '✨ ربط تربوي مناسب لسلطنة عمان',
+      motivation: '✨ إثرائي حسب الدرس والمرحلة',
+      attendance: '✨ دعم الحضور والمشاركة',
+      boardPlan: '✨ توزيع عملي للحصة'
+    }
+  },
+  en: {
+    resultsTitle: 'Lesson Plan',
+    noorTitle: 'Noor Lesson Plan Sections',
+    noorSubtitle: 'These fields are based on the attachment, with parent notes suitable for the lesson and grade level in Oman.',
+    enrichmentTitle: 'Enrichment Section',
+    enrichmentSubtitle: 'Generated according to the lesson title, grade level, and information available in the attachment.',
+    copyButton: 'Copy',
+    copiedButton: 'Copied',
+    copyAllButton: 'Copy Full Lesson Plan',
+    copySuccess: 'Section copied successfully.',
+    copyAllSuccess: 'Full lesson plan copied successfully.',
+    noorCopyHeader: '[ Noor Lesson Plan Sections ]',
+    enrichmentCopyHeader: '[ Enrichment Section ]',
+    labels: {
+      objectives: 'Lesson Objectives',
+      intro: 'Introduction',
+      procedures: 'Lesson Procedures',
+      formativeAssessment: 'Formative Assessment',
+      closingAssessment: 'Closing Assessment',
+      parentNotes: 'Parent Notes',
+      homework1: 'Homework 1',
+      homework2: 'Homework 2',
+      classroomGames: 'Classroom Games',
+      citizenship: 'Citizenship',
+      motivation: 'Motivation',
+      attendance: 'Student Attendance',
+      boardPlan: 'Board Plan'
+    },
+    footers: {
+      objectives: 'Based on the attachment only',
+      intro: 'Based on the attachment only',
+      procedures: 'Based on the attachment only',
+      formativeAssessment: 'Based on the attachment only',
+      closingAssessment: 'Based on the attachment only',
+      parentNotes: 'Based on the attachment only',
+      homework1: 'Enrichment based on the lesson and grade level',
+      homework2: 'Enrichment based on the lesson and grade level',
+      classroomGames: 'Enrichment based on the lesson and grade level',
+      citizenship: 'Educational link suitable for Oman',
+      motivation: 'Enrichment based on the lesson and grade level',
+      attendance: 'Supports attendance and participation',
+      boardPlan: 'Practical lesson board layout'
+    }
+  }
+};
+
+function getResultUiTexts(lesson = {}) {
+  return isEnglishLesson(lesson) ? RESULT_UI_TEXTS.en : RESULT_UI_TEXTS.ar;
+}
+
+function setTitleWithSubtitle(el, title, subtitle) {
+  if (!el) return;
+  const span = el.querySelector('span');
+  Array.from(el.childNodes).forEach(node => {
+    if (node.nodeType === Node.TEXT_NODE) node.nodeValue = '';
+  });
+  el.insertBefore(document.createTextNode(title), span || null);
+  if (span) span.textContent = subtitle;
+}
+
+function setSectionLabel(key, text) {
+  const cardId = RESULT_SECTION_CARD_IDS[key];
+  const label = cardId ? document.querySelector(`#${cardId} .section-label`) : null;
+  if (!label) return;
+  const iconText = label.querySelector('.section-icon')?.textContent || '';
+  label.textContent = '';
+  if (iconText) {
+    const icon = document.createElement('div');
+    icon.className = 'section-icon';
+    icon.textContent = iconText;
+    label.appendChild(icon);
+  }
+  label.appendChild(document.createTextNode(text));
+}
+
+function applyResultUiLanguage(lesson = {}) {
+  const texts = getResultUiTexts(lesson);
+  const resultTitle = document.querySelector('.results-title');
+  if (resultTitle) resultTitle.textContent = texts.resultsTitle;
+  const groupTitles = document.querySelectorAll('.result-section-title');
+  setTitleWithSubtitle(groupTitles[0], texts.noorTitle, texts.noorSubtitle);
+  setTitleWithSubtitle(groupTitles[1], texts.enrichmentTitle, texts.enrichmentSubtitle);
+  getResultKeys().forEach(key => {
+    setSectionLabel(key, texts.labels[key]);
+    const cardId = RESULT_SECTION_CARD_IDS[key];
+    const card = cardId ? document.getElementById(cardId) : null;
+    const footer = card?.querySelector('.section-footer');
+    const button = card?.querySelector('.btn-copy');
+    if (footer) footer.textContent = texts.footers[key] || '';
+    if (button && !button.classList.contains('copied')) button.textContent = texts.copyButton;
+  });
+  const copyAllBtn = document.querySelector('.copy-all-area .btn');
+  if (copyAllBtn) copyAllBtn.textContent = texts.copyAllButton;
+}
+
 function showResults(result, lesson) {
   const area = document.getElementById('results-area');
+  window.__currentDisplayedLesson = lesson;
+  applyResultUiLanguage(lesson);
   resetResultReveal();
   document.getElementById('results-meta').textContent = `${lesson.grade} • ${lesson.subject} • ${lesson.title}`;
   area.classList.add('show');
@@ -2838,7 +3097,7 @@ function showResults(result, lesson) {
   getResultKeys().forEach((k, index) => {
     const el = document.getElementById('sec-' + k);
     if (!el) return;
-    const value = result[k] || 'غير مذكور في المرفق';
+    const value = result[k] || lessonUnavailableText(lesson);
     el.classList.add('generating');
     setTimeout(() => {
       el.classList.remove('generating');
@@ -2850,43 +3109,45 @@ function showResults(result, lesson) {
 function copySection(key, btn) {
   const el = document.getElementById('sec-' + key);
   if (!el) return;
+  const texts = getResultUiTexts(window.__currentDisplayedLesson || {});
   navigator.clipboard.writeText(el.textContent).then(() => {
-    btn.innerHTML = '✅ تم النسخ';
+    btn.textContent = texts.copiedButton;
     btn.classList.add('copied');
-    setTimeout(() => { btn.innerHTML = '📋 نسخ'; btn.classList.remove('copied'); }, 1800);
-    showToast('تم نسخ القسم بنجاح ✅');
+    setTimeout(() => { btn.textContent = texts.copyButton; btn.classList.remove('copied'); }, 1800);
+    showToast(texts.copySuccess);
   });
 }
 
 function copyAll() {
+  const texts = getResultUiTexts(window.__currentDisplayedLesson || {});
   const noorLabels = {
-    objectives: 'أهداف الدرس من المرفق',
-    intro: 'التمهيد من المرفق',
-    procedures: 'إجراءات تنفيذ الدرس من المرفق',
-    formativeAssessment: 'التقويم التكويني من المرفق',
-    closingAssessment: 'التقويم الختامي من المرفق',
-    parentNotes: 'ملاحظات ولي الأمر'
+    objectives: texts.labels.objectives,
+    intro: texts.labels.intro,
+    procedures: texts.labels.procedures,
+    formativeAssessment: texts.labels.formativeAssessment,
+    closingAssessment: texts.labels.closingAssessment,
+    parentNotes: texts.labels.parentNotes
   };
   const enrichmentLabels = {
-    homework1: 'الواجب الأول',
-    homework2: 'الواجب الثاني',
-    classroomGames: 'ألعاب صفية',
-    citizenship: 'المواطنة',
-    motivation: 'التحفيز',
-    attendance: 'الانتظام الطلابي',
-    boardPlan: 'تقسيم السبورة'
+    homework1: texts.labels.homework1,
+    homework2: texts.labels.homework2,
+    classroomGames: texts.labels.classroomGames,
+    citizenship: texts.labels.citizenship,
+    motivation: texts.labels.motivation,
+    attendance: texts.labels.attendance,
+    boardPlan: texts.labels.boardPlan
   };
-  let text = '【 أقسام التحضير في منصة نور 】\n\n';
+  let text = texts.noorCopyHeader + '\n\n';
   Object.entries(noorLabels).forEach(([k, label]) => {
     const el = document.getElementById('sec-' + k);
     if (el) text += `【 ${label} 】\n${el.textContent}\n\n`;
   });
-  text += '【 القسم الإثرائي 】\n\n';
+  text += texts.enrichmentCopyHeader + '\n\n';
   Object.entries(enrichmentLabels).forEach(([k, label]) => {
     const el = document.getElementById('sec-' + k);
     if (el) text += `【 ${label} 】\n${el.textContent}\n\n`;
   });
-  navigator.clipboard.writeText(text.trim()).then(() => showToast('تم نسخ التحضير كاملًا ✅'));
+  navigator.clipboard.writeText(text.trim()).then(() => showToast(texts.copyAllSuccess));
 }
 
 function showError(msg) {
