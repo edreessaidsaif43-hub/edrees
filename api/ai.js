@@ -619,9 +619,19 @@ function openRouterPdfPart(attachment) {
     type: "file",
     file: {
       filename: attachment?.fileName || "lesson.pdf",
-      file_data: url
+      file_data: url,
+      fileData: url
     }
   };
+}
+
+function textFromOpenRouterContent(content) {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter((part) => part?.type === "text" && part.text)
+    .map((part) => String(part.text))
+    .join("\n\n");
 }
 
 async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000, temperature = 0.2 }) {
@@ -644,6 +654,18 @@ async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000
   }, timeoutMs);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
+    const annotationText = extractOpenRouterAnnotationText(data);
+    if (hasUsableExtractedText(annotationText)) {
+      const basePrompt = textFromOpenRouterContent(content) || "أعد توليد النتيجة بصيغة JSON فقط.";
+      const retryText = await requestOpenRouterJson({
+        apiKey,
+        model,
+        content: `${basePrompt}\n\nالنص المستخرج من PDF:\n${annotationText}`,
+        timeoutMs: Math.min(timeoutMs, 65000),
+        temperature
+      });
+      if (retryText.trim()) return retryText;
+    }
     const err = new Error(data?.error?.message || "تعذر الاتصال بخدمة OpenRouter.");
     err.statusCode = response.status || 500;
     err.data = data;

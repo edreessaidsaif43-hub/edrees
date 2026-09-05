@@ -2268,11 +2268,11 @@ async function generateLesson() {
             : 'خدمة الذكاء الاصطناعي مشغولة حاليًا، فتم عرض تحضير احتياطي سريع من النص المحفوظ.';
         } else if (typeof isGeminiPermissionError === 'function' && isGeminiPermissionError(aiErr)) {
           console.warn('Selected AI model is not allowed, using local fallback.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) throw new Error('النموذج المختار لا يملك صلاحية قراءة PDF ولا يوجد نص محفوظ صالح. استخرج النص من لوحة الإدارة أو جرّب لاحقًا.');
+          if (needsPdfRead && !canUseTextFallback) throw new Error('تعذر قراءة PDF مباشرة الآن. أعد المحاولة أو حوّل الملف إلى نص من لوحة الإدارة.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = needsPdfRead
-            ? 'النموذج المختار لا يملك صلاحية قراءة PDF، فتم عرض تحضير احتياطي.'
+            ? 'تعذرت قراءة PDF مباشرة، فتم عرض تحضير احتياطي من النص المتاح.'
             : 'النموذج المختار غير متاح حاليًا، فتم عرض تحضير احتياطي سريع.';
         } else {
           throw aiErr;
