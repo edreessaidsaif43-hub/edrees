@@ -2159,6 +2159,18 @@ async function ensureLessonAttachmentText(lesson, currentAttachments) {
   return refreshedAttachments;
 }
 
+async function retryLessonGenerationFromExtractedText(lesson, lessonAttachments, combinedAttachment, settings) {
+  const refreshedAttachments = await ensureLessonAttachmentText(lesson, lessonAttachments);
+  const refreshedText = refreshedAttachments.map(getUsableAttachmentText).filter(Boolean).join('\n\n');
+  if (!refreshedText) return null;
+  combinedAttachment.extractedText = refreshedText;
+  combinedAttachment.fileName = refreshedAttachments.map(a => a.fileName || '').filter(Boolean).join('، ');
+  if (typeof setGenerationProgressStage === 'function') setGenerationProgressStage('request');
+  const retried = await callGemini(buildLessonPrompt(lesson, combinedAttachment), settings);
+  if (typeof setGenerationProgressStage === 'function') setGenerationProgressStage('response');
+  return retried;
+}
+
 ['t-grade','t-subject','t-semester','t-unit'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('change', () => populateTeacherFilters(id));
@@ -2223,6 +2235,22 @@ async function generateLesson() {
     let result;
     let usedFallback = false;
     let fallbackMessage = 'تعذر قراءة PDF عبر الذكاء الاصطناعي، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.';
+    const recoverFromUnreadablePdf = async (message) => {
+      try {
+        const retried = await retryLessonGenerationFromExtractedText(lesson, lessonAttachments, combinedAttachment, settings);
+        if (retried) {
+          result = retried;
+          usedFallback = false;
+          fallbackMessage = '';
+          return;
+        }
+      } catch (retryErr) {
+        console.warn('PDF text recovery failed, using local fallback.', retryErr);
+      }
+      result = localGenerateLesson(lesson, combinedAttachment);
+      usedFallback = true;
+      fallbackMessage = message;
+    };
 
     if (true) {
       try {
@@ -2236,49 +2264,52 @@ async function generateLesson() {
         const canUseTextFallback = hasUsableAttachmentText(combinedAttachment);
         if (isGeminiQuotaError(aiErr)) {
           console.warn('AI quota exceeded, using local fallback.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) throw new Error('تعذر قراءة PDF لأن حصة الذكاء الاصطناعي غير متاحة حاليًا، ولا يوجد نص محفوظ لهذا المرفق. من لوحة الإدارة اضغط "استخراج نص المرفقات القديمة"، أو أعد المحاولة لاحقًا.');
-          result = localGenerateLesson(lesson, combinedAttachment);
-          usedFallback = true;
-          fallbackMessage = needsPdfRead
-            ? 'حصة الذكاء الاصطناعي غير متاحة لقراءة PDF الآن، فتم عرض تحضير احتياطي. استخرج نص المرفقات القديمة للحصول على نتيجة أدق وأسرع.'
-            : fallbackMessage;
+          if (needsPdfRead && !canUseTextFallback) {
+            await recoverFromUnreadablePdf('حصة الذكاء الاصطناعي غير متاحة لقراءة PDF الآن، فتم عرض تحضير احتياطي عام.');
+          } else {
+            result = localGenerateLesson(lesson, combinedAttachment);
+            usedFallback = true;
+            fallbackMessage = needsPdfRead
+              ? 'حصة الذكاء الاصطناعي غير متاحة لقراءة PDF الآن، فتم عرض تحضير احتياطي. استخرج نص المرفقات القديمة للحصول على نتيجة أدق وأسرع.'
+              : fallbackMessage;
+          }
         } else if (isGeminiInvalidArgumentError(aiErr)) {
           console.warn('AI could not read PDF, using safe fallback.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) throw new Error('تعذر قراءة PDF ولم يتم العثور على نص محفوظ صالح. استخدم ملف PDF نصيًا واضحًا أو استخرج النص من لوحة الإدارة.');
-          result = localGenerateLesson(lesson, combinedAttachment);
-          usedFallback = true;
-          fallbackMessage = needsPdfRead
-            ? 'تعذرت قراءة PDF عبر الذكاء الاصطناعي، فتم عرض تحضير احتياطي. استخدم PDF نصيًا واضحًا أو استخرج النص من لوحة الإدارة.'
-            : 'تعذر قراءة PDF عبر الذكاء الاصطناعي، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.';
+          if (needsPdfRead && !canUseTextFallback) {
+            await recoverFromUnreadablePdf('تعذرت قراءة PDF عبر الذكاء الاصطناعي، فتم عرض تحضير احتياطي عام.');
+          } else {
+            result = localGenerateLesson(lesson, combinedAttachment);
+            usedFallback = true;
+            fallbackMessage = needsPdfRead
+              ? 'تعذرت قراءة PDF عبر الذكاء الاصطناعي، فتم عرض تحضير احتياطي. استخدم PDF نصيًا واضحًا أو استخرج النص من لوحة الإدارة.'
+              : 'تعذر قراءة PDF عبر الذكاء الاصطناعي، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.';
+          }
         } else if (isRequestTimeoutError(aiErr)) {
           console.warn('AI request took too long, using local fallback.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) throw new Error('لم يكتمل تحليل PDF ضمن المهلة ولا يوجد نص محفوظ لهذا المرفق. من لوحة الإدارة اضغط "استخراج نص المرفقات القديمة"، أو ارفع ملف PDF أصغر/نصيًا واضحًا.');
-          result = localGenerateLesson(lesson, combinedAttachment);
-          usedFallback = true;
-          fallbackMessage = needsPdfRead
-            ? 'استغرقت قراءة PDF وقتًا طويلًا، فتم عرض تحضير احتياطي سريع. استخراج النص مسبقًا يجعل التوليد أسرع.'
-            : 'استغرق التوليد وقتًا طويلًا، فتم عرض تحضير احتياطي سريع بدل الانتظار.';
+          if (needsPdfRead && !canUseTextFallback) {
+            await recoverFromUnreadablePdf('استغرقت قراءة PDF وقتًا طويلًا، فتم عرض تحضير احتياطي عام بدل إيقاف التوليد.');
+          } else {
+            result = localGenerateLesson(lesson, combinedAttachment);
+            usedFallback = true;
+            fallbackMessage = needsPdfRead
+              ? 'استغرقت قراءة PDF وقتًا طويلًا، فتم عرض تحضير احتياطي سريع. استخراج النص مسبقًا يجعل التوليد أسرع.'
+              : 'استغرق التوليد وقتًا طويلًا، فتم عرض تحضير احتياطي سريع بدل الانتظار.';
+          }
         } else if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(aiErr)) {
           console.warn('AI service is under high demand.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) throw new Error('خدمة الذكاء الاصطناعي مشغولة حاليًا ولا يوجد نص محفوظ لهذا المرفق. استخرج النص من لوحة الإدارة أو جرّب لاحقًا.');
-          result = localGenerateLesson(lesson, combinedAttachment);
-          usedFallback = true;
-          fallbackMessage = needsPdfRead
-            ? 'خدمة الذكاء الاصطناعي مشغولة ولا يمكن قراءة PDF الآن، فتم عرض تحضير احتياطي. استخرج النص مسبقًا للحصول على نتيجة أدق.'
-            : 'خدمة الذكاء الاصطناعي مشغولة حاليًا، فتم عرض تحضير احتياطي سريع من النص المحفوظ.';
+          if (needsPdfRead && !canUseTextFallback) {
+            await recoverFromUnreadablePdf('خدمة الذكاء الاصطناعي مشغولة حاليًا، فتم عرض تحضير احتياطي عام.');
+          } else {
+            result = localGenerateLesson(lesson, combinedAttachment);
+            usedFallback = true;
+            fallbackMessage = needsPdfRead
+              ? 'خدمة الذكاء الاصطناعي مشغولة ولا يمكن قراءة PDF الآن، فتم عرض تحضير احتياطي. استخرج النص مسبقًا للحصول على نتيجة أدق.'
+              : 'خدمة الذكاء الاصطناعي مشغولة حاليًا، فتم عرض تحضير احتياطي سريع من النص المحفوظ.';
+          }
         } else if (typeof isGeminiPermissionError === 'function' && isGeminiPermissionError(aiErr)) {
           console.warn('Selected AI model is not allowed, using local fallback.', aiErr);
           if (needsPdfRead && !canUseTextFallback) {
-            const refreshedAttachments = await ensureLessonAttachmentText(lesson, lessonAttachments);
-            const refreshedText = refreshedAttachments.map(getUsableAttachmentText).filter(Boolean).join('\n\n');
-            if (!refreshedText) throw new Error('تعذر قراءة PDF مباشرة أو استخراج نصه الآن. أعد المحاولة بعد قليل أو حوّل الملف إلى نص من لوحة الإدارة.');
-            combinedAttachment.extractedText = refreshedText;
-            combinedAttachment.fileName = refreshedAttachments.map(a => a.fileName || '').filter(Boolean).join('، ');
-            setGenerationProgressStage('request');
-            result = await callGemini(buildLessonPrompt(lesson, combinedAttachment), settings);
-            setGenerationProgressStage('response');
-            usedFallback = false;
-            fallbackMessage = '';
+            await recoverFromUnreadablePdf('تعذرت قراءة PDF مباشرة أو استخراج نصه بالكامل الآن، فتم عرض تحضير احتياطي عام.');
           } else {
             result = localGenerateLesson(lesson, combinedAttachment);
             usedFallback = true;
@@ -2287,7 +2318,17 @@ async function generateLesson() {
               : 'النموذج المختار غير متاح حاليًا، فتم عرض تحضير احتياطي سريع.';
           }
         } else {
-          throw aiErr;
+          if (needsPdfRead && !canUseTextFallback) {
+            console.warn('AI PDF generation failed, trying recovery fallback.', aiErr);
+            await recoverFromUnreadablePdf('تعذرت قراءة PDF عبر الذكاء الاصطناعي، فتم عرض تحضير احتياطي عام بدل إيقاف التوليد.');
+          } else if (needsPdfRead) {
+            console.warn('AI PDF generation failed, using saved text fallback.', aiErr);
+            result = localGenerateLesson(lesson, combinedAttachment);
+            usedFallback = true;
+            fallbackMessage = 'تعذرت قراءة PDF عبر الذكاء الاصطناعي، فتم عرض تحضير احتياطي من النص المحفوظ.';
+          } else {
+            throw aiErr;
+          }
         }
       }
     } else {
