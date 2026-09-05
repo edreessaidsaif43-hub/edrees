@@ -2230,6 +2230,7 @@ async function generateLesson() {
     fileName: lessonAttachments.map(a => a.fileName || '').filter(Boolean).join('، ')
   };
   const prompt = buildLessonPrompt(lesson, combinedAttachment);
+  window.__currentLessonForNormalize = lesson;
 
   try {
     let result;
@@ -2336,7 +2337,6 @@ async function generateLesson() {
       usedFallback = true;
     }
 
-    window.__currentLessonForNormalize = lesson;
     lastResult = normalizeAiResult(result, lesson);
     delete window.__currentLessonForNormalize;
     setGenerationProgressStage('render');
@@ -2587,7 +2587,13 @@ function parseAiJson(text) {
       try { return JSON.parse(match[0]); } catch {}
     }
   }
-  return fallbackParse(clean);
+  return fallbackParse(clean, window.__currentLessonForNormalize || {});
+}
+
+function normalizeResultField(value) {
+  if (Array.isArray(value)) return value.map(item => String(item || '').trim()).filter(Boolean).join('\n');
+  if (value && typeof value === 'object') return Object.values(value).map(item => String(item || '').trim()).filter(Boolean).join('\n');
+  return String(value ?? '').trim();
 }
 
 function getEnglishFieldFallback(key, lesson = {}) {
@@ -2614,6 +2620,12 @@ function getEnglishFieldFallback(key, lesson = {}) {
 function normalizeAiResult(result, lesson = window.__currentLessonForNormalize || {}) {
   const fallback = fallbackParse('', lesson);
   const normalized = { ...fallback, ...(result || {}) };
+  getResultKeys().forEach(k => {
+    const value = normalizeResultField(normalized[k]);
+    normalized[k] = value && value !== 'undefined' && value !== 'null'
+      ? value
+      : (fallback[k] || lessonUnavailableText(lesson));
+  });
   if (isEnglishLesson(lesson)) {
     getResultKeys().forEach(k => {
       const value = String(normalized[k] || '').trim();
