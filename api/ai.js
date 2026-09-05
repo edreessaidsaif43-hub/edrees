@@ -16,6 +16,8 @@ const OCR_GEMINI_TIMEOUT_MS = 9 * 60 * 1000;
 const LARGE_FILE_TRANSFER_TIMEOUT_MS = 6 * 60 * 1000;
 const GEMINI_OCR_MODELS = ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"];
 const MIN_SAVED_PDF_TEXT_LENGTH = 500;
+const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
+const OPENROUTER_FALLBACK_API_KEY = "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";
 
 const DATABASE_URL =
   process.env.AI_DATABASE_URL ||
@@ -751,79 +753,51 @@ async function extractFullAttachmentTextWithGemini(attachment) {
 async function generateGemini(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readJsonBody(req);
-  const apiKey = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
-  let model = String(body.model || process.env.GEMINI_MODEL || "gemini-3.6-flash").trim();
-  if (model === "gemini-2.5-flash-lite") model = "gemini-3.1-flash-lite";
-  if (model === "gemini-2.5-pro") model = "gemini-3.5-flash";
+  const apiKey = String(process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY || OPENROUTER_FALLBACK_API_KEY || "").trim();
+  const requestedModel = String(body.model || process.env.OPENROUTER_MODEL || OPENROUTER_DEFAULT_MODEL).trim();
+  const model = requestedModel.includes("/") ? requestedModel : OPENROUTER_DEFAULT_MODEL;
   const prompt = String(body.prompt || "");
-  if (!apiKey) return fail(res, 400, "Ù…ÙØªØ§Ø­ Gemini ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯ Ø¹Ù„Ù‰ Ø§Ù„Ø®Ø§Ø¯Ù…. Ø£Ø¶Ù GEMINI_API_KEY ÙÙŠ Vercel Ø«Ù… Ø£Ø¹Ø¯ Ø§Ù„Ù†Ø´Ø±.", "missing_gemini_key");
+  if (!apiKey) return fail(res, 400, "مفتاح OpenRouter غير موجود على الخادم. أضف OPENROUTER_API_KEY في Vercel ثم أعد النشر.", "missing_openrouter_key");
   if (!prompt) return fail(res, 400, "Ù†Øµ Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯.", "invalid_payload");
-  const parts = [];
-  let usesPdfAttachment = false;
+  let finalPrompt = prompt;
   if (body.includePdf && (body.attachmentId || Array.isArray(body.attachmentIds))) {
     const ids = Array.isArray(body.attachmentIds) && body.attachmentIds.length
       ? body.attachmentIds.map((id) => Number(id)).filter(Boolean)
       : [Number(body.attachmentId)].filter(Boolean);
     if (!ids.length) return fail(res, 404, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ù„Ù PDF.", "not_found");
+    const attachmentTexts = [];
     for (const id of ids.slice(0, 6)) {
       const attachment = await getAttachment(id);
       if (!attachment || !isPdfAttachment(attachment)) continue;
-      const mimeType = "application/pdf";
-      const fileUri = await getOrCreateGeminiFileUri(apiKey, attachment);
-      parts.push({ file_data: { mime_type: mimeType, file_uri: fileUri } });
-      usesPdfAttachment = true;
+      const text = normalizeExtractedText(attachment.extractedText || "");
+      if (hasUsableExtractedText(text)) attachmentTexts.push(text);
     }
-    if (!parts.length) return fail(res, 404, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ù„Ù PDF ØµØ§Ù„Ø­.", "not_found");
+    if (!attachmentTexts.length) return fail(res, 400, "لا يوجد نص محفوظ صالح لهذا المرفق. استخرج نص المرفق من لوحة الإدارة ثم أعد المحاولة.", "missing_attachment_text");
+    finalPrompt = `${prompt}\n\nنص المرفقات المعتمدة:\n${attachmentTexts.join("\n\n---\n\n")}`;
   }
-  parts.push({ text: prompt });
-  async function requestGemini(selectedModel) {
-    const selectedGenerationConfig = selectedModel.startsWith("gemini-3")
-      ? { responseMimeType: "application/json" }
-      : { temperature: usesPdfAttachment ? 0.1 : 0.2, responseMimeType: "application/json" };
-    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts }],
-        generationConfig: selectedGenerationConfig,
-      }),
-    }, usesPdfAttachment ? 4 * 60 * 1000 : 55000);
-    const data = await response.json().catch(() => ({}));
-    return { response, data };
-  }
-  function isHighDemandResponse(response, data) {
-    const message = String(data?.error?.message || "").toLowerCase();
-    return response.status === 503 ||
-      message.includes("high demand") ||
-      message.includes("spikes in demand") ||
-      message.includes("try again later") ||
-      message.includes("overloaded") ||
-      message.includes("unavailable");
-  }
-  let { response, data } = await requestGemini(model);
-  const deniedMessage = String(data?.error?.message || "").toLowerCase();
-  if (!response.ok && response.status === 403 && model !== "gemini-3.6-flash" && deniedMessage.includes("permission")) {
-    model = "gemini-3.6-flash";
-    ({ response, data } = await requestGemini(model));
-  }
-  if (!response.ok && isHighDemandResponse(response, data) && model !== "gemini-3.1-flash-lite") {
-    model = "gemini-3.1-flash-lite";
-    ({ response, data } = await requestGemini(model));
-  }
-  const notAvailableMessage = String(data?.error?.message || "").toLowerCase();
-  if (!response.ok && model !== "gemini-2.5-flash" && (response.status === 404 || notAvailableMessage.includes("no longer available") || notAvailableMessage.includes("not found"))) {
-    model = "gemini-2.5-flash";
-    ({ response, data } = await requestGemini(model));
-  }
+
+  const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+      "HTTP-Referer": "https://altahdir.app",
+      "X-Title": "altahdir-ai"
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: finalPrompt }],
+      temperature: 0.2,
+      response_format: { type: "json_object" }
+    }),
+  }, body.includePdf ? 4 * 60 * 1000 : 65000);
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = data?.error?.message || "ØªØ¹Ø°Ø± Ø§Ù„Ø§ØªØµØ§Ù„ Ø¨Ø®Ø¯Ù…Ø© Gemini.";
-    const friendly = /invalid argument/i.test(message)
-      ? "Ø±ÙØ¶ Gemini Ø§Ù„Ø·Ù„Ø¨ Ù„Ø£Ù† Ù…Ù„Ù PDF ØºÙŠØ± ØµØ§Ù„Ø­ Ø£Ùˆ Ù„Ø£Ù† Ø§Ù„Ù…Ø±ÙÙ‚ Ù„ÙŠØ³ PDF ÙØ¹Ù„ÙŠÙ‹Ø§. Ø§Ø³ØªØ®Ø¯Ù… Ù…Ù„Ù PDF ØµØ§Ù„Ø­Ù‹Ø§ Ø£Ùˆ Ø§Ù„ØµÙ‚ Ù†Øµ Ø§Ù„Ø¯Ø±Ø³ ÙÙŠ Ù„ÙˆØ­Ø© Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©."
-      : message;
-    return fail(res, response.status || 500, friendly, "gemini_failed");
+    const message = data?.error?.message || "تعذر الاتصال بخدمة OpenRouter.";
+    return fail(res, response.status || 500, message, "openrouter_failed");
   }
-  const text = (data?.candidates?.[0]?.content?.parts || []).map((part) => part.text || "").join("");
-  if (!text.trim()) return fail(res, 500, "Ù„Ù… ÙŠØ±Ø¬Ø¹ Gemini Ù†ØªÙŠØ¬Ø© ØµØ§Ù„Ø­Ø©.", "empty_gemini_response");
+  const text = String(data?.choices?.[0]?.message?.content || "");
+  if (!text.trim()) return fail(res, 500, "لم ترجع خدمة OpenRouter نتيجة صالحة.", "empty_openrouter_response");
   send(res, 200, { text });
 }
 

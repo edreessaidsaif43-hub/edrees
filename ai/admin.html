@@ -1029,11 +1029,6 @@
 })();
 </script>
 <!-- ===== NAVBAR COPIED FROM INDEX END ===== -->
-<div class="ai-page-switcher" style="margin:18px auto 0;max-width:1120px;padding:0 18px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
-  <a class="nav-tab" href="index.html" style="text-decoration:none">📚 صفحة المعلم</a>
-  <button class="nav-tab active" onclick="showPage('admin')" id="tab-admin">⚙️ لوحة الإدارة</button>
-</div>
-
 <!-- ================================
      ADMIN PAGE
 ================================ -->
@@ -1116,18 +1111,15 @@
           </div>
           <div class="form-grid">
             <div class="field">
-              <label>حماية مفتاح Gemini</label>
+              <label>حماية مفتاح OpenRouter</label>
               <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text-secondary);font-size:13px;line-height:1.7;">
-                المفتاح محفوظ في Vercel فقط عبر <strong>GEMINI_API_KEY</strong> ولا يظهر أو يُحفظ في المتصفح.
+                المفتاح محفوظ في الخادم فقط عبر <strong>OPENROUTER_API_KEY</strong> ولا يظهر أو يُحفظ في المتصفح.
               </div>
             </div>
             <div class="field">
               <label>النموذج</label>
               <select id="ai-model">
-                <option value="gemini-3.6-flash">Gemini 3.6 Flash - الافتراضي الأحدث</option>
-                <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite - أسرع لقراءة PDF</option>
-                <option value="gemini-3.5-flash">Gemini 3.5 Flash - قوي ومتوازن</option>
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash - خيار احتياطي مستقر</option>
+                <option value="openai/gpt-4o-mini">OpenAI GPT-4o mini عبر OpenRouter</option>
               </select>
             </div>
           </div>
@@ -1135,10 +1127,10 @@
             <button class="btn btn-primary" onclick="saveAiSettings()">💾 حفظ النموذج</button>
             <button class="btn btn-outline" onclick="clearAiSettings()">استعادة النموذج الافتراضي</button>
             <button class="btn btn-outline" id="extract-attachments-btn" onclick="extractStoredAttachmentText()">📄 استخراج نص المرفقات القديمة</button>
-            <span class="ai-status" id="ai-status">Gemini محمي من الخادم</span>
+            <span class="ai-status" id="ai-status">OpenRouter محمي من الخادم</span>
           </div>
           <div class="settings-note">
-للحماية لا يتم إدخال مفتاح Gemini هنا. أضف المفتاح في Vercel باسم GEMINI_API_KEY، ويمكنك اختيار النموذج فقط من هذه الصفحة.
+للحماية لا يتم إدخال مفتاح OpenRouter هنا. أضف المفتاح في Vercel باسم OPENROUTER_API_KEY، ويمكنك اختيار النموذج فقط من هذه الصفحة.
           </div>
         </div>
       </div>
@@ -1981,9 +1973,8 @@ function getAiSettings() {
     delete saved.apiKey;
     localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(saved));
   }
-  if (saved.model === 'gemini-2.5-flash-lite') saved.model = 'gemini-3.1-flash-lite';
-  const preferredModel = 'gemini-3.6-flash';
-  const allowedModels = ['gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-flash-lite','gemini-2.5-flash'];
+  const preferredModel = 'openai/gpt-4o-mini';
+  const allowedModels = ['openai/gpt-4o-mini'];
   const model = allowedModels.includes(saved.model) ? saved.model : preferredModel;
   if (saved.model !== model) localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ ...saved, model }));
   return { model };
@@ -1992,7 +1983,7 @@ function getAiSettings() {
 function loadAiSettings() {
   const settings = getAiSettings();
   const modelInput = document.getElementById('ai-model');
-  if (modelInput) modelInput.value = Array.from(modelInput.options).some(option => option.value === settings.model) ? settings.model : 'gemini-3.6-flash';
+  if (modelInput) modelInput.value = Array.from(modelInput.options).some(option => option.value === settings.model) ? settings.model : 'openai/gpt-4o-mini';
   updateAiStatus();
 }
 
@@ -2000,7 +1991,7 @@ function saveAiSettings() {
   const model = document.getElementById('ai-model').value;
   localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ model }));
   updateAiStatus();
-  showToast('تم حفظ نموذج Gemini. المفتاح محمي في Vercel ولا يُحفظ في المتصفح.');
+  showToast('تم حفظ نموذج OpenRouter. المفتاح محمي في الخادم ولا يُحفظ في المتصفح.');
 }
 
 function clearAiSettings() {
@@ -2013,7 +2004,7 @@ function updateAiStatus() {
   const status = document.getElementById('ai-status');
   if (!status) return;
   const settings = getAiSettings();
-  status.textContent = `Gemini محمي من الخادم عبر ${settings.model}`;
+  status.textContent = `OpenRouter محمي من الخادم عبر ${settings.model}`;
 }
 
 async function extractStoredAttachmentText() {
@@ -2142,7 +2133,7 @@ async function callGeminiWithPdf(prompt, settings, attachment, attachmentList = 
   const pdfAttachments = (attachmentList || [attachment]).filter(isPdfAttachment);
   const ids = pdfAttachments.map(item => item?.id).filter(Boolean);
   if (!ids.length) throw new Error('لا يوجد ملف PDF صالح ضمن المرفقات المشتركة. استخدم PDF أو الصق نص الدرس في لوحة الإدارة.');
-  return callGeminiBackend(prompt, { ...settings, model: 'gemini-3.6-flash' }, { attachmentId: ids[0], attachmentIds: ids, includePdf: true });
+  return callGeminiBackend(prompt, { ...settings, model: 'openai/gpt-4o-mini' }, { attachmentId: ids[0], attachmentIds: ids, includePdf: true });
 }
 
 async function callGemini(prompt, settings) {
