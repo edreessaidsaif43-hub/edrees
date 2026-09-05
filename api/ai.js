@@ -619,7 +619,6 @@ function openRouterPdfPart(attachment) {
     type: "file",
     file: {
       filename: attachment?.fileName || "lesson.pdf",
-      file_data: url,
       fileData: url
     }
   };
@@ -905,6 +904,7 @@ async function generateGemini(req, res) {
   if (!prompt) return fail(res, 400, "Ù†Øµ Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯.", "invalid_payload");
   let finalPrompt = prompt;
   const pdfParts = [];
+  const pdfAttachments = [];
   if (body.includePdf && (body.attachmentId || Array.isArray(body.attachmentIds))) {
     const ids = Array.isArray(body.attachmentIds) && body.attachmentIds.length
       ? body.attachmentIds.map((id) => Number(id)).filter(Boolean)
@@ -919,6 +919,7 @@ async function generateGemini(req, res) {
         attachmentTexts.push(`اسم الملف: ${attachment.fileName || "PDF"}\n${text}`);
       } else if (attachment.filePath) {
         pdfParts.push(openRouterPdfPart(attachment));
+        pdfAttachments.push(attachment);
       }
     }
     if (!attachmentTexts.length && !pdfParts.length) return fail(res, 400, "لا يوجد نص محفوظ صالح أو ملف PDF قابل للقراءة لهذا المرفق.", "missing_attachment_content");
@@ -943,6 +944,25 @@ async function generateGemini(req, res) {
     if (!text.trim()) return fail(res, 500, "لم ترجع خدمة OpenRouter نتيجة صالحة.", "empty_openrouter_response");
     send(res, 200, { text });
   } catch (error) {
+    if (pdfAttachments.length) {
+      try {
+        const extractedTexts = [];
+        for (const attachment of pdfAttachments) {
+          const text = await extractFullAttachmentTextWithOpenRouter(attachment);
+          if (hasUsableExtractedText(text)) extractedTexts.push(`اسم الملف: ${attachment.fileName || "PDF"}\n${text}`);
+        }
+        if (extractedTexts.length) {
+          const retryText = await requestOpenRouterJson({
+            apiKey,
+            model,
+            content: `${finalPrompt}\n\nالنص المستخرج تلقائيًا من PDF:\n${extractedTexts.join("\n\n---\n\n")}`,
+            temperature: 0.2,
+            timeoutMs: 65000
+          });
+          if (retryText.trim()) return send(res, 200, { text: retryText });
+        }
+      } catch {}
+    }
     return fail(res, error?.statusCode || 500, error?.message || "تعذر الاتصال بخدمة OpenRouter.", "openrouter_failed");
   }
 }

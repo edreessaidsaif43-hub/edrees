@@ -2268,12 +2268,24 @@ async function generateLesson() {
             : 'خدمة الذكاء الاصطناعي مشغولة حاليًا، فتم عرض تحضير احتياطي سريع من النص المحفوظ.';
         } else if (typeof isGeminiPermissionError === 'function' && isGeminiPermissionError(aiErr)) {
           console.warn('Selected AI model is not allowed, using local fallback.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) throw new Error('تعذر قراءة PDF مباشرة الآن. أعد المحاولة أو حوّل الملف إلى نص من لوحة الإدارة.');
-          result = localGenerateLesson(lesson, combinedAttachment);
-          usedFallback = true;
-          fallbackMessage = needsPdfRead
-            ? 'تعذرت قراءة PDF مباشرة، فتم عرض تحضير احتياطي من النص المتاح.'
-            : 'النموذج المختار غير متاح حاليًا، فتم عرض تحضير احتياطي سريع.';
+          if (needsPdfRead && !canUseTextFallback) {
+            const refreshedAttachments = await ensureLessonAttachmentText(lesson, lessonAttachments);
+            const refreshedText = refreshedAttachments.map(getUsableAttachmentText).filter(Boolean).join('\n\n');
+            if (!refreshedText) throw new Error('تعذر قراءة PDF مباشرة أو استخراج نصه الآن. أعد المحاولة بعد قليل أو حوّل الملف إلى نص من لوحة الإدارة.');
+            combinedAttachment.extractedText = refreshedText;
+            combinedAttachment.fileName = refreshedAttachments.map(a => a.fileName || '').filter(Boolean).join('، ');
+            setGenerationProgressStage('request');
+            result = await callGemini(buildLessonPrompt(lesson, combinedAttachment), settings);
+            setGenerationProgressStage('response');
+            usedFallback = false;
+            fallbackMessage = '';
+          } else {
+            result = localGenerateLesson(lesson, combinedAttachment);
+            usedFallback = true;
+            fallbackMessage = needsPdfRead
+              ? 'تعذرت قراءة PDF مباشرة، فتم عرض تحضير احتياطي من النص المتاح.'
+              : 'النموذج المختار غير متاح حاليًا، فتم عرض تحضير احتياطي سريع.';
+          }
         } else {
           throw aiErr;
         }
