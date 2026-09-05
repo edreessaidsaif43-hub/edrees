@@ -16,6 +16,7 @@ const OCR_GEMINI_TIMEOUT_MS = 9 * 60 * 1000;
 const LARGE_FILE_TRANSFER_TIMEOUT_MS = 6 * 60 * 1000;
 const GEMINI_OCR_MODELS = ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"];
 const MIN_SAVED_PDF_TEXT_LENGTH = 500;
+const MAX_ATTACHMENT_TEXT_BATCH = 10;
 const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_FALLBACK_API_KEY = "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";
 
@@ -316,6 +317,14 @@ function hasUsableExtractedText(text) {
   return !weakMarkers.some((marker) => value.includes(marker));
 }
 
+function getOpenRouterApiKey() {
+  return String(process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY || OPENROUTER_FALLBACK_API_KEY || "").trim();
+}
+
+function isCompleteExtractedText(text) {
+  return hasUsableExtractedText(text) && !needsTextRefresh(text);
+}
+
 async function extractText(buffer, fileName, fileType, fileSize, fields, filePath = "") {
   const manualText = normalizeExtractedText(fields?.extractedText || "");
   if (manualText) return manualText;
@@ -583,7 +592,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 55000) {
     return await fetch(url, { ...options, signal: controller.signal });
   } catch (err) {
     if (err?.name === "AbortError") {
-      const timeoutError = new Error("انتهت مهلة الاتصال بخدمة Gemini أو التخزين.");
+      const timeoutError = new Error("انتهت مهلة الاتصال بخدمة الذكاء الاصطناعي أو التخزين.");
       timeoutError.code = "timeout";
       throw timeoutError;
     }
@@ -602,6 +611,119 @@ async function fetchBlobBuffer(url, timeoutMs = 25000) {
   if (!response.ok) throw new Error("ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© Ù…Ù„Ù PDF Ù…Ù† Ø§Ù„ØªØ®Ø²ÙŠÙ†.");
   const arrayBuffer = await response.arrayBuffer();
   return Buffer.from(arrayBuffer);
+}
+
+function openRouterPdfPart(attachment) {
+  const url = String(attachment?.filePath || "").trim();
+  return {
+    type: "file",
+    file: {
+      filename: attachment?.fileName || "lesson.pdf",
+      file_data: url
+    }
+  };
+}
+
+async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000, temperature = 0.2 }) {
+  const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+      "HTTP-Referer": "https://altahdir.app",
+      "X-OpenRouter-Title": "altahdir-ai",
+      "X-Title": "altahdir-ai"
+    },
+    body: JSON.stringify({
+      model: model || OPENROUTER_DEFAULT_MODEL,
+      messages: [{ role: "user", content }],
+      temperature,
+      response_format: { type: "json_object" },
+      plugins: [{ id: "file-parser", pdf: { engine: "mistral-ocr" } }]
+    }),
+  }, timeoutMs);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const err = new Error(data?.error?.message || "تعذر الاتصال بخدمة OpenRouter.");
+    err.statusCode = response.status || 500;
+    err.data = data;
+    throw err;
+  }
+  return String(data?.choices?.[0]?.message?.content || "");
+}
+
+function extractOpenRouterAnnotationText(data) {
+  const annotations = [
+    ...(data?.choices?.[0]?.message?.annotations || []),
+    ...(data?.error?.metadata?.file_annotations || [])
+  ];
+  const chunks = [];
+  for (const annotation of annotations) {
+    const content = Array.isArray(annotation?.file?.content) ? annotation.file.content : [];
+    for (const part of content) {
+      if (part?.type === "text" && part.text) chunks.push(String(part.text));
+    }
+  }
+  return normalizeExtractedText(chunks.join("\n\n"));
+}
+
+async function requestOpenRouterText({ apiKey, model, content, timeoutMs = 4 * 60 * 1000, temperature = 0 }) {
+  const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+      "HTTP-Referer": "https://altahdir.app",
+      "X-OpenRouter-Title": "altahdir-ai",
+      "X-Title": "altahdir-ai"
+    },
+    body: JSON.stringify({
+      model: model || OPENROUTER_DEFAULT_MODEL,
+      messages: [{ role: "user", content }],
+      temperature,
+      plugins: [{ id: "file-parser", pdf: { engine: "mistral-ocr" } }]
+    }),
+  }, timeoutMs);
+  const data = await response.json().catch(() => ({}));
+  const annotationText = extractOpenRouterAnnotationText(data);
+  if (!response.ok) {
+    if (hasUsableExtractedText(annotationText)) return annotationText;
+    const err = new Error(data?.error?.message || "تعذر الاتصال بخدمة OpenRouter.");
+    err.statusCode = response.status || 500;
+    err.data = data;
+    throw err;
+  }
+  return annotationText || String(data?.choices?.[0]?.message?.content || "");
+}
+
+async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0, pageEnd = 0) {
+  const apiKey = getOpenRouterApiKey();
+  if (!apiKey || !attachment?.filePath) throw new Error("missing_openrouter_key");
+  const pageInstruction = pageStart && pageEnd
+    ? `استخرج الصفحات من ${pageStart} إلى ${pageEnd} فقط، وإذا وصلت إلى نهاية المستند فاكتب END_OF_DOCUMENT.`
+    : "استخرج كل الصفحات من البداية إلى النهاية.";
+  const content = [
+    {
+      type: "text",
+      text: [
+        "استخرج النص الكامل من ملف PDF بنسبة 100% قدر الإمكان.",
+        pageInstruction,
+        "اقرأ كل الصفحات بالترتيب، ونفّذ OCR على الصفحات المصورة والجداول والرسومات التعليمية.",
+        "لا تلخص ولا تحذف الأسئلة أو التعليمات أو الأمثلة.",
+        "أعد النص فقط بدون JSON وبدون شرح إضافي.",
+        "في نهاية النص اكتب السطر التالي حرفيًا: END_OF_DOCUMENT"
+      ].join("\n")
+    },
+    openRouterPdfPart(attachment)
+  ];
+  const text = await requestOpenRouterText({
+    apiKey,
+    model: OPENROUTER_DEFAULT_MODEL,
+    content,
+    timeoutMs: 8 * 60 * 1000,
+    temperature: 0
+  });
+  return normalizeExtractedText(text.replace(/END_OF_DOCUMENT/g, ""));
 }
 
 function sleep(ms) {
@@ -760,45 +882,47 @@ async function generateGemini(req, res) {
   if (!apiKey) return fail(res, 400, "مفتاح OpenRouter غير موجود على الخادم. أضف OPENROUTER_API_KEY في Vercel ثم أعد النشر.", "missing_openrouter_key");
   if (!prompt) return fail(res, 400, "Ù†Øµ Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯.", "invalid_payload");
   let finalPrompt = prompt;
+  const pdfParts = [];
   if (body.includePdf && (body.attachmentId || Array.isArray(body.attachmentIds))) {
     const ids = Array.isArray(body.attachmentIds) && body.attachmentIds.length
       ? body.attachmentIds.map((id) => Number(id)).filter(Boolean)
       : [Number(body.attachmentId)].filter(Boolean);
     if (!ids.length) return fail(res, 404, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ù„Ù PDF.", "not_found");
     const attachmentTexts = [];
-    for (const id of ids.slice(0, 6)) {
+    for (const id of ids.slice(0, MAX_ATTACHMENT_TEXT_BATCH)) {
       const attachment = await getAttachment(id);
       if (!attachment || !isPdfAttachment(attachment)) continue;
       const text = normalizeExtractedText(attachment.extractedText || "");
-      if (hasUsableExtractedText(text)) attachmentTexts.push(text);
+      if (isCompleteExtractedText(text)) {
+        attachmentTexts.push(`اسم الملف: ${attachment.fileName || "PDF"}\n${text}`);
+      } else if (attachment.filePath) {
+        pdfParts.push(openRouterPdfPart(attachment));
+      }
     }
-    if (!attachmentTexts.length) return fail(res, 400, "لا يوجد نص محفوظ صالح لهذا المرفق. استخرج نص المرفق من لوحة الإدارة ثم أعد المحاولة.", "missing_attachment_text");
-    finalPrompt = `${prompt}\n\nنص المرفقات المعتمدة:\n${attachmentTexts.join("\n\n---\n\n")}`;
+    if (!attachmentTexts.length && !pdfParts.length) return fail(res, 400, "لا يوجد نص محفوظ صالح أو ملف PDF قابل للقراءة لهذا المرفق.", "missing_attachment_content");
+    const savedTextBlock = attachmentTexts.length
+      ? `\n\nنص المرفقات المحولة بالكامل:\n${attachmentTexts.join("\n\n---\n\n")}`
+      : "";
+    const pdfNote = pdfParts.length
+      ? "\n\nتوجد مرفقات PDF لم يكتمل تحويلها إلى نص. اقرأ ملفات PDF المرفقة مباشرة واستخرج منها معلومات الدرس المطلوبة قبل توليد التحضير."
+      : "";
+    finalPrompt = `${prompt}${savedTextBlock}${pdfNote}`;
   }
 
-  const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-      "HTTP-Referer": "https://altahdir.app",
-      "X-Title": "altahdir-ai"
-    },
-    body: JSON.stringify({
+  try {
+    const content = [{ type: "text", text: finalPrompt }, ...pdfParts];
+    const text = await requestOpenRouterJson({
+      apiKey,
       model,
-      messages: [{ role: "user", content: finalPrompt }],
+      content: pdfParts.length ? content : finalPrompt,
       temperature: 0.2,
-      response_format: { type: "json_object" }
-    }),
-  }, body.includePdf ? 4 * 60 * 1000 : 65000);
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = data?.error?.message || "تعذر الاتصال بخدمة OpenRouter.";
-    return fail(res, response.status || 500, message, "openrouter_failed");
+      timeoutMs: pdfParts.length || body.includePdf ? 4 * 60 * 1000 : 65000
+    });
+    if (!text.trim()) return fail(res, 500, "لم ترجع خدمة OpenRouter نتيجة صالحة.", "empty_openrouter_response");
+    send(res, 200, { text });
+  } catch (error) {
+    return fail(res, error?.statusCode || 500, error?.message || "تعذر الاتصال بخدمة OpenRouter.", "openrouter_failed");
   }
-  const text = String(data?.choices?.[0]?.message?.content || "");
-  if (!text.trim()) return fail(res, 500, "لم ترجع خدمة OpenRouter نتيجة صالحة.", "empty_openrouter_response");
-  send(res, 200, { text });
 }
 
 function normalizeAttachmentIdsFromRow(row) {
@@ -848,9 +972,9 @@ async function refreshAttachmentText(req, res) {
   if (!(await dbReady(res))) return;
   const body = req.method === "POST" ? await readJsonBody(req).catch(() => ({})) : {};
   const force = !!body.force;
-  const limit = Math.max(1, Math.min(20, Number(body.limit || 8)));
+  const limit = Math.max(1, Math.min(MAX_ATTACHMENT_TEXT_BATCH, Number(body.limit || MAX_ATTACHMENT_TEXT_BATCH)));
   const requestedIds = Array.isArray(body.attachmentIds)
-    ? body.attachmentIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0).slice(0, 6)
+    ? body.attachmentIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0).slice(0, MAX_ATTACHMENT_TEXT_BATCH)
     : [];
   const rows = requestedIds.length
       ? await sql`
@@ -903,29 +1027,55 @@ async function refreshAttachmentText(req, res) {
     scanned++;
     const currentText = row.extracted_text || "";
     if (!force && !needsTextRefresh(currentText)) {
-      results.push({ id: Number(row.id), status: "skipped", textLength: currentText.length });
+      results.push({ id: Number(row.id), status: "skipped", complete: true, textLength: currentText.length });
       continue;
     }
     const attachment = attachmentRow(row);
-    const text = isPdfAttachment(attachment)
-      ? await extractFullAttachmentTextWithGemini(attachment)
-      : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
-    if (hasUsableExtractedText(text) && (text.length > currentText.length || !hasUsableExtractedText(currentText) || needsTextRefresh(currentText))) {
-      await sql`UPDATE ai_attachments SET extracted_text = ${normalizeExtractedText(text)} WHERE id = ${Number(row.id)};`;
-      updated++;
-      results.push({ id: Number(row.id), status: "updated", textLength: text.length });
-    } else {
+    try {
+      const text = isPdfAttachment(attachment)
+        ? await extractFullAttachmentTextWithOpenRouter(attachment)
+        : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
+      const cleanText = normalizeExtractedText(text);
+      const complete = isCompleteExtractedText(cleanText);
+      const shouldSave = complete && (cleanText.length > currentText.length || !isCompleteExtractedText(currentText));
+      if (shouldSave) {
+        await sql`UPDATE ai_attachments SET extracted_text = ${cleanText} WHERE id = ${Number(row.id)};`;
+        updated++;
+      }
       results.push({
         id: Number(row.id),
-        status: hasUsableExtractedText(currentText)
-          ? "unchanged"
-          : "needs_vision",
-        textLength: currentText.length
+        status: complete ? (shouldSave ? "updated" : "unchanged") : "incomplete",
+        complete,
+        textLength: complete ? cleanText.length : currentText.length
+      });
+    } catch (error) {
+      results.push({
+        id: Number(row.id),
+        status: isCompleteExtractedText(currentText) ? "unchanged" : "needs_pdf_generation",
+        complete: isCompleteExtractedText(currentText),
+        textLength: currentText.length,
+        message: error?.message || "extract_failed"
       });
     }
   }
-  const remaining = force || requestedIds.length ? 0 : Math.max(0, remainingBefore - scanned);
-  send(res, 200, { ok: true, scanned, updated, remaining, results });
+  const remainingRows = force || requestedIds.length ? [{ count: 0 }] : await sql`
+    SELECT COUNT(*)::int AS count
+    FROM ai_attachments
+    WHERE file_path <> ''
+      AND (
+        extracted_text IS NULL
+        OR btrim(extracted_text) = ''
+        OR char_length(extracted_text) < 500
+        OR extracted_text LIKE '%[PDF saved:%'
+        OR extracted_text LIKE '%The file was saved, but text extraction did not return readable text%'
+        OR extracted_text LIKE '%النص سيُستخرج عند التوليد%'
+      );
+  `;
+  const remaining = Number(remainingRows?.[0]?.count || 0);
+  const completed = results.filter((item) => item.complete).length;
+  const allConverted = scanned === 0 ? remaining === 0 : results.every((item) => item.complete) && remaining === 0;
+  const convertedPercent = scanned === 0 ? (remaining === 0 ? 100 : 0) : Math.round((completed / scanned) * 100);
+  send(res, 200, { ok: true, scanned, updated, remaining, results, allConverted, convertedPercent });
 }
 
 async function replaceAttachment(req, res, id) {
@@ -978,7 +1128,7 @@ async function previewAttachmentText(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readJsonBody(req);
   const ids = Array.isArray(body.attachmentIds)
-    ? body.attachmentIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0).slice(0, 6)
+    ? body.attachmentIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0).slice(0, MAX_ATTACHMENT_TEXT_BATCH)
     : [];
   if (!ids.length) return fail(res, 400, "Ù„Ù… ÙŠØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø£ÙŠ Ù…Ø±ÙÙ‚", "invalid_payload");
   const rows = await sql`
@@ -996,9 +1146,9 @@ async function previewAttachmentText(req, res) {
     const attachment = attachmentRow(row);
     try {
       const text = pageStart && pageEnd
-        ? await extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd)
+        ? await extractFullAttachmentTextWithOpenRouter(attachment, pageStart, pageEnd)
         : isPdfAttachment(attachment)
-          ? await extractFullAttachmentTextWithGemini(attachment)
+          ? await extractFullAttachmentTextWithOpenRouter(attachment)
           : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
       const ended = String(text || "").includes("END_OF_DOCUMENT");
       const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, ""));
@@ -1007,7 +1157,7 @@ async function previewAttachmentText(req, res) {
         fileName: attachment.fileName || "PDF",
         status: ended ? "end" : hasUsableExtractedText(cleanText)
           ? "ready_to_save"
-          : "needs_vision",
+          : "needs_pdf_generation",
         extractedText: hasUsableExtractedText(cleanText) ? cleanText : "",
         textLength: cleanText.length
       });

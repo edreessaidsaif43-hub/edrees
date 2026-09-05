@@ -1088,7 +1088,7 @@
       <div class="form-card" style="margin-top:1rem;margin-bottom:1rem;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
           <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;font-weight:600;">
-            لتحويل ملفات PDF القديمة إلى نص محفوظ في قاعدة البيانات وتسريع التوليد، اضغط الزر التالي وكرر العملية إذا بقيت مرفقات.
+            لتحويل ملفات PDF القديمة إلى نص محفوظ في قاعدة البيانات وتسريع التوليد، يعالج الزر حتى 10 ملفات في كل ضغطة ويؤكد عند اكتمال التحويل بنسبة 100%.
           </div>
           <button class="btn btn-primary" id="extract-attachments-btn-main" onclick="extractStoredAttachmentText()">📄 استخراج نص المرفقات القديمة</button>
         </div>
@@ -1894,7 +1894,7 @@ async function generateLesson() {
   try {
     let result;
     let usedFallback = false;
-    let fallbackMessage = 'تعذر قراءة PDF عبر Gemini، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.';
+    let fallbackMessage = 'تعذر قراءة PDF عبر الذكاء الاصطناعي، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.';
 
     if (true) {
       try {
@@ -1904,23 +1904,23 @@ async function generateLesson() {
             } catch (aiErr) {
         const canUseTextFallback = hasUsableAttachmentText(combinedAttachment);
         if (isGeminiQuotaError(aiErr)) {
-          console.warn('Gemini quota exceeded, using local fallback.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) throw new Error('تعذر قراءة PDF لأن حصة Gemini غير متاحة حاليًا، ولا يوجد نص محفوظ لهذا المرفق. من لوحة الإدارة اضغط "استخراج نص المرفقات القديمة"، أو أعد المحاولة بعد توفر الحصة.');
+          console.warn('AI quota exceeded, using local fallback.', aiErr);
+          if (needsPdfRead && !canUseTextFallback) throw new Error('تعذر قراءة PDF لأن حصة الذكاء الاصطناعي غير متاحة حاليًا، ولا يوجد نص محفوظ لهذا المرفق. من لوحة الإدارة اضغط "استخراج نص المرفقات القديمة"، أو أعد المحاولة لاحقًا.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = needsPdfRead
-            ? 'حصة Gemini غير متاحة لقراءة PDF الآن، فتم عرض تحضير احتياطي. استخرج نص المرفقات القديمة للحصول على نتيجة أدق وأسرع.'
+            ? 'حصة الذكاء الاصطناعي غير متاحة لقراءة PDF الآن، فتم عرض تحضير احتياطي. استخرج نص المرفقات القديمة للحصول على نتيجة أدق وأسرع.'
             : fallbackMessage;
         } else if (isGeminiInvalidArgumentError(aiErr)) {
-          console.warn('Gemini could not read PDF, using safe fallback.', aiErr);
+          console.warn('AI could not read PDF, using safe fallback.', aiErr);
           if (needsPdfRead && !canUseTextFallback) throw new Error('تعذر قراءة PDF ولم يتم العثور على نص محفوظ صالح. استخدم ملف PDF نصيًا واضحًا أو استخرج النص من لوحة الإدارة.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = needsPdfRead
-            ? 'تعذرت قراءة PDF عبر Gemini، فتم عرض تحضير احتياطي. استخدم PDF نصيًا واضحًا أو استخرج النص من لوحة الإدارة.'
-            : 'تعذر قراءة PDF عبر Gemini، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.';
+            ? 'تعذرت قراءة PDF عبر الذكاء الاصطناعي، فتم عرض تحضير احتياطي. استخدم PDF نصيًا واضحًا أو استخرج النص من لوحة الإدارة.'
+            : 'تعذر قراءة PDF عبر الذكاء الاصطناعي، فتم عرض المتاح وتوليد القسم الإثرائي حسب الدرس والمرحلة.';
         } else if (isRequestTimeoutError(aiErr)) {
-          console.warn('Gemini took too long, using local fallback.', aiErr);
+          console.warn('AI request took too long, using local fallback.', aiErr);
           if (needsPdfRead && !canUseTextFallback) throw new Error('لم يكتمل تحليل PDF ضمن المهلة ولا يوجد نص محفوظ لهذا المرفق. من لوحة الإدارة اضغط "استخراج نص المرفقات القديمة"، أو ارفع ملف PDF أصغر/نصيًا واضحًا.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
@@ -1928,21 +1928,21 @@ async function generateLesson() {
             ? 'استغرقت قراءة PDF وقتًا طويلًا، فتم عرض تحضير احتياطي سريع. استخراج النص مسبقًا يجعل التوليد أسرع.'
             : 'استغرق التوليد وقتًا طويلًا، فتم عرض تحضير احتياطي سريع بدل الانتظار.';
         } else if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(aiErr)) {
-          console.warn('Gemini is under high demand.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) throw new Error('خدمة Gemini مشغولة حاليًا ولا يوجد نص محفوظ لهذا المرفق. استخرج النص من لوحة الإدارة أو جرّب لاحقًا.');
+          console.warn('AI service is under high demand.', aiErr);
+          if (needsPdfRead && !canUseTextFallback) throw new Error('خدمة الذكاء الاصطناعي مشغولة حاليًا ولا يوجد نص محفوظ لهذا المرفق. استخرج النص من لوحة الإدارة أو جرّب لاحقًا.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = needsPdfRead
-            ? 'خدمة Gemini مشغولة ولا يمكن قراءة PDF الآن، فتم عرض تحضير احتياطي. استخرج النص مسبقًا للحصول على نتيجة أدق.'
-            : 'خدمة Gemini مشغولة حاليًا، فتم عرض تحضير احتياطي سريع من النص المحفوظ.';
+            ? 'خدمة الذكاء الاصطناعي مشغولة ولا يمكن قراءة PDF الآن، فتم عرض تحضير احتياطي. استخرج النص مسبقًا للحصول على نتيجة أدق.'
+            : 'خدمة الذكاء الاصطناعي مشغولة حاليًا، فتم عرض تحضير احتياطي سريع من النص المحفوظ.';
         } else if (typeof isGeminiPermissionError === 'function' && isGeminiPermissionError(aiErr)) {
-          console.warn('Selected Gemini model is not allowed, using local fallback.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) throw new Error('النموذج المختار لا يملك صلاحية قراءة PDF ولا يوجد نص محفوظ صالح. اختر Gemini 2.5 Flash من إعدادات AI أو استخرج النص من لوحة الإدارة.');
+          console.warn('Selected AI model is not allowed, using local fallback.', aiErr);
+          if (needsPdfRead && !canUseTextFallback) throw new Error('النموذج المختار لا يملك صلاحية قراءة PDF ولا يوجد نص محفوظ صالح. استخرج النص من لوحة الإدارة أو جرّب لاحقًا.');
           result = localGenerateLesson(lesson, combinedAttachment);
           usedFallback = true;
           fallbackMessage = needsPdfRead
-            ? 'النموذج المختار لا يملك صلاحية قراءة PDF، فتم عرض تحضير احتياطي. اختر Gemini 2.5 Flash من إعدادات AI.'
-            : 'النموذج المختار غير متاح لحساب Gemini الحالي، فتم عرض تحضير احتياطي سريع.';
+            ? 'النموذج المختار لا يملك صلاحية قراءة PDF، فتم عرض تحضير احتياطي.'
+            : 'النموذج المختار غير متاح حاليًا، فتم عرض تحضير احتياطي سريع.';
         } else {
           throw aiErr;
         }
@@ -2017,14 +2017,18 @@ async function extractStoredAttachmentText() {
     const data = await apiRequest('/api/attachments/extract-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit: 20 })
+      body: JSON.stringify({ limit: 10 })
     });
     await loadDatabase();
     const remaining = Number(data.remaining || 0);
-    const visionCount = Array.isArray(data.results) ? data.results.filter(item => item.status === 'needs_vision').length : 0;
-    const tail = remaining ? ` بقي ${remaining} مرفق، اضغط الزر مرة أخرى لإكمال الدفعة التالية.` : ' اكتمل تحويل المرفقات المحتاجة للنص.';
-    const visionNote = visionCount ? ` ${visionCount} ملف يحتاج قراءة الصور مباشرة عند التوليد.` : '';
-    showToast(`تم فحص ${data.scanned || 0} مرفق وتحديث ${data.updated || 0} نص.${tail}${visionNote}`);
+    const incompleteCount = Array.isArray(data.results) ? data.results.filter(item => !item.complete).length : 0;
+    const percent = Number(data.convertedPercent || 0);
+    const tail = data.allConverted
+      ? ' اكتمل تحويل ملفات PDF إلى نص بنسبة 100%.'
+      : ` اكتمل ${percent}% من الدفعة، وسيتم التوليد من PDF مباشرة للملفات غير المكتملة.`;
+    const remainingNote = remaining ? ` بقي ${remaining} مرفق، اضغط الزر مرة أخرى لإكمال الدفعة التالية.` : '';
+    const incompleteNote = incompleteCount ? ` ${incompleteCount} ملف لم يكتمل تحويله في هذه المحاولة.` : '';
+    showToast(`تم فحص ${data.scanned || 0} مرفق وتحديث ${data.updated || 0} نص.${tail}${remainingNote}${incompleteNote}`);
   } catch (err) {
     showToast((err?.message || 'تعذر استخراج نص المرفقات') + ' حاول مرة أخرى.', true);
   } finally {
@@ -2116,10 +2120,10 @@ function isGeminiInvalidArgumentError(err) {
 
 function formatAiError(err) {
   if (isGeminiQuotaError(err)) {
-    return 'انتهت حصة Gemini الحالية. جرّب تغيير النموذج إلى Gemini 2.5 Flash من إعدادات AI، أو فعّل الفوترة/انتظر تجدد الحصة.';
+    return 'انتهت حصة الذكاء الاصطناعي الحالية. حاول مرة أخرى لاحقًا أو تحقق من رصيد OpenRouter.';
   }
   const message = String(err?.message || '');
-  if (message.includes('مفتاح Gemini')) return message;
+  if (message.includes('مفتاح Gemini') || message.includes('مفتاح OpenRouter')) return message;
   if (message === 'Failed to fetch' || message.includes('NetworkError')) {
     return 'تعذر الاتصال بخدمة التوليد. تأكد من رفع api/ai.js، وإضافة قاعدة البيانات وBlob في Vercel، ومن اتصال الخادم بالإنترنت.';
   }
