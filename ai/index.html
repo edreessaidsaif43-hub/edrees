@@ -2596,6 +2596,22 @@ function normalizeResultField(value) {
   return String(value ?? '').trim();
 }
 
+const RESULT_FIELD_ALIASES = {
+  objectives: ['أهداف الدرس', 'الأهداف', 'اهداف الدرس', 'lessonObjectives'],
+  intro: ['التمهيد', 'المقدمة', 'تهيئة الدرس'],
+  procedures: ['إجراءات تنفيذ الدرس', 'الإجراءات', 'اجراءات تنفيذ الدرس', 'خطوات التنفيذ'],
+  formativeAssessment: ['التقويم التكويني', 'التقييم التكويني', 'formative'],
+  closingAssessment: ['التقويم الختامي', 'التقييم الختامي', 'closing'],
+  parentNotes: ['ملاحظات ولي الأمر', 'ملاحظات ولي الامر', 'parent'],
+  homework1: ['الواجب الأول', 'الواجب الاول', 'homework'],
+  homework2: ['الواجب الثاني'],
+  classroomGames: ['ألعاب صفية', 'العاب صفية', 'اللعبة الصفية'],
+  citizenship: ['المواطنة', 'ربط المواطنة'],
+  motivation: ['التحفيز', 'تحفيز'],
+  attendance: ['الانتظام الطلابي', 'الحضور'],
+  boardPlan: ['تقسيم السبورة', 'خطة السبورة']
+};
+
 function getEnglishFieldFallback(key, lesson = {}) {
   const title = safeEnglishText(lesson.title, 'the selected lesson');
   const unit = safeEnglishText(lesson.unit, 'the selected unit');
@@ -2619,7 +2635,14 @@ function getEnglishFieldFallback(key, lesson = {}) {
 
 function normalizeAiResult(result, lesson = window.__currentLessonForNormalize || {}) {
   const fallback = fallbackParse('', lesson);
-  const normalized = { ...fallback, ...(result || {}) };
+  const source = result && typeof result === 'object' ? result : {};
+  const normalized = { ...fallback, ...source };
+  getResultKeys().forEach(k => {
+    if (normalizeResultField(normalized[k])) return;
+    const aliases = RESULT_FIELD_ALIASES[k] || [];
+    const alias = aliases.find(name => normalizeResultField(source[name]));
+    if (alias) normalized[k] = source[alias];
+  });
   getResultKeys().forEach(k => {
     const value = normalizeResultField(normalized[k]);
     normalized[k] = value && value !== 'undefined' && value !== 'null'
@@ -3020,6 +3043,8 @@ function applyResultUiLanguage(lesson = {}) {
 
 function showResults(result, lesson) {
   const area = document.getElementById('results-area');
+  const safeResult = normalizeAiResult(result, lesson);
+  lastResult = safeResult;
   window.__currentDisplayedLesson = lesson;
   applyResultUiLanguage(lesson);
   resetResultReveal();
@@ -3035,7 +3060,8 @@ function showResults(result, lesson) {
   getResultKeys().forEach((k, index) => {
     const el = document.getElementById('sec-' + k);
     if (!el) return;
-    const value = result[k] || lessonUnavailableText(lesson);
+    const value = normalizeResultField(safeResult[k]) || lessonUnavailableText(lesson);
+    el.textContent = value;
     el.classList.add('generating');
     setTimeout(() => {
       el.classList.remove('generating');

@@ -2231,9 +2231,32 @@ function normalizeResultField(value) {
   return String(value ?? '').trim();
 }
 
+const RESULT_FIELD_ALIASES = {
+  objectives: ['أهداف الدرس', 'الأهداف', 'اهداف الدرس', 'lessonObjectives'],
+  intro: ['التمهيد', 'المقدمة', 'تهيئة الدرس'],
+  procedures: ['إجراءات تنفيذ الدرس', 'الإجراءات', 'اجراءات تنفيذ الدرس', 'خطوات التنفيذ'],
+  formativeAssessment: ['التقويم التكويني', 'التقييم التكويني', 'formative'],
+  closingAssessment: ['التقويم الختامي', 'التقييم الختامي', 'closing'],
+  parentNotes: ['ملاحظات ولي الأمر', 'ملاحظات ولي الامر', 'parent'],
+  homework1: ['الواجب الأول', 'الواجب الاول', 'homework'],
+  homework2: ['الواجب الثاني'],
+  classroomGames: ['ألعاب صفية', 'العاب صفية', 'اللعبة الصفية'],
+  citizenship: ['المواطنة', 'ربط المواطنة'],
+  motivation: ['التحفيز', 'تحفيز'],
+  attendance: ['الانتظام الطلابي', 'الحضور'],
+  boardPlan: ['تقسيم السبورة', 'خطة السبورة']
+};
+
 function normalizeAiResult(result) {
   const fallback = fallbackParse('', window.__currentLessonForNormalize || {});
-  const normalized = { ...fallback, ...(result || {}) };
+  const source = result && typeof result === 'object' ? result : {};
+  const normalized = { ...fallback, ...source };
+  getResultKeys().forEach(k => {
+    if (normalizeResultField(normalized[k])) return;
+    const aliases = RESULT_FIELD_ALIASES[k] || [];
+    const alias = aliases.find(name => normalizeResultField(source[name]));
+    if (alias) normalized[k] = source[alias];
+  });
   getResultKeys().forEach(k => {
     const value = normalizeResultField(normalized[k]);
     normalized[k] = value && value !== 'undefined' && value !== 'null'
@@ -2348,9 +2371,11 @@ function fallbackParse(text, lesson = {}) {
 }
 
 function showResults(result, lesson) {
+  const safeResult = normalizeAiResult(result);
+  lastResult = safeResult;
   getResultKeys().forEach(k => {
     const el = document.getElementById('sec-' + k);
-    if (el) el.textContent = result[k] || 'غير مذكور في المرفق';
+    if (el) el.textContent = normalizeResultField(safeResult[k]) || 'غير مذكور في المرفق';
   });
   document.getElementById('results-meta').textContent = `${lesson.grade} • ${lesson.subject} • ${lesson.title}`;
   document.getElementById('results-area').classList.add('show');
