@@ -2227,7 +2227,6 @@ async function generateLesson() {
     extractedText: lessonAttachments.map(getUsableAttachmentText).filter(Boolean).join('\n\n'),
     fileName: lessonAttachments.map(a => a.fileName || '').filter(Boolean).join('، ')
   };
-  const prompt = buildLessonPrompt(lesson, combinedAttachment);
   window.__currentLessonForNormalize = lesson;
 
   try {
@@ -2251,14 +2250,23 @@ async function generateLesson() {
 
     if (true) {
       try {
-        setGenerationProgressStage(needsPdfRead ? 'text' : 'text');
+        setGenerationProgressStage('text');
+        lessonAttachments = await loadSavedLessonAttachmentTexts(lessonAttachments, lesson);
+        attachment = lessonAttachments[0];
+        combinedAttachment.extractedText = lessonAttachments.map(getUsableAttachmentText).filter(Boolean).join('\n\n');
+        combinedAttachment.fileName = lessonAttachments.map(a => a.fileName || '').filter(Boolean).join('، ');
+        if (!hasUsableAttachmentText(combinedAttachment)) {
+          throw new Error('لم يتم العثور على نص محفوظ صالح من الملف. حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.');
+        }
+        const prompt = buildLessonPrompt(lesson, combinedAttachment);
         setGenerationProgressStage('request');
-        result = needsPdfRead
-          ? await callGeminiWithPdf(buildPdfLessonPrompt(lesson), settings, attachment, lessonAttachments)
-          : await callGemini(prompt, settings);
+        result = await callGemini(prompt, settings);
         setGenerationProgressStage('response');
             } catch (aiErr) {
         const canUseTextFallback = hasUsableAttachmentText(combinedAttachment);
+        if (String(aiErr?.message || '').includes('نص محفوظ صالح')) {
+          throw aiErr;
+        }
         if (isGeminiQuotaError(aiErr)) {
           console.warn('AI quota exceeded, using local fallback.', aiErr);
           if (needsPdfRead && !canUseTextFallback) {
@@ -2267,7 +2275,7 @@ async function generateLesson() {
             result = localGenerateLesson(lesson, combinedAttachment);
             usedFallback = true;
             fallbackMessage = needsPdfRead
-              ? 'تعذرت قراءة PDF مباشرة، فتم توليد التحضير من النص المستخرج والمحفوظ من المرفق.'
+              ? 'تم توليد التحضير من النص المستخرج والمحفوظ من الملف.'
               : fallbackMessage;
           }
         } else if (isGeminiInvalidArgumentError(aiErr)) {
@@ -2278,7 +2286,7 @@ async function generateLesson() {
             result = localGenerateLesson(lesson, combinedAttachment);
             usedFallback = true;
             fallbackMessage = needsPdfRead
-              ? 'تعذرت قراءة PDF مباشرة، فتم توليد التحضير من النص المستخرج والمحفوظ من المرفق.'
+              ? 'تم توليد التحضير من النص المستخرج والمحفوظ من الملف.'
               : 'تم توليد التحضير من النص المستخرج والمحفوظ من المرفق.';
           }
         } else if (isRequestTimeoutError(aiErr)) {
@@ -2289,7 +2297,7 @@ async function generateLesson() {
             result = localGenerateLesson(lesson, combinedAttachment);
             usedFallback = true;
             fallbackMessage = needsPdfRead
-              ? 'استغرقت قراءة PDF المباشرة وقتًا طويلًا، فتم توليد التحضير من النص المستخرج والمحفوظ من المرفق.'
+              ? 'تم توليد التحضير من النص المستخرج والمحفوظ من الملف.'
               : 'تم توليد التحضير من النص المستخرج والمحفوظ من المرفق.';
           }
         } else if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(aiErr)) {
@@ -2300,7 +2308,7 @@ async function generateLesson() {
             result = localGenerateLesson(lesson, combinedAttachment);
             usedFallback = true;
             fallbackMessage = needsPdfRead
-              ? 'خدمة الذكاء الاصطناعي مشغولة ولا يمكن قراءة PDF مباشرة الآن، فتم توليد التحضير من النص المستخرج والمحفوظ من المرفق.'
+              ? 'خدمة الذكاء الاصطناعي مشغولة، فتم توليد التحضير من النص المستخرج والمحفوظ من الملف.'
               : 'تم توليد التحضير من النص المستخرج والمحفوظ من المرفق.';
           }
         } else if (typeof isGeminiPermissionError === 'function' && isGeminiPermissionError(aiErr)) {
@@ -2311,7 +2319,7 @@ async function generateLesson() {
             result = localGenerateLesson(lesson, combinedAttachment);
             usedFallback = true;
             fallbackMessage = needsPdfRead
-              ? 'تعذرت قراءة PDF مباشرة، فتم توليد التحضير من النص المستخرج والمحفوظ من المرفق.'
+              ? 'تم توليد التحضير من النص المستخرج والمحفوظ من الملف.'
               : 'تم توليد التحضير من النص المستخرج والمحفوظ من المرفق.';
           }
         } else {
@@ -2322,7 +2330,7 @@ async function generateLesson() {
             console.warn('AI PDF generation failed, using saved text fallback.', aiErr);
             result = localGenerateLesson(lesson, combinedAttachment);
             usedFallback = true;
-            fallbackMessage = 'تعذرت قراءة PDF مباشرة، فتم توليد التحضير من النص المستخرج والمحفوظ من المرفق.';
+            fallbackMessage = 'تم توليد التحضير من النص المستخرج والمحفوظ من الملف.';
           } else {
             throw aiErr;
           }
@@ -2529,7 +2537,7 @@ function isRequestTimeoutError(err) {
 
 function formatAiError(err) {
   if (isRequestTimeoutError(err)) {
-    return 'استغرق قراءة ملف PDF وقتًا طويلًا. حاول مرة أخرى؛ بعد تجهيز الملف أول مرة يصبح التوليد التالي أسرع.';
+    return 'استغرق تجهيز نص الملف وقتًا طويلًا. حوّل الملف إلى نص من لوحة الإدارة ثم أعد التوليد.';
   }
   if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(err)) {
     return 'خدمة الذكاء الاصطناعي عليها ضغط عالٍ مؤقتًا. حاول مرة أخرى بعد قليل.';
@@ -2543,7 +2551,7 @@ function formatAiError(err) {
     return 'تعذر الاتصال بخدمة التوليد. تأكد من رفع api/ai.js، وإضافة قاعدة البيانات وBlob في Vercel، ومن اتصال الخادم بالإنترنت.';
   }
   if (isGeminiInvalidArgumentError(err)) {
-    return 'تعذر قراءة ملف PDF بالذكاء الاصطناعي. استخدم ملف PDF أوضح/أصغر أو أعد المحاولة بعد قليل.';
+    return 'تعذر تجهيز نص الملف. حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.';
   }
   return err?.message || 'حدث خطأ أثناء توليد التحضير، يرجى المحاولة مرة أخرى.';
 }
@@ -2573,24 +2581,24 @@ async function callGeminiWithPdf(prompt, settings, attachment, attachmentList = 
   const pdfAttachments = (attachmentList || [attachment]).filter(isPdfAttachment);
   const ids = pdfAttachments.map(item => item?.id).filter(Boolean);
   if (!ids.length) throw new Error('لا يوجد ملف PDF صالح ضمن المرفقات المشتركة. استخدم PDF أو الصق نص الدرس في لوحة الإدارة.');
-  return callGeminiBackend(prompt, { ...settings, model: 'openai/gpt-4o-mini' }, { attachmentId: ids[0], attachmentIds: ids, includePdf: true });
+  return callGeminiBackend(prompt, { ...settings, model: 'openai/gpt-4o-mini' }, { attachmentId: ids[0], attachmentIds: ids, includeAttachmentText: true });
 }
 
 async function callGemini(prompt, settings) {
-  return callGeminiBackend(prompt, settings, { includePdf: false });
+  return callGeminiBackend(prompt, settings);
 }
 
 async function callGeminiBackend(prompt, settings, extra = {}) {
   const data = await apiRequest('/api/gemini/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    timeoutMs: extra.includePdf ? 4 * 60 * 1000 : 65000,
+    timeoutMs: 65000,
     body: JSON.stringify({
       model: settings.model,
       prompt,
       attachmentId: extra.attachmentId || null,
       attachmentIds: Array.isArray(extra.attachmentIds) ? extra.attachmentIds : [],
-      includePdf: !!extra.includePdf
+      includeAttachmentText: !!extra.includeAttachmentText
     })
   });
   return parseAiJson(data.text || '');
@@ -2742,6 +2750,30 @@ function hasUsableAttachmentText(attachment) {
 
 function getUsableAttachmentText(attachment) {
   return hasUsableAttachmentText(attachment) ? String(attachment?.extractedText || '').trim() : '';
+}
+
+async function loadSavedAttachmentTextForLesson(attachment, lesson) {
+  if (!attachment?.id) return attachment;
+  if (getUsableAttachmentText(attachment)) return attachment;
+  if (!hasUsableAttachmentText(attachment)) return attachment;
+  const data = await apiRequest(`/api/attachments/${Number(attachment.id)}/text`, {
+    params: {
+      title: lesson?.title || '',
+      unit: lesson?.unit || ''
+    }
+  });
+  attachment.extractedText = String(data?.extractedText || '').trim();
+  attachment.extractedTextLength = Number(data?.extractedTextLength || attachment.extractedText.length || 0);
+  attachment.hasText = !!data?.hasText || hasUsableAttachmentText(attachment);
+  return attachment;
+}
+
+async function loadSavedLessonAttachmentTexts(lessonAttachments, lesson) {
+  const updated = [];
+  for (const item of lessonAttachments) {
+    updated.push(await loadSavedAttachmentTextForLesson(item, lesson));
+  }
+  return updated;
 }
 
 function pickLessonText(text, title) {

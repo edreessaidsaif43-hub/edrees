@@ -1088,9 +1088,9 @@
       <div class="form-card" style="margin-top:1rem;margin-bottom:1rem;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
           <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;font-weight:600;">
-            لتحويل ملفات PDF القديمة إلى نص محفوظ في قاعدة البيانات وتسريع التوليد، يعالج الزر حتى 10 ملفات في كل ضغطة ويؤكد عند اكتمال التحويل بنسبة 100%.
+            لتحويل ملفات PDF القديمة إلى نص محفوظ في قاعدة البيانات وتسريع التوليد، يستخدم الزر OCR قوي لاستخراج النصوص العربية والإنجليزية من PDF ويعالج حتى 10 ملفات في كل ضغطة ويؤكد عند اكتمال التحويل بنسبة 100%.
           </div>
-          <button class="btn btn-primary" id="extract-attachments-btn-main" onclick="extractStoredAttachmentText()">📄 استخراج نص المرفقات القديمة</button>
+          <button class="btn btn-primary" id="extract-attachments-btn-main" onclick="extractStoredAttachmentText()">📄 استخراج OCR قوي من PDF</button>
         </div>
       </div>
 
@@ -1126,7 +1126,7 @@
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px;">
             <button class="btn btn-primary" onclick="saveAiSettings()">💾 حفظ النموذج</button>
             <button class="btn btn-outline" onclick="clearAiSettings()">استعادة النموذج الافتراضي</button>
-            <button class="btn btn-outline" id="extract-attachments-btn" onclick="extractStoredAttachmentText()">📄 استخراج نص المرفقات القديمة</button>
+            <button class="btn btn-outline" id="extract-attachments-btn" onclick="extractStoredAttachmentText()">📄 استخراج OCR قوي من PDF</button>
             <span class="ai-status" id="ai-status">OpenRouter محمي من الخادم</span>
           </div>
           <div class="settings-note">
@@ -2076,7 +2076,7 @@ async function extractStoredAttachmentText() {
     const percent = Number(data.convertedPercent || 0);
     const tail = data.allConverted
       ? ' اكتمل تحويل ملفات PDF إلى نص بنسبة 100%.'
-      : ` اكتمل ${percent}% من الدفعة، وسيتم التوليد من PDF مباشرة للملفات غير المكتملة.`;
+      : ` اكتمل ${percent}% من الدفعة، ولن يتم التوليد للملفات غير المكتملة حتى يتم حفظ النص.`;
     const remainingNote = remaining ? ` بقي ${remaining} مرفق، اضغط الزر مرة أخرى لإكمال الدفعة التالية.` : '';
     const incompleteNote = incompleteCount ? ` ${incompleteCount} ملف لم يكتمل تحويله في هذه المحاولة.` : '';
     showToast(`تم فحص ${data.scanned || 0} مرفق وتحديث ${data.updated || 0} نص.${tail}${remainingNote}${incompleteNote}`);
@@ -2085,7 +2085,7 @@ async function extractStoredAttachmentText() {
   } finally {
     buttons.forEach(btn => {
       btn.disabled = false;
-      btn.textContent = oldTexts.get(btn) || '📄 استخراج نص المرفقات القديمة';
+      btn.textContent = oldTexts.get(btn) || '📄 استخراج OCR قوي من PDF';
     });
   }
 }
@@ -2202,24 +2202,24 @@ async function callGeminiWithPdf(prompt, settings, attachment, attachmentList = 
   const pdfAttachments = (attachmentList || [attachment]).filter(isPdfAttachment);
   const ids = pdfAttachments.map(item => item?.id).filter(Boolean);
   if (!ids.length) throw new Error('لا يوجد ملف PDF صالح ضمن المرفقات المشتركة. استخدم PDF أو الصق نص الدرس في لوحة الإدارة.');
-  return callGeminiBackend(prompt, { ...settings, model: 'openai/gpt-4o-mini' }, { attachmentId: ids[0], attachmentIds: ids, includePdf: true });
+  return callGeminiBackend(prompt, { ...settings, model: 'openai/gpt-4o-mini' }, { attachmentId: ids[0], attachmentIds: ids, includeAttachmentText: true });
 }
 
 async function callGemini(prompt, settings) {
-  return callGeminiBackend(prompt, settings, { includePdf: false });
+  return callGeminiBackend(prompt, settings);
 }
 
 async function callGeminiBackend(prompt, settings, extra = {}) {
   const data = await apiRequest('/api/gemini/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    timeoutMs: extra.includePdf ? 4 * 60 * 1000 : 65000,
+    timeoutMs: 65000,
     body: JSON.stringify({
       model: settings.model,
       prompt,
       attachmentId: extra.attachmentId || null,
       attachmentIds: Array.isArray(extra.attachmentIds) ? extra.attachmentIds : [],
-      includePdf: !!extra.includePdf
+      includeAttachmentText: !!extra.includeAttachmentText
     })
   });
   return parseAiJson(data.text || '');

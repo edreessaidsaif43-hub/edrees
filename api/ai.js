@@ -21,10 +21,10 @@ const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_PDF_MODEL = "google/gemini-2.5-flash";
 const OPENROUTER_FALLBACK_API_KEY = "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";
 const OPENROUTER_PDF_STRATEGIES = [
-  { model: OPENROUTER_PDF_MODEL, engine: "native" },
-  { model: OPENROUTER_DEFAULT_MODEL, engine: "cloudflare-ai" },
   { model: OPENROUTER_DEFAULT_MODEL, engine: "mistral-ocr" },
-  { model: OPENROUTER_PDF_MODEL, engine: "mistral-ocr" }
+  { model: OPENROUTER_PDF_MODEL, engine: "mistral-ocr" },
+  { model: OPENROUTER_DEFAULT_MODEL, engine: "cloudflare-ai" },
+  { model: OPENROUTER_PDF_MODEL, engine: "native" }
 ];
 const PUBLIC_SITE_ORIGIN = "https://altahdir.app";
 const LESSON_RESULT_KEYS = [
@@ -963,6 +963,27 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
   throw new Error(lastError || "تعذر استخراج نص PDF.");
 }
 
+async function extractFullAttachmentTextStrong(attachment, pageStart = 0, pageEnd = 0) {
+  const errors = [];
+  try {
+    const text = await extractFullAttachmentTextWithOpenRouter(attachment, pageStart, pageEnd);
+    if (hasUsableExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, "")) || String(text || "").includes("END_OF_DOCUMENT")) return text;
+  } catch (error) {
+    errors.push(error?.message || String(error));
+  }
+  try {
+    if (String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim()) {
+      const text = pageStart && pageEnd
+        ? await extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd)
+        : await extractFullAttachmentTextWithGemini(attachment);
+      if (hasUsableExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, "")) || String(text || "").includes("END_OF_DOCUMENT")) return text;
+    }
+  } catch (error) {
+    errors.push(error?.message || String(error));
+  }
+  throw new Error(errors[0] || "تعذر استخراج نص PDF بأداة OCR.");
+}
+
 async function generateLessonFromExtractedPdfText({ apiKey, model, finalPrompt, pdfAttachments }) {
   const extractedTexts = [];
   for (const attachment of pdfAttachments) {
@@ -1145,41 +1166,37 @@ async function generateGemini(req, res) {
   if (!apiKey) return fail(res, 400, "مفتاح OpenRouter غير موجود على الخادم. أضف OPENROUTER_API_KEY في Vercel ثم أعد النشر.", "missing_openrouter_key");
   if (!prompt) return fail(res, 400, "Ù†Øµ Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯.", "invalid_payload");
   let finalPrompt = prompt;
-  const pdfParts = [];
-  const pdfAttachments = [];
-  if (body.includePdf && (body.attachmentId || Array.isArray(body.attachmentIds))) {
+  const includeAttachmentText = !!body.includeAttachmentText || !!body.includePdf;
+  if (includeAttachmentText && (body.attachmentId || Array.isArray(body.attachmentIds))) {
     const ids = Array.isArray(body.attachmentIds) && body.attachmentIds.length
       ? body.attachmentIds.map((id) => Number(id)).filter(Boolean)
       : [Number(body.attachmentId)].filter(Boolean);
-    if (!ids.length) return fail(res, 404, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ù„Ù PDF.", "not_found");
+    if (!ids.length) return fail(res, 404, "لم يتم العثور على مرفق صالح.", "not_found");
     const attachmentTexts = [];
     for (const id of ids.slice(0, MAX_ATTACHMENT_TEXT_BATCH)) {
       const attachment = await getAttachment(id);
-      if (!attachment || !isPdfAttachment(attachment)) continue;
+      if (!attachment) continue;
       const text = normalizeExtractedText(attachment.extractedText || "");
       if (isCompleteExtractedText(text)) {
-        attachmentTexts.push(`اسم الملف: ${attachment.fileName || "PDF"}\n${text}`);
-      } else if (attachment.filePath) {
-        pdfAttachments.push(attachment);
+        attachmentTexts.push(`اسم الملف: ${attachment.fileName || "المرفق"}\n${text}`);
       }
     }
     if (!attachmentTexts.length) {
-      return fail(res, 422, "لم يتم تحويل مرفق PDF إلى نص بعد. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.", "missing_extracted_pdf_text");
+      return fail(res, 422, "لم يتم تحويل المرفق إلى نص محفوظ بعد. لن يتم توليد تحضير عام؛ حوّل الملف إلى نص من لوحة الإدارة ثم أعد التوليد.", "missing_extracted_attachment_text");
     }
     const savedTextBlock = attachmentTexts.length
-      ? `\n\nنص المرفقات المحولة بالكامل:\n${attachmentTexts.join("\n\n---\n\n")}`
+      ? `\n\nنص المرفقات المحفوظة في قاعدة البيانات:\n${attachmentTexts.join("\n\n---\n\n")}`
       : "";
     finalPrompt = `${prompt}${savedTextBlock}`;
   }
 
   try {
-    const content = [{ type: "text", text: finalPrompt }, ...pdfParts];
     const text = await requestOpenRouterJson({
       apiKey,
       model,
-      content: pdfParts.length ? content : finalPrompt,
+      content: finalPrompt,
       temperature: 0.2,
-      timeoutMs: pdfParts.length || body.includePdf ? 4 * 60 * 1000 : 65000
+      timeoutMs: 65000
     });
     if (!text.trim()) return fail(res, 500, "لم ترجع خدمة OpenRouter نتيجة صالحة.", "empty_openrouter_response");
     send(res, 200, { text });
@@ -1241,7 +1258,18 @@ async function refreshAttachmentText(req, res) {
     : [];
   const rows = requestedIds.length
       ? await sql`
-        SELECT * FROM ai_attachments
+        SELECT
+          id,
+          title,
+          file_name,
+          file_type,
+          file_size,
+          file_path,
+          left(COALESCE(extracted_text, ''), 1000) AS extracted_text,
+          char_length(COALESCE(extracted_text, '')) AS extracted_text_length,
+          gemini_file_uri,
+          created_at
+        FROM ai_attachments
         WHERE id IN (
           SELECT jsonb_array_elements_text(${JSON.stringify(requestedIds)}::jsonb)::bigint
         )
@@ -1250,13 +1278,35 @@ async function refreshAttachmentText(req, res) {
       `
     : force
     ? await sql`
-        SELECT * FROM ai_attachments
+        SELECT
+          id,
+          title,
+          file_name,
+          file_type,
+          file_size,
+          file_path,
+          left(COALESCE(extracted_text, ''), 1000) AS extracted_text,
+          char_length(COALESCE(extracted_text, '')) AS extracted_text_length,
+          gemini_file_uri,
+          created_at
+        FROM ai_attachments
         WHERE file_path <> ''
         ORDER BY created_at DESC, id DESC
         LIMIT ${limit};
       `
     : await sql`
-        SELECT * FROM ai_attachments
+        SELECT
+          id,
+          title,
+          file_name,
+          file_type,
+          file_size,
+          file_path,
+          left(COALESCE(extracted_text, ''), 1000) AS extracted_text,
+          char_length(COALESCE(extracted_text, '')) AS extracted_text_length,
+          gemini_file_uri,
+          created_at
+        FROM ai_attachments
         WHERE file_path <> ''
           AND (
             extracted_text IS NULL
@@ -1289,18 +1339,19 @@ async function refreshAttachmentText(req, res) {
   for (const row of rows || []) {
     scanned++;
     const currentText = row.extracted_text || "";
+    const currentTextLength = Number(row.extracted_text_length || currentText.length || 0);
     if (!force && !needsTextRefresh(currentText)) {
-      results.push({ id: Number(row.id), status: "skipped", complete: true, textLength: currentText.length });
+      results.push({ id: Number(row.id), status: "skipped", complete: true, textLength: currentTextLength });
       continue;
     }
     const attachment = attachmentRow(row);
     try {
       const text = isPdfAttachment(attachment)
-        ? await extractFullAttachmentTextWithOpenRouter(attachment)
+        ? await extractFullAttachmentTextStrong(attachment)
         : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
       const cleanText = normalizeExtractedText(text);
       const complete = isCompleteExtractedText(cleanText);
-      const shouldSave = complete && (cleanText.length > currentText.length || !isCompleteExtractedText(currentText));
+      const shouldSave = complete && (cleanText.length > currentTextLength || !isCompleteExtractedText(currentText));
       if (shouldSave) {
         await sql`UPDATE ai_attachments SET extracted_text = ${cleanText} WHERE id = ${Number(row.id)};`;
         updated++;
@@ -1309,14 +1360,14 @@ async function refreshAttachmentText(req, res) {
         id: Number(row.id),
         status: complete ? (shouldSave ? "updated" : "unchanged") : "incomplete",
         complete,
-        textLength: complete ? cleanText.length : currentText.length
+        textLength: complete ? cleanText.length : currentTextLength
       });
     } catch (error) {
       results.push({
         id: Number(row.id),
         status: isCompleteExtractedText(currentText) ? "unchanged" : "needs_pdf_generation",
         complete: isCompleteExtractedText(currentText),
-        textLength: currentText.length,
+        textLength: currentTextLength,
         message: error?.message || "extract_failed"
       });
     }
@@ -1395,7 +1446,18 @@ async function previewAttachmentText(req, res) {
     : [];
   if (!ids.length) return fail(res, 400, "Ù„Ù… ÙŠØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø£ÙŠ Ù…Ø±ÙÙ‚", "invalid_payload");
   const rows = await sql`
-    SELECT * FROM ai_attachments
+    SELECT
+      id,
+      title,
+      file_name,
+      file_type,
+      file_size,
+      file_path,
+      ''::text AS extracted_text,
+      char_length(COALESCE(extracted_text, '')) AS extracted_text_length,
+      gemini_file_uri,
+      created_at
+    FROM ai_attachments
     WHERE id IN (
       SELECT jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb)::bigint
     )
@@ -1409,9 +1471,9 @@ async function previewAttachmentText(req, res) {
     const attachment = attachmentRow(row);
     try {
       const text = pageStart && pageEnd
-        ? await extractFullAttachmentTextWithOpenRouter(attachment, pageStart, pageEnd)
+        ? await extractFullAttachmentTextStrong(attachment, pageStart, pageEnd)
         : isPdfAttachment(attachment)
-          ? await extractFullAttachmentTextWithOpenRouter(attachment)
+          ? await extractFullAttachmentTextStrong(attachment)
           : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
       const ended = String(text || "").includes("END_OF_DOCUMENT");
       const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, ""));
@@ -1437,6 +1499,39 @@ async function previewAttachmentText(req, res) {
     }
   }
   return send(res, 200, { ok: true, scanned: results.length, results });
+}
+
+async function getAttachmentText(req, res, id) {
+  if (!(await dbReady(res))) return;
+  const title = cleanDbText(req?.query?.title || "", 300);
+  const unit = cleanDbText(req?.query?.unit || "", 300);
+  const rows = await sql`
+    SELECT
+      id,
+      file_name,
+      CASE
+        WHEN ${title} <> '' AND strpos(COALESCE(extracted_text, ''), ${title}) > 0
+          THEN substring(COALESCE(extracted_text, '') from GREATEST(strpos(COALESCE(extracted_text, ''), ${title}) - 8000, 1) for 60000)
+        WHEN ${unit} <> '' AND strpos(COALESCE(extracted_text, ''), ${unit}) > 0
+          THEN substring(COALESCE(extracted_text, '') from GREATEST(strpos(COALESCE(extracted_text, ''), ${unit}) - 8000, 1) for 60000)
+        ELSE left(COALESCE(extracted_text, ''), 60000)
+      END AS extracted_text,
+      char_length(COALESCE(extracted_text, '')) AS extracted_text_length,
+      created_at
+    FROM ai_attachments
+    WHERE id = ${id}
+    LIMIT 1;
+  `;
+  const row = rows?.[0];
+  if (!row) return fail(res, 404, "لم يتم العثور على المرفق", "not_found");
+  const extractedText = normalizeExtractedText(row.extracted_text || "");
+  return send(res, 200, {
+    id: Number(row.id),
+    fileName: row.file_name || "",
+    extractedText,
+    extractedTextLength: extractedText.length,
+    hasText: isCompleteExtractedText(extractedText)
+  });
 }
 
 async function saveAttachmentText(req, res, id) {
@@ -1521,6 +1616,7 @@ export default async function handler(req, res) {
     const attachmentReplaceMatch = path.match(/^\/api\/attachments\/(\d+)\/replace$/);
     if (req.method === "POST" && attachmentReplaceMatch) return await replaceAttachment(req, res, Number(attachmentReplaceMatch[1]));
     const attachmentTextMatch = path.match(/^\/api\/attachments\/(\d+)\/text$/);
+    if (req.method === "GET" && attachmentTextMatch) return await getAttachmentText(req, res, Number(attachmentTextMatch[1]));
     if (req.method === "POST" && attachmentTextMatch) return await saveAttachmentText(req, res, Number(attachmentTextMatch[1]));
     const addLessonsMatch = path.match(/^\/api\/lessons\/(\d+)\/add$/);
     if (req.method === "POST" && addLessonsMatch) return await addLessonsToExisting(req, res, Number(addLessonsMatch[1]));
