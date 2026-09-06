@@ -1604,7 +1604,7 @@ function formatAdminRequestError(err, context = '') {
     return 'تعذر تنفيذ OCR لأن خدمة OpenRouter رفضت المفتاح الحالي. تأكد من صحة المفتاح ثم أعد رفع التحديث.';
   }
   if (lower.includes('file data is missing') || lower.includes('file_data is missing') || lower.includes('missing file data')) {
-    return 'تعذر قراءة ملف PDF لأن بيانات الملف لم تصل إلى خدمة OCR. أعد رفع الملف ثم اضغط استخراج نص الدرس فقط.';
+    return 'تعذر قراءة ملف PDF لأن بيانات الملف لم تصل إلى خدمة OCR. أعد رفع الملف ثم اضغط استخراج المرفق كاملًا.';
   }
   if (lower.includes('unauthorized') || lower.includes('invalid api key') || lower.includes('invalid key')) {
     return 'مفتاح OpenRouter غير صالح أو غير مفعل. تحقق من المفتاح ثم أعد المحاولة.';
@@ -2846,7 +2846,7 @@ function renderAttachmentTextLength(list, lessonId = 0) {
     const length = Number(lesson.lessonTextLength || 0);
     const quality = length >= 1500 ? 'جيد' : (length >= 500 ? 'متوسط' : 'قليل');
     const color = length >= 1500 ? 'var(--success)' : (length >= 500 ? 'var(--warning)' : 'var(--danger)');
-    return `<span style="font-size:11px;color:${color};font-weight:700;">نص الدرس: ${length.toLocaleString('ar-SA')} حرف - ${quality}</span>`;
+    return `<span style="font-size:11px;color:${color};font-weight:700;">نص المرفق المخزن للدرس: ${length.toLocaleString('ar-SA')} حرف - ${quality}</span>`;
   }
   const lengths = list.map(att => Number(att?.extractedTextLength || String(att?.extractedText || '').trim().length || 0)).filter(length => length > 0);
   if (!lengths.length) return '<span style="font-size:11px;color:var(--text-muted);">لا يوجد نص محفوظ</span>';
@@ -2862,31 +2862,31 @@ function renderAttachmentTextStatus(list, lessonId) {
   if (pending) {
     return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
       <span class="badge badge-blue">تم التحويل مؤقتًا ${pending}/${list.length}</span>
-      <button type="button" class="tbl-btn tbl-btn-edit js-save-pending-text" data-lesson-id="${Number(lessonId)}">رفع النص إلى قاعدة البيانات</button>
+      <button type="button" class="tbl-btn tbl-btn-edit js-save-pending-text" data-lesson-id="${Number(lessonId)}">رفع النص الكامل إلى قاعدة البيانات</button>
     </div>`;
   }
   if (lesson?.hasLessonText || Number(lesson?.lessonTextLength || 0) >= MIN_SAVED_PDF_TEXT_LENGTH) {
     return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
-      <span class="badge badge-green">نص هذا الدرس محفوظ</span>
-      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">إعادة استخراج نص الدرس فقط</button>
+      <span class="badge badge-green">نص المرفق محفوظ لهذا الدرس</span>
+      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">إعادة استخراج المرفق كاملًا</button>
     </div>`;
   }
   const converted = list.filter(hasUsableAttachmentText).length;
   if (converted === list.length) {
     return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
       <span class="badge badge-gray">يوجد نص مرفق عام</span>
-      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">استخراج نص الدرس فقط</button>
+      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">استخراج المرفق كاملًا</button>
     </div>`;
   }
   if (converted > 0) {
     return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
       <span class="badge badge-gray">تحويل جزئي ${converted}/${list.length}</span>
-      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">استخراج نص الدرس فقط</button>
+      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">استخراج المرفق كاملًا</button>
     </div>`;
   }
   const hasPdf = list.some(isPdfAttachment);
   if (!hasPdf) return '<span class="badge badge-gray">غير محوّل</span>';
-  return `<button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}">استخراج نص الدرس فقط</button>`;
+  return `<button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}">استخراج المرفق كاملًا</button>`;
 }
 
 let attachmentProgressTimer = null;
@@ -2933,7 +2933,7 @@ function finishAttachmentProgress(title, sub) {
 async function extractLessonTextFromTable(lessonId, force = false) {
   const lesson = lessons.find(item => item.id == lessonId);
   if (!lesson) return showToast('لم يتم العثور على الدرس', true);
-  showToast(force ? 'بدأ طلب إعادة استخراج نص هذا الدرس فقط...' : 'بدأ طلب استخراج نص هذا الدرس فقط...');
+  showToast(force ? 'بدأ طلب إعادة استخراج المرفق كاملًا...' : 'بدأ طلب استخراج المرفق كاملًا...');
   const lessonFiles = getLessonTableAttachments(lesson);
   const ids = lessonFiles
     .filter(item => isPdfAttachment(item) && (force || !lesson.hasLessonText))
@@ -2941,24 +2941,18 @@ async function extractLessonTextFromTable(lessonId, force = false) {
     .filter(Boolean);
   if (!ids.length) return showToast('لا توجد مرفقات تحتاج تحويلًا لهذا الدرس.');
   try {
-    startAttachmentProgress(force ? 'إعادة استخراج نص الدرس فقط' : 'استخراج نص الدرس فقط');
+    startAttachmentProgress(force ? 'إعادة استخراج المرفق كاملًا' : 'استخراج المرفق كاملًا');
     let readyCount = 0;
     const errorMessages = [];
-    setAttachmentProgress(35, 'استخراج نص الدرس فقط', `البحث عن: ${lesson.title || 'الدرس المحدد'}`);
+    setAttachmentProgress(35, 'استخراج المرفق كاملًا', `سيتم حفظ النص باسم الدرس: ${lesson.title || 'الدرس المحدد'}`);
     const data = await apiRequest('/api/attachments/preview-existing-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       timeoutMs: 8 * 60 * 1000,
       body: JSON.stringify({
         attachmentIds: ids,
-        lesson: {
-          title: lesson.title || '',
-          unit: lesson.unit || '',
-          grade: lesson.grade || '',
-          subject: lesson.subject || '',
-          semester: lesson.semester || ''
-        },
-        targetOnly: true
+        fullAttachment: true,
+        targetOnly: false
       })
     });
     (data.results || []).forEach(item => {
@@ -2971,8 +2965,8 @@ async function extractLessonTextFromTable(lessonId, force = false) {
     renderTable();
     const uniqueErrors = Array.from(new Set(errorMessages.map(text => String(text || '').trim()).filter(Boolean)));
     const msg = readyCount
-      ? `تم استخراج نص الدرس فقط من ${readyCount} مرفق. اضغط زر "رفع النص إلى قاعدة البيانات".`
-      : (uniqueErrors.length ? uniqueErrors[0] : 'لم يتم العثور على نص واضح لهذا الدرس داخل المرفق.');
+      ? `تم استخراج نص المرفق كاملًا من ${readyCount} مرفق. اضغط زر "رفع النص الكامل إلى قاعدة البيانات".`
+      : (uniqueErrors.length ? uniqueErrors[0] : 'لم يتم العثور على نص واضح داخل المرفق.');
     finishAttachmentProgress('اكتملت المعالجة', msg);
     showToast(msg, !readyCount);
   } catch (err) {
@@ -3007,7 +3001,7 @@ async function savePendingLessonTextToDb(lessonId) {
     pendingFiles.forEach(item => pendingAttachmentTexts.delete(item.key));
     setAttachmentProgress(95, 'رفع النص إلى قاعدة البيانات', `تم حفظ نص هذا الدرس من ${pendingFiles.length} مرفق`);
     await loadDatabase();
-    const msg = `تم رفع نص هذا الدرس وحفظه في قاعدة البيانات.`;
+    const msg = `تم رفع نص المرفق كاملًا وحفظه في قاعدة البيانات باسم هذا الدرس.`;
     finishAttachmentProgress('تم الحفظ', msg);
     showToast(msg);
   } catch (err) {

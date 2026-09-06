@@ -2441,8 +2441,68 @@ ${languageRule}
 {"objectives":"","intro":"","procedures":"","formativeAssessment":"","closingAssessment":"","parentNotes":"","homework1":"","homework2":"","classroomGames":"","citizenship":"","motivation":"","attendance":"","boardPlan":""}`;
 }
 
+function normalizeSearchText(text) {
+  return String(text || '')
+    .replace(/[أإآا]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/[ًٌٍَُِّْـ]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function targetSearchWords(text) {
+  const stopWords = new Set(['درس', 'الدرس', 'الوحدة', 'وحدة', 'في', 'من', 'على', 'عن', 'الى', 'إلى', 'و', 'او', 'أو']);
+  return normalizeSearchText(text)
+    .split(' ')
+    .map(word => word.trim())
+    .filter(word => word.length >= 3 && !stopWords.has(word));
+}
+
+function lineMatchesLessonTarget(line, titleWords, normalizedTitle) {
+  const normalizedLine = normalizeSearchText(line);
+  if (!normalizedLine) return false;
+  if (normalizedTitle && normalizedLine.includes(normalizedTitle)) return true;
+  if (!titleWords.length) return false;
+  const hits = titleWords.filter(word => normalizedLine.includes(word)).length;
+  return hits >= Math.max(2, Math.ceil(titleWords.length * 0.6));
+}
+
+function pickLessonSectionFromFullText(text, lesson) {
+  const fullText = String(text || '').trim();
+  const title = String(lesson?.title || '').trim();
+  if (!fullText || !title) return '';
+  const normalizedTitle = normalizeSearchText(title);
+  const titleWords = targetSearchWords(title);
+  const lines = fullText.split(/\r?\n+/).map(line => line.trim()).filter(Boolean);
+  if (!lines.length) return '';
+  let start = lines.findIndex(line => lineMatchesLessonTarget(line, titleWords, normalizedTitle));
+  if (start === -1 && lesson?.unit) {
+    const unitWords = targetSearchWords(lesson.unit);
+    const normalizedUnit = normalizeSearchText(lesson.unit);
+    start = lines.findIndex(line => lineMatchesLessonTarget(line, unitWords, normalizedUnit));
+  }
+  if (start === -1) return '';
+  let end = lines.length;
+  for (let i = start + 4; i < lines.length; i++) {
+    const normalizedLine = normalizeSearchText(lines[i]);
+    const isNextLesson = /(^|\s)(ال)?درس\s+\S+/.test(normalizedLine) && !lineMatchesLessonTarget(lines[i], titleWords, normalizedTitle);
+    const isNextUnit = /(^|\s)(ال)?وحده\s+\S+/.test(normalizedLine) && i > start + 8;
+    const selectedLength = lines.slice(start, i).join('\n').length;
+    if ((isNextLesson || isNextUnit) && selectedLength >= MIN_SAVED_PDF_TEXT_LENGTH) {
+      end = i;
+      break;
+    }
+  }
+  return lines.slice(start, end).join('\n').trim();
+}
+
 function pickRelevantAttachmentText(text, lesson) {
   const fullText = String(text || '').trim();
+  const lessonSection = pickLessonSectionFromFullText(fullText, lesson);
+  if (lessonSection) return lessonSection.slice(0, 48000);
   if (fullText.length <= 24000) return fullText;
   const title = String(lesson?.title || '').trim();
   const unit = String(lesson?.unit || '').trim();
@@ -2804,7 +2864,7 @@ function pickLessonText(text, title) {
 }
 
 function localGenerateLesson(lesson, attachment) {
-  const lessonText = pickLessonText(attachment.extractedText, lesson.title);
+  const lessonText = pickRelevantAttachmentText(attachment.extractedText, lesson) || pickLessonText(attachment.extractedText, lesson.title);
   const unavailable = lessonUnavailableText(lesson);
   if (!hasUsableAttachmentText(attachment) || !lessonText) return fallbackParse('', lesson);
   const compactText = lessonText.replace(/\s+/g, ' ').trim();

@@ -1614,7 +1614,8 @@ async function previewUploadText(req, res) {
 async function previewAttachmentText(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readJsonBody(req);
-  const lessonTarget = body.lesson && typeof body.lesson === "object" ? {
+  const fullAttachment = body.fullAttachment === true || body.targetOnly === false;
+  const lessonTarget = !fullAttachment && body.lesson && typeof body.lesson === "object" ? {
     title: cleanDbText(body.lesson.title || "", 300),
     unit: cleanDbText(body.lesson.unit || "", 300),
     grade: cleanDbText(body.lesson.grade || "", 200),
