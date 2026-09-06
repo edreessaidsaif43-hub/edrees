@@ -2844,19 +2844,19 @@ function renderAttachmentTextStatus(list, lessonId) {
   const converted = list.filter(hasUsableAttachmentText).length;
   if (converted === list.length) {
     return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
-      <span class="badge badge-green">تم التحويل كاملًا</span>
-      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">إعادة تحويل إلى نص</button>
+      <span class="badge badge-green">يوجد نص محفوظ</span>
+      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">استخراج نص الدرس فقط</button>
     </div>`;
   }
   if (converted > 0) {
     return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
       <span class="badge badge-gray">تحويل جزئي ${converted}/${list.length}</span>
-      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">إعادة تحويل إلى نص</button>
+      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">استخراج نص الدرس فقط</button>
     </div>`;
   }
   const hasPdf = list.some(isPdfAttachment);
   if (!hasPdf) return '<span class="badge badge-gray">غير محوّل</span>';
-  return `<button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}">يحتاج قراءة الصور/PDF</button>`;
+  return `<button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}">استخراج نص الدرس فقط</button>`;
 }
 
 let attachmentProgressTimer = null;
@@ -2903,7 +2903,7 @@ function finishAttachmentProgress(title, sub) {
 async function extractLessonTextFromTable(lessonId, force = false) {
   const lesson = lessons.find(item => item.id == lessonId);
   if (!lesson) return showToast('لم يتم العثور على الدرس', true);
-  showToast(force ? 'بدأ طلب إعادة تحويل المرفق إلى نص...' : 'بدأ طلب استخراج النص من المرفق...');
+  showToast(force ? 'بدأ طلب إعادة استخراج نص هذا الدرس فقط...' : 'بدأ طلب استخراج نص هذا الدرس فقط...');
   const lessonFiles = getLessonTableAttachments(lesson);
   const ids = lessonFiles
     .filter(item => isPdfAttachment(item) && (force || !hasUsableAttachmentText(item)))
@@ -2911,61 +2911,38 @@ async function extractLessonTextFromTable(lessonId, force = false) {
     .filter(Boolean);
   if (!ids.length) return showToast('لا توجد مرفقات تحتاج تحويلًا لهذا الدرس.');
   try {
-    startAttachmentProgress(force ? 'إعادة تحويل المرفق إلى نص' : 'استخراج نص المرفق وتحويل الصور');
+    startAttachmentProgress(force ? 'إعادة استخراج نص الدرس فقط' : 'استخراج نص الدرس فقط');
     let readyCount = 0;
     const errorMessages = [];
-    if (true) {
-      const pageStep = 8;
-      const maxPages = 5000;
-      const collected = new Map(ids.map(id => [Number(id), []]));
-      for (let pageStart = 1; pageStart <= maxPages; pageStart += pageStep) {
-        const pageEnd = pageStart + pageStep - 1;
-        setAttachmentProgress(Math.min(95, Math.max(5, (pageStart / 5000) * 95)), 'تحويل PDF كبير على دفعات', `استخراج الصفحات ${pageStart}-${pageEnd}`);
-        const chunkData = await apiRequest('/api/attachments/preview-existing-text', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          timeoutMs: 6 * 60 * 1000,
-          body: JSON.stringify({ attachmentIds: ids, pageStart, pageEnd })
-        });
-        let gotText = false;
-        let gotEnd = false;
-        (chunkData.results || []).forEach(item => {
-          if (item.status === 'end') gotEnd = true;
-          if (item.status === 'error' && item.message) errorMessages.push(item.message);
-          if (item.status === 'ready_to_save' && item.extractedText) {
-            collected.get(Number(item.id))?.push(item.extractedText);
-            gotText = true;
-          }
-        });
-        if (gotEnd) break;
+    setAttachmentProgress(35, 'استخراج نص الدرس فقط', `البحث عن: ${lesson.title || 'الدرس المحدد'}`);
+    const data = await apiRequest('/api/attachments/preview-existing-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      timeoutMs: 8 * 60 * 1000,
+      body: JSON.stringify({
+        attachmentIds: ids,
+        lesson: {
+          title: lesson.title || '',
+          unit: lesson.unit || '',
+          grade: lesson.grade || '',
+          subject: lesson.subject || '',
+          semester: lesson.semester || ''
+        },
+        targetOnly: true
+      })
+    });
+    (data.results || []).forEach(item => {
+      if (item.status === 'error' && item.message) errorMessages.push(item.message);
+      if (item.status === 'ready_to_save' && item.extractedText) {
+        pendingAttachmentTexts.set(Number(item.id), item.extractedText);
+        readyCount += 1;
       }
-      collected.forEach((parts, id) => {
-        const text = parts.join('\n\n').trim();
-        if (text.length >= MIN_SAVED_PDF_TEXT_LENGTH) {
-          pendingAttachmentTexts.set(id, text);
-          readyCount += 1;
-        }
-      });
-    } else {
-      const data = await apiRequest('/api/attachments/preview-existing-text', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        timeoutMs: 30 * 60 * 1000,
-        body: JSON.stringify({ attachmentIds: ids, limit: ids.length, force: true })
-      });
-      (data.results || []).forEach(item => {
-        if (item.status === 'error' && item.message) errorMessages.push(item.message);
-        if (item.status === 'ready_to_save' && item.extractedText) {
-          pendingAttachmentTexts.set(Number(item.id), item.extractedText);
-          readyCount += 1;
-        }
-      });
-    }
+    });
     renderTable();
     const uniqueErrors = Array.from(new Set(errorMessages.map(text => String(text || '').trim()).filter(Boolean)));
     const msg = readyCount
-      ? `تم تحويل ${readyCount} مرفق إلى نص مؤقتًا. اضغط زر "رفع النص إلى قاعدة البيانات".`
-      : (uniqueErrors.length ? uniqueErrors[0] : 'لم يتم استخراج نص صالح للحفظ.');
+      ? `تم استخراج نص الدرس فقط من ${readyCount} مرفق. اضغط زر "رفع النص إلى قاعدة البيانات".`
+      : (uniqueErrors.length ? uniqueErrors[0] : 'لم يتم العثور على نص واضح لهذا الدرس داخل المرفق.');
     finishAttachmentProgress('اكتملت المعالجة', msg);
     showToast(msg, !readyCount);
   } catch (err) {

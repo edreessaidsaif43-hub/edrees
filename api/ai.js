@@ -910,10 +910,14 @@ async function requestOpenRouterText({ apiKey, model, content, timeoutMs = 4 * 6
   return annotationText || String(data?.choices?.[0]?.message?.content || "");
 }
 
-async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0, pageEnd = 0) {
+async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0, pageEnd = 0, target = {}) {
   const apiKey = getOpenRouterApiKey();
   if (!apiKey || !attachment?.filePath) throw new Error("missing_openrouter_key");
-  if (!pageStart && !pageEnd) {
+  const lessonTitle = String(target?.title || "").trim();
+  const unit = String(target?.unit || "").trim();
+  const grade = String(target?.grade || "").trim();
+  const subject = String(target?.subject || "").trim();
+  if (!lessonTitle && !pageStart && !pageEnd) {
     try {
       const fileSize = Number(attachment.fileSize || 0);
       if (!fileSize || fileSize <= MAX_DIRECT_OCR_SIZE) {
@@ -928,17 +932,30 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
   const pageInstruction = pageStart && pageEnd
     ? `استخرج الصفحات من ${pageStart} إلى ${pageEnd} فقط، وإذا وصلت إلى نهاية المستند فاكتب END_OF_DOCUMENT.`
     : "استخرج كل الصفحات من البداية إلى النهاية.";
+  const targetInstruction = lessonTitle
+    ? [
+        "المطلوب استخراج نص درس واحد فقط من PDF وليس المرفق كاملًا.",
+        `عنوان الدرس المطلوب: ${lessonTitle}`,
+        unit ? `الوحدة: ${unit}` : "",
+        grade ? `الصف: ${grade}` : "",
+        subject ? `المادة: ${subject}` : "",
+        "ابحث عن عنوان الدرس أو أقرب نشاط/فقرة مرتبطة بنفس الوحدة والموضوع.",
+        "استخرج فقط نصوص هذا الدرس: الفقرات، الأنشطة، الأسئلة، الجداول، الصور التعليمية إن احتوت نصًا.",
+        "تجاهل الدروس الأخرى تمامًا، ولا تكتب نصوص الوحدة كاملة.",
+        "إذا لم تجد الدرس المطلوب داخل PDF فاكتب: LESSON_NOT_FOUND."
+      ].filter(Boolean).join("\n")
+    : "";
   const content = [
     {
       type: "text",
       text: [
-        "استخرج النص الكامل من ملف PDF بنسبة 100% قدر الإمكان.",
-        pageInstruction,
+        targetInstruction || "استخرج النص الكامل من ملف PDF بنسبة 100% قدر الإمكان.",
+        lessonTitle && pageStart && pageEnd ? pageInstruction : (!lessonTitle ? pageInstruction : ""),
         "اقرأ كل الصفحات بالترتيب، ونفّذ OCR على الصفحات المصورة والجداول والرسومات التعليمية.",
         "لا تلخص ولا تحذف الأسئلة أو التعليمات أو الأمثلة.",
         "أعد النص فقط بدون JSON وبدون شرح إضافي.",
         "في نهاية النص اكتب السطر التالي حرفيًا: END_OF_DOCUMENT"
-      ].join("\n")
+      ].filter(Boolean).join("\n")
     },
     await openRouterPdfPart(attachment)
   ];
@@ -953,7 +970,7 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
         temperature: 0,
         pdfEngine: strategy.engine
       });
-      const cleanText = normalizeExtractedText(text.replace(/END_OF_DOCUMENT/g, ""));
+      const cleanText = normalizeExtractedText(text.replace(/END_OF_DOCUMENT|LESSON_NOT_FOUND/g, ""));
       if (hasUsableExtractedText(cleanText)) return cleanText;
       lastError = `لم يرجع ${strategy.model} عبر ${strategy.engine} نصًا كافيًا من PDF.`;
     } catch (err) {
@@ -963,10 +980,10 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
   throw new Error(lastError || "تعذر استخراج نص PDF.");
 }
 
-async function extractFullAttachmentTextStrong(attachment, pageStart = 0, pageEnd = 0) {
+async function extractFullAttachmentTextStrong(attachment, pageStart = 0, pageEnd = 0, target = {}) {
   const errors = [];
   try {
-    const text = await extractFullAttachmentTextWithOpenRouter(attachment, pageStart, pageEnd);
+    const text = await extractFullAttachmentTextWithOpenRouter(attachment, pageStart, pageEnd, target);
     if (hasUsableExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, "")) || String(text || "").includes("END_OF_DOCUMENT")) return text;
   } catch (error) {
     errors.push(error?.message || String(error));
@@ -974,8 +991,8 @@ async function extractFullAttachmentTextStrong(attachment, pageStart = 0, pageEn
   try {
     if (String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim()) {
       const text = pageStart && pageEnd
-        ? await extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd)
-        : await extractFullAttachmentTextWithGemini(attachment);
+        ? await extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd, target)
+        : await extractFullAttachmentTextWithGemini(attachment, target);
       if (hasUsableExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, "")) || String(text || "").includes("END_OF_DOCUMENT")) return text;
     }
   } catch (error) {
@@ -1096,15 +1113,30 @@ async function getOrCreateGeminiFileUri(apiKey, attachment) {
   return uri;
 }
 
-async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd) {
+async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd, target = {}) {
   const apiKey = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
   if (!apiKey) throw new Error("missing_gemini_key");
   const fileUri = await getOrCreateGeminiFileUri(apiKey, attachment);
+  const lessonTitle = String(target?.title || "").trim();
+  const unit = String(target?.unit || "").trim();
+  const grade = String(target?.grade || "").trim();
+  const subject = String(target?.subject || "").trim();
+  const targetRule = lessonTitle
+    ? [
+        `استخرج نص الدرس المطلوب فقط من PDF، ولا تستخرج بقية الدروس أو الوحدة كاملة.`,
+        `عنوان الدرس المطلوب: ${lessonTitle}`,
+        unit ? `الوحدة: ${unit}` : "",
+        grade ? `الصف: ${grade}` : "",
+        subject ? `المادة: ${subject}` : "",
+        "إذا وجدت أن الصفحات تحتوي درسًا آخر فتجاهله. أعد فقط الفقرات والأنشطة والأسئلة والجداول المرتبطة بهذا الدرس."
+      ].filter(Boolean).join("\n")
+    : "";
   const prompt = [
-    `استخرج النص من صفحات ${pageStart} إلى ${pageEnd} فقط من ملف PDF.`,
+    targetRule || `استخرج النص من صفحات ${pageStart} إلى ${pageEnd} فقط من ملف PDF.`,
+    targetRule ? `افحص الصفحات ${pageStart} إلى ${pageEnd} فقط ضمن البحث عن الدرس المطلوب.` : "",
     "إذا كانت الصفحات صورًا ممسوحة، نفّذ OCR بصريًا واستخرج النصوص العربية والإنجليزية والأرقام والجداول.",
     "أعد النص فقط بدون تلخيص وبدون JSON. إذا لم توجد هذه الصفحات أو لا يوجد نص اكتب: END_OF_DOCUMENT."
-  ].join("\n");
+  ].filter(Boolean).join("\n");
   const models = GEMINI_OCR_MODELS;
   let lastError = null;
   for (const model of models) {
@@ -1141,13 +1173,13 @@ async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageE
   throw new Error(lastError ? `تعذر استخراج صفحات PDF: ${lastError}` : "تعذر استخراج صفحات PDF.");
 }
 
-async function extractFullAttachmentTextWithGemini(attachment) {
+async function extractFullAttachmentTextWithGemini(attachment, target = {}) {
   const pageStep = 8;
   const maxPages = 5000;
   const parts = [];
   for (let pageStart = 1; pageStart <= maxPages; pageStart += pageStep) {
     const pageEnd = pageStart + pageStep - 1;
-    const text = await extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd);
+    const text = await extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd, target);
     const ended = String(text || "").includes("END_OF_DOCUMENT");
     const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, ""));
     if (cleanText) parts.push(cleanText);
@@ -1441,6 +1473,13 @@ async function previewUploadText(req, res) {
 async function previewAttachmentText(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readJsonBody(req);
+  const lessonTarget = body.lesson && typeof body.lesson === "object" ? {
+    title: cleanDbText(body.lesson.title || "", 300),
+    unit: cleanDbText(body.lesson.unit || "", 300),
+    grade: cleanDbText(body.lesson.grade || "", 200),
+    subject: cleanDbText(body.lesson.subject || "", 200),
+    semester: cleanDbText(body.lesson.semester || "", 200)
+  } : {};
   const ids = Array.isArray(body.attachmentIds)
     ? body.attachmentIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0).slice(0, MAX_ATTACHMENT_TEXT_BATCH)
     : [];
@@ -1471,12 +1510,12 @@ async function previewAttachmentText(req, res) {
     const attachment = attachmentRow(row);
     try {
       const text = pageStart && pageEnd
-        ? await extractFullAttachmentTextStrong(attachment, pageStart, pageEnd)
+        ? await extractFullAttachmentTextStrong(attachment, pageStart, pageEnd, lessonTarget)
         : isPdfAttachment(attachment)
-          ? await extractFullAttachmentTextStrong(attachment)
+          ? await extractFullAttachmentTextStrong(attachment, 0, 0, lessonTarget)
           : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
       const ended = String(text || "").includes("END_OF_DOCUMENT");
-      const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, ""));
+      const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT|LESSON_NOT_FOUND/g, ""));
       results.push({
         id: Number(row.id),
         fileName: attachment.fileName || "PDF",
