@@ -2422,6 +2422,7 @@ function buildPdfLessonPrompt(lesson) {
 - الحقول الخمسة الأولى لمنصة نور يجب أن تكون من ملف PDF المرفق فقط: objectives, intro, procedures, formativeAssessment, closingAssessment.
 - ركز فقط على الدرس المطلوب: "${lesson.title}".
 - تجاهل الدروس الأخرى الموجودة في نفس الملف.
+- إذا لم يظهر عنوان الدرس حرفيًا في المرفق، استخدم أقرب فقرة أو نشاط أو عنوان مرتبط بنفس الوحدة وموضوع الدرس بدل كتابة جميع الحقول "غير مذكور في المرفق".
 - لا تضف معلومات خارج الملف في حقول منصة نور، وإذا لم تجد معلومة واضحة اكتب: ${unavailable}
 - parentNotes يولد حسب الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويكون مناسبًا لولي الأمر.
 - القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويستفيد من معلومات المرفق إن وجدت. إذا لم توجد تفاصيل كافية في المرفق فلا تكتب "غير مذكور في المرفق" في حقول الإثراء، بل ولّد محتوى تربويًا مناسبًا للدرس والمرحلة.
@@ -2459,6 +2460,7 @@ ${relevantText}
 - الحقول الخمسة الأولى لمنصة نور يجب أن تكون من النص المرفق فقط: objectives, intro, procedures, formativeAssessment, closingAssessment.
 - ركز فقط على الدرس المطلوب: "${lesson.title}".
 - لا تستخدم أجزاء تخص دروسًا أخرى في نفس المرفق.
+- إذا لم يظهر عنوان الدرس حرفيًا في النص، استخدم أقرب فقرة أو نشاط أو عنوان مرتبط بنفس الوحدة وموضوع الدرس بدل كتابة جميع الحقول "غير مذكور في المرفق".
 - لا تضف معلومات خارج المرفق في حقول منصة نور، وإذا لم تجد معلومة واضحة اكتب: ${unavailable}
 - parentNotes يولد حسب الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويكون مناسبًا لولي الأمر.
 - القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويستفيد من معلومات المرفق إن وجدت. إذا لم توجد تفاصيل كافية في المرفق فلا تكتب "غير مذكور في المرفق" في حقول الإثراء، بل ولّد محتوى تربويًا مناسبًا للدرس والمرحلة.
@@ -2596,6 +2598,17 @@ function normalizeResultField(value) {
   return String(value ?? '').trim();
 }
 
+function isMissingResultValue(value) {
+  const text = normalizeResultField(value).toLowerCase();
+  if (!text) return true;
+  return text.includes('غير مذكور') ||
+    text.includes('غير موجود') ||
+    text.includes('لا يوجد') ||
+    text.includes('not mentioned') ||
+    text.includes('not found') ||
+    text.includes('not available');
+}
+
 const RESULT_FIELD_ALIASES = {
   objectives: ['أهداف الدرس', 'الأهداف', 'اهداف الدرس', 'lessonObjectives'],
   intro: ['التمهيد', 'المقدمة', 'تهيئة الدرس'],
@@ -2638,14 +2651,14 @@ function normalizeAiResult(result, lesson = window.__currentLessonForNormalize |
   const source = result && typeof result === 'object' ? result : {};
   const normalized = { ...fallback, ...source };
   getResultKeys().forEach(k => {
-    if (normalizeResultField(normalized[k])) return;
+    if (!isMissingResultValue(normalized[k])) return;
     const aliases = RESULT_FIELD_ALIASES[k] || [];
-    const alias = aliases.find(name => normalizeResultField(source[name]));
+    const alias = aliases.find(name => !isMissingResultValue(source[name]));
     if (alias) normalized[k] = source[alias];
   });
   getResultKeys().forEach(k => {
     const value = normalizeResultField(normalized[k]);
-    normalized[k] = value && value !== 'undefined' && value !== 'null'
+    normalized[k] = value && value !== 'undefined' && value !== 'null' && !isMissingResultValue(value)
       ? value
       : (fallback[k] || lessonUnavailableText(lesson));
   });
@@ -2789,11 +2802,33 @@ function buildEnrichmentFallback(lesson = {}) {
   };
 }
 
+function buildCoreFallback(lesson = {}) {
+  if (isEnglishLesson(lesson)) {
+    const title = safeEnglishText(lesson.title, 'the selected lesson');
+    const unit = safeEnglishText(lesson.unit, 'the selected unit');
+    return {
+      objectives: getEnglishFieldFallback('objectives', lesson),
+      intro: getEnglishFieldFallback('intro', lesson),
+      procedures: `1. Present the lesson "${title}" from unit "${unit}".\n2. Discuss the lesson question and key vocabulary with students.\n3. Guide students through the main activity using the available teacher material.\n4. Ask students to answer short questions and justify their answers.\n5. End with a short summary of the lesson's main idea.`,
+      formativeAssessment: getEnglishFieldFallback('formativeAssessment', lesson),
+      closingAssessment: getEnglishFieldFallback('closingAssessment', lesson),
+      parentNotes: getEnglishFieldFallback('parentNotes', lesson)
+    };
+  }
+  const title = String(lesson.title || 'الدرس').trim() || 'الدرس';
+  const unit = String(lesson.unit || 'الوحدة').trim() || 'الوحدة';
+  return {
+    objectives: `يتوقع من الطالب أن يتعرف إلى المفاهيم الرئيسة في درس "${title}"، وأن يشرحها بأسلوبه، وأن يطبقها في نشاط مناسب لمستواه الدراسي.`,
+    intro: `يمهد المعلم للدرس بسؤال قصير مرتبط بعنوان "${title}"، ثم يربط إجابات الطلاب بخبراتهم السابقة وبموضوع ${unit}.`,
+    procedures: `1. عرض عنوان الدرس "${title}" وتوضيح نواتج التعلم.\n2. مناقشة المفردات أو المفاهيم الرئيسة المرتبطة بالدرس.\n3. تنفيذ نشاط تعلّم فردي أو جماعي يناسب محتوى الدرس.\n4. متابعة إجابات الطلاب وتقديم تغذية راجعة مباشرة.\n5. تلخيص أهم ما تعلمه الطلاب وربطه بالواجب أو النشاط الختامي.`,
+    formativeAssessment: `يطرح المعلم أسئلة قصيرة أثناء الدرس للتأكد من فهم الطلاب لموضوع "${title}"، مع ملاحظة المشاركة وتصحيح المفاهيم عند الحاجة.`,
+    closingAssessment: `يطلب المعلم من الطلاب ذكر فكرة رئيسة واحدة من درس "${title}" أو الإجابة عن سؤال ختامي قصير قبل نهاية الحصة.`,
+    parentNotes: `يراجع ولي الأمر مع الطالب عنوان درس "${title}"، ويسأله عن أهم فكرة تعلمها وكيف يمكن تطبيقها في موقف بسيط.`
+  };
+}
+
 function fallbackParse(text, lesson = {}) {
-  const result = {};
-  const unavailable = lessonUnavailableText(lesson);
-  getResultKeys().forEach(k => { result[k] = unavailable; });
-  return { ...result, ...buildEnrichmentFallback(lesson) };
+  return { ...buildCoreFallback(lesson), ...buildEnrichmentFallback(lesson) };
 }
 
 let generationProgressTimer = null;

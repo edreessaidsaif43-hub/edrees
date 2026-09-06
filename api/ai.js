@@ -19,6 +19,21 @@ const MIN_SAVED_PDF_TEXT_LENGTH = 500;
 const MAX_ATTACHMENT_TEXT_BATCH = 10;
 const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_FALLBACK_API_KEY = "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";
+const LESSON_RESULT_KEYS = [
+  "objectives",
+  "intro",
+  "procedures",
+  "formativeAssessment",
+  "closingAssessment",
+  "parentNotes",
+  "homework1",
+  "homework2",
+  "classroomGames",
+  "citizenship",
+  "motivation",
+  "attendance",
+  "boardPlan"
+];
 
 const DATABASE_URL =
   process.env.AI_DATABASE_URL ||
@@ -613,15 +628,77 @@ async function fetchBlobBuffer(url, timeoutMs = 25000) {
   return Buffer.from(arrayBuffer);
 }
 
-function openRouterPdfPart(attachment) {
+async function openRouterPdfPart(attachment, options = {}) {
   const url = String(attachment?.filePath || "").trim();
+  const fileName = attachment?.fileName || "lesson.pdf";
+  const fileSize = Number(attachment?.fileSize || 0);
+  const canInline = url && (!fileSize || fileSize <= INLINE_GEMINI_LIMIT || options.forceBase64);
+  if (canInline) {
+    try {
+      const base64 = await fetchBlobBase64(url);
+      if (base64) {
+        return {
+          type: "file",
+          file: {
+            filename: fileName,
+            file_data: `data:application/pdf;base64,${base64}`
+          }
+        };
+      }
+    } catch (err) {
+      if (options.forceBase64 || !/^https?:\/\//i.test(url)) throw err;
+    }
+  }
   return {
     type: "file",
     file: {
-      filename: attachment?.fileName || "lesson.pdf",
+      filename: fileName,
       fileData: url
     }
   };
+}
+
+function parseJsonObject(text) {
+  const clean = String(text || "").replace(/```json|```/g, "").trim();
+  if (!clean) return null;
+  try {
+    const parsed = JSON.parse(clean);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    const match = clean.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      const parsed = JSON.parse(match[0]);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function flattenResultValue(value) {
+  if (Array.isArray(value)) return value.map(flattenResultValue).join(" ");
+  if (value && typeof value === "object") return Object.values(value).map(flattenResultValue).join(" ");
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function isMissingLessonValue(value) {
+  const text = flattenResultValue(value).toLowerCase();
+  if (!text) return true;
+  return text.includes("غير مذكور") ||
+    text.includes("غير موجود") ||
+    text.includes("لا يوجد") ||
+    text.includes("not mentioned") ||
+    text.includes("not found") ||
+    text.includes("not available");
+}
+
+function isMostlyMissingLessonResult(text) {
+  const parsed = parseJsonObject(text);
+  if (!parsed) return false;
+  const missingCount = LESSON_RESULT_KEYS.filter((key) => isMissingLessonValue(parsed[key])).length;
+  const coreMissing = LESSON_RESULT_KEYS.slice(0, 5).filter((key) => isMissingLessonValue(parsed[key])).length;
+  return coreMissing >= 4 || missingCount >= Math.ceil(LESSON_RESULT_KEYS.length * 0.7);
 }
 
 function textFromOpenRouterContent(content) {
@@ -670,7 +747,26 @@ async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000
     err.data = data;
     throw err;
   }
-  return String(data?.choices?.[0]?.message?.content || "");
+  const output = String(data?.choices?.[0]?.message?.content || "");
+  const annotationText = extractOpenRouterAnnotationText(data);
+  if (hasUsableExtractedText(annotationText) && isMostlyMissingLessonResult(output)) {
+    const basePrompt = textFromOpenRouterContent(content) || "أعد توليد النتيجة بصيغة JSON فقط.";
+    const retryPrompt = [
+      basePrompt,
+      "النص التالي مستخرج من PDF ومطلوب استخدامه كمصدر معتمد للتحضير.",
+      "إذا لم يظهر عنوان الدرس حرفيًا، استخدم أقرب فقرة أو نشاط أو عنوان مرتبط بنفس الوحدة وموضوع الدرس، ولا تجعل جميع الحقول غير مذكورة.",
+      annotationText
+    ].join("\n\n");
+    const retryText = await requestOpenRouterJson({
+      apiKey,
+      model,
+      content: retryPrompt,
+      timeoutMs: Math.min(timeoutMs, 65000),
+      temperature
+    });
+    if (retryText.trim()) return retryText;
+  }
+  return output;
 }
 
 function extractOpenRouterAnnotationText(data) {
@@ -735,7 +831,7 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
         "في نهاية النص اكتب السطر التالي حرفيًا: END_OF_DOCUMENT"
       ].join("\n")
     },
-    openRouterPdfPart(attachment)
+    await openRouterPdfPart(attachment)
   ];
   const text = await requestOpenRouterText({
     apiKey,
@@ -918,7 +1014,7 @@ async function generateGemini(req, res) {
       if (isCompleteExtractedText(text)) {
         attachmentTexts.push(`اسم الملف: ${attachment.fileName || "PDF"}\n${text}`);
       } else if (attachment.filePath) {
-        pdfParts.push(openRouterPdfPart(attachment));
+        pdfParts.push(await openRouterPdfPart(attachment));
         pdfAttachments.push(attachment);
       }
     }
