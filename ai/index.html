@@ -1811,7 +1811,7 @@ const API_BASE = '/api/ai';
 let editingId = null;
 let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
-const MIN_SAVED_PDF_TEXT_LENGTH = 500;
+const MIN_SAVED_PDF_TEXT_LENGTH = 80;
 const CURRENT_USER_STORAGE_KEY = 'lesson_platform_current_user_v1';
 const BACKEND_SESSION_STORAGE_KEY = 'lesson_platform_backend_session_v1';
 const ENJAZY_AUTH_BRIDGE_KEY = 'enjazy_auth_bridge_v1';
@@ -2546,6 +2546,10 @@ function shouldSuggestGenerateRetry(err) {
     !message.includes('لا يوجد نص محفوظ') &&
     !message.includes('نص محفوظ صالح') &&
     !message.includes('قراءة PDF') &&
+    !message.includes('ملف PDF') &&
+    !message.includes('تعذر استخراج نص صالح') &&
+    !message.includes('لن يتم توليد تحضير عام') &&
+    !message.includes('لم يتم استخراج محتوى واضح') &&
     !message.includes('استغرقت قراءة') &&
     !message.includes('لم يكتمل تحليل PDF') &&
     !message.includes('ضمن المهلة') &&

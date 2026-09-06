@@ -15,10 +15,11 @@ const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
 const OCR_GEMINI_TIMEOUT_MS = 9 * 60 * 1000;
 const LARGE_FILE_TRANSFER_TIMEOUT_MS = 6 * 60 * 1000;
 const GEMINI_OCR_MODELS = ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"];
-const MIN_SAVED_PDF_TEXT_LENGTH = 500;
+const MIN_SAVED_PDF_TEXT_LENGTH = 80;
 const MAX_ATTACHMENT_TEXT_BATCH = 10;
 const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_FALLBACK_API_KEY = "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";
+const OPENROUTER_PDF_ENGINES = ["cloudflare-ai", "mistral-ocr"];
 const LESSON_RESULT_KEYS = [
   "objectives",
   "intro",
@@ -710,7 +711,7 @@ function textFromOpenRouterContent(content) {
     .join("\n\n");
 }
 
-async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000, temperature = 0.2 }) {
+async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000, temperature = 0.2, pdfEngine = OPENROUTER_PDF_ENGINES[0] }) {
   const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -725,7 +726,7 @@ async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000
       messages: [{ role: "user", content }],
       temperature,
       response_format: { type: "json_object" },
-      plugins: [{ id: "file-parser", pdf: { engine: "mistral-ocr" } }]
+      plugins: [{ id: "file-parser", pdf: { engine: pdfEngine } }]
     }),
   }, timeoutMs);
   const data = await response.json().catch(() => ({}));
@@ -738,7 +739,8 @@ async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000
         model,
         content: `${basePrompt}\n\nالنص المستخرج من PDF:\n${annotationText}`,
         timeoutMs: Math.min(timeoutMs, 65000),
-        temperature
+        temperature,
+        pdfEngine
       });
       if (retryText.trim()) return retryText;
     }
@@ -762,7 +764,8 @@ async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000
       model,
       content: retryPrompt,
       timeoutMs: Math.min(timeoutMs, 65000),
-      temperature
+      temperature,
+      pdfEngine
     });
     if (retryText.trim()) return retryText;
   }
@@ -784,7 +787,7 @@ function extractOpenRouterAnnotationText(data) {
   return normalizeExtractedText(chunks.join("\n\n"));
 }
 
-async function requestOpenRouterText({ apiKey, model, content, timeoutMs = 4 * 60 * 1000, temperature = 0 }) {
+async function requestOpenRouterText({ apiKey, model, content, timeoutMs = 4 * 60 * 1000, temperature = 0, pdfEngine = OPENROUTER_PDF_ENGINES[0] }) {
   const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -798,7 +801,7 @@ async function requestOpenRouterText({ apiKey, model, content, timeoutMs = 4 * 6
       model: model || OPENROUTER_DEFAULT_MODEL,
       messages: [{ role: "user", content }],
       temperature,
-      plugins: [{ id: "file-parser", pdf: { engine: "mistral-ocr" } }]
+      plugins: [{ id: "file-parser", pdf: { engine: pdfEngine } }]
     }),
   }, timeoutMs);
   const data = await response.json().catch(() => ({}));
@@ -816,6 +819,16 @@ async function requestOpenRouterText({ apiKey, model, content, timeoutMs = 4 * 6
 async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0, pageEnd = 0) {
   const apiKey = getOpenRouterApiKey();
   if (!apiKey || !attachment?.filePath) throw new Error("missing_openrouter_key");
+  if (!pageStart && !pageEnd) {
+    try {
+      const fileSize = Number(attachment.fileSize || 0);
+      if (!fileSize || fileSize <= MAX_DIRECT_OCR_SIZE) {
+        const buffer = await fetchBlobBuffer(attachment.filePath, fileSize > INLINE_GEMINI_LIMIT ? LARGE_FILE_TRANSFER_TIMEOUT_MS : 25000);
+        const localText = extractPdfTextLocal(buffer);
+        if (hasUsableExtractedText(localText)) return localText;
+      }
+    } catch {}
+  }
   const pageInstruction = pageStart && pageEnd
     ? `استخرج الصفحات من ${pageStart} إلى ${pageEnd} فقط، وإذا وصلت إلى نهاية المستند فاكتب END_OF_DOCUMENT.`
     : "استخرج كل الصفحات من البداية إلى النهاية.";
@@ -833,14 +846,25 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
     },
     await openRouterPdfPart(attachment)
   ];
-  const text = await requestOpenRouterText({
-    apiKey,
-    model: OPENROUTER_DEFAULT_MODEL,
-    content,
-    timeoutMs: 8 * 60 * 1000,
-    temperature: 0
-  });
-  return normalizeExtractedText(text.replace(/END_OF_DOCUMENT/g, ""));
+  let lastError = null;
+  for (const pdfEngine of OPENROUTER_PDF_ENGINES) {
+    try {
+      const text = await requestOpenRouterText({
+        apiKey,
+        model: OPENROUTER_DEFAULT_MODEL,
+        content,
+        timeoutMs: 8 * 60 * 1000,
+        temperature: 0,
+        pdfEngine
+      });
+      const cleanText = normalizeExtractedText(text.replace(/END_OF_DOCUMENT/g, ""));
+      if (hasUsableExtractedText(cleanText)) return cleanText;
+      lastError = `لم يرجع محرك ${pdfEngine} نصًا كافيًا من PDF.`;
+    } catch (err) {
+      lastError = err?.message || String(err);
+    }
+  }
+  throw new Error(lastError || "تعذر استخراج نص PDF.");
 }
 
 async function generateLessonFromExtractedPdfText({ apiKey, model, finalPrompt, pdfAttachments }) {
@@ -1122,7 +1146,7 @@ function needsTextRefresh(text = "") {
   return value.includes("[PDF saved:") ||
     value.includes("[Ù…Ø­ØªÙˆÙ‰ Ø§Ù„Ù…Ø±ÙÙ‚") ||
     value.includes("The file was saved, but text extraction did not return readable text") ||
-    value.length < 500;
+    value.length < MIN_SAVED_PDF_TEXT_LENGTH;
 }
 
 async function refreshAttachmentText(req, res) {
@@ -1155,7 +1179,7 @@ async function refreshAttachmentText(req, res) {
           AND (
             extracted_text IS NULL
             OR btrim(extracted_text) = ''
-            OR char_length(extracted_text) < 500
+            OR char_length(extracted_text) < ${MIN_SAVED_PDF_TEXT_LENGTH}
             OR extracted_text LIKE '%[PDF saved:%'
             OR extracted_text LIKE '%The file was saved, but text extraction did not return readable text%'
             OR extracted_text LIKE '%النص سيُستخرج عند التوليد%'
@@ -1170,7 +1194,7 @@ async function refreshAttachmentText(req, res) {
       AND (
         extracted_text IS NULL
         OR btrim(extracted_text) = ''
-        OR char_length(extracted_text) < 500
+        OR char_length(extracted_text) < ${MIN_SAVED_PDF_TEXT_LENGTH}
         OR extracted_text LIKE '%[PDF saved:%'
         OR extracted_text LIKE '%The file was saved, but text extraction did not return readable text%'
         OR extracted_text LIKE '%النص سيُستخرج عند التوليد%'
@@ -1222,7 +1246,7 @@ async function refreshAttachmentText(req, res) {
       AND (
         extracted_text IS NULL
         OR btrim(extracted_text) = ''
-        OR char_length(extracted_text) < 500
+        OR char_length(extracted_text) < ${MIN_SAVED_PDF_TEXT_LENGTH}
         OR extracted_text LIKE '%[PDF saved:%'
         OR extracted_text LIKE '%The file was saved, but text extraction did not return readable text%'
         OR extracted_text LIKE '%النص سيُستخرج عند التوليد%'
