@@ -1088,9 +1088,9 @@
       <div class="form-card" style="margin-top:1rem;margin-bottom:1rem;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
           <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;font-weight:600;">
-            لتحويل مواد PDF إلى نص محفوظ في قاعدة البيانات وتسريع التوليد، يعالج الزر حتى 10 مواد في كل ضغطة ويعرض نسبة تقدم مستقلة لكل مادة.
+            لتحويل مواد PDF إلى نص محفوظ في قاعدة البيانات وتسريع التوليد، يعالج الزر حتى 100 مادة في كل ضغطة ويعرض نسبة تقدم مستقلة لكل مادة.
           </div>
-          <button class="btn btn-primary" id="extract-attachments-btn-main" onclick="extractStoredMaterialTexts()">📄 تحويل 10 مواد إلى نص</button>
+          <button class="btn btn-primary" id="extract-attachments-btn-main" onclick="extractStoredMaterialTexts()">📄 تحويل 100 مادة إلى نص</button>
         </div>
       </div>
 
@@ -1126,7 +1126,7 @@
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px;">
             <button class="btn btn-primary" onclick="saveAiSettings()">💾 حفظ النموذج</button>
             <button class="btn btn-outline" onclick="clearAiSettings()">استعادة النموذج الافتراضي</button>
-            <button class="btn btn-outline" id="extract-attachments-btn" onclick="extractStoredMaterialTexts()">📄 تحويل 10 مواد إلى نص</button>
+            <button class="btn btn-outline" id="extract-attachments-btn" onclick="extractStoredMaterialTexts()">📄 تحويل 100 مادة إلى نص</button>
             <span class="ai-status" id="ai-status">OpenRouter محمي من الخادم</span>
           </div>
           <div class="settings-note">
@@ -3086,7 +3086,7 @@ async function extractStoredMaterialTexts() {
     .map(id => document.getElementById(id))
     .filter(Boolean);
   const oldTexts = new Map(buttons.map(btn => [btn, btn.textContent]));
-  const jobs = getMaterialExtractionJobs(10);
+  const jobs = getMaterialExtractionJobs(100);
   if (!jobs.length) {
     renderMaterialBatchProgress([]);
     return showToast('لا توجد مواد تحتاج تحويلًا الآن.');
@@ -3141,7 +3141,7 @@ async function extractStoredMaterialTexts() {
   } finally {
     buttons.forEach(btn => {
       btn.disabled = false;
-      btn.textContent = oldTexts.get(btn) || '📄 تحويل 10 مواد إلى نص';
+      btn.textContent = oldTexts.get(btn) || '📄 تحويل 100 مادة إلى نص';
     });
   }
 }
