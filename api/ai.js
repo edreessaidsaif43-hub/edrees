@@ -18,8 +18,15 @@ const GEMINI_OCR_MODELS = ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-
 const MIN_SAVED_PDF_TEXT_LENGTH = 80;
 const MAX_ATTACHMENT_TEXT_BATCH = 10;
 const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
+const OPENROUTER_PDF_MODEL = "google/gemini-2.5-flash";
 const OPENROUTER_FALLBACK_API_KEY = "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";
-const OPENROUTER_PDF_ENGINES = ["cloudflare-ai", "mistral-ocr"];
+const OPENROUTER_PDF_STRATEGIES = [
+  { model: OPENROUTER_PDF_MODEL, engine: "native" },
+  { model: OPENROUTER_DEFAULT_MODEL, engine: "cloudflare-ai" },
+  { model: OPENROUTER_DEFAULT_MODEL, engine: "mistral-ocr" },
+  { model: OPENROUTER_PDF_MODEL, engine: "mistral-ocr" }
+];
+const PUBLIC_SITE_ORIGIN = "https://altahdir.app";
 const LESSON_RESULT_KEYS = [
   "objectives",
   "intro",
@@ -353,6 +360,8 @@ async function extractText(buffer, fileName, fileType, fileSize, fields, filePat
     if ((!Buffer.isBuffer(pdfBuffer) || !pdfBuffer.length) && filePath && Number(fileSize || 0) <= INLINE_GEMINI_LIMIT) {
       pdfBuffer = await fetchBlobBuffer(filePath).catch(() => Buffer.alloc(0));
     }
+    const parsedText = await extractPdfTextWithPdfParse(pdfBuffer);
+    if (hasUsableExtractedText(parsedText)) return parsedText;
     const localText = extractPdfTextLocal(pdfBuffer);
     if (localText.length >= 1500) return localText;
     const geminiText = await extractTextWithGemini(filePath, fileName, fileSize);
@@ -372,6 +381,8 @@ async function extractTextLocalOnly(buffer, fileName, fileType, fileSize, filePa
     if ((!Buffer.isBuffer(pdfBuffer) || !pdfBuffer.length) && filePath && Number(fileSize || 0) <= INLINE_GEMINI_LIMIT) {
       pdfBuffer = await fetchBlobBuffer(filePath, 12000).catch(() => Buffer.alloc(0));
     }
+    const parsedText = await extractPdfTextWithPdfParse(pdfBuffer);
+    if (parsedText) return parsedText;
     return extractPdfTextLocal(pdfBuffer);
   }
   return "";
@@ -622,15 +633,24 @@ async function fetchBlobBase64(url) {
   return (await fetchBlobBuffer(url)).toString("base64");
 }
 
+function absolutePublicUrl(value) {
+  const raw = String(value || "").trim().replace(/\\/g, "/");
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith("//")) return `https:${raw}`;
+  if (raw.startsWith("/")) return `${PUBLIC_SITE_ORIGIN}${raw}`;
+  return `${PUBLIC_SITE_ORIGIN}/${raw.replace(/^\/+/, "")}`;
+}
+
 async function fetchBlobBuffer(url, timeoutMs = 25000) {
-  const response = await fetchWithTimeout(url, {}, timeoutMs);
+  const response = await fetchWithTimeout(absolutePublicUrl(url), {}, timeoutMs);
   if (!response.ok) throw new Error("ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© Ù…Ù„Ù PDF Ù…Ù† Ø§Ù„ØªØ®Ø²ÙŠÙ†.");
   const arrayBuffer = await response.arrayBuffer();
   return Buffer.from(arrayBuffer);
 }
 
 async function openRouterPdfPart(attachment, options = {}) {
-  const url = String(attachment?.filePath || "").trim();
+  const url = absolutePublicUrl(attachment?.filePath || "");
   const fileName = attachment?.fileName || "lesson.pdf";
   const fileSize = Number(attachment?.fileSize || 0);
   const canInline = url && (!fileSize || fileSize <= INLINE_GEMINI_LIMIT || options.forceBase64);
@@ -657,6 +677,19 @@ async function openRouterPdfPart(attachment, options = {}) {
       fileData: url
     }
   };
+}
+
+async function extractPdfTextWithPdfParse(buffer) {
+  if (!Buffer.isBuffer(buffer) || !buffer.length) return "";
+  try {
+    const mod = await import("pdf-parse");
+    const pdfParse = mod.default || mod;
+    if (typeof pdfParse !== "function") return "";
+    const result = await pdfParse(buffer);
+    return normalizeExtractedText(result?.text || "");
+  } catch {
+    return "";
+  }
 }
 
 function parseJsonObject(text) {
@@ -711,7 +744,7 @@ function textFromOpenRouterContent(content) {
     .join("\n\n");
 }
 
-async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000, temperature = 0.2, pdfEngine = OPENROUTER_PDF_ENGINES[0] }) {
+async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000, temperature = 0.2, pdfEngine = "cloudflare-ai" }) {
   const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -787,7 +820,7 @@ function extractOpenRouterAnnotationText(data) {
   return normalizeExtractedText(chunks.join("\n\n"));
 }
 
-async function requestOpenRouterText({ apiKey, model, content, timeoutMs = 4 * 60 * 1000, temperature = 0, pdfEngine = OPENROUTER_PDF_ENGINES[0] }) {
+async function requestOpenRouterText({ apiKey, model, content, timeoutMs = 4 * 60 * 1000, temperature = 0, pdfEngine = "cloudflare-ai" }) {
   const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -824,6 +857,8 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
       const fileSize = Number(attachment.fileSize || 0);
       if (!fileSize || fileSize <= MAX_DIRECT_OCR_SIZE) {
         const buffer = await fetchBlobBuffer(attachment.filePath, fileSize > INLINE_GEMINI_LIMIT ? LARGE_FILE_TRANSFER_TIMEOUT_MS : 25000);
+        const parsedText = await extractPdfTextWithPdfParse(buffer);
+        if (hasUsableExtractedText(parsedText)) return parsedText;
         const localText = extractPdfTextLocal(buffer);
         if (hasUsableExtractedText(localText)) return localText;
       }
@@ -847,19 +882,19 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
     await openRouterPdfPart(attachment)
   ];
   let lastError = null;
-  for (const pdfEngine of OPENROUTER_PDF_ENGINES) {
+  for (const strategy of OPENROUTER_PDF_STRATEGIES) {
     try {
       const text = await requestOpenRouterText({
         apiKey,
-        model: OPENROUTER_DEFAULT_MODEL,
+        model: strategy.model,
         content,
         timeoutMs: 8 * 60 * 1000,
         temperature: 0,
-        pdfEngine
+        pdfEngine: strategy.engine
       });
       const cleanText = normalizeExtractedText(text.replace(/END_OF_DOCUMENT/g, ""));
       if (hasUsableExtractedText(cleanText)) return cleanText;
-      lastError = `لم يرجع محرك ${pdfEngine} نصًا كافيًا من PDF.`;
+      lastError = `لم يرجع ${strategy.model} عبر ${strategy.engine} نصًا كافيًا من PDF.`;
     } catch (err) {
       lastError = err?.message || String(err);
     }
@@ -1064,8 +1099,19 @@ async function generateGemini(req, res) {
       if (isCompleteExtractedText(text)) {
         attachmentTexts.push(`اسم الملف: ${attachment.fileName || "PDF"}\n${text}`);
       } else if (attachment.filePath) {
-        pdfParts.push(await openRouterPdfPart(attachment));
-        pdfAttachments.push(attachment);
+        try {
+          const extractedNow = await extractFullAttachmentTextWithOpenRouter(attachment);
+          if (hasUsableExtractedText(extractedNow)) {
+            attachmentTexts.push(`اسم الملف: ${attachment.fileName || "PDF"}\n${extractedNow}`);
+            await sql`UPDATE ai_attachments SET extracted_text = ${normalizeExtractedText(extractedNow)} WHERE id = ${Number(attachment.id)};`;
+          } else {
+            pdfParts.push(await openRouterPdfPart(attachment));
+            pdfAttachments.push(attachment);
+          }
+        } catch {
+          pdfParts.push(await openRouterPdfPart(attachment));
+          pdfAttachments.push(attachment);
+        }
       }
     }
     if (!attachmentTexts.length && !pdfParts.length) return fail(res, 400, "لا يوجد نص محفوظ صالح أو ملف PDF قابل للقراءة لهذا المرفق.", "missing_attachment_content");
