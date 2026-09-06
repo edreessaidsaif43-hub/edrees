@@ -325,11 +325,37 @@ function normalizeSubjectName(value) {
     .replace(/ى/g, 'ي')
     .replace(/ة/g, 'ه')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .split(' ')
+    .map((word) => word.replace(/^ال/, ''))
+    .join(' ');
 }
 
 function subjectKey(item) {
   return normalizeGradeKey(item?.grade || '') + '::' + normalizeSubjectName(item?.subject || '');
+}
+
+function expandSubscriptionSubjectValues(values, fallbackGrade = '') {
+  const out = [];
+  const list = Array.isArray(values) ? values : [values].filter((value) => value != null);
+  for (const item of list) {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      out.push({
+        ...item,
+        grade: item.grade || fallbackGrade,
+        subject: item.subject || item.name || item.title || '',
+      });
+      continue;
+    }
+    const text = String(item || '').trim();
+    if (!text) continue;
+    text.split(/\r?\n|[،,؛;]/).map((line) => line.trim()).filter(Boolean).forEach((line) => {
+      const parts = line.split(/\s+-\s+|[|]/).map((part) => part.trim()).filter(Boolean);
+      if (parts.length >= 2) out.push({ grade: parts[0] || fallbackGrade, subject: parts.slice(1).join(" - "), status: "active" });
+      else out.push({ grade: fallbackGrade, subject: line, status: "active" });
+    });
+  }
+  return out;
 }
 
 function subscriptionExpiryDate(now = new Date()) {
@@ -348,10 +374,10 @@ function isSubjectEntryActive(item, now = new Date()) {
   return !Number.isFinite(end.getTime()) || end >= now;
 }
 
-function uniqueSubscriptionSubjects(values) {
+function uniqueSubscriptionSubjects(values, fallbackGrade = '') {
   const out = [];
   const seen = new Set();
-  (Array.isArray(values) ? values : []).forEach((item) => {
+  expandSubscriptionSubjectValues(values, fallbackGrade).forEach((item) => {
     const grade = canonicalGradeName(item?.grade || '');
     const subject = String(item?.subject || '').trim();
     if (!grade || !subject) return;
@@ -372,7 +398,13 @@ function uniqueSubscriptionSubjects(values) {
 }
 
 function subscriptionSubjects(row) {
-  return uniqueSubscriptionSubjects(Array.isArray(row?.subjects) ? row.subjects : []);
+  const direct = uniqueSubscriptionSubjects(Array.isArray(row?.subjects) ? row.subjects : [], row?.grade || '');
+  if (direct.length) return direct;
+  const legacyText = [
+    row?.grade || '',
+    ...(Array.isArray(row?.grades) ? row.grades : [])
+  ].join('\n');
+  return parseAdminSubjectLines(legacyText);
 }
 
 function subscriptionAmountOmr(fields = {}, subjects = [], grades = []) {

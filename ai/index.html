@@ -1448,19 +1448,30 @@ function isGradeSubscribed(grade) {
   return uniqueSubscriptionGrades(subscriptionState.activeGrades).some(g => normalizeSubscriptionGrade(g) === wanted);
 }
 
+function getSessionUserId(session) {
+  return String(session?.userId || session?.user_id || session?.id || '').trim();
+}
+
 function getSubscriptionUserId() {
   const session = typeof getUnifiedSession === 'function'
     ? getUnifiedSession()
     : (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
-  if (session?.userId) return String(session.userId).trim();
+  const sessionUserId = getSessionUserId(session);
+  if (sessionUserId) return sessionUserId;
   const keys = ['lesson_platform_backend_session_v1', 'enjazy_session_v1', 'lesson_platform_current_user_v1'];
   for (const key of keys) {
     try {
       const raw = localStorage.getItem(key);
       const parsed = raw ? JSON.parse(raw) : null;
-      if (parsed?.userId) return String(parsed.userId).trim();
+      const parsedUserId = getSessionUserId(parsed);
+      if (parsedUserId) return parsedUserId;
     } catch (e) {}
   }
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const urlUserId = String(params.get('enjazyUserId') || params.get('userId') || '').trim();
+    if (urlUserId) return urlUserId;
+  } catch (e) {}
   return '';
 }
 
@@ -1512,11 +1523,35 @@ function normalizeSubscriptionSubject(value) {
     .replace(/ى/g, 'ي')
     .replace(/ة/g, 'ه')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .split(' ')
+    .map(word => word.replace(/^ال/, ''))
+    .join(' ');
 }
 
 function subscriptionSubjectKey(grade, subject) {
   return normalizeSubscriptionGrade(grade) + '::' + normalizeSubscriptionSubject(subject);
+}
+
+function expandSubscriptionSubjectValues(values, fallbackGrade = '') {
+  const out = [];
+  const list = Array.isArray(values) ? values : [values].filter(value => value != null);
+  list.forEach((item) => {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      out.push({
+        ...item,
+        grade: item.grade || fallbackGrade,
+        subject: item.subject || item.name || item.title || ''
+      });
+      return;
+    }
+    String(item || '').split(/\r?\n|[،,؛;]/).map(line => line.trim()).filter(Boolean).forEach((line) => {
+      const parts = line.split(/\s+-\s+|[|]/).map(part => part.trim()).filter(Boolean);
+      if (parts.length >= 2) out.push({ grade: parts[0] || fallbackGrade, subject: parts.slice(1).join(' - '), status: 'active' });
+      else out.push({ grade: fallbackGrade, subject: line, status: 'active' });
+    });
+  });
+  return out;
 }
 
 function isSameSubscriptionGrade(a, b) {
@@ -1528,10 +1563,14 @@ function isSameSubscriptionSubject(a, b) {
 }
 
 function getActiveSubscriptionSubjects() {
-  const direct = Array.isArray(subscriptionState.activeSubjects) ? subscriptionState.activeSubjects : [];
+  const direct = expandSubscriptionSubjectValues(subscriptionState.activeSubjects || []);
   const fromSubscriptions = (subscriptionState.subscriptions || [])
     .filter(item => item.status === 'active')
-    .flatMap(item => Array.isArray(item.subjects) ? item.subjects : []);
+    .flatMap(item => {
+      const subjects = expandSubscriptionSubjectValues(item.subjects || [], item.grade || '');
+      if (subjects.length) return subjects;
+      return expandSubscriptionSubjectValues([item.activeItems || item.grade || '', ...(Array.isArray(item.grades) ? item.grades : [])]);
+    });
   const seen = new Set();
   const out = [];
   [...direct, ...fromSubscriptions].forEach((item) => {
