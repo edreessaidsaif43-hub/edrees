@@ -843,6 +843,32 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
   return normalizeExtractedText(text.replace(/END_OF_DOCUMENT/g, ""));
 }
 
+async function generateLessonFromExtractedPdfText({ apiKey, model, finalPrompt, pdfAttachments }) {
+  const extractedTexts = [];
+  for (const attachment of pdfAttachments) {
+    const text = await extractFullAttachmentTextWithOpenRouter(attachment);
+    if (hasUsableExtractedText(text)) {
+      extractedTexts.push(`اسم الملف: ${attachment.fileName || "PDF"}\n${text}`);
+    }
+  }
+  if (!extractedTexts.length) {
+    const err = new Error("تعذر استخراج نص صالح من ملف PDF. لن يتم توليد تحضير عام؛ يرجى تحويل المرفق إلى نص من لوحة الإدارة أو رفع ملف PDF أوضح.");
+    err.statusCode = 422;
+    throw err;
+  }
+  const retryText = await requestOpenRouterJson({
+    apiKey,
+    model,
+    content: `${finalPrompt}\n\nالنص المستخرج تلقائيًا من PDF ويجب الاعتماد عليه فقط:\n${extractedTexts.join("\n\n---\n\n")}`,
+    temperature: 0.2,
+    timeoutMs: 65000
+  });
+  if (retryText.trim() && !isMostlyMissingLessonResult(retryText)) return retryText;
+  const err = new Error("تم استخراج PDF لكن لم يتم العثور على محتوى واضح للدرس المطلوب داخل المرفق. لن يتم توليد تحضير عام.");
+  err.statusCode = 422;
+  throw err;
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -1038,26 +1064,19 @@ async function generateGemini(req, res) {
       timeoutMs: pdfParts.length || body.includePdf ? 4 * 60 * 1000 : 65000
     });
     if (!text.trim()) return fail(res, 500, "لم ترجع خدمة OpenRouter نتيجة صالحة.", "empty_openrouter_response");
+    if (pdfAttachments.length && isMostlyMissingLessonResult(text)) {
+      const retryText = await generateLessonFromExtractedPdfText({ apiKey, model, finalPrompt, pdfAttachments });
+      return send(res, 200, { text: retryText });
+    }
     send(res, 200, { text });
   } catch (error) {
     if (pdfAttachments.length) {
       try {
-        const extractedTexts = [];
-        for (const attachment of pdfAttachments) {
-          const text = await extractFullAttachmentTextWithOpenRouter(attachment);
-          if (hasUsableExtractedText(text)) extractedTexts.push(`اسم الملف: ${attachment.fileName || "PDF"}\n${text}`);
-        }
-        if (extractedTexts.length) {
-          const retryText = await requestOpenRouterJson({
-            apiKey,
-            model,
-            content: `${finalPrompt}\n\nالنص المستخرج تلقائيًا من PDF:\n${extractedTexts.join("\n\n---\n\n")}`,
-            temperature: 0.2,
-            timeoutMs: 65000
-          });
-          if (retryText.trim()) return send(res, 200, { text: retryText });
-        }
-      } catch {}
+        const retryText = await generateLessonFromExtractedPdfText({ apiKey, model, finalPrompt, pdfAttachments });
+        return send(res, 200, { text: retryText });
+      } catch (retryError) {
+        return fail(res, retryError?.statusCode || 500, retryError?.message || "تعذر استخراج نص PDF.", "pdf_extraction_failed");
+      }
     }
     return fail(res, error?.statusCode || 500, error?.message || "تعذر الاتصال بخدمة OpenRouter.", "openrouter_failed");
   }
