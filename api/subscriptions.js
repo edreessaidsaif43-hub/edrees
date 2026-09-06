@@ -368,10 +368,7 @@ function subscriptionExpiryDate(now = new Date()) {
 function isSubjectEntryActive(item, now = new Date()) {
   if (!item?.subject) return false;
   if (item.status && item.status !== 'active') return false;
-  const expiresAt = String(item.expiresAt || item.expires_at || '').slice(0, 10);
-  if (!expiresAt) return true;
-  const end = new Date(expiresAt + 'T23:59:59');
-  return !Number.isFinite(end.getTime()) || end >= now;
+  return true;
 }
 
 function uniqueSubscriptionSubjects(values, fallbackGrade = '') {

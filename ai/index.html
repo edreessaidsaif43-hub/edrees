@@ -1577,7 +1577,7 @@ function getActiveSubscriptionSubjects() {
     const grade = displaySubscriptionGrade(item?.grade || '');
     const subject = String(item?.subject || '').trim();
     const expiresAt = item?.expiresAt || item?.expires_at || '';
-    if (!grade || !subject || isSubscriptionExpired(expiresAt)) return;
+    if (!grade || !subject) return;
     const key = subscriptionSubjectKey(grade, subject);
     if (seen.has(key)) return;
     seen.add(key);
@@ -2085,9 +2085,30 @@ function activeLessons() {
 function availableTeacherLessons() {
   const all = activeLessons();
   const activeSubjects = getActiveSubscriptionSubjects();
-  if (activeSubjects.length) return all.filter(lesson => isSubjectSubscribed(lesson.grade, lesson.subject));
+  if (activeSubjects.length) {
+    const subjectMatches = all.filter(lesson => isSubjectSubscribed(lesson.grade, lesson.subject));
+    if (subjectMatches.length) return subjectMatches;
+    const activeSubjectGrades = uniqueSubscriptionGrades(activeSubjects.map(item => item.grade));
+    return all.filter(lesson => activeSubjectGrades.some(grade => isSameSubscriptionGrade(lesson.grade, grade)));
+  }
   if (!subscriptionState.activeGrades.length) return [];
   return all.filter(lesson => isGradeSubscribed(lesson.grade));
+}
+
+function teacherGradeOptionsFromSubscriptions(items = []) {
+  const activeSubjects = getActiveSubscriptionSubjects();
+  const subscribedGrades = activeSubjects.length
+    ? uniqueSubscriptionGrades(activeSubjects.map(item => item.grade))
+    : uniqueSubscriptionGrades(subscriptionState.activeGrades || []);
+  const lessonGrades = uniqueSubscriptionGrades(uniqueValues(items, 'grade'));
+  const merged = [...subscribedGrades, ...lessonGrades];
+  const seen = new Set();
+  return merged.filter((grade) => {
+    const key = normalizeSubscriptionGrade(grade);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function applySubscriptionToGrades() {
@@ -2145,7 +2166,7 @@ function populateTeacherFilters(changedId = '') {
   let unit = document.getElementById('t-unit')?.value || '';
 
   if (!changedId || changedId === 't-grade') {
-    grade = setSelectOptions('t-grade', uniqueSubscriptionGrades(uniqueValues(all, 'grade')), grade);
+    grade = setSelectOptions('t-grade', teacherGradeOptionsFromSubscriptions(all), grade);
   }
 
   const byGrade = all.filter(l => !grade || isSameSubscriptionGrade(l.grade, grade));
