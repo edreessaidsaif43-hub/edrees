@@ -513,7 +513,7 @@ function attachmentRow(row, options = {}) {
 
 async function listData(req, res) {
   if (!(await dbReady(res))) return;
-  const includeText = String(req?.query?.includeText || "1") !== "0";
+  const includeText = String(req?.query?.includeText || "0") === "1";
   const lessons = await sql`SELECT * FROM ai_lessons ORDER BY created_at DESC, id DESC;`;
   const attachments = await sql`SELECT * FROM ai_attachments ORDER BY created_at DESC, id DESC;`;
   send(res, 200, {
