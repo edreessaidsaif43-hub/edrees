@@ -688,16 +688,7 @@ async function openRouterPdfPart(attachment, options = {}) {
 }
 
 async function extractPdfTextWithPdfParse(buffer) {
-  if (!Buffer.isBuffer(buffer) || !buffer.length) return "";
-  try {
-    const mod = await import("pdf-parse");
-    const pdfParse = mod.default || mod;
-    if (typeof pdfParse !== "function") return "";
-    const result = await pdfParse(buffer);
-    return normalizeExtractedText(result?.text || "");
-  } catch {
-    return "";
-  }
+  return "";
 }
 
 function parseJsonObject(text) {
