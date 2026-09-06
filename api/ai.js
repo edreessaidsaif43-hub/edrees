@@ -105,6 +105,10 @@ async function ensureSchema() {
         ADD COLUMN IF NOT EXISTS attachment_ids JSONB NOT NULL DEFAULT '[]'::jsonb;
       `;
       await sql`
+        ALTER TABLE ai_lessons
+        ADD COLUMN IF NOT EXISTS lesson_text TEXT NOT NULL DEFAULT '';
+      `;
+      await sql`
         ALTER TABLE ai_attachments
         ADD COLUMN IF NOT EXISTS extracted_text TEXT NOT NULL DEFAULT '';
       `;
@@ -477,6 +481,8 @@ async function receiveUpload(req, meta) {
 }
 
 function lessonRow(row) {
+  const lessonTextLength = Number(row.lesson_text_length ?? normalizeExtractedText(row.lesson_text || "").length);
+  const hasLessonText = typeof row.has_lesson_text === "boolean" ? row.has_lesson_text : hasUsableExtractedText(row.lesson_text || "");
   return {
     id: Number(row.id),
     grade: row.grade || "",
@@ -489,6 +495,8 @@ function lessonRow(row) {
       ? row.attachment_ids.map((id) => Number(id)).filter(Boolean)
       : (row.attachment_id == null ? [] : [Number(row.attachment_id)]),
     status: row.status || "active",
+    lessonTextLength,
+    hasLessonText,
     createdAt: row.created_at ? String(row.created_at).slice(0, 10) : "",
   };
 }
@@ -528,6 +536,13 @@ async function listData(req, res) {
       attachment_id,
       attachment_ids,
       status,
+      char_length(COALESCE(lesson_text, '')) AS lesson_text_length,
+      (
+        char_length(btrim(COALESCE(lesson_text, ''))) >= ${MIN_SAVED_PDF_TEXT_LENGTH}
+        AND COALESCE(lesson_text, '') NOT LIKE '%[PDF saved:%'
+        AND COALESCE(lesson_text, '') NOT LIKE '%The file was saved, but text extraction did not return readable text%'
+        AND COALESCE(lesson_text, '') NOT LIKE '%النص سيُستخرج عند التوليد%'
+      ) AS has_lesson_text,
       created_at
     FROM ai_lessons
     ORDER BY created_at DESC, id DESC
@@ -1544,6 +1559,27 @@ async function getAttachmentText(req, res, id) {
   if (!(await dbReady(res))) return;
   const title = cleanDbText(req?.query?.title || "", 300);
   const unit = cleanDbText(req?.query?.unit || "", 300);
+  const lessonId = Number(req?.query?.lessonId || 0);
+  if (lessonId > 0) {
+    const lessonRows = await sql`
+      SELECT id, lesson_text
+      FROM ai_lessons
+      WHERE id = ${lessonId}
+      LIMIT 1;
+    `;
+    const lessonText = normalizeExtractedText(lessonRows?.[0]?.lesson_text || "");
+    if (isCompleteExtractedText(lessonText)) {
+      return send(res, 200, {
+        id,
+        lessonId,
+        fileName: "",
+        extractedText: lessonText,
+        extractedTextLength: lessonText.length,
+        hasText: true,
+        source: "lesson"
+      });
+    }
+  }
   const rows = await sql`
     SELECT
       id,
@@ -1566,18 +1602,31 @@ async function getAttachmentText(req, res, id) {
   const extractedText = normalizeExtractedText(row.extracted_text || "");
   return send(res, 200, {
     id: Number(row.id),
+    lessonId: lessonId || null,
     fileName: row.file_name || "",
     extractedText,
     extractedTextLength: extractedText.length,
-    hasText: isCompleteExtractedText(extractedText)
+    hasText: isCompleteExtractedText(extractedText),
+    source: "attachment"
   });
 }
 
 async function saveAttachmentText(req, res, id) {
   if (!(await dbReady(res))) return;
   const body = await readJsonBody(req);
+  const lessonId = Number(body.lessonId || 0);
   const text = normalizeExtractedText(body.extractedText || "");
   if (!hasUsableExtractedText(text)) return fail(res, 400, "Ø§Ù„Ù†Øµ Ø§Ù„Ù…Ø³ØªØ®Ø±Ø¬ ØºÙŠØ± ØµØ§Ù„Ø­ Ù„Ù„Ø­ÙØ¸.", "invalid_text");
+  if (lessonId > 0) {
+    const lessonRows = await sql`
+      UPDATE ai_lessons
+      SET lesson_text = ${text}
+      WHERE id = ${lessonId}
+      RETURNING id;
+    `;
+    if (!lessonRows?.[0]) return fail(res, 404, "لم يتم العثور على الدرس", "not_found");
+    return send(res, 200, { ok: true, attachmentId: id, lessonId, textLength: text.length, hasText: isCompleteExtractedText(text), source: "lesson" });
+  }
   const rows = await sql`SELECT id FROM ai_attachments WHERE id = ${id} LIMIT 1;`;
   if (!rows?.[0]) return fail(res, 404, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø±ÙÙ‚", "not_found");
   await sql`UPDATE ai_attachments SET extracted_text = ${text} WHERE id = ${id};`;

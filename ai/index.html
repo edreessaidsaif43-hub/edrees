@@ -2201,7 +2201,7 @@ async function generateLesson() {
   if (!attachment) { showError('لا يوجد مرفق مرتبط بهذا الدرس. يرجى التواصل مع الإدارة.'); return; }
 
   const settings = getAiSettings();
-  let hasText = lessonAttachments.some(hasUsableAttachmentText);
+  let hasText = !!lesson.hasLessonText || Number(lesson.lessonTextLength || 0) >= MIN_SAVED_PDF_TEXT_LENGTH || lessonAttachments.some(hasUsableAttachmentText);
   let isPdf = lessonAttachments.some(isPdfAttachment);
   let needsPdfRead = lessonAttachments.some(isPdfAttachment);
   if (needsPdfRead && !hasText) {
@@ -2754,10 +2754,12 @@ function getUsableAttachmentText(attachment) {
 
 async function loadSavedAttachmentTextForLesson(attachment, lesson) {
   if (!attachment?.id) return attachment;
-  if (getUsableAttachmentText(attachment)) return attachment;
-  if (!hasUsableAttachmentText(attachment)) return attachment;
+  const lessonHasSavedText = !!lesson?.hasLessonText || Number(lesson?.lessonTextLength || 0) >= MIN_SAVED_PDF_TEXT_LENGTH;
+  if (!lessonHasSavedText && getUsableAttachmentText(attachment)) return attachment;
+  if (!lessonHasSavedText && !hasUsableAttachmentText(attachment)) return attachment;
   const data = await apiRequest(`/api/attachments/${Number(attachment.id)}/text`, {
     params: {
+      lessonId: lesson?.id || '',
       title: lesson?.title || '',
       unit: lesson?.unit || ''
     }
@@ -2769,6 +2771,18 @@ async function loadSavedAttachmentTextForLesson(attachment, lesson) {
 }
 
 async function loadSavedLessonAttachmentTexts(lessonAttachments, lesson) {
+  const lessonHasSavedText = !!lesson?.hasLessonText || Number(lesson?.lessonTextLength || 0) >= MIN_SAVED_PDF_TEXT_LENGTH;
+  if (lessonHasSavedText && lessonAttachments.length) {
+    const first = await loadSavedAttachmentTextForLesson(lessonAttachments[0], lesson);
+    if (getUsableAttachmentText(first)) {
+      return lessonAttachments.map((item, index) => index === 0 ? first : {
+        ...item,
+        extractedText: '',
+        extractedTextLength: 0,
+        hasText: false
+      });
+    }
+  }
   const updated = [];
   for (const item of lessonAttachments) {
     updated.push(await loadSavedAttachmentTextForLesson(item, lesson));
