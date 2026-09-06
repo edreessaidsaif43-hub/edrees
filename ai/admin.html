@@ -1088,9 +1088,9 @@
       <div class="form-card" style="margin-top:1rem;margin-bottom:1rem;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
           <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;font-weight:600;">
-            لتحويل ملفات PDF القديمة إلى نص محفوظ في قاعدة البيانات وتسريع التوليد، يستخدم الزر OCR قوي لاستخراج النصوص العربية والإنجليزية من PDF ويعالج حتى 10 ملفات في كل ضغطة ويؤكد عند اكتمال التحويل بنسبة 100%.
+            لتحويل مواد PDF إلى نص محفوظ في قاعدة البيانات وتسريع التوليد، يعالج الزر حتى 10 مواد في كل ضغطة ويعرض نسبة تقدم مستقلة لكل مادة.
           </div>
-          <button class="btn btn-primary" id="extract-attachments-btn-main" onclick="extractStoredAttachmentText()">📄 استخراج OCR قوي من PDF</button>
+          <button class="btn btn-primary" id="extract-attachments-btn-main" onclick="extractStoredMaterialTexts()">📄 تحويل 10 مواد إلى نص</button>
         </div>
       </div>
 
@@ -1126,7 +1126,7 @@
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px;">
             <button class="btn btn-primary" onclick="saveAiSettings()">💾 حفظ النموذج</button>
             <button class="btn btn-outline" onclick="clearAiSettings()">استعادة النموذج الافتراضي</button>
-            <button class="btn btn-outline" id="extract-attachments-btn" onclick="extractStoredAttachmentText()">📄 استخراج OCR قوي من PDF</button>
+            <button class="btn btn-outline" id="extract-attachments-btn" onclick="extractStoredMaterialTexts()">📄 تحويل 10 مواد إلى نص</button>
             <span class="ai-status" id="ai-status">OpenRouter محمي من الخادم</span>
           </div>
           <div class="settings-note">
@@ -1305,6 +1305,10 @@
             <div id="attachment-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--primary),var(--accent));transition:width .35s ease;"></div>
           </div>
           <div id="attachment-progress-sub" style="font-size:11px;color:var(--text-muted);margin-top:7px;line-height:1.6;">قد تستغرق قراءة الصور داخل PDF عدة دقائق.</div>
+        </div>
+        <div id="material-batch-progress" style="display:none;margin-bottom:1rem;background:white;border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+          <div style="font-size:13px;font-weight:900;color:var(--primary);margin-bottom:10px;">تقدم تحويل المواد</div>
+          <div id="material-batch-progress-list" style="display:flex;flex-direction:column;gap:9px;"></div>
         </div>
         <div class="table-wrap">
           <table>
@@ -2864,6 +2868,45 @@ function getSubjectTableAttachments(lesson) {
   return uniqueAttachmentsById(getSameSubjectLessons(lesson).flatMap(getLessonTableAttachments));
 }
 
+function hasSavedLessonText(lesson) {
+  return !!lesson?.hasLessonText || Number(lesson?.lessonTextLength || 0) >= MIN_SAVED_PDF_TEXT_LENGTH;
+}
+
+function materialBatchKey(lesson) {
+  return [
+    String(lesson?.grade || '').trim(),
+    String(lesson?.subject || '').trim(),
+    String(lesson?.semester || '').trim()
+  ].join('::');
+}
+
+function materialBatchLabel(lesson) {
+  return [lesson?.grade, lesson?.subject, lesson?.semester].filter(Boolean).join(' - ') || 'مادة غير محددة';
+}
+
+function getMaterialExtractionJobs(limit = 10) {
+  const seen = new Set();
+  const jobs = [];
+  for (const lesson of lessons) {
+    const key = materialBatchKey(lesson);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const subjectLessons = getSameSubjectLessons(lesson);
+    const subjectFiles = getSubjectTableAttachments(lesson).filter(isPdfAttachment);
+    const needsText = subjectLessons.some(item => !hasSavedLessonText(item));
+    if (!subjectFiles.length || !needsText) continue;
+    jobs.push({
+      key,
+      label: materialBatchLabel(lesson),
+      lesson,
+      lessonIds: subjectLessons.map(item => Number(item.id)).filter(Boolean),
+      attachmentIds: subjectFiles.map(item => Number(item.id)).filter(Boolean)
+    });
+    if (jobs.length >= limit) break;
+  }
+  return jobs;
+}
+
 function chunkList(list = [], size = 10) {
   const chunks = [];
   for (let i = 0; i < list.length; i += size) chunks.push(list.slice(i, i + size));
@@ -2976,6 +3019,131 @@ function finishAttachmentProgress(title, sub) {
     const box = document.getElementById('attachment-progress-box');
     if (box) box.style.display = 'none';
   }, 3500);
+}
+
+function renderMaterialBatchProgress(jobs = []) {
+  const box = document.getElementById('material-batch-progress');
+  const list = document.getElementById('material-batch-progress-list');
+  if (!box || !list) return;
+  if (!jobs.length) {
+    box.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  box.style.display = 'block';
+  list.innerHTML = jobs.map((job, index) => `
+    <div class="material-progress-item" data-material-key="${escapeHtml(job.key)}" style="border:1px solid var(--border);border-radius:9px;padding:10px;background:var(--bg);">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px;flex-wrap:wrap;">
+        <div style="font-size:12px;font-weight:900;color:var(--text-primary);">${index + 1}. ${escapeHtml(job.label)}</div>
+        <div class="material-progress-percent" style="font-size:12px;font-weight:900;color:var(--primary);">0%</div>
+      </div>
+      <div style="height:7px;background:white;border:1px solid var(--border);border-radius:999px;overflow:hidden;">
+        <div class="material-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--primary),var(--accent));transition:width .35s ease;"></div>
+      </div>
+      <div class="material-progress-status" style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.6;">بانتظار البدء</div>
+    </div>
+  `).join('');
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function updateMaterialBatchProgress(jobKey, percent, status, tone = 'primary') {
+  const item = Array.from(document.querySelectorAll('.material-progress-item'))
+    .find(el => el.dataset.materialKey === jobKey);
+  if (!item) return;
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+  const bar = item.querySelector('.material-progress-bar');
+  const pct = item.querySelector('.material-progress-percent');
+  const text = item.querySelector('.material-progress-status');
+  const color = tone === 'success' ? 'var(--success)' : (tone === 'danger' ? 'var(--danger)' : 'var(--primary)');
+  if (bar) {
+    bar.style.width = safePercent + '%';
+    bar.style.background = tone === 'danger'
+      ? 'linear-gradient(90deg,var(--danger),#f97316)'
+      : (tone === 'success' ? 'linear-gradient(90deg,var(--success),#22c55e)' : 'linear-gradient(90deg,var(--primary),var(--accent))');
+  }
+  if (pct) {
+    pct.textContent = safePercent + '%';
+    pct.style.color = color;
+  }
+  if (text) {
+    text.textContent = status || '';
+    text.style.color = color;
+  }
+}
+
+function startMaterialProgressTicker(job) {
+  const startedAt = Date.now();
+  updateMaterialBatchProgress(job.key, 8, 'جاري إرسال المادة للتحويل...', 'primary');
+  return setInterval(() => {
+    const elapsed = Date.now() - startedAt;
+    const percent = Math.min(95, 8 + (elapsed / (8 * 60 * 1000)) * 87);
+    updateMaterialBatchProgress(job.key, percent, 'جاري استخراج نص PDF وحفظه لكل دروس المادة...', 'primary');
+  }, 1000);
+}
+
+async function extractStoredMaterialTexts() {
+  const buttons = ['extract-attachments-btn-main', 'extract-attachments-btn']
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+  const oldTexts = new Map(buttons.map(btn => [btn, btn.textContent]));
+  const jobs = getMaterialExtractionJobs(10);
+  if (!jobs.length) {
+    renderMaterialBatchProgress([]);
+    return showToast('لا توجد مواد تحتاج تحويلًا الآن.');
+  }
+  buttons.forEach(btn => { btn.disabled = true; btn.textContent = `جاري تحويل ${jobs.length} مواد...`; });
+  renderMaterialBatchProgress(jobs);
+  setAttachmentProgress(1, 'تحويل دفعة مواد إلى نص', `تم تجهيز ${jobs.length} مواد للتحويل. ستظهر نسبة مستقلة لكل مادة.`);
+  let completed = 0;
+  let failed = 0;
+  try {
+    for (const job of jobs) {
+      let ticker = null;
+      try {
+        ticker = startMaterialProgressTicker(job);
+        const data = await apiRequest('/api/attachments/preview-existing-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          timeoutMs: 8 * 60 * 1000,
+          body: JSON.stringify({
+            attachmentIds: job.attachmentIds.slice(0, 10),
+            fullAttachment: true,
+            targetOnly: false,
+            saveToLessonId: Number(job.lesson?.id || 0),
+            saveToLessonIds: job.lessonIds
+          })
+        });
+        if (ticker) clearInterval(ticker);
+        const savedCount = Number(data.savedLessonCount || 0);
+        if (data.saved) {
+          completed += 1;
+          updateMaterialBatchProgress(job.key, 100, `اكتمل التحويل والحفظ في ${savedCount || job.lessonIds.length} درس.`, 'success');
+        } else {
+          failed += 1;
+          const errorItem = (data.results || []).find(item => item.status === 'error');
+          const message = errorItem?.message ? formatAdminRequestError(errorItem.message, 'ocr') : 'لم يتم استخراج نص واضح من هذه المادة.';
+          updateMaterialBatchProgress(job.key, 100, message, 'danger');
+        }
+      } catch (err) {
+        if (ticker) clearInterval(ticker);
+        failed += 1;
+        updateMaterialBatchProgress(job.key, 100, formatAdminRequestError(err, 'ocr'), 'danger');
+      }
+      const overall = ((completed + failed) / jobs.length) * 100;
+      setAttachmentProgress(overall, 'تحويل دفعة مواد إلى نص', `اكتمل ${completed} من ${jobs.length} مواد${failed ? `، وتعذر ${failed}` : ''}.`);
+    }
+    await loadDatabase();
+    const msg = failed
+      ? `اكتمل تحويل ${completed} مواد، وتعذر تحويل ${failed} مواد.`
+      : `اكتمل تحويل ${completed} مواد وحفظ النصوص في قاعدة البيانات.`;
+    finishAttachmentProgress('انتهت دفعة التحويل', msg);
+    showToast(msg, !!failed);
+  } finally {
+    buttons.forEach(btn => {
+      btn.disabled = false;
+      btn.textContent = oldTexts.get(btn) || '📄 تحويل 10 مواد إلى نص';
+    });
+  }
 }
 
 async function extractLessonTextFromTable(lessonId, force = false) {
