@@ -1603,6 +1603,9 @@ function formatAdminRequestError(err, context = '') {
   if (lower.includes('user not found')) {
     return 'تعذر تنفيذ OCR لأن خدمة OpenRouter رفضت المفتاح الحالي. تأكد من صحة المفتاح ثم أعد رفع التحديث.';
   }
+  if (lower.includes('file data is missing') || lower.includes('file_data is missing') || lower.includes('missing file data')) {
+    return 'تعذر قراءة ملف PDF لأن بيانات الملف لم تصل إلى خدمة OCR. أعد رفع الملف ثم اضغط استخراج نص الدرس فقط.';
+  }
   if (lower.includes('unauthorized') || lower.includes('invalid api key') || lower.includes('invalid key')) {
     return 'مفتاح OpenRouter غير صالح أو غير مفعل. تحقق من المفتاح ثم أعد المحاولة.';
   }

@@ -769,16 +769,21 @@ async function openRouterPdfPart(attachment, options = {}) {
   const url = absolutePublicUrl(attachment?.filePath || "");
   const fileName = attachment?.fileName || "lesson.pdf";
   const fileSize = Number(attachment?.fileSize || 0);
+  if (!url) throw new Error("رابط ملف PDF غير موجود في قاعدة البيانات.");
+  if (options.forceBase64 && fileSize > MAX_DIRECT_OCR_SIZE) {
+    throw new Error("تعذر إرسال PDF كبيانات مباشرة لأن حجم الملف كبير جدًا. أعد رفع الملف أو استخدم ملفًا أصغر.");
+  }
   const canInline = url && (!fileSize || fileSize <= INLINE_GEMINI_LIMIT || options.forceBase64);
   if (canInline) {
     try {
       const base64 = await fetchBlobBase64(url);
       if (base64) {
+        const dataUrl = `data:application/pdf;base64,${base64}`;
         return {
           type: "file",
           file: {
             filename: fileName,
-            file_data: `data:application/pdf;base64,${base64}`
+            file_data: dataUrl
           }
         };
       }
@@ -790,7 +795,7 @@ async function openRouterPdfPart(attachment, options = {}) {
     type: "file",
     file: {
       filename: fileName,
-      fileData: url
+      file_data: url
     }
   };
 }
@@ -866,6 +871,14 @@ function openRouterErrorMessage(data, fallback = "تعذر الاتصال بخد
     return "مفتاح OpenRouter غير صالح أو غير مفعل. تحقق من المفتاح ثم أعد المحاولة.";
   }
   return raw || fallback;
+}
+
+function isMissingFileDataError(error) {
+  const text = String(error?.message || error || "").toLowerCase();
+  return text.includes("file data is missing") ||
+    text.includes("file_data is missing") ||
+    text.includes("missing file data") ||
+    text.includes("missing file_data");
 }
 
 async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000, temperature = 0.2, pdfEngine = "cloudflare-ai" }) {
@@ -1087,6 +1100,26 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
       }
       lastError = `لم يرجع ${strategy.model} عبر ${strategy.engine} نصًا كافيًا من PDF.`;
     } catch (err) {
+      if (isMissingFileDataError(err)) {
+        try {
+          const forcedContent = [content[0], await openRouterPdfPart(attachment, { forceBase64: true })];
+          const forcedText = await requestOpenRouterText({
+            apiKey,
+            model: strategy.model,
+            content: forcedContent,
+            timeoutMs: 8 * 60 * 1000,
+            temperature: 0,
+            pdfEngine: strategy.engine
+          });
+          const forcedCleanText = normalizeExtractedText(String(forcedText || "").replace(/END_OF_DOCUMENT|LESSON_NOT_FOUND/g, ""));
+          if (hasUsableExtractedText(forcedCleanText)) return forcedCleanText;
+          lastError = "تعذر قراءة PDF بعد إعادة إرساله كبيانات مباشرة.";
+          continue;
+        } catch (forceErr) {
+          lastError = forceErr?.message || String(forceErr);
+          continue;
+        }
+      }
       lastError = err?.message || String(err);
     }
   }
