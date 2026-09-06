@@ -20,7 +20,7 @@ const MAX_ATTACHMENT_TEXT_BATCH = 10;
 const OCR_TEXT_MAX_TOKENS = 14000;
 const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_PDF_MODEL = "google/gemini-2.5-flash";
-const OPENROUTER_FIXED_API_KEY = "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";
+const OPENROUTER_FIXED_API_KEY = "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";
 const OPENROUTER_PDF_STRATEGIES = [
   { model: OPENROUTER_DEFAULT_MODEL, engine: "cloudflare-ai" },
   { model: OPENROUTER_PDF_MODEL, engine: "cloudflare-ai" },
