@@ -2825,7 +2825,6 @@ function getLessonTableAttachments(lesson) {
 
 function getSameSubjectLessons(lesson) {
   return lessons.filter(item =>
-    item.status !== 'inactive' &&
     String(item.grade || '') === String(lesson?.grade || '') &&
     String(item.subject || '') === String(lesson?.subject || '') &&
     String(item.semester || '') === String(lesson?.semester || '')
@@ -2965,6 +2964,7 @@ async function extractLessonTextFromTable(lessonId, force = false) {
   if (!lesson) return showToast('لم يتم العثور على الدرس', true);
   showToast(force ? 'بدأ طلب إعادة استخراج مادة الدرس كاملة...' : 'بدأ طلب استخراج مادة الدرس كاملة...');
   const subjectFiles = getSubjectTableAttachments(lesson);
+  const subjectLessonIds = getSameSubjectLessons(lesson).map(item => Number(item.id)).filter(Boolean);
   const ids = subjectFiles
     .filter(item => isPdfAttachment(item) && (force || !lesson.hasLessonText))
     .map(item => item.id)
@@ -2973,6 +2973,7 @@ async function extractLessonTextFromTable(lessonId, force = false) {
   try {
     startAttachmentProgress(force ? 'إعادة استخراج مادة الدرس كاملة' : 'استخراج مادة الدرس كاملة');
     let readyCount = 0;
+    let savedLessonCount = 0;
     const errorMessages = [];
     setAttachmentProgress(35, 'استخراج مادة الدرس كاملة', `سيتم استخراج ${ids.length} ملف PDF وحفظ النص باسم الدرس: ${lesson.title || 'الدرس المحدد'}`);
     const batches = chunkList(ids, 10);
@@ -2991,11 +2992,13 @@ async function extractLessonTextFromTable(lessonId, force = false) {
           attachmentIds: batch,
           fullAttachment: true,
           targetOnly: false,
-          saveToLessonId: Number(lessonId)
+          saveToLessonId: Number(lessonId),
+          saveToLessonIds: subjectLessonIds
         })
       });
       if (data.saved) {
         readyCount += (data.results || []).filter(item => item.status === 'ready_to_save' || item.status === 'end').length || 1;
+        savedLessonCount += Number(data.savedLessonCount || 0);
       }
       (data.results || []).forEach(item => {
         if (item.status === 'error' && item.message) errorMessages.push(formatAdminRequestError(item.message, 'ocr'));
@@ -3012,7 +3015,7 @@ async function extractLessonTextFromTable(lessonId, force = false) {
       try { await loadDatabase(); } catch {}
     }
     const msg = readyCount
-      ? `تم استخراج نص المادة كاملة وحفظه في قاعدة البيانات باسم الدرس.`
+      ? `تم استخراج نص المادة كاملة وحفظه في قاعدة البيانات لكل دروس المادة (${savedLessonCount || subjectLessonIds.length} درس).`
       : (uniqueErrors.length ? uniqueErrors[0] : 'لم يتم العثور على نص واضح داخل مرفقات المادة.');
     finishAttachmentProgress('اكتملت المعالجة', msg);
     showToast(msg, !readyCount);

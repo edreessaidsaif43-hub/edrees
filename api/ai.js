@@ -1627,6 +1627,12 @@ async function previewAttachmentText(req, res) {
   const body = await readJsonBody(req);
   const fullAttachment = body.fullAttachment === true || body.targetOnly === false;
   const saveToLessonId = Math.max(0, Number(body.saveToLessonId || 0));
+  const saveToLessonIds = Array.from(new Set(
+    (Array.isArray(body.saveToLessonIds) ? body.saveToLessonIds : [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0)
+  ));
+  if (saveToLessonId > 0 && !saveToLessonIds.includes(saveToLessonId)) saveToLessonIds.push(saveToLessonId);
   const lessonTarget = !fullAttachment && body.lesson && typeof body.lesson === "object" ? {
     title: cleanDbText(body.lesson.title || "", 300),
     unit: cleanDbText(body.lesson.unit || "", 300),
@@ -1671,7 +1677,7 @@ async function previewAttachmentText(req, res) {
           : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
       const ended = String(text || "").includes("END_OF_DOCUMENT");
       const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT|LESSON_NOT_FOUND/g, ""));
-      if (saveToLessonId > 0 && hasUsableExtractedText(cleanText)) {
+      if (saveToLessonIds.length && hasUsableExtractedText(cleanText)) {
         saveTextParts.push(cleanText);
       }
       results.push({
@@ -1680,7 +1686,7 @@ async function previewAttachmentText(req, res) {
         status: ended ? "end" : hasUsableExtractedText(cleanText)
           ? "ready_to_save"
           : "needs_pdf_generation",
-        extractedText: saveToLessonId > 0 ? "" : (hasUsableExtractedText(cleanText) ? cleanText : ""),
+        extractedText: saveToLessonIds.length ? "" : (hasUsableExtractedText(cleanText) ? cleanText : ""),
         textLength: cleanText.length
       });
     } catch (err) {
@@ -1697,18 +1703,22 @@ async function previewAttachmentText(req, res) {
   }
   let saved = false;
   let savedTextLength = 0;
-  if (saveToLessonId > 0 && saveTextParts.length) {
+  let savedLessonCount = 0;
+  if (saveToLessonIds.length && saveTextParts.length) {
     const combinedText = normalizeExtractedText(saveTextParts.join("\n\n"));
     const lessonRows = await sql`
       UPDATE ai_lessons
       SET lesson_text = ${combinedText}
-      WHERE id = ${saveToLessonId}
+      WHERE id IN (
+        SELECT jsonb_array_elements_text(${JSON.stringify(saveToLessonIds)}::jsonb)::bigint
+      )
       RETURNING id;
     `;
-    saved = !!lessonRows?.[0];
+    savedLessonCount = Array.isArray(lessonRows) ? lessonRows.length : 0;
+    saved = savedLessonCount > 0;
     savedTextLength = combinedText.length;
   }
-  return send(res, 200, { ok: true, scanned: results.length, results, saved, savedTextLength });
+  return send(res, 200, { ok: true, scanned: results.length, results, saved, savedTextLength, savedLessonCount });
 }
 
 async function getAttachmentText(req, res, id) {
