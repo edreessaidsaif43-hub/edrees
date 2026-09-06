@@ -1610,13 +1610,13 @@ function formatAdminRequestError(err, context = '') {
     return 'مفتاح OpenRouter غير صالح أو غير مفعل. تحقق من المفتاح ثم أعد المحاولة.';
   }
   if (message === 'timeout' || message.includes('timeout') || message.includes('مهلة')) {
-    return 'استغرقت عملية OCR وقتًا طويلًا. تم تمديد مهلة الملفات الكبيرة، لكن إذا توقفت مجددًا فقد تكون الاستضافة أوقفت الطلب قبل اكتماله.';
+    return 'استغرقت قراءة PDF وقتًا طويلًا. إذا كان الملف مصورًا بالكامل فقد يحتاج OCR أطول من مهلة الاستضافة؛ جرّب ملف PDF أوضح أو يحتوي نصًا قابلًا للنسخ.';
   }
   if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('Load failed')) {
     return 'انقطع الاتصال أثناء العملية. قد تكون المهمة اكتملت جزئيًا؛ حدّث القائمة للتأكد ثم أعد المحاولة إذا بقيت الحالة كما هي.';
   }
   if (message.includes('تعذر الاتصال بقاعدة البيانات') && context === 'ocr') {
-    return 'تعذر استلام رد الخادم بعد مدة طويلة. حدّث القائمة للتأكد هل تم حفظ النص، وإذا لم يتغير شيء فأعد المحاولة؛ الملفات حتى 80MB مدعومة الآن.';
+    return 'تعذر استلام رد الخادم بعد مدة طويلة. حدّث القائمة للتأكد هل تم حفظ النص؛ وإذا لم يتغير شيء فالملف يحتاج OCR أطول من مهلة الاستضافة.';
   }
   return message || 'حدث خطأ أثناء تنفيذ الطلب.';
 }
@@ -2990,12 +2990,16 @@ async function extractLessonTextFromTable(lessonId, force = false) {
         body: JSON.stringify({
           attachmentIds: batch,
           fullAttachment: true,
-          targetOnly: false
+          targetOnly: false,
+          saveToLessonId: Number(lessonId)
         })
       });
+      if (data.saved) {
+        readyCount += (data.results || []).filter(item => item.status === 'ready_to_save' || item.status === 'end').length || 1;
+      }
       (data.results || []).forEach(item => {
         if (item.status === 'error' && item.message) errorMessages.push(formatAdminRequestError(item.message, 'ocr'));
-        if ((item.status === 'ready_to_save' || item.status === 'end') && item.extractedText) {
+        if (!data.saved && (item.status === 'ready_to_save' || item.status === 'end') && item.extractedText) {
           pendingAttachmentTexts.set(pendingLessonTextKey(lessonId, item.id), item.extractedText);
           readyCount += 1;
         }
@@ -3004,8 +3008,11 @@ async function extractLessonTextFromTable(lessonId, force = false) {
     }
     renderTable();
     const uniqueErrors = Array.from(new Set(errorMessages.map(text => String(text || '').trim()).filter(Boolean)));
+    if (readyCount) {
+      try { await loadDatabase(); } catch {}
+    }
     const msg = readyCount
-      ? `تم استخراج نص المادة كاملة من ${readyCount} مرفق. اضغط زر "رفع النص الكامل إلى قاعدة البيانات".`
+      ? `تم استخراج نص المادة كاملة وحفظه في قاعدة البيانات باسم الدرس.`
       : (uniqueErrors.length ? uniqueErrors[0] : 'لم يتم العثور على نص واضح داخل مرفقات المادة.');
     finishAttachmentProgress('اكتملت المعالجة', msg);
     showToast(msg, !readyCount);

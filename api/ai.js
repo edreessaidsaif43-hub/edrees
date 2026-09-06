@@ -1,6 +1,9 @@
 import { neon } from "@neondatabase/serverless";
 import { put } from "@vercel/blob";
+import { createRequire } from "node:module";
 import { inflateSync } from "node:zlib";
+
+const require = createRequire(import.meta.url);
 
 export const config = {
   api: {
@@ -801,7 +804,15 @@ async function openRouterPdfPart(attachment, options = {}) {
 }
 
 async function extractPdfTextWithPdfParse(buffer) {
-  return "";
+  if (!Buffer.isBuffer(buffer) || !buffer.length) return "";
+  try {
+    const parse = require("pdf-parse");
+    if (typeof parse !== "function") return "";
+    const data = await parse(buffer);
+    return normalizeExtractedText(data?.text || "");
+  } catch {
+    return "";
+  }
 }
 
 function parseJsonObject(text) {
@@ -1615,6 +1626,7 @@ async function previewAttachmentText(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readJsonBody(req);
   const fullAttachment = body.fullAttachment === true || body.targetOnly === false;
+  const saveToLessonId = Math.max(0, Number(body.saveToLessonId || 0));
   const lessonTarget = !fullAttachment && body.lesson && typeof body.lesson === "object" ? {
     title: cleanDbText(body.lesson.title || "", 300),
     unit: cleanDbText(body.lesson.unit || "", 300),
@@ -1648,6 +1660,7 @@ async function previewAttachmentText(req, res) {
   const pageStart = Math.max(1, Number(body.pageStart || 0));
   const pageEnd = Math.max(pageStart, Number(body.pageEnd || 0));
   const results = [];
+  const saveTextParts = [];
   for (const row of rows || []) {
     const attachment = attachmentRow(row);
     try {
@@ -1658,13 +1671,16 @@ async function previewAttachmentText(req, res) {
           : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
       const ended = String(text || "").includes("END_OF_DOCUMENT");
       const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT|LESSON_NOT_FOUND/g, ""));
+      if (saveToLessonId > 0 && hasUsableExtractedText(cleanText)) {
+        saveTextParts.push(cleanText);
+      }
       results.push({
         id: Number(row.id),
         fileName: attachment.fileName || "PDF",
         status: ended ? "end" : hasUsableExtractedText(cleanText)
           ? "ready_to_save"
           : "needs_pdf_generation",
-        extractedText: hasUsableExtractedText(cleanText) ? cleanText : "",
+        extractedText: saveToLessonId > 0 ? "" : (hasUsableExtractedText(cleanText) ? cleanText : ""),
         textLength: cleanText.length
       });
     } catch (err) {
@@ -1679,7 +1695,20 @@ async function previewAttachmentText(req, res) {
       });
     }
   }
-  return send(res, 200, { ok: true, scanned: results.length, results });
+  let saved = false;
+  let savedTextLength = 0;
+  if (saveToLessonId > 0 && saveTextParts.length) {
+    const combinedText = normalizeExtractedText(saveTextParts.join("\n\n"));
+    const lessonRows = await sql`
+      UPDATE ai_lessons
+      SET lesson_text = ${combinedText}
+      WHERE id = ${saveToLessonId}
+      RETURNING id;
+    `;
+    saved = !!lessonRows?.[0];
+    savedTextLength = combinedText.length;
+  }
+  return send(res, 200, { ok: true, scanned: results.length, results, saved, savedTextLength });
 }
 
 async function getAttachmentText(req, res, id) {
