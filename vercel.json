@@ -95,7 +95,7 @@
     { "source": "/mash/:path*", "destination": "/mash/:path*" },
     { "source": "/enjazy", "destination": "/enjazy/index.html" },
     { "source": "/enjazy/:path*", "destination": "/enjazy/:path*" },
-    { "source": "/", "destination": "/mash/index.html" }
+    { "source": "/", "destination": "/index.html" }
   ]
 }
 
