@@ -339,7 +339,16 @@ function hasUsableExtractedText(text) {
     "ملاحظة: لاستخراج نصوص PDF",
     "ملاحظة: سيتم إرسال PDF إلى الذكاء الاصطناعي",
     "عنوان الملف:",
-    "النص سيُستخرج عند التوليد"
+    "النص سيُستخرج عند التوليد",
+    "LESSON_NOT_FOUND",
+    "تعذر الحصول على عنوان الدرس",
+    "تعذر الحصور على عنوان الدرس",
+    "تعذر العثور على عنوان الدرس",
+    "لم يتم العثور على عنوان الدرس",
+    "لم أتمكن من العثور على عنوان الدرس",
+    "لم أجد عنوان الدرس",
+    "lesson title was not found",
+    "could not find the lesson title"
   ];
   return !weakMarkers.some((marker) => value.includes(marker));
 }
@@ -954,10 +963,12 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
         unit ? `الوحدة: ${unit}` : "",
         grade ? `الصف: ${grade}` : "",
         subject ? `المادة: ${subject}` : "",
-        "ابحث عن عنوان الدرس أو أقرب نشاط/فقرة مرتبطة بنفس الوحدة والموضوع.",
-        "استخرج فقط نصوص هذا الدرس: الفقرات، الأنشطة، الأسئلة، الجداول، الصور التعليمية إن احتوت نصًا.",
+        "ابحث أولًا عن عنوان الدرس كما هو مكتوب، ثم ابحث بصياغات قريبة أو كلمات العنوان الأساسية إذا كان العنوان مختلفًا في PDF.",
+        "إذا لم يظهر العنوان حرفيًا، اختر أقرب درس أو نشاط أو فقرة داخل نفس الوحدة والمادة والصف، واستخدمها كمصدر الدرس.",
+        "استخرج فقط نصوص الدرس الأقرب: الفقرات، الأنشطة، الأسئلة، الجداول، الصور التعليمية إن احتوت نصًا.",
         "تجاهل الدروس الأخرى تمامًا، ولا تكتب نصوص الوحدة كاملة.",
-        "إذا لم تجد الدرس المطلوب داخل PDF فاكتب: LESSON_NOT_FOUND."
+        "لا تكتب رسالة اعتذار أو عبارة تفيد أن العنوان غير موجود. أعد النص التعليمي الأقرب فقط.",
+        "إذا كان الملف كله لا يحتوي أي محتوى تعليمي صالح بعد فحصه بالكامل فاكتب: LESSON_NOT_FOUND."
       ].filter(Boolean).join("\n")
     : "";
   const content = [
@@ -987,6 +998,41 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
       });
       const cleanText = normalizeExtractedText(text.replace(/END_OF_DOCUMENT|LESSON_NOT_FOUND/g, ""));
       if (hasUsableExtractedText(cleanText)) return cleanText;
+      if (lessonTitle) {
+        try {
+          const relaxedContent = [
+            {
+              type: "text",
+              text: [
+                "استخرج نص درس واحد فقط من PDF.",
+                `الدرس المطلوب في النظام: ${lessonTitle}`,
+                unit ? `الوحدة: ${unit}` : "",
+                grade ? `الصف: ${grade}` : "",
+                subject ? `المادة: ${subject}` : "",
+                "قد لا يكون عنوان الدرس مكتوبًا بنفس الصياغة داخل PDF؛ لذلك لا تعتمد على التطابق الحرفي.",
+                "اعتمد على أقرب عنوان أو نشاط أو فقرة تعليمية داخل نفس الوحدة والمادة والصف.",
+                "أعد نص ذلك الدرس الأقرب فقط: الفقرات، الأنشطة، الأسئلة، الجداول، والتعليمات.",
+                "لا تكتب أن العنوان غير موجود، ولا تشرح طريقة البحث، ولا تستخرج بقية الدروس.",
+                "إذا لم تجد أي محتوى تعليمي مناسب في الملف كله فاكتب: LESSON_NOT_FOUND.",
+                "في نهاية النص اكتب السطر التالي حرفيًا: END_OF_DOCUMENT"
+              ].filter(Boolean).join("\n")
+            },
+            await openRouterPdfPart(attachment)
+          ];
+          const relaxedText = await requestOpenRouterText({
+            apiKey,
+            model: strategy.model,
+            content: relaxedContent,
+            timeoutMs: 8 * 60 * 1000,
+            temperature: 0,
+            pdfEngine: strategy.engine
+          });
+          const relaxedCleanText = normalizeExtractedText(String(relaxedText || "").replace(/END_OF_DOCUMENT|LESSON_NOT_FOUND/g, ""));
+          if (hasUsableExtractedText(relaxedCleanText)) return relaxedCleanText;
+        } catch (retryErr) {
+          lastError = retryErr?.message || String(retryErr);
+        }
+      }
       lastError = `لم يرجع ${strategy.model} عبر ${strategy.engine} نصًا كافيًا من PDF.`;
     } catch (err) {
       lastError = err?.message || String(err);
@@ -1143,7 +1189,10 @@ async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageE
         unit ? `الوحدة: ${unit}` : "",
         grade ? `الصف: ${grade}` : "",
         subject ? `المادة: ${subject}` : "",
-        "إذا وجدت أن الصفحات تحتوي درسًا آخر فتجاهله. أعد فقط الفقرات والأنشطة والأسئلة والجداول المرتبطة بهذا الدرس."
+        "ابحث أولًا عن العنوان كما هو، ثم بصياغات قريبة أو بكلمات العنوان الأساسية.",
+        "إذا لم يظهر العنوان حرفيًا، اختر أقرب درس أو نشاط أو فقرة داخل نفس الوحدة والمادة والصف.",
+        "إذا وجدت أن الصفحات تحتوي درسًا آخر بعيدًا فتجاهله. أعد فقط الفقرات والأنشطة والأسئلة والجداول المرتبطة بالدرس الأقرب.",
+        "لا تكتب رسالة اعتذار أو عبارة تفيد أن العنوان غير موجود؛ أعد النص التعليمي الأقرب فقط."
       ].filter(Boolean).join("\n")
     : "";
   const prompt = [
