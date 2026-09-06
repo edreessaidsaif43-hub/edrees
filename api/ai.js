@@ -892,7 +892,7 @@ function isMissingFileDataError(error) {
     text.includes("missing file_data");
 }
 
-async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000, temperature = 0.2, pdfEngine = "cloudflare-ai" }) {
+async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000, temperature = 0.2, pdfEngine = "cloudflare-ai", maxTokens = 6500 }) {
   const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -906,6 +906,7 @@ async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000
       model: model || OPENROUTER_DEFAULT_MODEL,
       messages: [{ role: "user", content }],
       temperature,
+      max_tokens: maxTokens,
       response_format: { type: "json_object" },
       plugins: [{ id: "file-parser", pdf: { engine: pdfEngine } }]
     }),
@@ -1347,6 +1348,7 @@ async function generateGemini(req, res) {
   const requestedModel = String(body.model || process.env.OPENROUTER_MODEL || OPENROUTER_DEFAULT_MODEL).trim();
   const model = requestedModel.includes("/") ? requestedModel : OPENROUTER_DEFAULT_MODEL;
   const prompt = String(body.prompt || "");
+  const maxOutputTokens = Math.max(2500, Math.min(8000, Number(body.maxOutputTokens || 6500)));
   if (!apiKey) return fail(res, 400, "مفتاح OpenRouter غير مضبوط في الخادم.", "missing_openrouter_key");
   if (!prompt) return fail(res, 400, "Ù†Øµ Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯.", "invalid_payload");
   let finalPrompt = prompt;
@@ -1380,6 +1382,7 @@ async function generateGemini(req, res) {
       model,
       content: finalPrompt,
       temperature: 0.2,
+      maxTokens: maxOutputTokens,
       timeoutMs: 65000
     });
     if (!text.trim()) return fail(res, 500, "لم ترجع خدمة OpenRouter نتيجة صالحة.", "empty_openrouter_response");
