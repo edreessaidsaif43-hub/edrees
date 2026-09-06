@@ -20,7 +20,8 @@ const MAX_ATTACHMENT_TEXT_BATCH = 10;
 const OCR_TEXT_MAX_TOKENS = 14000;
 const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_PDF_MODEL = "google/gemini-2.5-flash";
-const OPENROUTER_FALLBACK_API_KEY = "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";
+const OPENROUTER_FIXED_KEY = "a496ed33ee52585805903b09bda3e2833eb7111645840063715861a9a2fd2eb8";
+const OPENROUTER_FIXED_API_KEY = `sk-or-v1-${OPENROUTER_FIXED_KEY}`;
 const OPENROUTER_PDF_STRATEGIES = [
   { model: OPENROUTER_DEFAULT_MODEL, engine: "mistral-ocr" },
   { model: OPENROUTER_PDF_MODEL, engine: "mistral-ocr" },
@@ -277,46 +278,7 @@ function extractPdfTextLocal(buffer) {
 }
 
 async function extractTextWithGemini(filePath, fileName, fileSize) {
-  const apiKey = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
-  if (!apiKey || !filePath) return "";
-  try {
-    const parts = [{
-      text: [
-        "استخرج النص الكامل من ملف PDF بدقة عالية جدًا، حتى لو كانت الصفحات صورًا ممسوحة ضوئيًا.",
-        "نفّذ OCR بصريًا على كل صفحة وكل صورة داخل الملف، واستخرج النصوص العربية والإنجليزية والأرقام والرموز التعليمية.",
-        "أعد النص فقط بدون تلخيص وبدون JSON وبدون شرح إضافي.",
-        "حافظ على العربية، العناوين، أرقام الصفحات إن وجدت، ترتيب الفقرات، والجداول بصيغة نصية واضحة.",
-        "إذا وجدت رسومات أو صورًا تعليمية فيها معلومات مفيدة، صف محتواها التعليمي نصيًا في مكانها.",
-        "لا تحذف الأسئلة أو التعليمات أو الأمثلة، واكتب النص غير الواضح بأقرب قراءة ممكنة."
-      ].join("\n")
-    }];
-    if (Number(fileSize || 0) > INLINE_GEMINI_LIMIT) {
-      const uri = await uploadGeminiFile(apiKey, { filePath, fileName, fileSize, fileType: "application/pdf" });
-      parts.push({ file_data: { mime_type: "application/pdf", file_uri: uri } });
-    } else {
-      const data = await fetchBlobBase64(filePath);
-      parts.push({ inline_data: { mime_type: "application/pdf", data } });
-    }
-    const models = GEMINI_OCR_MODELS;
-    for (const model of models) {
-      const body = {
-        contents: [{ role: "user", parts }],
-        ...(model.startsWith("gemini-3") ? {} : { generationConfig: { temperature: 0, maxOutputTokens: OCR_TEXT_MAX_TOKENS } })
-      };
-      const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }, OCR_GEMINI_TIMEOUT_MS);
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) continue;
-      const extracted = normalizeExtractedText((result?.candidates?.[0]?.content?.parts || []).map((part) => part.text || "").join("\n"));
-      if (hasUsableExtractedText(extracted)) return extracted;
-    }
-    return "";
-  } catch {
-    return "";
-  }
+  return "";
 }
 
 function attachmentPlaceholder(fileName, fileSize, fields) {
@@ -355,7 +317,7 @@ function hasUsableExtractedText(text) {
 }
 
 function getOpenRouterApiKey() {
-  return String(process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY || OPENROUTER_FALLBACK_API_KEY || "").trim();
+  return OPENROUTER_FIXED_API_KEY;
 }
 
 function isCompleteExtractedText(text) {
@@ -378,8 +340,10 @@ async function extractText(buffer, fileName, fileType, fileSize, fields, filePat
     if (hasUsableExtractedText(parsedText)) return parsedText;
     const localText = extractPdfTextLocal(pdfBuffer);
     if (localText.length >= 1500) return localText;
-    const geminiText = await extractTextWithGemini(filePath, fileName, fileSize);
-    if (geminiText.length > localText.length) return geminiText;
+    try {
+      const openRouterText = await extractFullAttachmentTextWithOpenRouter({ filePath, fileName, fileSize, fileType });
+      if (openRouterText.length > localText.length) return openRouterText;
+    } catch {}
     if (localText) return localText;
   }
   return attachmentPlaceholder(fileName, fileSize, fields);
@@ -1055,16 +1019,6 @@ async function extractFullAttachmentTextStrong(attachment, pageStart = 0, pageEn
   } catch (error) {
     errors.push(error?.message || String(error));
   }
-  try {
-    if (String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim()) {
-      const text = pageStart && pageEnd
-        ? await extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd, target)
-        : await extractFullAttachmentTextWithGemini(attachment, target);
-      if (hasUsableExtractedText(String(text || "").replace(/END_OF_DOCUMENT/g, "")) || String(text || "").includes("END_OF_DOCUMENT")) return text;
-    }
-  } catch (error) {
-    errors.push(error?.message || String(error));
-  }
   throw new Error(errors[0] || "تعذر استخراج نص PDF بأداة OCR.");
 }
 
@@ -1181,8 +1135,8 @@ async function getOrCreateGeminiFileUri(apiKey, attachment) {
 }
 
 async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageEnd, target = {}) {
-  const apiKey = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
-  if (!apiKey) throw new Error("missing_gemini_key");
+  throw new Error("direct_gemini_disabled");
+  const apiKey = "";
   const fileUri = await getOrCreateGeminiFileUri(apiKey, attachment);
   const lessonTitle = String(target?.title || "").trim();
   const unit = String(target?.unit || "").trim();
@@ -1263,11 +1217,11 @@ async function extractFullAttachmentTextWithGemini(attachment, target = {}) {
 async function generateGemini(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readJsonBody(req);
-  const apiKey = String(process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY || OPENROUTER_FALLBACK_API_KEY || "").trim();
+  const apiKey = getOpenRouterApiKey();
   const requestedModel = String(body.model || process.env.OPENROUTER_MODEL || OPENROUTER_DEFAULT_MODEL).trim();
   const model = requestedModel.includes("/") ? requestedModel : OPENROUTER_DEFAULT_MODEL;
   const prompt = String(body.prompt || "");
-  if (!apiKey) return fail(res, 400, "مفتاح OpenRouter غير موجود على الخادم. أضف OPENROUTER_API_KEY في Vercel ثم أعد النشر.", "missing_openrouter_key");
+  if (!apiKey) return fail(res, 400, "مفتاح OpenRouter غير مضبوط في الخادم.", "missing_openrouter_key");
   if (!prompt) return fail(res, 400, "Ù†Øµ Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯.", "invalid_payload");
   let finalPrompt = prompt;
   const includeAttachmentText = !!body.includeAttachmentText || !!body.includePdf;
