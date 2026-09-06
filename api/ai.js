@@ -493,7 +493,9 @@ function lessonRow(row) {
   };
 }
 
-function attachmentRow(row) {
+function attachmentRow(row, options = {}) {
+  const includeText = options.includeText !== false;
+  const extractedText = row.extracted_text || "";
   return {
     id: Number(row.id),
     title: row.title || "",
@@ -501,17 +503,23 @@ function attachmentRow(row) {
     fileType: row.file_type || "",
     fileSize: Number(row.file_size || 0),
     filePath: row.file_path || "",
-    extractedText: row.extracted_text || "",
+    extractedText: includeText ? extractedText : "",
+    extractedTextLength: normalizeExtractedText(extractedText).length,
+    hasText: hasUsableExtractedText(extractedText),
     geminiFileUri: row.gemini_file_uri || "",
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : "",
   };
 }
 
-async function listData(res) {
+async function listData(req, res) {
   if (!(await dbReady(res))) return;
+  const includeText = String(req?.query?.includeText || "1") !== "0";
   const lessons = await sql`SELECT * FROM ai_lessons ORDER BY created_at DESC, id DESC;`;
   const attachments = await sql`SELECT * FROM ai_attachments ORDER BY created_at DESC, id DESC;`;
-  send(res, 200, { lessons: lessons.map(lessonRow), attachments: attachments.map(attachmentRow) });
+  send(res, 200, {
+    lessons: lessons.map(lessonRow),
+    attachments: attachments.map((row) => attachmentRow(row, { includeText }))
+  });
 }
 
 async function insertAttachment(upload, title) {
@@ -1099,29 +1107,16 @@ async function generateGemini(req, res) {
       if (isCompleteExtractedText(text)) {
         attachmentTexts.push(`اسم الملف: ${attachment.fileName || "PDF"}\n${text}`);
       } else if (attachment.filePath) {
-        try {
-          const extractedNow = await extractFullAttachmentTextWithOpenRouter(attachment);
-          if (hasUsableExtractedText(extractedNow)) {
-            attachmentTexts.push(`اسم الملف: ${attachment.fileName || "PDF"}\n${extractedNow}`);
-            await sql`UPDATE ai_attachments SET extracted_text = ${normalizeExtractedText(extractedNow)} WHERE id = ${Number(attachment.id)};`;
-          } else {
-            pdfParts.push(await openRouterPdfPart(attachment));
-            pdfAttachments.push(attachment);
-          }
-        } catch {
-          pdfParts.push(await openRouterPdfPart(attachment));
-          pdfAttachments.push(attachment);
-        }
+        pdfAttachments.push(attachment);
       }
     }
-    if (!attachmentTexts.length && !pdfParts.length) return fail(res, 400, "لا يوجد نص محفوظ صالح أو ملف PDF قابل للقراءة لهذا المرفق.", "missing_attachment_content");
+    if (!attachmentTexts.length) {
+      return fail(res, 422, "لم يتم تحويل مرفق PDF إلى نص بعد. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.", "missing_extracted_pdf_text");
+    }
     const savedTextBlock = attachmentTexts.length
       ? `\n\nنص المرفقات المحولة بالكامل:\n${attachmentTexts.join("\n\n---\n\n")}`
       : "";
-    const pdfNote = pdfParts.length
-      ? "\n\nتوجد مرفقات PDF لم يكتمل تحويلها إلى نص. اقرأ ملفات PDF المرفقة مباشرة واستخرج منها معلومات الدرس المطلوبة قبل توليد التحضير."
-      : "";
-    finalPrompt = `${prompt}${savedTextBlock}${pdfNote}`;
+    finalPrompt = `${prompt}${savedTextBlock}`;
   }
 
   try {
@@ -1134,20 +1129,8 @@ async function generateGemini(req, res) {
       timeoutMs: pdfParts.length || body.includePdf ? 4 * 60 * 1000 : 65000
     });
     if (!text.trim()) return fail(res, 500, "لم ترجع خدمة OpenRouter نتيجة صالحة.", "empty_openrouter_response");
-    if (pdfAttachments.length && isMostlyMissingLessonResult(text)) {
-      const retryText = await generateLessonFromExtractedPdfText({ apiKey, model, finalPrompt, pdfAttachments });
-      return send(res, 200, { text: retryText });
-    }
     send(res, 200, { text });
   } catch (error) {
-    if (pdfAttachments.length) {
-      try {
-        const retryText = await generateLessonFromExtractedPdfText({ apiKey, model, finalPrompt, pdfAttachments });
-        return send(res, 200, { text: retryText });
-      } catch (retryError) {
-        return fail(res, retryError?.statusCode || 500, retryError?.message || "تعذر استخراج نص PDF.", "pdf_extraction_failed");
-      }
-    }
     return fail(res, error?.statusCode || 500, error?.message || "تعذر الاتصال بخدمة OpenRouter.", "openrouter_failed");
   }
 }
@@ -1474,14 +1457,14 @@ async function updateOrDeleteLesson(req, res, id) {
 export default async function handler(req, res) {
   try {
     const path = String(req.query?.path || req.query?.route || "");
-    if (req.method === "GET" && path === "/api/lessons") return await listData(res);
+    if (req.method === "GET" && path === "/api/lessons") return await listData(req, res);
     if (req.method === "POST" && path === "/api/lessons/single") return await saveSingle(req, res);
     if (req.method === "POST" && path === "/api/lessons/multi") return await saveMulti(req, res);
     if (req.method === "POST" && path === "/api/gemini/generate") return await generateGemini(req, res);
     if (req.method === "POST" && path === "/api/attachments/extract-text") return await refreshAttachmentText(req, res);
     if (req.method === "POST" && path === "/api/attachments/preview-text") return await previewUploadText(req, res);
     if (req.method === "POST" && path === "/api/attachments/preview-existing-text") return await previewAttachmentText(req, res);
-    if (req.method === "GET" && path === "/api/export") return await listData(res);
+    if (req.method === "GET" && path === "/api/export") return await listData(req, res);
     const attachmentReplaceMatch = path.match(/^\/api\/attachments\/(\d+)\/replace$/);
     if (req.method === "POST" && attachmentReplaceMatch) return await replaceAttachment(req, res, Number(attachmentReplaceMatch[1]));
     const attachmentTextMatch = path.match(/^\/api\/attachments\/(\d+)\/text$/);

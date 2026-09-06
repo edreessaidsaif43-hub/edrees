@@ -1946,6 +1946,8 @@ function apiUrl(path, params = {}) {
 async function apiRequest(path, options = {}) {
   const timeoutMs = Number(options.timeoutMs || 0);
   const fetchOptions = { ...options };
+  const params = fetchOptions.params || {};
+  delete fetchOptions.params;
   delete fetchOptions.timeoutMs;
   let timer = null;
   if (timeoutMs > 0) {
@@ -1956,7 +1958,7 @@ async function apiRequest(path, options = {}) {
   }
   let response;
   try {
-    response = await fetch(apiUrl(path), fetchOptions);
+    response = await fetch(apiUrl(path, params), fetchOptions);
   } catch (err) {
     if (err?.name === 'AbortError') throw new Error('timeout');
     throw err;
@@ -2028,7 +2030,7 @@ function formatUploadError(err) {
 }
 
 async function loadDatabase() {
-  const data = await apiRequest('/api/lessons');
+  const data = await apiRequest('/api/lessons', { params: { includeText: '0' } });
   lessons = Array.isArray(data?.lessons) ? data.lessons : [];
   attachments = Array.isArray(data?.attachments) ? data.attachments : [];
   subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(activeLessons(), 'grade'));
@@ -2160,15 +2162,7 @@ async function ensureLessonAttachmentText(lesson, currentAttachments) {
 }
 
 async function retryLessonGenerationFromExtractedText(lesson, lessonAttachments, combinedAttachment, settings) {
-  const refreshedAttachments = await ensureLessonAttachmentText(lesson, lessonAttachments);
-  const refreshedText = refreshedAttachments.map(getUsableAttachmentText).filter(Boolean).join('\n\n');
-  if (!refreshedText) return null;
-  combinedAttachment.extractedText = refreshedText;
-  combinedAttachment.fileName = refreshedAttachments.map(a => a.fileName || '').filter(Boolean).join('، ');
-  if (typeof setGenerationProgressStage === 'function') setGenerationProgressStage('request');
-  const retried = await callGemini(buildLessonPrompt(lesson, combinedAttachment), settings);
-  if (typeof setGenerationProgressStage === 'function') setGenerationProgressStage('response');
-  return retried;
+  return null;
 }
 
 ['t-grade','t-subject','t-semester','t-unit'].forEach(id => {
@@ -2210,6 +2204,10 @@ async function generateLesson() {
   let hasText = lessonAttachments.some(hasUsableAttachmentText);
   let isPdf = lessonAttachments.some(isPdfAttachment);
   let needsPdfRead = lessonAttachments.some(isPdfAttachment);
+  if (needsPdfRead && !hasText) {
+    showError('لم يتم تحويل مرفق PDF إلى نص بعد. افتح لوحة الإدارة واضغط "تحويل الملف PDF إلى نص" أو "استخراج نص المرفقات القديمة" ثم أعد التوليد.');
+    return;
+  }
   if (!hasText && !isPdf) {
     showError('لا يوجد نص درسي كافٍ داخل المرفق. الصق نص الدرس في خانة "نص المرفق" داخل لوحة الإدارة ثم احفظ الدرس مرة أخرى.');
     return;
@@ -2253,7 +2251,7 @@ async function generateLesson() {
 
     if (true) {
       try {
-        setGenerationProgressStage(needsPdfRead ? 'pdf' : 'text');
+        setGenerationProgressStage(needsPdfRead ? 'text' : 'text');
         setGenerationProgressStage('request');
         result = needsPdfRead
           ? await callGeminiWithPdf(buildPdfLessonPrompt(lesson), settings, attachment, lessonAttachments)
@@ -2264,7 +2262,7 @@ async function generateLesson() {
         if (isGeminiQuotaError(aiErr)) {
           console.warn('AI quota exceeded, using local fallback.', aiErr);
           if (needsPdfRead && !canUseTextFallback) {
-            await recoverFromUnreadablePdf();
+            throw new Error('لم يتم العثور على نص مستخرج من المرفق. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.');
           } else {
             result = localGenerateLesson(lesson, combinedAttachment);
             usedFallback = true;
@@ -2275,7 +2273,7 @@ async function generateLesson() {
         } else if (isGeminiInvalidArgumentError(aiErr)) {
           console.warn('AI could not read PDF, using safe fallback.', aiErr);
           if (needsPdfRead && !canUseTextFallback) {
-            await recoverFromUnreadablePdf();
+            throw new Error('لم يتم العثور على نص مستخرج من المرفق. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.');
           } else {
             result = localGenerateLesson(lesson, combinedAttachment);
             usedFallback = true;
@@ -2286,7 +2284,7 @@ async function generateLesson() {
         } else if (isRequestTimeoutError(aiErr)) {
           console.warn('AI request took too long, using local fallback.', aiErr);
           if (needsPdfRead && !canUseTextFallback) {
-            await recoverFromUnreadablePdf();
+            throw new Error('لم يتم العثور على نص مستخرج من المرفق. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.');
           } else {
             result = localGenerateLesson(lesson, combinedAttachment);
             usedFallback = true;
@@ -2297,7 +2295,7 @@ async function generateLesson() {
         } else if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(aiErr)) {
           console.warn('AI service is under high demand.', aiErr);
           if (needsPdfRead && !canUseTextFallback) {
-            await recoverFromUnreadablePdf();
+            throw new Error('لم يتم العثور على نص مستخرج من المرفق. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.');
           } else {
             result = localGenerateLesson(lesson, combinedAttachment);
             usedFallback = true;
@@ -2308,7 +2306,7 @@ async function generateLesson() {
         } else if (typeof isGeminiPermissionError === 'function' && isGeminiPermissionError(aiErr)) {
           console.warn('Selected AI model is not allowed, using local fallback.', aiErr);
           if (needsPdfRead && !canUseTextFallback) {
-            await recoverFromUnreadablePdf();
+            throw new Error('لم يتم العثور على نص مستخرج من المرفق. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.');
           } else {
             result = localGenerateLesson(lesson, combinedAttachment);
             usedFallback = true;
@@ -2319,7 +2317,7 @@ async function generateLesson() {
         } else {
           if (needsPdfRead && !canUseTextFallback) {
             console.warn('AI PDF generation failed, trying recovery fallback.', aiErr);
-            await recoverFromUnreadablePdf();
+            throw new Error('لم يتم العثور على نص مستخرج من المرفق. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.');
           } else if (needsPdfRead) {
             console.warn('AI PDF generation failed, using saved text fallback.', aiErr);
             result = localGenerateLesson(lesson, combinedAttachment);
@@ -2437,7 +2435,19 @@ ${languageRule}
 
 function pickRelevantAttachmentText(text, lesson) {
   const fullText = String(text || '').trim();
-  return fullText;
+  if (fullText.length <= 24000) return fullText;
+  const title = String(lesson?.title || '').trim();
+  const unit = String(lesson?.unit || '').trim();
+  const needles = [title, unit].filter(Boolean);
+  for (const needle of needles) {
+    const index = fullText.indexOf(needle);
+    if (index !== -1) {
+      const start = Math.max(0, index - 5000);
+      const end = Math.min(fullText.length, index + 19000);
+      return fullText.slice(start, end);
+    }
+  }
+  return fullText.slice(0, 24000);
 }
 
 function buildLessonPrompt(lesson, attachment) {
@@ -2715,6 +2725,7 @@ function blobToBase64(blob) {
 }
 
 function hasUsableAttachmentText(attachment) {
+  if (attachment?.hasText === true || Number(attachment?.extractedTextLength || 0) >= MIN_SAVED_PDF_TEXT_LENGTH) return true;
   const text = String(attachment?.extractedText || '').trim();
   if (text.length < MIN_SAVED_PDF_TEXT_LENGTH) return false;
   const weakMarkers = [
