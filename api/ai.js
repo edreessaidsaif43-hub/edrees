@@ -20,7 +20,10 @@ const LARGE_FILE_TRANSFER_TIMEOUT_MS = 6 * 60 * 1000;
 const GEMINI_OCR_MODELS = ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"];
 const MIN_SAVED_PDF_TEXT_LENGTH = 80;
 const MAX_ATTACHMENT_TEXT_BATCH = 10;
+const DATA_LIST_DEFAULT_LIMIT = 50000;
 const OCR_TEXT_MAX_TOKENS = 14000;
+const FULL_ATTACHMENT_PAGE_STEP = 8;
+const FULL_ATTACHMENT_MAX_PAGES = 800;
 const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_PDF_MODEL = "google/gemini-2.5-flash";
 const OPENROUTER_FIXED_API_KEY = "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";
@@ -261,6 +264,10 @@ function pickTargetLessonTextFromFullText(fullText, target = {}) {
     }
   }
   return normalizeExtractedText(lines.slice(start, end).join("\n"));
+}
+
+function extractedTextFingerprint(text) {
+  return normalizeSearchText(text).replace(/\s+/g, " ").slice(0, 1800);
 }
 
 function cleanDbText(text, maxLength = 2000) {
@@ -558,7 +565,7 @@ function attachmentRow(row, options = {}) {
 async function listData(req, res) {
   if (!(await dbReady(res))) return;
   const includeText = String(req?.query?.includeText || "0") === "1";
-  const listLimit = Math.max(1, Math.min(2000, Number(req?.query?.limit || 2000)));
+  const listLimit = Math.max(1, Math.min(DATA_LIST_DEFAULT_LIMIT, Number(req?.query?.limit || DATA_LIST_DEFAULT_LIMIT)));
   const lessons = await sql`
     SELECT
       id,
@@ -815,6 +822,18 @@ async function extractPdfTextWithPdfParse(buffer) {
   }
 }
 
+async function getPdfPageCountWithPdfParse(buffer) {
+  if (!Buffer.isBuffer(buffer) || !buffer.length) return 0;
+  try {
+    const parse = require("pdf-parse");
+    if (typeof parse !== "function") return 0;
+    const data = await parse(buffer);
+    return Math.max(0, Number(data?.numpages || data?.numrender || 0));
+  } catch {
+    return 0;
+  }
+}
+
 function parseJsonObject(text) {
   const clean = String(text || "").replace(/```json|```/g, "").trim();
   if (!clean) return null;
@@ -1026,6 +1045,9 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
       }
     } catch {}
   }
+  if (!lessonTitle && !pageStart && !pageEnd) {
+    return await extractFullAttachmentTextByPageRanges(attachment);
+  }
   const pageInstruction = pageStart && pageEnd
     ? `استخرج الصفحات من ${pageStart} إلى ${pageEnd} فقط، وإذا وصلت إلى نهاية المستند فاكتب END_OF_DOCUMENT.`
     : "استخرج كل الصفحات من البداية إلى النهاية.";
@@ -1055,7 +1077,9 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
         "اقرأ كل الصفحات بالترتيب، ونفّذ OCR على الصفحات المصورة والجداول والرسومات التعليمية.",
         "لا تلخص ولا تحذف الأسئلة أو التعليمات أو الأمثلة.",
         "أعد النص فقط بدون JSON وبدون شرح إضافي.",
-        "في نهاية النص اكتب السطر التالي حرفيًا: END_OF_DOCUMENT"
+        pageStart && pageEnd
+          ? "اكتب السطر END_OF_DOCUMENT فقط إذا كانت هذه الصفحات غير موجودة أو وصلت إلى نهاية المستند."
+          : "في نهاية النص اكتب السطر التالي حرفيًا: END_OF_DOCUMENT"
       ].filter(Boolean).join("\n")
     },
     await openRouterPdfPart(attachment)
@@ -1136,6 +1160,40 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
     }
   }
   throw new Error(lastError || "تعذر استخراج نص PDF.");
+}
+
+async function extractFullAttachmentTextByPageRanges(attachment) {
+  const parts = [];
+  const seen = new Set();
+  let emptyRuns = 0;
+  let maxPages = FULL_ATTACHMENT_MAX_PAGES;
+  try {
+    const fileSize = Number(attachment.fileSize || 0);
+    if (!fileSize || fileSize <= MAX_DIRECT_OCR_SIZE) {
+      const buffer = await fetchBlobBuffer(attachment.filePath, fileSize > INLINE_GEMINI_LIMIT ? LARGE_FILE_TRANSFER_TIMEOUT_MS : 25000);
+      const pageCount = await getPdfPageCountWithPdfParse(buffer);
+      if (pageCount > 0) maxPages = Math.min(FULL_ATTACHMENT_MAX_PAGES, pageCount);
+    }
+  } catch {}
+  for (let pageStart = 1; pageStart <= maxPages; pageStart += FULL_ATTACHMENT_PAGE_STEP) {
+    const pageEnd = Math.min(maxPages, pageStart + FULL_ATTACHMENT_PAGE_STEP - 1);
+    const text = await extractFullAttachmentTextWithOpenRouter(attachment, pageStart, pageEnd, {});
+    const ended = String(text || "").includes("END_OF_DOCUMENT");
+    const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT|LESSON_NOT_FOUND/g, ""));
+    const fingerprint = extractedTextFingerprint(cleanText);
+    if (hasUsableExtractedText(cleanText) && fingerprint && !seen.has(fingerprint)) {
+      parts.push(cleanText);
+      seen.add(fingerprint);
+      emptyRuns = 0;
+    } else {
+      emptyRuns += 1;
+    }
+    if (ended) break;
+    if (emptyRuns >= 2 && parts.length) break;
+  }
+  const combinedText = normalizeExtractedText(parts.join("\n\n"));
+  if (hasUsableExtractedText(combinedText)) return `${combinedText}\n\nEND_OF_DOCUMENT`;
+  throw new Error("تعذر استخراج نص كامل صالح من ملف PDF.");
 }
 
 async function extractFullAttachmentTextStrong(attachment, pageStart = 0, pageEnd = 0, target = {}) {

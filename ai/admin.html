@@ -1749,7 +1749,7 @@ function formatUploadError(err) {
 }
 
 async function loadDatabase() {
-  const data = await apiRequest('/api/lessons', { params: { includeText: '0' } });
+  const data = await apiRequest('/api/lessons', { params: { includeText: '0', limit: '50000' } });
   lessons = Array.isArray(data?.lessons) ? data.lessons : [];
   attachments = Array.isArray(data?.attachments) ? data.attachments : [];
   updateStats();
@@ -3077,7 +3077,7 @@ function startMaterialProgressTicker(job) {
   return setInterval(() => {
     const elapsed = Date.now() - startedAt;
     const percent = Math.min(95, 8 + (elapsed / (8 * 60 * 1000)) * 87);
-    updateMaterialBatchProgress(job.key, percent, 'جاري استخراج نص PDF وحفظه لكل دروس المادة...', 'primary');
+    updateMaterialBatchProgress(job.key, percent, 'جاري استخراج المرفق كاملًا وحفظ النص لكل دروس المادة...', 'primary');
   }, 1000);
 }
 
@@ -3093,7 +3093,7 @@ async function extractStoredMaterialTexts() {
   }
   buttons.forEach(btn => { btn.disabled = true; btn.textContent = `جاري تحويل ${jobs.length} مواد...`; });
   renderMaterialBatchProgress(jobs);
-  setAttachmentProgress(1, 'تحويل دفعة مواد إلى نص', `تم تجهيز ${jobs.length} مواد للتحويل. ستظهر نسبة مستقلة لكل مادة.`);
+  setAttachmentProgress(1, 'تحويل دفعة مواد إلى نص', `تم تجهيز ${jobs.length} مواد للتحويل الكامل من أول صفحة إلى آخر صفحة بدون اختصار.`);
   let completed = 0;
   let failed = 0;
   try {
@@ -3130,7 +3130,7 @@ async function extractStoredMaterialTexts() {
         updateMaterialBatchProgress(job.key, 100, formatAdminRequestError(err, 'ocr'), 'danger');
       }
       const overall = ((completed + failed) / jobs.length) * 100;
-      setAttachmentProgress(overall, 'تحويل دفعة مواد إلى نص', `اكتمل ${completed} من ${jobs.length} مواد${failed ? `، وتعذر ${failed}` : ''}.`);
+      setAttachmentProgress(overall, 'تحويل دفعة مواد إلى نص', `اكتمل استخراج المرفق كاملًا لـ ${completed} من ${jobs.length} مواد${failed ? `، وتعذر ${failed}` : ''}.`);
     }
     await loadDatabase();
     const msg = failed
