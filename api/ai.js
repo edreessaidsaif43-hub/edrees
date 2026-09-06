@@ -496,6 +496,8 @@ function lessonRow(row) {
 function attachmentRow(row, options = {}) {
   const includeText = options.includeText !== false;
   const extractedText = row.extracted_text || "";
+  const extractedTextLength = Number(row.extracted_text_length ?? normalizeExtractedText(extractedText).length);
+  const hasText = typeof row.has_text === "boolean" ? row.has_text : hasUsableExtractedText(extractedText);
   return {
     id: Number(row.id),
     title: row.title || "",
@@ -504,8 +506,8 @@ function attachmentRow(row, options = {}) {
     fileSize: Number(row.file_size || 0),
     filePath: row.file_path || "",
     extractedText: includeText ? extractedText : "",
-    extractedTextLength: normalizeExtractedText(extractedText).length,
-    hasText: hasUsableExtractedText(extractedText),
+    extractedTextLength,
+    hasText,
     geminiFileUri: row.gemini_file_uri || "",
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : "",
   };
@@ -514,8 +516,68 @@ function attachmentRow(row, options = {}) {
 async function listData(req, res) {
   if (!(await dbReady(res))) return;
   const includeText = String(req?.query?.includeText || "0") === "1";
-  const lessons = await sql`SELECT * FROM ai_lessons ORDER BY created_at DESC, id DESC;`;
-  const attachments = await sql`SELECT * FROM ai_attachments ORDER BY created_at DESC, id DESC;`;
+  const listLimit = Math.max(1, Math.min(2000, Number(req?.query?.limit || 2000)));
+  const lessons = await sql`
+    SELECT
+      id,
+      grade,
+      subject,
+      semester,
+      unit,
+      title,
+      attachment_id,
+      attachment_ids,
+      status,
+      created_at
+    FROM ai_lessons
+    ORDER BY created_at DESC, id DESC
+    LIMIT ${listLimit};
+  `;
+  const attachments = includeText
+    ? await sql`
+        SELECT
+          id,
+          title,
+          file_name,
+          file_type,
+          file_size,
+          file_path,
+          left(COALESCE(extracted_text, ''), 20000) AS extracted_text,
+          char_length(COALESCE(extracted_text, '')) AS extracted_text_length,
+          (
+            char_length(btrim(COALESCE(extracted_text, ''))) >= ${MIN_SAVED_PDF_TEXT_LENGTH}
+            AND COALESCE(extracted_text, '') NOT LIKE '%[PDF saved:%'
+            AND COALESCE(extracted_text, '') NOT LIKE '%The file was saved, but text extraction did not return readable text%'
+            AND COALESCE(extracted_text, '') NOT LIKE '%النص سيُستخرج عند التوليد%'
+          ) AS has_text,
+          gemini_file_uri,
+          created_at
+        FROM ai_attachments
+        ORDER BY created_at DESC, id DESC
+        LIMIT ${listLimit};
+      `
+    : await sql`
+        SELECT
+          id,
+          title,
+          file_name,
+          file_type,
+          file_size,
+          file_path,
+          ''::text AS extracted_text,
+          char_length(COALESCE(extracted_text, '')) AS extracted_text_length,
+          (
+            char_length(btrim(COALESCE(extracted_text, ''))) >= ${MIN_SAVED_PDF_TEXT_LENGTH}
+            AND COALESCE(extracted_text, '') NOT LIKE '%[PDF saved:%'
+            AND COALESCE(extracted_text, '') NOT LIKE '%The file was saved, but text extraction did not return readable text%'
+            AND COALESCE(extracted_text, '') NOT LIKE '%النص سيُستخرج عند التوليد%'
+          ) AS has_text,
+          gemini_file_uri,
+          created_at
+        FROM ai_attachments
+        ORDER BY created_at DESC, id DESC
+        LIMIT ${listLimit};
+      `;
   send(res, 200, {
     lessons: lessons.map(lessonRow),
     attachments: attachments.map((row) => attachmentRow(row, { includeText }))
