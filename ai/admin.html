@@ -1599,6 +1599,13 @@ async function apiRequest(path, options = {}) {
 
 function formatAdminRequestError(err, context = '') {
   const message = String(err?.message || err || '');
+  const lower = message.toLowerCase();
+  if (lower.includes('user not found')) {
+    return 'تعذر تنفيذ OCR لأن خدمة OpenRouter رفضت المفتاح الحالي. تأكد من صحة المفتاح ثم أعد رفع التحديث.';
+  }
+  if (lower.includes('unauthorized') || lower.includes('invalid api key') || lower.includes('invalid key')) {
+    return 'مفتاح OpenRouter غير صالح أو غير مفعل. تحقق من المفتاح ثم أعد المحاولة.';
+  }
   if (message === 'timeout' || message.includes('timeout') || message.includes('مهلة')) {
     return 'استغرقت عملية OCR وقتًا طويلًا. تم تمديد مهلة الملفات الكبيرة، لكن إذا توقفت مجددًا فقد تكون الاستضافة أوقفت الطلب قبل اكتماله.';
   }
@@ -1719,6 +1726,9 @@ async function convertSingleFileToText() {
 
 function formatUploadError(err) {
   const message = String(err?.message || err || '');
+  if (message.toLowerCase().includes('user not found')) {
+    return 'تعذر رفع الملف أو تحويله لأن خدمة خارجية رفضت بيانات الاعتماد الحالية. تحقق من إعدادات الرفع والمفتاح ثم أعد النشر.';
+  }
   if (message.includes('413') || message.includes('too large') || message.includes('maximum')) {
     return 'حجم الملف أكبر من الحد المسموح. الحد الحالي 600 MB.';
   }
@@ -2949,7 +2959,7 @@ async function extractLessonTextFromTable(lessonId, force = false) {
       })
     });
     (data.results || []).forEach(item => {
-      if (item.status === 'error' && item.message) errorMessages.push(item.message);
+      if (item.status === 'error' && item.message) errorMessages.push(formatAdminRequestError(item.message, 'ocr'));
       if (item.status === 'ready_to_save' && item.extractedText) {
         pendingAttachmentTexts.set(pendingLessonTextKey(lessonId, item.id), item.extractedText);
         readyCount += 1;

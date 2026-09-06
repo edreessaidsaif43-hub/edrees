@@ -23,10 +23,12 @@ const OPENROUTER_PDF_MODEL = "google/gemini-2.5-flash";
 const OPENROUTER_FIXED_KEY = "a496ed33ee52585805903b09bda3e2833eb7111645840063715861a9a2fd2eb8";
 const OPENROUTER_FIXED_API_KEY = `sk-or-v1-${OPENROUTER_FIXED_KEY}`;
 const OPENROUTER_PDF_STRATEGIES = [
-  { model: OPENROUTER_DEFAULT_MODEL, engine: "mistral-ocr" },
-  { model: OPENROUTER_PDF_MODEL, engine: "mistral-ocr" },
   { model: OPENROUTER_DEFAULT_MODEL, engine: "cloudflare-ai" },
-  { model: OPENROUTER_PDF_MODEL, engine: "native" }
+  { model: OPENROUTER_PDF_MODEL, engine: "cloudflare-ai" },
+  { model: OPENROUTER_DEFAULT_MODEL, engine: "native" },
+  { model: OPENROUTER_PDF_MODEL, engine: "native" },
+  { model: OPENROUTER_DEFAULT_MODEL, engine: "mistral-ocr" },
+  { model: OPENROUTER_PDF_MODEL, engine: "mistral-ocr" }
 ];
 const PUBLIC_SITE_ORIGIN = "https://altahdir.app";
 const LESSON_RESULT_KEYS = [
@@ -201,6 +203,62 @@ function normalizeExtractedText(text) {
     .replace(/[ \u00a0]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function normalizeSearchText(text) {
+  return normalizeExtractedText(text)
+    .replace(/[أإآا]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[ًٌٍَُِّْـ]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function targetSearchWords(text) {
+  const stopWords = new Set(["درس", "الدرس", "الوحدة", "وحدة", "في", "من", "على", "عن", "الى", "إلى", "و", "او", "أو"]);
+  return normalizeSearchText(text)
+    .split(" ")
+    .map((word) => word.trim())
+    .filter((word) => word.length >= 3 && !stopWords.has(word));
+}
+
+function lineMatchesTarget(line, titleWords, normalizedTitle) {
+  const normalizedLine = normalizeSearchText(line);
+  if (!normalizedLine) return false;
+  if (normalizedTitle && normalizedLine.includes(normalizedTitle)) return true;
+  if (!titleWords.length) return false;
+  const hits = titleWords.filter((word) => normalizedLine.includes(word)).length;
+  return hits >= Math.max(2, Math.ceil(titleWords.length * 0.6));
+}
+
+function pickTargetLessonTextFromFullText(fullText, target = {}) {
+  const text = normalizeExtractedText(fullText);
+  const title = String(target?.title || "").trim();
+  if (!text || !title) return "";
+  const normalizedTitle = normalizeSearchText(title);
+  const titleWords = targetSearchWords(title);
+  const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  if (!lines.length) return "";
+  let start = lines.findIndex((line) => lineMatchesTarget(line, titleWords, normalizedTitle));
+  if (start === -1 && target?.unit) {
+    const unitWords = targetSearchWords(target.unit);
+    start = lines.findIndex((line) => lineMatchesTarget(line, unitWords, normalizeSearchText(target.unit)));
+  }
+  if (start === -1) return "";
+  let end = lines.length;
+  for (let i = start + 4; i < lines.length; i++) {
+    const normalizedLine = normalizeSearchText(lines[i]);
+    const looksLikeNewLesson = /(^|\s)(ال)?درس\s+\S+/.test(normalizedLine) && !lineMatchesTarget(lines[i], titleWords, normalizedTitle);
+    const looksLikeNewUnit = /(^|\s)(ال)?وحده\s+\S+/.test(normalizedLine) && i > start + 8;
+    if ((looksLikeNewLesson || looksLikeNewUnit) && lines.slice(start, i).join("\n").length >= MIN_SAVED_PDF_TEXT_LENGTH) {
+      end = i;
+      break;
+    }
+  }
+  return normalizeExtractedText(lines.slice(start, end).join("\n"));
 }
 
 function cleanDbText(text, maxLength = 2000) {
@@ -794,6 +852,23 @@ function textFromOpenRouterContent(content) {
     .join("\n\n");
 }
 
+function openRouterErrorMessage(data, fallback = "تعذر الاتصال بخدمة OpenRouter.") {
+  const raw = String(
+    data?.error?.message ||
+    data?.message ||
+    data?.error ||
+    fallback
+  ).trim();
+  const lower = raw.toLowerCase();
+  if (lower.includes("user not found")) {
+    return "تعذر تنفيذ OCR لأن خدمة OpenRouter رفضت المفتاح الحالي. تأكد من أن المفتاح المحدد صحيح وفعّال ثم أعد رفع التحديث.";
+  }
+  if (lower.includes("unauthorized") || lower.includes("invalid api key") || lower.includes("invalid key") || lower.includes("auth")) {
+    return "مفتاح OpenRouter غير صالح أو غير مفعل. تحقق من المفتاح ثم أعد المحاولة.";
+  }
+  return raw || fallback;
+}
+
 async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000, temperature = 0.2, pdfEngine = "cloudflare-ai" }) {
   const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -827,7 +902,7 @@ async function requestOpenRouterJson({ apiKey, model, content, timeoutMs = 65000
       });
       if (retryText.trim()) return retryText;
     }
-    const err = new Error(data?.error?.message || "تعذر الاتصال بخدمة OpenRouter.");
+    const err = new Error(openRouterErrorMessage(data));
     err.statusCode = response.status || 500;
     err.data = data;
     throw err;
@@ -892,7 +967,7 @@ async function requestOpenRouterText({ apiKey, model, content, timeoutMs = 4 * 6
   const annotationText = extractOpenRouterAnnotationText(data);
   if (!response.ok) {
     if (hasUsableExtractedText(annotationText)) return annotationText;
-    const err = new Error(data?.error?.message || "تعذر الاتصال بخدمة OpenRouter.");
+    const err = new Error(openRouterErrorMessage(data));
     err.statusCode = response.status || 500;
     err.data = data;
     throw err;
@@ -907,15 +982,23 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
   const unit = String(target?.unit || "").trim();
   const grade = String(target?.grade || "").trim();
   const subject = String(target?.subject || "").trim();
-  if (!lessonTitle && !pageStart && !pageEnd) {
+  if (!pageStart && !pageEnd) {
     try {
       const fileSize = Number(attachment.fileSize || 0);
       if (!fileSize || fileSize <= MAX_DIRECT_OCR_SIZE) {
         const buffer = await fetchBlobBuffer(attachment.filePath, fileSize > INLINE_GEMINI_LIMIT ? LARGE_FILE_TRANSFER_TIMEOUT_MS : 25000);
         const parsedText = await extractPdfTextWithPdfParse(buffer);
-        if (hasUsableExtractedText(parsedText)) return parsedText;
+        if (lessonTitle && hasUsableExtractedText(parsedText)) {
+          const selected = pickTargetLessonTextFromFullText(parsedText, target);
+          if (hasUsableExtractedText(selected)) return selected;
+        }
+        if (!lessonTitle && hasUsableExtractedText(parsedText)) return parsedText;
         const localText = extractPdfTextLocal(buffer);
-        if (hasUsableExtractedText(localText)) return localText;
+        if (lessonTitle && hasUsableExtractedText(localText)) {
+          const selected = pickTargetLessonTextFromFullText(localText, target);
+          if (hasUsableExtractedText(selected)) return selected;
+        }
+        if (!lessonTitle && hasUsableExtractedText(localText)) return localText;
       }
     } catch {}
   }
