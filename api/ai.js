@@ -17,6 +17,7 @@ const LARGE_FILE_TRANSFER_TIMEOUT_MS = 6 * 60 * 1000;
 const GEMINI_OCR_MODELS = ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"];
 const MIN_SAVED_PDF_TEXT_LENGTH = 80;
 const MAX_ATTACHMENT_TEXT_BATCH = 10;
+const OCR_TEXT_MAX_TOKENS = 14000;
 const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_PDF_MODEL = "google/gemini-2.5-flash";
 const OPENROUTER_FALLBACK_API_KEY = "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";
@@ -300,7 +301,7 @@ async function extractTextWithGemini(filePath, fileName, fileSize) {
     for (const model of models) {
       const body = {
         contents: [{ role: "user", parts }],
-        ...(model.startsWith("gemini-3") ? {} : { generationConfig: { temperature: 0 } })
+        ...(model.startsWith("gemini-3") ? {} : { generationConfig: { temperature: 0, maxOutputTokens: OCR_TEXT_MAX_TOKENS } })
       };
       const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
         method: "POST",
@@ -905,7 +906,7 @@ function extractOpenRouterAnnotationText(data) {
   return normalizeExtractedText(chunks.join("\n\n"));
 }
 
-async function requestOpenRouterText({ apiKey, model, content, timeoutMs = 4 * 60 * 1000, temperature = 0, pdfEngine = "cloudflare-ai" }) {
+async function requestOpenRouterText({ apiKey, model, content, timeoutMs = 4 * 60 * 1000, temperature = 0, pdfEngine = "cloudflare-ai", maxTokens = OCR_TEXT_MAX_TOKENS }) {
   const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -919,6 +920,7 @@ async function requestOpenRouterText({ apiKey, model, content, timeoutMs = 4 * 6
       model: model || OPENROUTER_DEFAULT_MODEL,
       messages: [{ role: "user", content }],
       temperature,
+      max_tokens: maxTokens,
       plugins: [{ id: "file-parser", pdf: { engine: pdfEngine } }]
     }),
   }, timeoutMs);
@@ -965,7 +967,9 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
         subject ? `المادة: ${subject}` : "",
         "ابحث أولًا عن عنوان الدرس كما هو مكتوب، ثم ابحث بصياغات قريبة أو كلمات العنوان الأساسية إذا كان العنوان مختلفًا في PDF.",
         "إذا لم يظهر العنوان حرفيًا، اختر أقرب درس أو نشاط أو فقرة داخل نفس الوحدة والمادة والصف، واستخدمها كمصدر الدرس.",
-        "استخرج فقط نصوص الدرس الأقرب: الفقرات، الأنشطة، الأسئلة، الجداول، الصور التعليمية إن احتوت نصًا.",
+        "استخرج الدرس كاملًا من أول عنوان أو فقرة تخصه حتى بداية الدرس التالي أو نهاية الوحدة.",
+        "لا تكتف بمقدمة الدرس أو أول نشاط؛ تابع كل الصفحات المرتبطة بهذا الدرس حتى يكتمل المحتوى.",
+        "استخرج فقط نصوص الدرس الأقرب كاملة: الفقرات، الأنشطة، الأسئلة، الجداول، الصور التعليمية إن احتوت نصًا.",
         "تجاهل الدروس الأخرى تمامًا، ولا تكتب نصوص الوحدة كاملة.",
         "لا تكتب رسالة اعتذار أو عبارة تفيد أن العنوان غير موجود. أعد النص التعليمي الأقرب فقط.",
         "إذا كان الملف كله لا يحتوي أي محتوى تعليمي صالح بعد فحصه بالكامل فاكتب: LESSON_NOT_FOUND."
@@ -1011,7 +1015,9 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
                 subject ? `المادة: ${subject}` : "",
                 "قد لا يكون عنوان الدرس مكتوبًا بنفس الصياغة داخل PDF؛ لذلك لا تعتمد على التطابق الحرفي.",
                 "اعتمد على أقرب عنوان أو نشاط أو فقرة تعليمية داخل نفس الوحدة والمادة والصف.",
-                "أعد نص ذلك الدرس الأقرب فقط: الفقرات، الأنشطة، الأسئلة، الجداول، والتعليمات.",
+                "أعد نص ذلك الدرس الأقرب كاملًا من بدايته حتى بداية الدرس التالي أو نهاية الوحدة.",
+                "لا تتوقف بعد صفحة واحدة أو نشاط واحد إذا كان للدرس بقية في صفحات لاحقة.",
+                "أعد كل الفقرات والأنشطة والأسئلة والجداول والتعليمات التابعة لهذا الدرس.",
                 "لا تكتب أن العنوان غير موجود، ولا تشرح طريقة البحث، ولا تستخرج بقية الدروس.",
                 "إذا لم تجد أي محتوى تعليمي مناسب في الملف كله فاكتب: LESSON_NOT_FOUND.",
                 "في نهاية النص اكتب السطر التالي حرفيًا: END_OF_DOCUMENT"
@@ -1191,7 +1197,9 @@ async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageE
         subject ? `المادة: ${subject}` : "",
         "ابحث أولًا عن العنوان كما هو، ثم بصياغات قريبة أو بكلمات العنوان الأساسية.",
         "إذا لم يظهر العنوان حرفيًا، اختر أقرب درس أو نشاط أو فقرة داخل نفس الوحدة والمادة والصف.",
-        "إذا وجدت أن الصفحات تحتوي درسًا آخر بعيدًا فتجاهله. أعد فقط الفقرات والأنشطة والأسئلة والجداول المرتبطة بالدرس الأقرب.",
+        "استخرج الدرس الأقرب كاملًا من بدايته حتى بداية الدرس التالي أو نهاية الوحدة.",
+        "لا تكتف بفقرة أو نشاط واحد؛ تابع كل الصفحات المرتبطة بالدرس حتى يكتمل النص.",
+        "إذا وجدت أن الصفحات تحتوي درسًا آخر بعيدًا فتجاهله. أعد فقط كل الفقرات والأنشطة والأسئلة والجداول المرتبطة بالدرس الأقرب.",
         "لا تكتب رسالة اعتذار أو عبارة تفيد أن العنوان غير موجود؛ أعد النص التعليمي الأقرب فقط."
       ].filter(Boolean).join("\n")
     : "";
@@ -1212,7 +1220,7 @@ async function extractAttachmentPageRangeWithGemini(attachment, pageStart, pageE
           { file_data: { mime_type: "application/pdf", file_uri: fileUri } }
         ]
       }],
-      ...(model.startsWith("gemini-3") ? {} : { generationConfig: { temperature: 0 } })
+      ...(model.startsWith("gemini-3") ? {} : { generationConfig: { temperature: 0, maxOutputTokens: OCR_TEXT_MAX_TOKENS } })
     };
     const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
       method: "POST",

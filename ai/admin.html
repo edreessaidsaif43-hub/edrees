@@ -2831,8 +2831,8 @@ function renderAttachmentTextLength(list, lessonId = 0) {
   const lesson = lessons.find(item => Number(item.id) === Number(lessonId));
   if (lesson?.hasLessonText || Number(lesson?.lessonTextLength || 0) >= MIN_SAVED_PDF_TEXT_LENGTH) {
     const length = Number(lesson.lessonTextLength || 0);
-    const quality = length >= 20000 ? 'جيد' : 'قليل';
-    const color = length >= 20000 ? 'var(--success)' : 'var(--warning)';
+    const quality = length >= 1500 ? 'جيد' : (length >= 500 ? 'متوسط' : 'قليل');
+    const color = length >= 1500 ? 'var(--success)' : (length >= 500 ? 'var(--warning)' : 'var(--danger)');
     return `<span style="font-size:11px;color:${color};font-weight:700;">نص الدرس: ${length.toLocaleString('ar-SA')} حرف - ${quality}</span>`;
   }
   const lengths = list.map(att => Number(att?.extractedTextLength || String(att?.extractedText || '').trim().length || 0)).filter(length => length > 0);
