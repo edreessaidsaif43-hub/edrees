@@ -1873,10 +1873,12 @@ async function submitSubscriptionRequest() {
 
 let lessons = [];
 let attachments = [];
+const teacherSelectOptionsCache = {};
 const API_BASE = '/api/ai';
 let editingId = null;
 let lastResult = null;
-const AI_SETTINGS_KEY = 'aiSettings';
+const TEACHER_AI_SETTINGS_KEY = 'aiTeacherSettings';
+const LESSON_GENERATION_MODEL = 'openai/gpt-4o-mini';
 const MIN_SAVED_PDF_TEXT_LENGTH = 80;
 const CURRENT_USER_STORAGE_KEY = 'lesson_platform_current_user_v1';
 const BACKEND_SESSION_STORAGE_KEY = 'lesson_platform_backend_session_v1';
@@ -2151,13 +2153,15 @@ function availableTeacherLessons() {
   const all = activeLessons();
   const activeSubjects = getActiveSubscriptionSubjects();
   if (activeSubjects.length) {
-    const subjectMatches = all.filter(lesson => isSubjectSubscribed(lesson.grade, lesson.subject));
+    const subjectKeys = new Set(activeSubjects.map(item => subscriptionSubjectKey(item.grade, item.subject)));
+    const subjectMatches = all.filter(lesson => subjectKeys.has(subscriptionSubjectKey(lesson.grade, lesson.subject)));
     if (subjectMatches.length) return subjectMatches;
-    const activeSubjectGrades = uniqueSubscriptionGrades(activeSubjects.map(item => item.grade));
-    return all.filter(lesson => activeSubjectGrades.some(grade => isSameSubscriptionGrade(lesson.grade, grade)));
+    const activeSubjectGradeKeys = new Set(uniqueSubscriptionGrades(activeSubjects.map(item => item.grade)).map(normalizeSubscriptionGrade));
+    return all.filter(lesson => activeSubjectGradeKeys.has(normalizeSubscriptionGrade(lesson.grade)));
   }
-  if (!subscriptionState.activeGrades.length) return [];
-  return all.filter(lesson => isGradeSubscribed(lesson.grade));
+  const activeGradeKeys = new Set(uniqueSubscriptionGrades(subscriptionState.activeGrades || []).map(normalizeSubscriptionGrade));
+  if (!activeGradeKeys.size) return [];
+  return all.filter(lesson => activeGradeKeys.has(normalizeSubscriptionGrade(lesson.grade)));
 }
 
 function teacherGradeOptionsFromSubscriptions(items = []) {
@@ -2190,6 +2194,12 @@ function setSelectOptions(id, values, selectedValue = '') {
   const select = document.getElementById(id);
   if (!select) return '';
   const previous = selectedValue || select.value;
+  const signature = JSON.stringify(values);
+  if (teacherSelectOptionsCache[id] === signature) {
+    select.value = values.includes(previous) ? previous : '';
+    return select.value;
+  }
+  teacherSelectOptionsCache[id] = signature;
   select.innerHTML = '';
 
   const placeholder = document.createElement('option');
@@ -2212,6 +2222,12 @@ function setLessonOptions(items) {
   const select = document.getElementById('t-lesson');
   if (!select) return;
   const previous = select.value;
+  const signature = items.map(lesson => `${lesson.id}:${lesson.title}`).join('|');
+  if (teacherSelectOptionsCache['t-lesson'] === signature) {
+    select.value = items.some(lesson => String(lesson.id) === String(previous)) ? previous : '';
+    return;
+  }
+  teacherSelectOptionsCache['t-lesson'] = signature;
   select.innerHTML = '<option value="">— اختر الدرس —</option>';
   items.forEach(lesson => {
     const option = document.createElement('option');
@@ -2319,7 +2335,7 @@ async function retryLessonGenerationFromExtractedText(lesson, lessonAttachments,
   return null;
 }
 
-['t-grade','t-subject','t-semester','t-unit'].forEach(id => {
+['t-semester'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('change', () => populateTeacherFilters(id));
 });
@@ -2463,16 +2479,10 @@ async function generateLesson() {
 }
 
 function getAiSettings() {
-  const saved = JSON.parse(localStorage.getItem(AI_SETTINGS_KEY) || '{}');
-  if (saved.apiKey) {
-    delete saved.apiKey;
-    localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(saved));
-  }
-  const preferredModel = 'openai/gpt-4o-mini';
-  const allowedModels = ['openai/gpt-4o-mini'];
-  const model = allowedModels.includes(saved.model) ? saved.model : preferredModel;
-  if (saved.model !== model) localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ ...saved, model }));
-  return { model };
+  try {
+    localStorage.setItem(TEACHER_AI_SETTINGS_KEY, JSON.stringify({ model: LESSON_GENERATION_MODEL }));
+  } catch {}
+  return { model: LESSON_GENERATION_MODEL };
 }
 
 function containsArabicScript(value) {
@@ -2790,7 +2800,7 @@ async function callGeminiWithPdf(prompt, settings, attachment, attachmentList = 
   const pdfAttachments = (attachmentList || [attachment]).filter(isPdfAttachment);
   const ids = pdfAttachments.map(item => item?.id).filter(Boolean);
   if (!ids.length) throw new Error('لا يوجد ملف PDF صالح ضمن المرفقات المشتركة. استخدم PDF أو الصق نص الدرس في لوحة الإدارة.');
-  return callGeminiBackend(prompt, { ...settings, model: 'openai/gpt-4o-mini' }, { attachmentId: ids[0], attachmentIds: ids, includeAttachmentText: true });
+  return callGeminiBackend(prompt, { ...settings, model: LESSON_GENERATION_MODEL }, { attachmentId: ids[0], attachmentIds: ids, includeAttachmentText: true });
 }
 
 async function callGemini(prompt, settings) {
