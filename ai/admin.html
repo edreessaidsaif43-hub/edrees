@@ -1435,7 +1435,7 @@ const MIN_FULL_MATERIAL_TEXT_LENGTH = 20000;
 const MATERIAL_OCR_PAGE_STEP = 1;
 const MATERIAL_OCR_MAX_PAGES = 800;
 const MATERIAL_OCR_CHUNK_TIMEOUT_MS = 95 * 1000;
-const MATERIAL_BATCH_CONCURRENCY = 5;
+const MATERIAL_BATCH_CONCURRENCY = 3;
 let singleConvertedUpload = null;
 let singleConvertedFileKey = '';
 const pendingAttachmentTexts = new Map();
@@ -2972,19 +2972,14 @@ async function extractMaterialTextByPageChunks(job) {
       const localData = await requestMaterialTextSave(job, {
         attachmentIds: [attachmentId],
         localPdfTextOnly: true,
+        saveToLessonId: 0,
+        saveToLessonIds: [],
         markFullMaterialComplete: false,
-        appendToLessonText
+        appendToLessonText: false
       }, 60 * 1000);
       const localResult = (localData.results || [])[0] || {};
-      if (localData.saved) {
-        savedAnyText = true;
-        appendToLessonText = true;
-        savedLessonCount = Math.max(savedLessonCount, Number(localData.savedLessonCount || 0));
-        savedTextLength += Number(localData.savedTextLength || localResult.textLength || 0);
-        if (Number(localData.savedTextLength || localResult.textLength || 0) >= MIN_FULL_MATERIAL_TEXT_LENGTH) {
-          updateMaterialBatchProgress(job.key, 100, `تم حفظ النص الداخلي الكامل في ${savedLessonCount || job.lessonIds.length} درس بدون الحاجة إلى OCR.`, 'success');
-          continue;
-        }
+      if (Number(localResult.textLength || 0) >= MIN_FULL_MATERIAL_TEXT_LENGTH) {
+        updateMaterialBatchProgress(job.key, 8, 'تم العثور على نص داخلي قابل للنسخ، وجاري التحقق بقراءة الصفحات قبل اعتماد اكتمال المادة...', 'primary');
       }
     } catch {}
     let pageStart = 1;
@@ -3265,7 +3260,7 @@ async function extractStoredMaterialTexts() {
         updateMaterialBatchProgress(job.key, 100, formatAdminRequestError(err, 'ocr'), 'danger');
       }
       const overall = ((completed + failed) / jobs.length) * 100;
-      setAttachmentProgress(overall, 'تحويل دفعة مواد إلى نص', `اكتمل استخراج المرفق كاملًا لـ ${completed} من ${jobs.length} مواد${failed ? `، وتعذر ${failed}` : ''}. يعمل الآن حتى ${Math.min(MATERIAL_BATCH_CONCURRENCY, jobs.length)} مواد بالتوازي.`);
+      setAttachmentProgress(overall, 'تحويل دفعة مواد إلى نص', `تمت معالجة ${completed + failed} من ${jobs.length} مواد: اكتمل ${completed}${failed ? `، وتعذر ${failed}` : ''}. يعمل الآن حتى ${Math.min(MATERIAL_BATCH_CONCURRENCY, jobs.length)} مواد بالتوازي.`);
     };
     const workerCount = Math.min(MATERIAL_BATCH_CONCURRENCY, jobs.length);
     await Promise.all(Array.from({ length: workerCount }, async () => {
