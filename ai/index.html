@@ -2527,6 +2527,7 @@ function buildPdfLessonPrompt(lesson) {
 - القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويستفيد من معلومات المرفق إن وجدت. إذا لم توجد تفاصيل كافية في المرفق فلا تكتب "غير مذكور في المرفق" في حقول الإثراء، بل ولّد محتوى تربويًا مناسبًا للدرس والمرحلة.
 - اجعل التحضير غنيًا بالمعلومات ومفصلًا، ولا تختصر الإجابات في جمل قصيرة.
 - اكتب في كل حقل 3 إلى 6 نقاط أو جمل واضحة على الأقل، حسب طبيعة الحقل.
+- افصل كل نقطة أو فقرة بسطر مستقل داخل قيمة JSON باستخدام \\n، ولا تكتب الحقل كله في فقرة واحدة طويلة.
 - objectives يجب أن يحتوي نواتج تعلم متعددة قابلة للملاحظة والقياس، مع ربطها بمحتوى الدرس.
 - intro يجب أن يحتوي تمهيدًا مفصلًا يتضمن سؤالًا افتتاحيًا وربطًا بخبرة الطالب ومفردات أو فكرة مركزية من المرفق.
 - procedures يجب أن يكون أطول قسم ومفصلًا جدًا، ولا يقل عن 10 إلى 14 خطوة عملية للحصة، ويتضمن: تمهيدًا، تهيئة وربطًا بالخبرات السابقة، عرض المفهوم، أسئلة موجهة، شرحًا تدريجيًا، نشاطًا فرديًا، نشاطًا تعاونيًا، أمثلة تطبيقية، معالجة أخطاء شائعة، تفريدًا للتعلم، متابعة تعلم الطلاب، تقويمًا أثناء التنفيذ، تلخيصًا، وربطًا بالواجب. يجب أن يذكر داخل الخطوات أمثلة واضحة تناسب الدرس، والطريقة الأمثل لعرض كل جزء مثل: عرض بصري، تجربة أو نشاط عملي، نموذج على السبورة، مناقشة موجهة، تعلم تعاوني، بطاقات مفاهيم، موقف حياتي عماني، أو استخدام وسيلة تعليمية مناسبة للمادة. إذا لم يكف الملف لتفصيل هذه الخطوات فأكمل من معرفتك التربوية بما يناسب الصف والمادة والدرس في المناهج العمانية.
@@ -2650,6 +2651,7 @@ ${relevantText}
 - القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويستفيد من معلومات المرفق إن وجدت. إذا لم توجد تفاصيل كافية في المرفق فلا تكتب "غير مذكور في المرفق" في حقول الإثراء، بل ولّد محتوى تربويًا مناسبًا للدرس والمرحلة.
 - اجعل التحضير غنيًا بالمعلومات ومفصلًا، ولا تختصر الإجابات في جمل قصيرة.
 - اكتب في كل حقل 3 إلى 6 نقاط أو جمل واضحة على الأقل، حسب طبيعة الحقل.
+- افصل كل نقطة أو فقرة بسطر مستقل داخل قيمة JSON باستخدام \\n، ولا تكتب الحقل كله في فقرة واحدة طويلة.
 - objectives يجب أن يحتوي نواتج تعلم متعددة قابلة للملاحظة والقياس، مع ربطها بمحتوى الدرس.
 - intro يجب أن يحتوي تمهيدًا مفصلًا يتضمن سؤالًا افتتاحيًا وربطًا بخبرة الطالب ومفردات أو فكرة مركزية من المرفق.
 - procedures يجب أن يكون أطول قسم ومفصلًا جدًا، ولا يقل عن 10 إلى 14 خطوة عملية للحصة، ويتضمن: تمهيدًا، تهيئة وربطًا بالخبرات السابقة، عرض المفهوم، أسئلة موجهة، شرحًا تدريجيًا، نشاطًا فرديًا، نشاطًا تعاونيًا، أمثلة تطبيقية، معالجة أخطاء شائعة، تفريدًا للتعلم، متابعة تعلم الطلاب، تقويمًا أثناء التنفيذ، تلخيصًا، وربطًا بالواجب. يجب أن يذكر داخل الخطوات أمثلة واضحة تناسب الدرس، والطريقة الأمثل لعرض كل جزء مثل: عرض بصري، تجربة أو نشاط عملي، نموذج على السبورة، مناقشة موجهة، تعلم تعاوني، بطاقات مفاهيم، موقف حياتي عماني، أو استخدام وسيلة تعليمية مناسبة للمادة. إذا لم يكف المرفق لتفصيل هذه الخطوات فأكمل من معرفتك التربوية بما يناسب الصف والمادة والدرس في المناهج العمانية.
@@ -2871,6 +2873,59 @@ function normalizeAiResult(result, lesson = window.__currentLessonForNormalize |
     });
   }
   return normalized;
+}
+
+function splitResultSentences(text) {
+  const source = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!source) return [];
+  const matches = source.match(/[^.!؟?\n]+[.!؟?]?/g) || [source];
+  return matches.map(item => item.trim()).filter(Boolean);
+}
+
+function normalizeDisplayLines(text) {
+  return String(text || '')
+    .replace(/\\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\s*([0-9٠-٩]+[\.\)])\s+/g, '\n$1 ')
+    .replace(/\s*[-*•]\s+/g, '\n- ')
+    .split(/\n+/)
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+function formatResultForDisplay(key, value, lesson = {}) {
+  const unavailable = lessonUnavailableText(lesson);
+  const raw = normalizeResultField(value);
+  if (!raw || isMissingResultValue(raw)) return raw || unavailable;
+
+  let lines = normalizeDisplayLines(raw);
+  if (lines.length <= 1 && raw.length > 140) lines = splitResultSentences(raw);
+  lines = lines
+    .map(line => line.replace(/^[-*•]\s*/, '').trim())
+    .filter(Boolean);
+  if (!lines.length) return raw;
+
+  if (key === 'procedures') {
+    return lines.map((line, index) => {
+      const cleaned = line.replace(/^[0-9٠-٩]+[\.\)]\s*/, '').trim();
+      return `${index + 1}. ${cleaned}`;
+    }).join('\n\n');
+  }
+
+  if (lines.length === 1) return lines[0];
+  return lines.map((line) => {
+    if (/^[0-9٠-٩]+[\.\)]\s*/.test(line)) return line;
+    return `- ${line}`;
+  }).join('\n\n');
+}
+
+function formatResultObjectForDisplay(result, lesson = {}) {
+  const formatted = { ...result };
+  getResultKeys().forEach((key) => {
+    formatted[key] = formatResultForDisplay(key, result?.[key], lesson);
+  });
+  return formatted;
 }
 
 function isMostlyMissingAiResult(result) {
@@ -3329,7 +3384,7 @@ function applyResultUiLanguage(lesson = {}) {
 
 function showResults(result, lesson) {
   const area = document.getElementById('results-area');
-  const safeResult = normalizeAiResult(result, lesson);
+  const safeResult = formatResultObjectForDisplay(normalizeAiResult(result, lesson), lesson);
   lastResult = safeResult;
   window.__currentDisplayedLesson = lesson;
   applyResultUiLanguage(lesson);
@@ -3346,7 +3401,7 @@ function showResults(result, lesson) {
   getResultKeys().forEach((k, index) => {
     const el = document.getElementById('sec-' + k);
     if (!el) return;
-    const value = normalizeResultField(safeResult[k]) || lessonUnavailableText(lesson);
+    const value = safeResult[k] || lessonUnavailableText(lesson);
     el.textContent = value;
     el.classList.add('generating');
     setTimeout(() => {
