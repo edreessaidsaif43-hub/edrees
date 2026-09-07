@@ -1431,9 +1431,9 @@ let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
 const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
 const MIN_SAVED_PDF_TEXT_LENGTH = 80;
-const MATERIAL_OCR_PAGE_STEP = 4;
+const MATERIAL_OCR_PAGE_STEP = 1;
 const MATERIAL_OCR_MAX_PAGES = 800;
-const MATERIAL_OCR_CHUNK_TIMEOUT_MS = 75 * 1000;
+const MATERIAL_OCR_CHUNK_TIMEOUT_MS = 95 * 1000;
 let singleConvertedUpload = null;
 let singleConvertedFileKey = '';
 const pendingAttachmentTexts = new Map();
@@ -1616,8 +1616,8 @@ function formatAdminRequestError(err, context = '') {
   if (lower.includes('unauthorized') || lower.includes('invalid api key') || lower.includes('invalid key')) {
     return 'مفتاح OpenRouter غير صالح أو غير مفعل. تحقق من المفتاح ثم أعد المحاولة.';
   }
-  if (message === 'timeout' || message.includes('timeout') || message.includes('مهلة')) {
-    return 'استغرقت قراءة PDF وقتًا طويلًا. إذا كان الملف مصورًا بالكامل فقد يحتاج OCR أطول من مهلة الاستضافة؛ جرّب ملف PDF أوضح أو يحتوي نصًا قابلًا للنسخ.';
+  if (message === 'timeout' || message.includes('timeout') || message.includes('aborted') || message.includes('مهلة')) {
+    return 'استغرقت قراءة صفحة من PDF وقتًا طويلًا. تم إيقاف هذه المادة مؤقتًا، وستبقى ضمن المواد غير المكتملة حتى تعيد تشغيل التحويل.';
   }
   if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('Load failed')) {
     return 'انقطع الاتصال أثناء العملية. قد تكون المهمة اكتملت جزئيًا؛ حدّث القائمة للتأكد ثم أعد المحاولة إذا بقيت الحالة كما هي.';
@@ -2875,6 +2875,10 @@ function hasSavedLessonText(lesson) {
   return !!lesson?.hasLessonText || Number(lesson?.lessonTextLength || 0) >= MIN_SAVED_PDF_TEXT_LENGTH;
 }
 
+function hasFullMaterialText(lesson) {
+  return lesson?.hasFullMaterialText === true;
+}
+
 function materialBatchKey(lesson) {
   return [
     String(lesson?.grade || '').trim(),
@@ -2896,7 +2900,7 @@ function getMaterialExtractionJobs(limit = 10) {
     seen.add(key);
     const subjectLessons = getSameSubjectLessons(lesson);
     const subjectFiles = getSubjectTableAttachments(lesson).filter(isPdfAttachment);
-    const needsText = subjectLessons.some(item => !hasSavedLessonText(item));
+    const needsText = subjectLessons.some(item => !hasFullMaterialText(item));
     if (!subjectFiles.length || !needsText) continue;
     jobs.push({
       key,
@@ -2920,6 +2924,7 @@ function isLongOcrTimeoutError(err) {
   const message = String(err?.message || err || '').toLowerCase();
   return message === 'timeout' ||
     message.includes('timeout') ||
+    message.includes('aborted') ||
     message.includes('مهلة') ||
     message.includes('تعذر الاتصال بقاعدة البيانات') ||
     message.includes('failed to fetch') ||
@@ -2948,11 +2953,15 @@ async function extractMaterialTextByPageChunks(job) {
   let savedTextLength = 0;
   let savedAnyText = false;
   let appendToLessonText = false;
+  let completedAllAttachments = true;
+  let emptyRuns = 0;
   const attachmentIds = job.attachmentIds.slice(0, 10);
   for (let fileIndex = 0; fileIndex < attachmentIds.length; fileIndex++) {
     const attachmentId = attachmentIds[fileIndex];
     let pageStart = 1;
     let knownPageCount = 0;
+    let attachmentComplete = false;
+    emptyRuns = 0;
     while (pageStart <= (knownPageCount || MATERIAL_OCR_MAX_PAGES)) {
       const maxPages = knownPageCount || MATERIAL_OCR_MAX_PAGES;
       const pageEnd = Math.min(maxPages, pageStart + MATERIAL_OCR_PAGE_STEP - 1);
@@ -2960,16 +2969,24 @@ async function extractMaterialTextByPageChunks(job) {
       updateMaterialBatchProgress(
         job.key,
         roughPercent,
-        `مهلة الملف طويلة؛ جاري تحويل الصفحات ${pageStart}-${pageEnd} وحفظها تدريجيًا...`,
+        `جاري تحويل الصفحة ${pageStart}${pageEnd > pageStart ? `-${pageEnd}` : ''} وحفظ النص بالتتابع...`,
         'primary'
       );
-      const data = await requestMaterialTextSave(job, {
-        attachmentIds: [attachmentId],
-        pageStart,
-        pageEnd,
-        includePageCount: !knownPageCount,
-        appendToLessonText
-      });
+      let data;
+      try {
+        data = await requestMaterialTextSave(job, {
+          attachmentIds: [attachmentId],
+          pageStart,
+          pageEnd,
+          includePageCount: !knownPageCount,
+          knownPageCount,
+          markFullMaterialComplete: !!knownPageCount && pageEnd >= knownPageCount,
+          appendToLessonText
+        });
+      } catch (err) {
+        if (isLongOcrTimeoutError(err) && savedAnyText) break;
+        throw err;
+      }
       const result = (data.results || [])[0] || {};
       if (!knownPageCount && Number(result.pageCount || 0) > 0) {
         knownPageCount = Math.min(MATERIAL_OCR_MAX_PAGES, Number(result.pageCount || 0));
@@ -2977,17 +2994,24 @@ async function extractMaterialTextByPageChunks(job) {
       if (data.saved) {
         savedAnyText = true;
         appendToLessonText = true;
+        emptyRuns = 0;
         savedLessonCount = Math.max(savedLessonCount, Number(data.savedLessonCount || 0));
         savedTextLength += Number(data.savedTextLength || result.textLength || 0);
+      } else {
+        emptyRuns += 1;
       }
       if (result.status === 'error') throw new Error(result.message || 'تعذر استخراج جزء من PDF.');
-      if (result.status === 'end') break;
-      if (!data.saved && pageStart > 1) break;
+      if (result.status === 'end' || (!!knownPageCount && pageEnd >= knownPageCount)) {
+        attachmentComplete = true;
+        break;
+      }
+      if (emptyRuns >= 4 && savedAnyText) break;
       pageStart += MATERIAL_OCR_PAGE_STEP;
     }
+    if (!attachmentComplete) completedAllAttachments = false;
     appendToLessonText = savedAnyText;
   }
-  return { saved: savedAnyText, savedLessonCount, savedTextLength };
+  return { saved: savedAnyText, complete: savedAnyText && completedAllAttachments, savedLessonCount, savedTextLength };
 }
 
 function renderAttachmentFileNames(list) {
@@ -3033,10 +3057,16 @@ function renderAttachmentTextStatus(list, lessonId) {
       <button type="button" class="tbl-btn tbl-btn-edit js-save-pending-text" data-lesson-id="${Number(lessonId)}">رفع النص الكامل إلى قاعدة البيانات</button>
     </div>`;
   }
+  if (hasFullMaterialText(lesson)) {
+    return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
+      <span class="badge badge-green">نص المادة كامل ومحفوظ</span>
+      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">إعادة استخراج مادة الدرس كاملة</button>
+    </div>`;
+  }
   if (lesson?.hasLessonText || Number(lesson?.lessonTextLength || 0) >= MIN_SAVED_PDF_TEXT_LENGTH) {
     return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
-      <span class="badge badge-green">نص المادة محفوظ لهذا الدرس</span>
-      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">إعادة استخراج مادة الدرس كاملة</button>
+      <span class="badge badge-gray">نص جزئي محفوظ ويحتاج استكمال</span>
+      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">استكمال استخراج المادة كاملة</button>
     </div>`;
   }
   const converted = subjectList.filter(hasUsableAttachmentText).length;
@@ -3177,30 +3207,18 @@ async function extractStoredMaterialTexts() {
     for (const job of jobs) {
       let ticker = null;
       try {
-        ticker = startMaterialProgressTicker(job);
-        let data;
-        try {
-          data = await requestMaterialTextSave(job, { localPdfTextOnly: true });
-        } catch (err) {
-          if (!isLongOcrTimeoutError(err)) throw err;
-          if (ticker) clearInterval(ticker);
-          ticker = null;
-          data = await extractMaterialTextByPageChunks(job);
-        }
-        if (!data.saved && (data.results || []).some(item => item.status === 'needs_pdf_generation')) {
-          if (ticker) clearInterval(ticker);
-          ticker = null;
-          data = await extractMaterialTextByPageChunks(job);
-        }
+        const data = await extractMaterialTextByPageChunks(job);
         if (ticker) clearInterval(ticker);
         const savedCount = Number(data.savedLessonCount || 0);
-        if (data.saved) {
+        if (data.saved && data.complete) {
           completed += 1;
           updateMaterialBatchProgress(job.key, 100, `اكتمل التحويل والحفظ في ${savedCount || job.lessonIds.length} درس.`, 'success');
         } else {
           failed += 1;
           const errorItem = (data.results || []).find(item => item.status === 'error');
-          const message = errorItem?.message ? formatAdminRequestError(errorItem.message, 'ocr') : 'لم يتم استخراج نص واضح من هذه المادة.';
+          const message = data.saved
+            ? 'تم حفظ نص جزئي، لكن لم يكتمل الوصول إلى نهاية المرفق. أعد الضغط لاحقًا لاستكمال المادة.'
+            : (errorItem?.message ? formatAdminRequestError(errorItem.message, 'ocr') : 'لم يتم استخراج نص واضح من هذه المادة.');
           updateMaterialBatchProgress(job.key, 100, message, 'danger');
         }
       } catch (err) {

@@ -22,8 +22,9 @@ const MIN_SAVED_PDF_TEXT_LENGTH = 80;
 const MAX_ATTACHMENT_TEXT_BATCH = 10;
 const DATA_LIST_DEFAULT_LIMIT = 50000;
 const OCR_TEXT_MAX_TOKENS = 14000;
-const FULL_ATTACHMENT_PAGE_STEP = 4;
+const FULL_ATTACHMENT_PAGE_STEP = 1;
 const FULL_ATTACHMENT_MAX_PAGES = 800;
+const FULL_MATERIAL_TEXT_COMPLETE_MARKER = "[[FULL_MATERIAL_TEXT_COMPLETE]]";
 const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_PDF_MODEL = "google/gemini-2.5-flash";
 const OPENROUTER_FIXED_API_KEY = "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";
@@ -268,6 +269,10 @@ function pickTargetLessonTextFromFullText(fullText, target = {}) {
 
 function extractedTextFingerprint(text) {
   return normalizeSearchText(text).replace(/\s+/g, " ").slice(0, 1800);
+}
+
+function stripFullMaterialTextMarker(text) {
+  return normalizeExtractedText(String(text || "").replaceAll(FULL_MATERIAL_TEXT_COMPLETE_MARKER, ""));
 }
 
 function cleanDbText(text, maxLength = 2000) {
@@ -522,8 +527,12 @@ async function receiveUpload(req, meta) {
 }
 
 function lessonRow(row) {
-  const lessonTextLength = Number(row.lesson_text_length ?? normalizeExtractedText(row.lesson_text || "").length);
+  const cleanLessonText = stripFullMaterialTextMarker(row.lesson_text || "");
+  const lessonTextLength = Number(row.lesson_text_length ?? cleanLessonText.length);
   const hasLessonText = typeof row.has_lesson_text === "boolean" ? row.has_lesson_text : hasUsableExtractedText(row.lesson_text || "");
+  const hasFullMaterialText = typeof row.has_full_material_text === "boolean"
+    ? row.has_full_material_text
+    : String(row.lesson_text || "").includes(FULL_MATERIAL_TEXT_COMPLETE_MARKER);
   return {
     id: Number(row.id),
     grade: row.grade || "",
@@ -539,6 +548,7 @@ function lessonRow(row) {
     lessonTextLength,
     hasLessonText,
     createdAt: row.created_at ? String(row.created_at).slice(0, 10) : "",
+    hasFullMaterialText,
   };
 }
 
@@ -577,13 +587,14 @@ async function listData(req, res) {
       attachment_id,
       attachment_ids,
       status,
-      char_length(COALESCE(lesson_text, '')) AS lesson_text_length,
+      char_length(replace(COALESCE(lesson_text, ''), ${FULL_MATERIAL_TEXT_COMPLETE_MARKER}, '')) AS lesson_text_length,
       (
         char_length(btrim(COALESCE(lesson_text, ''))) >= ${MIN_SAVED_PDF_TEXT_LENGTH}
         AND COALESCE(lesson_text, '') NOT LIKE '%[PDF saved:%'
         AND COALESCE(lesson_text, '') NOT LIKE '%The file was saved, but text extraction did not return readable text%'
         AND COALESCE(lesson_text, '') NOT LIKE '%النص سيُستخرج عند التوليد%'
       ) AS has_lesson_text,
+      position(${FULL_MATERIAL_TEXT_COMPLETE_MARKER} in COALESCE(lesson_text, '')) > 0 AS has_full_material_text,
       created_at
     FROM ai_lessons
     ORDER BY created_at DESC, id DESC
@@ -1094,13 +1105,16 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
     await openRouterPdfPart(attachment)
   ];
   let lastError = null;
-  for (const strategy of OPENROUTER_PDF_STRATEGIES) {
+  const rangeMode = pageStart && pageEnd;
+  const strategies = rangeMode ? OPENROUTER_PDF_STRATEGIES.slice(0, 1) : OPENROUTER_PDF_STRATEGIES;
+  const ocrTimeoutMs = rangeMode ? 55 * 1000 : 8 * 60 * 1000;
+  for (const strategy of strategies) {
     try {
       const text = await requestOpenRouterText({
         apiKey,
         model: strategy.model,
         content,
-        timeoutMs: 8 * 60 * 1000,
+        timeoutMs: ocrTimeoutMs,
         temperature: 0,
         pdfEngine: strategy.engine
       });
@@ -1154,7 +1168,7 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
             apiKey,
             model: strategy.model,
             content: forcedContent,
-            timeoutMs: 8 * 60 * 1000,
+            timeoutMs: ocrTimeoutMs,
             temperature: 0,
             pdfEngine: strategy.engine
           });
@@ -1744,13 +1758,16 @@ async function previewAttachmentText(req, res) {
   const pageStart = hasPageRange ? Math.max(1, rawPageStart) : 0;
   const pageEnd = hasPageRange ? Math.max(pageStart, rawPageEnd) : 0;
   const includePageCount = body.includePageCount === true;
+  const knownPageCount = Math.max(0, Number(body.knownPageCount || 0));
   const localPdfTextOnly = body.localPdfTextOnly === true;
+  const markFullMaterialComplete = body.markFullMaterialComplete === true;
   const results = [];
   const saveTextParts = [];
+  let reachedDocumentEnd = markFullMaterialComplete;
   for (const row of rows || []) {
     const attachment = attachmentRow(row);
     try {
-      let pageCount = 0;
+      let pageCount = knownPageCount;
       if (includePageCount && isPdfAttachment(attachment)) {
         try {
           const fileSize = Number(attachment.fileSize || 0);
@@ -1769,6 +1786,7 @@ async function previewAttachmentText(req, res) {
             : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
       const ended = String(text || "").includes("END_OF_DOCUMENT");
       const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT|LESSON_NOT_FOUND/g, ""));
+      if (ended || (hasPageRange && pageCount > 0 && pageEnd >= pageCount)) reachedDocumentEnd = true;
       if (saveToLessonIds.length && hasUsableExtractedText(cleanText)) {
         saveTextParts.push(cleanText);
       }
@@ -1799,13 +1817,16 @@ async function previewAttachmentText(req, res) {
   let savedLessonCount = 0;
   if (saveToLessonIds.length && saveTextParts.length) {
     const combinedText = normalizeExtractedText(saveTextParts.join("\n\n"));
+    const textToSave = reachedDocumentEnd
+      ? normalizeExtractedText(`${combinedText}\n\n${FULL_MATERIAL_TEXT_COMPLETE_MARKER}`)
+      : combinedText;
     const lessonRows = appendToLessonText
       ? await sql`
         UPDATE ai_lessons
         SET lesson_text = btrim(
           CASE
-            WHEN btrim(COALESCE(lesson_text, '')) = '' THEN ${combinedText}
-            ELSE COALESCE(lesson_text, '') || E'\n\n' || ${combinedText}
+            WHEN btrim(COALESCE(lesson_text, '')) = '' THEN ${textToSave}
+            ELSE replace(COALESCE(lesson_text, ''), ${FULL_MATERIAL_TEXT_COMPLETE_MARKER}, '') || E'\n\n' || ${textToSave}
           END
         )
         WHERE id IN (
@@ -1814,12 +1835,13 @@ async function previewAttachmentText(req, res) {
           AND (
             btrim(COALESCE(lesson_text, '')) = ''
             OR position(${combinedText} in COALESCE(lesson_text, '')) = 0
+            OR ${reachedDocumentEnd}
           )
         RETURNING id;
       `
       : await sql`
         UPDATE ai_lessons
-        SET lesson_text = ${combinedText}
+        SET lesson_text = ${textToSave}
         WHERE id IN (
           SELECT jsonb_array_elements_text(${JSON.stringify(saveToLessonIds)}::jsonb)::bigint
         )
@@ -1828,6 +1850,19 @@ async function previewAttachmentText(req, res) {
     savedLessonCount = Array.isArray(lessonRows) ? lessonRows.length : 0;
     saved = savedLessonCount > 0;
     savedTextLength = combinedText.length;
+  } else if (saveToLessonIds.length && reachedDocumentEnd) {
+    const lessonRows = await sql`
+      UPDATE ai_lessons
+      SET lesson_text = btrim(replace(COALESCE(lesson_text, ''), ${FULL_MATERIAL_TEXT_COMPLETE_MARKER}, '') || E'\n\n' || ${FULL_MATERIAL_TEXT_COMPLETE_MARKER})
+      WHERE id IN (
+        SELECT jsonb_array_elements_text(${JSON.stringify(saveToLessonIds)}::jsonb)::bigint
+      )
+        AND btrim(COALESCE(lesson_text, '')) <> ''
+      RETURNING id, char_length(replace(COALESCE(lesson_text, ''), ${FULL_MATERIAL_TEXT_COMPLETE_MARKER}, '')) AS text_length;
+    `;
+    savedLessonCount = Array.isArray(lessonRows) ? lessonRows.length : 0;
+    saved = savedLessonCount > 0;
+    savedTextLength = Number(lessonRows?.[0]?.text_length || 0);
   }
   return send(res, 200, { ok: true, scanned: results.length, results, saved, savedTextLength, savedLessonCount });
 }
@@ -1844,7 +1879,7 @@ async function getAttachmentText(req, res, id) {
       WHERE id = ${lessonId}
       LIMIT 1;
     `;
-    const lessonText = normalizeExtractedText(lessonRows?.[0]?.lesson_text || "");
+    const lessonText = stripFullMaterialTextMarker(lessonRows?.[0]?.lesson_text || "");
     if (isCompleteExtractedText(lessonText)) {
       return send(res, 200, {
         id,
