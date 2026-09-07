@@ -2884,7 +2884,7 @@ function hasFullMaterialText(lesson) {
 }
 
 function hasReadyMaterialText(lesson) {
-  return hasFullMaterialText(lesson) && Number(lesson?.lessonTextLength || 0) >= MIN_FULL_MATERIAL_TEXT_LENGTH;
+  return Number(lesson?.lessonTextLength || 0) >= MIN_FULL_MATERIAL_TEXT_LENGTH;
 }
 
 function materialBatchKey(lesson) {
@@ -3071,16 +3071,10 @@ function renderAttachmentTextStatus(list, lessonId) {
       <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">إعادة استخراج مادة الدرس كاملة</button>
     </div>`;
   }
-  if (hasFullMaterialText(lesson) && Number(lesson?.lessonTextLength || 0) < MIN_FULL_MATERIAL_TEXT_LENGTH) {
+  if (lesson?.hasLessonText || Number(lesson?.lessonTextLength || 0) >= MIN_SAVED_PDF_TEXT_LENGTH) {
     return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
       <span class="badge badge-gray">النص أقل من 20 ألف حرف</span>
       <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">إعادة استخراج المادة كاملة</button>
-    </div>`;
-  }
-  if (lesson?.hasLessonText || Number(lesson?.lessonTextLength || 0) >= MIN_SAVED_PDF_TEXT_LENGTH) {
-    return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
-      <span class="badge badge-gray">نص جزئي محفوظ ويحتاج استكمال</span>
-      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">استكمال استخراج المادة كاملة</button>
     </div>`;
   }
   const converted = subjectList.filter(hasUsableAttachmentText).length;
