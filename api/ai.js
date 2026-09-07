@@ -574,11 +574,34 @@ function attachmentRow(row, options = {}) {
   };
 }
 
+function parseQueryList(value) {
+  if (Array.isArray(value)) return value.flatMap(parseQueryList);
+  const text = String(value || "").trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parsed.flatMap(parseQueryList);
+  } catch {}
+  return text.split(/[,\n،؛;]/).map((item) => item.trim()).filter(Boolean);
+}
+
+function parseQueryIds(value) {
+  return Array.from(new Set(parseQueryList(value)
+    .map((item) => Number(item))
+    .filter((item) => Number.isFinite(item) && item > 0)));
+}
+
 async function listData(req, res) {
-  if (!(await dbReady(res))) return;
+  if (!(await dbReady(res, false))) return;
   const includeText = String(req?.query?.includeText || "0") === "1";
+  const includeLessons = String(req?.query?.includeLessons || "1") !== "0";
+  const includeAttachments = String(req?.query?.includeAttachments || "1") !== "0";
   const listLimit = Math.max(1, Math.min(DATA_LIST_DEFAULT_LIMIT, Number(req?.query?.limit || DATA_LIST_DEFAULT_LIMIT)));
-  const lessons = await sql`
+  const gradeFiltersJson = JSON.stringify(parseQueryList(req?.query?.grades));
+  const subjectFiltersJson = JSON.stringify(parseQueryList(req?.query?.subjects));
+  const attachmentIdFiltersJson = JSON.stringify(parseQueryIds(req?.query?.attachmentIds));
+  const activeOnly = String(req?.query?.activeOnly || "0") === "1";
+  const lessons = includeLessons ? await sql`
     SELECT
       id,
       grade,
@@ -599,10 +622,15 @@ async function listData(req, res) {
       position(${FULL_MATERIAL_TEXT_COMPLETE_MARKER} in COALESCE(lesson_text, '')) > 0 AS has_full_material_text,
       created_at
     FROM ai_lessons
+    WHERE (${activeOnly} = false OR status = 'active')
+      AND (${gradeFiltersJson}::jsonb = '[]'::jsonb OR grade IN (SELECT jsonb_array_elements_text(${gradeFiltersJson}::jsonb)))
+      AND (${subjectFiltersJson}::jsonb = '[]'::jsonb OR subject IN (SELECT jsonb_array_elements_text(${subjectFiltersJson}::jsonb)))
     ORDER BY created_at DESC, id DESC
     LIMIT ${listLimit};
-  `;
-  const attachments = includeText
+  ` : [];
+  const attachments = !includeAttachments
+    ? []
+    : includeText
     ? await sql`
         SELECT
           id,
@@ -622,6 +650,7 @@ async function listData(req, res) {
           gemini_file_uri,
           created_at
         FROM ai_attachments
+        WHERE (${attachmentIdFiltersJson}::jsonb = '[]'::jsonb OR id IN (SELECT jsonb_array_elements_text(${attachmentIdFiltersJson}::jsonb)::bigint))
         ORDER BY created_at DESC, id DESC
         LIMIT ${listLimit};
       `
@@ -644,6 +673,7 @@ async function listData(req, res) {
           gemini_file_uri,
           created_at
         FROM ai_attachments
+        WHERE (${attachmentIdFiltersJson}::jsonb = '[]'::jsonb OR id IN (SELECT jsonb_array_elements_text(${attachmentIdFiltersJson}::jsonb)::bigint))
         ORDER BY created_at DESC, id DESC
         LIMIT ${listLimit};
       `;

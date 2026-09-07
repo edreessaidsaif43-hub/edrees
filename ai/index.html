@@ -2083,16 +2083,51 @@ function formatUploadError(err) {
   return message || 'تعذر رفع الملف';
 }
 
+function uniqueList(values = []) {
+  const seen = new Set();
+  const out = [];
+  values.flatMap(value => Array.isArray(value) ? value : [value]).forEach((value) => {
+    const text = String(value || '').trim();
+    if (!text || seen.has(text)) return;
+    seen.add(text);
+    out.push(text);
+  });
+  return out;
+}
+
+function gradeFilterVariants(values = []) {
+  const out = [];
+  uniqueSubscriptionGrades(values).forEach((grade) => {
+    const normalized = normalizeSubscriptionGrade(grade);
+    out.push(grade);
+    if (normalized) out.push(normalized);
+    if (normalized) out.push('الصف ' + normalized);
+  });
+  return uniqueList(out);
+}
+
+function lessonLoadParamsFromSubscription() {
+  const activeSubjects = getActiveSubscriptionSubjects();
+  const activeGrades = uniqueSubscriptionGrades(subscriptionState.activeGrades || []);
+  const params = { includeText: '0', includeAttachments: '0', activeOnly: '1', limit: '50000' };
+  if (activeSubjects.length) {
+    params.subjects = JSON.stringify(uniqueList(activeSubjects.map(item => item.subject)));
+  } else if (activeGrades.length) {
+    params.grades = JSON.stringify(gradeFilterVariants(activeGrades));
+  }
+  return params;
+}
+
 async function loadDatabase() {
   fillSubscriptionGradeOptions(subscriptionGradeOptions);
   populateTeacherFilters();
-  const subscriptionPromise = refreshSubscriptionStatus();
-  const data = await apiRequest('/api/lessons', { params: { includeText: '0', limit: '50000' } });
+  await refreshSubscriptionStatus();
+  populateTeacherFilters();
+  const data = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
   lessons = Array.isArray(data?.lessons) ? data.lessons : [];
   attachments = Array.isArray(data?.attachments) ? data.attachments : [];
   subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(activeLessons(), 'grade'));
   fillSubscriptionGradeOptions(subscriptionGradeOptions);
-  await subscriptionPromise;
   populateTeacherFilters();
 }
 
@@ -2217,6 +2252,35 @@ function getLessonAttachments(lesson) {
   return ids.map(id => attachments.find(a => a.id == id)).filter(Boolean);
 }
 
+async function ensureLessonAttachmentsLoaded(lesson) {
+  const ids = Array.isArray(lesson?.attachmentIds) && lesson.attachmentIds.length
+    ? lesson.attachmentIds
+    : (lesson?.attachmentId ? [lesson.attachmentId] : []);
+  const missing = ids
+    .map(id => Number(id))
+    .filter(id => Number.isFinite(id) && id > 0 && !attachments.some(item => Number(item.id) === id));
+  if (!missing.length) return getLessonAttachments(lesson);
+  const data = await apiRequest('/api/lessons', {
+    params: {
+      includeText: '0',
+      includeLessons: '0',
+      includeAttachments: '1',
+      attachmentIds: missing.join(','),
+      limit: String(Math.max(missing.length, 1))
+    }
+  });
+  const incoming = Array.isArray(data?.attachments) ? data.attachments : [];
+  const known = new Set(attachments.map(item => Number(item.id)));
+  incoming.forEach((item) => {
+    const id = Number(item.id);
+    if (!known.has(id)) {
+      known.add(id);
+      attachments.push(item);
+    }
+  });
+  return getLessonAttachments(lesson);
+}
+
 async function ensureLessonAttachmentText(lesson, currentAttachments) {
   const ids = currentAttachments
     .filter(item => isPdfAttachment(item))
@@ -2274,7 +2338,7 @@ async function generateLesson() {
   if (!lesson) { showError('لم يتم العثور على الدرس.'); return; }
   if (lesson.status !== 'active') { showError('هذا الدرس غير متاح حاليًا.'); return; }
 
-  let lessonAttachments = getLessonAttachments(lesson);
+  let lessonAttachments = await ensureLessonAttachmentsLoaded(lesson);
   let attachment = lessonAttachments[0];
   if (!attachment) { showError('لا يوجد مرفق مرتبط بهذا الدرس. يرجى التواصل مع الإدارة.'); return; }
 
