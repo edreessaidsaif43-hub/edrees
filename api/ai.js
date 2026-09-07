@@ -42,6 +42,7 @@ const PUBLIC_SITE_ORIGIN = "https://altahdir.app";
 const LESSON_RESULT_KEYS = [
   "objectives",
   "intro",
+  "concepts",
   "procedures",
   "formativeAssessment",
   "closingAssessment",

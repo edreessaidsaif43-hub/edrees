@@ -1435,7 +1435,7 @@ const MIN_FULL_MATERIAL_TEXT_LENGTH = 20000;
 const MATERIAL_OCR_PAGE_STEP = 1;
 const MATERIAL_OCR_MAX_PAGES = 800;
 const MATERIAL_OCR_CHUNK_TIMEOUT_MS = 95 * 1000;
-const MATERIAL_BATCH_CONCURRENCY = 3;
+const MATERIAL_BATCH_CONCURRENCY = 5;
 let singleConvertedUpload = null;
 let singleConvertedFileKey = '';
 const pendingAttachmentTexts = new Map();
@@ -1616,7 +1616,7 @@ function formatAdminRequestError(err, context = '') {
     return 'تعذر قراءة ملف PDF لأن بيانات الملف لم تصل إلى خدمة OCR. أعد رفع الملف ثم اضغط استخراج مادة الدرس كاملة.';
   }
   if (lower.includes('content-length') || lower.includes('byte limit') || lower.includes('maximum size supported') || lower.includes('exceeds the maximum size') || message.includes('يتجاوز حد OCR')) {
-    return 'حجم صفحة PDF بعد القص ما زال أكبر من حد خدمة OCR. اضغط استبدال الملف وارفع نسخة PDF مضغوطة أو أوضح لهذه المادة.';
+    return 'صفحة PDF في هذه المادة أكبر من حد OCR حتى بعد القص. تم تجاوز هذه المادة وستستمر بقية المواد؛ ولتحويلها لاحقًا ارفع نسخة PDF مضغوطة أو أوضح.';
   }
   if (lower.includes('unauthorized') || lower.includes('invalid api key') || lower.includes('invalid key')) {
     return 'مفتاح OpenRouter غير صالح أو غير مفعل. تحقق من المفتاح ثم أعد المحاولة.';
@@ -2967,6 +2967,26 @@ async function extractMaterialTextByPageChunks(job) {
   const attachmentIds = job.attachmentIds.slice(0, 10);
   for (let fileIndex = 0; fileIndex < attachmentIds.length; fileIndex++) {
     const attachmentId = attachmentIds[fileIndex];
+    updateMaterialBatchProgress(job.key, 5, 'محاولة استخراج النص الداخلي من ملف PDF كاملًا قبل تشغيل OCR...', 'primary');
+    try {
+      const localData = await requestMaterialTextSave(job, {
+        attachmentIds: [attachmentId],
+        localPdfTextOnly: true,
+        markFullMaterialComplete: false,
+        appendToLessonText
+      }, 60 * 1000);
+      const localResult = (localData.results || [])[0] || {};
+      if (localData.saved) {
+        savedAnyText = true;
+        appendToLessonText = true;
+        savedLessonCount = Math.max(savedLessonCount, Number(localData.savedLessonCount || 0));
+        savedTextLength += Number(localData.savedTextLength || localResult.textLength || 0);
+        if (Number(localData.savedTextLength || localResult.textLength || 0) >= MIN_FULL_MATERIAL_TEXT_LENGTH) {
+          updateMaterialBatchProgress(job.key, 100, `تم حفظ النص الداخلي الكامل في ${savedLessonCount || job.lessonIds.length} درس بدون الحاجة إلى OCR.`, 'success');
+          continue;
+        }
+      }
+    } catch {}
     let pageStart = 1;
     let knownPageCount = 0;
     let attachmentComplete = false;
@@ -3009,7 +3029,14 @@ async function extractMaterialTextByPageChunks(job) {
       } else {
         emptyRuns += 1;
       }
-      if (result.status === 'error') throw new Error(result.message || 'تعذر استخراج جزء من PDF.');
+      if (result.status === 'error') {
+        if (savedAnyText) {
+          completedAllAttachments = false;
+          updateMaterialBatchProgress(job.key, roughPercent, 'تم حفظ نص جزئي، وتجاوز صفحة PDF كبيرة حتى تستمر بقية المواد.', 'primary');
+          break;
+        }
+        throw new Error(result.message || 'تعذر استخراج جزء من PDF.');
+      }
       if (result.status === 'end' || (!!knownPageCount && pageEnd >= knownPageCount)) {
         attachmentComplete = true;
         break;
@@ -3217,6 +3244,7 @@ async function extractStoredMaterialTexts() {
     const processJob = async (job) => {
       let ticker = null;
       try {
+        ticker = startMaterialProgressTicker(job);
         const data = await extractMaterialTextByPageChunks(job);
         if (ticker) clearInterval(ticker);
         const savedCount = Number(data.savedLessonCount || 0);
