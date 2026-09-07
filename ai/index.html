@@ -1445,6 +1445,8 @@ const CSV_CACHE_KEY = 'lesson_system_csv_cache_v2';
 const CSV_CACHE_TTL_MS = 1000 * 60 * 60 * 8;
 const SUBSCRIPTION_STATUS_CACHE_KEY = 'aiSubscriptionStatusCache';
 const SUBSCRIPTION_STATUS_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const TEACHER_LESSON_CACHE_KEY = 'aiTeacherLessonDataCacheV2';
+const TEACHER_LESSON_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
 
 function subscriptionApiUrl(path) {
   const base = window.location.protocol === 'file:' ? 'https://altahdir.app' : '';
@@ -2537,6 +2539,83 @@ function hasConfirmedLessonAccess() {
   return getActiveSubscriptionSubjects().length > 0 || uniqueSubscriptionGrades(subscriptionState.activeGrades || []).length > 0;
 }
 
+function resetTeacherOptionsCache() {
+  teacherSelectOptionsCache['t-grade'] = '';
+  teacherSelectOptionsCache['t-subject'] = '';
+  teacherSelectOptionsCache['t-semester'] = '';
+  teacherSelectOptionsCache['t-unit'] = '';
+  teacherSelectOptionsCache['t-lesson'] = '';
+}
+
+function teacherLessonCacheSignature() {
+  const activeSubjects = getActiveSubscriptionSubjects()
+    .map(item => subscriptionSubjectKey(item.grade, item.subject))
+    .sort();
+  const activeGrades = uniqueSubscriptionGrades(subscriptionState.activeGrades || [])
+    .map(normalizeSubscriptionGrade)
+    .sort();
+  return JSON.stringify({ activeSubjects, activeGrades });
+}
+
+function cacheTeacherLessonData() {
+  try {
+    const identityKey = subscriptionIdentityKey();
+    const signature = teacherLessonCacheSignature();
+    if (!identityKey || !signature || !Array.isArray(lessons) || !lessons.length) return;
+    localStorage.setItem(TEACHER_LESSON_CACHE_KEY, JSON.stringify({
+      identityKey,
+      signature,
+      savedAt: Date.now(),
+      lessons,
+      attachments
+    }));
+  } catch {}
+}
+
+function applyCachedTeacherLessonData() {
+  try {
+    const identityKey = subscriptionIdentityKey();
+    const signature = teacherLessonCacheSignature();
+    if (!identityKey || !signature) return false;
+    const cached = JSON.parse(localStorage.getItem(TEACHER_LESSON_CACHE_KEY) || 'null');
+    if (!cached || cached.identityKey !== identityKey || cached.signature !== signature) return false;
+    if ((Date.now() - Number(cached.savedAt || 0)) > TEACHER_LESSON_CACHE_MAX_AGE_MS) return false;
+    if (!Array.isArray(cached.lessons) || !cached.lessons.length) return false;
+    lessons = cached.lessons;
+    attachments = Array.isArray(cached.attachments) ? cached.attachments : [];
+    resetTeacherOptionsCache();
+    populateTeacherFilters();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearTeacherLessonData() {
+  lessons = [];
+  attachments = [];
+  resetTeacherOptionsCache();
+  populateTeacherFilters();
+}
+
+async function refreshTeacherLessonDataInBackground() {
+  try {
+    await refreshSubscriptionStatus();
+    if (!hasConfirmedLessonAccess()) {
+      clearTeacherLessonData();
+      return;
+    }
+    const fresh = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
+    lessons = Array.isArray(fresh?.lessons) ? fresh.lessons : [];
+    attachments = Array.isArray(fresh?.attachments) ? fresh.attachments : [];
+    resetTeacherOptionsCache();
+    populateTeacherFilters();
+    cacheTeacherLessonData();
+  } catch (error) {
+    console.warn('background lesson refresh failed', error);
+  }
+}
+
 async function loadDatabase() {
   startLessonDataProgress('جاري تحميل الصفوف والدروس...', 'يتم التحقق من الاشتراك ثم تحميل المواد المتاحة لك.');
   try {
@@ -2546,17 +2625,16 @@ async function loadDatabase() {
     setLessonDataProgress(18, 'جاري التحقق من الاشتراك...', 'نراجع المواد والصفوف المفعلة لهذا الحساب.');
     const hadCachedStatus = applyCachedSubscriptionStatus();
     if (!hadCachedStatus) await refreshSubscriptionStatus();
+    populateTeacherFilters();
     setLessonDataProgress(38, 'تم التحقق من الاشتراك', 'جاري تجهيز طلب تحميل الصفوف والدروس.');
     if (!hasConfirmedLessonAccess()) {
-      lessons = [];
-      attachments = [];
-      teacherSelectOptionsCache['t-grade'] = '';
-      teacherSelectOptionsCache['t-subject'] = '';
-      teacherSelectOptionsCache['t-semester'] = '';
-      teacherSelectOptionsCache['t-unit'] = '';
-      teacherSelectOptionsCache['t-lesson'] = '';
-      populateTeacherFilters();
+      clearTeacherLessonData();
       finishLessonDataProgress('لا توجد مواد مفعلة بعد', 'فعّل اشتراك المادة حتى تظهر الصفوف والدروس هنا.');
+      return;
+    }
+    if (applyCachedTeacherLessonData()) {
+      finishLessonDataProgress('تم عرض بيانات الدرس المحفوظة', 'تم عرض المواد والدروس بسرعة، ويتم تحديثها في الخلفية.');
+      refreshTeacherLessonDataInBackground();
       return;
     }
     setLessonDataProgress(56, 'جاري تحميل الصفوف والمواد...', 'قد يستغرق ظهور البيانات عدة ثوانٍ حسب عدد المواد المشترك بها.');
@@ -2567,33 +2645,10 @@ async function loadDatabase() {
     fillSubscriptionGradeOptions(subscriptionGradeOptions);
     setLessonDataProgress(92, 'جاري عرض القوائم...', 'يتم تجهيز خيارات الصف والمادة والفصل والوحدة والدرس.');
     populateTeacherFilters();
+    cacheTeacherLessonData();
     finishLessonDataProgress('تم تحميل الصفوف والدروس', 'يمكنك الآن اختيار بيانات الدرس ثم توليد التحضير.');
     if (hadCachedStatus) {
-      refreshSubscriptionStatus()
-        .then(async () => {
-          if (!hasConfirmedLessonAccess()) {
-            lessons = [];
-            attachments = [];
-            teacherSelectOptionsCache['t-grade'] = '';
-            teacherSelectOptionsCache['t-subject'] = '';
-            teacherSelectOptionsCache['t-semester'] = '';
-            teacherSelectOptionsCache['t-unit'] = '';
-            teacherSelectOptionsCache['t-lesson'] = '';
-            populateTeacherFilters();
-            return;
-          }
-          const fresh = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
-          lessons = Array.isArray(fresh?.lessons) ? fresh.lessons : [];
-          attachments = Array.isArray(fresh?.attachments) ? fresh.attachments : [];
-          teacherSelectOptionsCache['t-grade'] = '';
-          teacherSelectOptionsCache['t-subject'] = '';
-          teacherSelectOptionsCache['t-semester'] = '';
-          teacherSelectOptionsCache['t-unit'] = '';
-          teacherSelectOptionsCache['t-lesson'] = '';
-          fillSubscriptionGradeOptions(subscriptionGradeOptions);
-          populateTeacherFilters();
-        })
-        .catch(error => console.warn('background subscription refresh failed', error));
+      refreshTeacherLessonDataInBackground();
     }
   } catch (error) {
     failLessonDataProgress(error?.message || 'تعذر تحميل الصفوف والدروس.');
@@ -2634,6 +2689,23 @@ function teacherGradeOptionsFromSubscriptions(items = []) {
     seen.add(key);
     return true;
   });
+}
+
+function teacherSubjectOptionsFromSubscriptions(grade = '', items = []) {
+  const lessonSubjects = uniqueValues(items, 'subject');
+  if (lessonSubjects.length) return lessonSubjects;
+  const activeSubjects = getActiveSubscriptionSubjects()
+    .filter(item => !grade || isSameSubscriptionGrade(item.grade, grade))
+    .map(item => item.subject);
+  if (activeSubjects.length) return uniqueList(activeSubjects);
+  if (grade && isGradeSubscribed(grade) && Array.isArray(D) && D.length) {
+    return uniqueList(D
+      .filter(row => isSameSubscriptionGrade(row["1"], grade))
+      .map(row => row["2"])
+      .filter(Boolean))
+      .sort();
+  }
+  return [];
 }
 
 function applySubscriptionToGrades() {
@@ -2712,7 +2784,7 @@ function populateTeacherFilters(changedId = '') {
 
   const byGrade = all.filter(l => !grade || isSameSubscriptionGrade(l.grade, grade));
   if (!changedId || changedId === 't-grade' || changedId === 't-subject') {
-    subject = setSelectOptions('t-subject', uniqueValues(byGrade, 'subject'), subject);
+    subject = setSelectOptions('t-subject', teacherSubjectOptionsFromSubscriptions(grade, byGrade), subject);
   }
 
   const bySubject = byGrade.filter(l => !subject || isSameSubscriptionSubject(l.subject, subject));
