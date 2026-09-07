@@ -1431,6 +1431,7 @@ let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
 const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
 const MIN_SAVED_PDF_TEXT_LENGTH = 80;
+const MIN_FULL_MATERIAL_TEXT_LENGTH = 20000;
 const MATERIAL_OCR_PAGE_STEP = 1;
 const MATERIAL_OCR_MAX_PAGES = 800;
 const MATERIAL_OCR_CHUNK_TIMEOUT_MS = 95 * 1000;
@@ -2882,6 +2883,10 @@ function hasFullMaterialText(lesson) {
   return lesson?.hasFullMaterialText === true;
 }
 
+function hasReadyMaterialText(lesson) {
+  return hasFullMaterialText(lesson) && Number(lesson?.lessonTextLength || 0) >= MIN_FULL_MATERIAL_TEXT_LENGTH;
+}
+
 function materialBatchKey(lesson) {
   return [
     String(lesson?.grade || '').trim(),
@@ -2903,7 +2908,7 @@ function getMaterialExtractionJobs(limit = 10) {
     seen.add(key);
     const subjectLessons = getSameSubjectLessons(lesson);
     const subjectFiles = getSubjectTableAttachments(lesson).filter(isPdfAttachment);
-    const needsText = subjectLessons.some(item => !hasFullMaterialText(item));
+    const needsText = subjectLessons.some(item => !hasReadyMaterialText(item));
     if (!subjectFiles.length || !needsText) continue;
     jobs.push({
       key,
@@ -3038,15 +3043,15 @@ function renderAttachmentTextLength(list, lessonId = 0) {
   const lesson = lessons.find(item => Number(item.id) === Number(lessonId));
   if (lesson?.hasLessonText || Number(lesson?.lessonTextLength || 0) >= MIN_SAVED_PDF_TEXT_LENGTH) {
     const length = Number(lesson.lessonTextLength || 0);
-    const quality = length >= 1500 ? 'جيد' : (length >= 500 ? 'متوسط' : 'قليل');
-    const color = length >= 1500 ? 'var(--success)' : (length >= 500 ? 'var(--warning)' : 'var(--danger)');
+    const quality = length >= MIN_FULL_MATERIAL_TEXT_LENGTH ? 'جيد' : (length >= 500 ? 'أقل من 20 ألف' : 'قليل');
+    const color = length >= MIN_FULL_MATERIAL_TEXT_LENGTH ? 'var(--success)' : (length >= 500 ? 'var(--warning)' : 'var(--danger)');
     return `<span style="font-size:11px;color:${color};font-weight:700;">نص المادة المخزن للدرس: ${length.toLocaleString('ar-SA')} حرف - ${quality}</span>`;
   }
   const lengths = list.map(att => Number(att?.extractedTextLength || String(att?.extractedText || '').trim().length || 0)).filter(length => length > 0);
   if (!lengths.length) return '<span style="font-size:11px;color:var(--text-muted);">لا يوجد نص محفوظ</span>';
   const total = lengths.reduce((sum, length) => sum + length, 0);
-  const quality = total >= 20000 ? 'جيد' : (total >= MIN_SAVED_PDF_TEXT_LENGTH ? 'قليل' : 'ناقص');
-  const color = total >= 20000 ? 'var(--success)' : (total >= MIN_SAVED_PDF_TEXT_LENGTH ? 'var(--warning)' : 'var(--danger)');
+  const quality = total >= MIN_FULL_MATERIAL_TEXT_LENGTH ? 'جيد' : (total >= MIN_SAVED_PDF_TEXT_LENGTH ? 'قليل' : 'ناقص');
+  const color = total >= MIN_FULL_MATERIAL_TEXT_LENGTH ? 'var(--success)' : (total >= MIN_SAVED_PDF_TEXT_LENGTH ? 'var(--warning)' : 'var(--danger)');
   return `<span style="font-size:11px;color:${color};font-weight:700;">النص: ${total.toLocaleString('ar-SA')} حرف - ${quality}</span>`;
 }
 function renderAttachmentTextStatus(list, lessonId) {
@@ -3060,10 +3065,16 @@ function renderAttachmentTextStatus(list, lessonId) {
       <button type="button" class="tbl-btn tbl-btn-edit js-save-pending-text" data-lesson-id="${Number(lessonId)}">رفع النص الكامل إلى قاعدة البيانات</button>
     </div>`;
   }
-  if (hasFullMaterialText(lesson)) {
+  if (hasReadyMaterialText(lesson)) {
     return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
       <span class="badge badge-green">نص المادة كامل ومحفوظ</span>
       <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">إعادة استخراج مادة الدرس كاملة</button>
+    </div>`;
+  }
+  if (hasFullMaterialText(lesson) && Number(lesson?.lessonTextLength || 0) < MIN_FULL_MATERIAL_TEXT_LENGTH) {
+    return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
+      <span class="badge badge-gray">النص أقل من 20 ألف حرف</span>
+      <button type="button" class="tbl-btn tbl-btn-edit js-extract-lesson-text" data-lesson-id="${Number(lessonId)}" data-force="true">إعادة استخراج المادة كاملة</button>
     </div>`;
   }
   if (lesson?.hasLessonText || Number(lesson?.lessonTextLength || 0) >= MIN_SAVED_PDF_TEXT_LENGTH) {
