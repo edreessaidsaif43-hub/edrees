@@ -1613,6 +1613,9 @@ function formatAdminRequestError(err, context = '') {
   if (lower.includes('file data is missing') || lower.includes('file_data is missing') || lower.includes('missing file data')) {
     return 'تعذر قراءة ملف PDF لأن بيانات الملف لم تصل إلى خدمة OCR. أعد رفع الملف ثم اضغط استخراج مادة الدرس كاملة.';
   }
+  if (lower.includes('content-length') || lower.includes('byte limit') || lower.includes('maximum size supported') || lower.includes('exceeds the maximum size') || message.includes('يتجاوز حد OCR')) {
+    return 'حجم صفحة PDF بعد القص ما زال أكبر من حد خدمة OCR. اضغط استبدال الملف وارفع نسخة PDF مضغوطة أو أوضح لهذه المادة.';
+  }
   if (lower.includes('unauthorized') || lower.includes('invalid api key') || lower.includes('invalid key')) {
     return 'مفتاح OpenRouter غير صالح أو غير مفعل. تحقق من المفتاح ثم أعد المحاولة.';
   }

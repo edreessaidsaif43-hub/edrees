@@ -25,6 +25,8 @@ const OCR_TEXT_MAX_TOKENS = 14000;
 const FULL_ATTACHMENT_PAGE_STEP = 1;
 const FULL_ATTACHMENT_MAX_PAGES = 800;
 const FULL_MATERIAL_TEXT_COMPLETE_MARKER = "[[FULL_MATERIAL_TEXT_COMPLETE]]";
+const OPENROUTER_FILE_PARSER_MAX_BYTES = 5 * 1024 * 1024;
+const OPENROUTER_INLINE_PDF_MAX_BYTES = 3 * 1024 * 1024;
 const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_PDF_MODEL = "google/gemini-2.5-flash";
 const OPENROUTER_FIXED_API_KEY = "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";
@@ -789,7 +791,20 @@ async function fetchBlobBuffer(url, timeoutMs = 25000) {
 async function openRouterPdfPart(attachment, options = {}) {
   const url = absolutePublicUrl(attachment?.filePath || "");
   const fileName = attachment?.fileName || "lesson.pdf";
-  const fileSize = Number(attachment?.fileSize || 0);
+  const inlineBuffer = Buffer.isBuffer(options.pdfBuffer) && options.pdfBuffer.length ? options.pdfBuffer : null;
+  const fileSize = inlineBuffer ? inlineBuffer.length : Number(attachment?.fileSize || 0);
+  if (inlineBuffer) {
+    if (inlineBuffer.length > OPENROUTER_INLINE_PDF_MAX_BYTES) {
+      throw new Error(`حجم الصفحة بعد قص PDF هو ${inlineBuffer.length} بايت ويتجاوز حد OCR ${OPENROUTER_FILE_PARSER_MAX_BYTES} بايت.`);
+    }
+    return {
+      type: "file",
+      file: {
+        filename: fileName,
+        file_data: `data:application/pdf;base64,${inlineBuffer.toString("base64")}`
+      }
+    };
+  }
   if (!url) throw new Error("رابط ملف PDF غير موجود في قاعدة البيانات.");
   if (options.forceBase64 && fileSize > MAX_DIRECT_OCR_SIZE) {
     throw new Error("تعذر إرسال PDF كبيانات مباشرة لأن حجم الملف كبير جدًا. أعد رفع الملف أو استخدم ملفًا أصغر.");
@@ -843,6 +858,37 @@ async function getPdfPageCountWithPdfParse(buffer) {
   } catch {
     return 0;
   }
+}
+
+async function createPdfPageRangeBuffer(sourceBuffer, pageStart, pageEnd) {
+  if (!Buffer.isBuffer(sourceBuffer) || !sourceBuffer.length) return Buffer.alloc(0);
+  const { PDFDocument } = await import("pdf-lib");
+  const sourcePdf = await PDFDocument.load(sourceBuffer, { ignoreEncryption: true });
+  const totalPages = sourcePdf.getPageCount();
+  const start = Math.max(1, Math.min(totalPages, Number(pageStart || 1)));
+  const end = Math.max(start, Math.min(totalPages, Number(pageEnd || start)));
+  const outputPdf = await PDFDocument.create();
+  const indexes = [];
+  for (let page = start; page <= end; page++) indexes.push(page - 1);
+  const copiedPages = await outputPdf.copyPages(sourcePdf, indexes);
+  copiedPages.forEach((page) => outputPdf.addPage(page));
+  return Buffer.from(await outputPdf.save({ useObjectStreams: true }));
+}
+
+async function createPdfPageRangeAttachment(attachment, pageStart, pageEnd) {
+  const fileSize = Number(attachment?.fileSize || 0);
+  const buffer = await fetchBlobBuffer(attachment.filePath, fileSize > INLINE_GEMINI_LIMIT ? LARGE_FILE_TRANSFER_TIMEOUT_MS : 25000);
+  const pageBuffer = await createPdfPageRangeBuffer(buffer, pageStart, pageEnd);
+  if (!pageBuffer.length) throw new Error("تعذر قص صفحة PDF قبل إرسالها إلى OCR.");
+  if (pageBuffer.length > OPENROUTER_INLINE_PDF_MAX_BYTES) {
+    throw new Error(`حجم الصفحة بعد قص PDF هو ${pageBuffer.length} بايت ويتجاوز حد OCR ${OPENROUTER_FILE_PARSER_MAX_BYTES} بايت.`);
+  }
+  return {
+    ...attachment,
+    fileName: `${String(attachment?.fileName || "lesson.pdf").replace(/\.pdf$/i, "")}-pages-${pageStart}-${pageEnd}.pdf`,
+    fileSize: pageBuffer.length,
+    pageBuffer
+  };
 }
 
 async function extractPdfTextFromAttachmentLocal(attachment) {
@@ -1071,6 +1117,9 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
   const pageInstruction = pageStart && pageEnd
     ? `استخرج الصفحات من ${pageStart} إلى ${pageEnd} فقط، وإذا وصلت إلى نهاية المستند فاكتب END_OF_DOCUMENT.`
     : "استخرج كل الصفحات من البداية إلى النهاية.";
+  const pdfAttachment = pageStart && pageEnd && isPdfAttachment(attachment)
+    ? await createPdfPageRangeAttachment(attachment, pageStart, pageEnd)
+    : attachment;
   const targetInstruction = lessonTitle
     ? [
         "المطلوب استخراج نص درس واحد فقط من PDF وليس المرفق كاملًا.",
@@ -1102,7 +1151,7 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
           : "في نهاية النص اكتب السطر التالي حرفيًا: END_OF_DOCUMENT"
       ].filter(Boolean).join("\n")
     },
-    await openRouterPdfPart(attachment)
+    await openRouterPdfPart(pdfAttachment, pdfAttachment.pageBuffer ? { pdfBuffer: pdfAttachment.pageBuffer } : {})
   ];
   let lastError = null;
   const rangeMode = pageStart && pageEnd;
@@ -1143,7 +1192,7 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
                 "في نهاية النص اكتب السطر التالي حرفيًا: END_OF_DOCUMENT"
               ].filter(Boolean).join("\n")
             },
-            await openRouterPdfPart(attachment)
+            await openRouterPdfPart(pdfAttachment, pdfAttachment.pageBuffer ? { pdfBuffer: pdfAttachment.pageBuffer } : {})
           ];
           const relaxedText = await requestOpenRouterText({
             apiKey,
@@ -1163,7 +1212,10 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
     } catch (err) {
       if (isMissingFileDataError(err)) {
         try {
-          const forcedContent = [content[0], await openRouterPdfPart(attachment, { forceBase64: true })];
+          const forcedContent = [
+            content[0],
+            await openRouterPdfPart(pdfAttachment, pdfAttachment.pageBuffer ? { pdfBuffer: pdfAttachment.pageBuffer } : { forceBase64: true })
+          ];
           const forcedText = await requestOpenRouterText({
             apiKey,
             model: strategy.model,
