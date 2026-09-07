@@ -1431,6 +1431,9 @@ let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
 const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
 const MIN_SAVED_PDF_TEXT_LENGTH = 80;
+const MATERIAL_OCR_PAGE_STEP = 4;
+const MATERIAL_OCR_MAX_PAGES = 800;
+const MATERIAL_OCR_CHUNK_TIMEOUT_MS = 75 * 1000;
 let singleConvertedUpload = null;
 let singleConvertedFileKey = '';
 const pendingAttachmentTexts = new Map();
@@ -2913,6 +2916,80 @@ function chunkList(list = [], size = 10) {
   return chunks;
 }
 
+function isLongOcrTimeoutError(err) {
+  const message = String(err?.message || err || '').toLowerCase();
+  return message === 'timeout' ||
+    message.includes('timeout') ||
+    message.includes('مهلة') ||
+    message.includes('تعذر الاتصال بقاعدة البيانات') ||
+    message.includes('failed to fetch') ||
+    message.includes('networkerror') ||
+    message.includes('load failed');
+}
+
+async function requestMaterialTextSave(job, extraBody = {}, timeoutMs = MATERIAL_OCR_CHUNK_TIMEOUT_MS) {
+  return await apiRequest('/api/attachments/preview-existing-text', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    timeoutMs,
+    body: JSON.stringify({
+      attachmentIds: job.attachmentIds.slice(0, 10),
+      fullAttachment: true,
+      targetOnly: false,
+      saveToLessonId: Number(job.lesson?.id || 0),
+      saveToLessonIds: job.lessonIds,
+      ...extraBody
+    })
+  });
+}
+
+async function extractMaterialTextByPageChunks(job) {
+  let savedLessonCount = 0;
+  let savedTextLength = 0;
+  let savedAnyText = false;
+  let appendToLessonText = false;
+  const attachmentIds = job.attachmentIds.slice(0, 10);
+  for (let fileIndex = 0; fileIndex < attachmentIds.length; fileIndex++) {
+    const attachmentId = attachmentIds[fileIndex];
+    let pageStart = 1;
+    let knownPageCount = 0;
+    while (pageStart <= (knownPageCount || MATERIAL_OCR_MAX_PAGES)) {
+      const maxPages = knownPageCount || MATERIAL_OCR_MAX_PAGES;
+      const pageEnd = Math.min(maxPages, pageStart + MATERIAL_OCR_PAGE_STEP - 1);
+      const roughPercent = Math.min(95, 12 + ((pageStart - 1) / maxPages) * 83);
+      updateMaterialBatchProgress(
+        job.key,
+        roughPercent,
+        `مهلة الملف طويلة؛ جاري تحويل الصفحات ${pageStart}-${pageEnd} وحفظها تدريجيًا...`,
+        'primary'
+      );
+      const data = await requestMaterialTextSave(job, {
+        attachmentIds: [attachmentId],
+        pageStart,
+        pageEnd,
+        includePageCount: !knownPageCount,
+        appendToLessonText
+      });
+      const result = (data.results || [])[0] || {};
+      if (!knownPageCount && Number(result.pageCount || 0) > 0) {
+        knownPageCount = Math.min(MATERIAL_OCR_MAX_PAGES, Number(result.pageCount || 0));
+      }
+      if (data.saved) {
+        savedAnyText = true;
+        appendToLessonText = true;
+        savedLessonCount = Math.max(savedLessonCount, Number(data.savedLessonCount || 0));
+        savedTextLength += Number(data.savedTextLength || result.textLength || 0);
+      }
+      if (result.status === 'error') throw new Error(result.message || 'تعذر استخراج جزء من PDF.');
+      if (result.status === 'end') break;
+      if (!data.saved && pageStart > 1) break;
+      pageStart += MATERIAL_OCR_PAGE_STEP;
+    }
+    appendToLessonText = savedAnyText;
+  }
+  return { saved: savedAnyText, savedLessonCount, savedTextLength };
+}
+
 function renderAttachmentFileNames(list) {
   if (!list.length) return '<span style="color:var(--text-muted);font-size:11px;">لا يوجد</span>';
   return list.map(att => {
@@ -3101,18 +3178,20 @@ async function extractStoredMaterialTexts() {
       let ticker = null;
       try {
         ticker = startMaterialProgressTicker(job);
-        const data = await apiRequest('/api/attachments/preview-existing-text', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          timeoutMs: 8 * 60 * 1000,
-          body: JSON.stringify({
-            attachmentIds: job.attachmentIds.slice(0, 10),
-            fullAttachment: true,
-            targetOnly: false,
-            saveToLessonId: Number(job.lesson?.id || 0),
-            saveToLessonIds: job.lessonIds
-          })
-        });
+        let data;
+        try {
+          data = await requestMaterialTextSave(job, { localPdfTextOnly: true });
+        } catch (err) {
+          if (!isLongOcrTimeoutError(err)) throw err;
+          if (ticker) clearInterval(ticker);
+          ticker = null;
+          data = await extractMaterialTextByPageChunks(job);
+        }
+        if (!data.saved && (data.results || []).some(item => item.status === 'needs_pdf_generation')) {
+          if (ticker) clearInterval(ticker);
+          ticker = null;
+          data = await extractMaterialTextByPageChunks(job);
+        }
         if (ticker) clearInterval(ticker);
         const savedCount = Number(data.savedLessonCount || 0);
         if (data.saved) {

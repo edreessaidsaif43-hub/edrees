@@ -22,7 +22,7 @@ const MIN_SAVED_PDF_TEXT_LENGTH = 80;
 const MAX_ATTACHMENT_TEXT_BATCH = 10;
 const DATA_LIST_DEFAULT_LIMIT = 50000;
 const OCR_TEXT_MAX_TOKENS = 14000;
-const FULL_ATTACHMENT_PAGE_STEP = 8;
+const FULL_ATTACHMENT_PAGE_STEP = 4;
 const FULL_ATTACHMENT_MAX_PAGES = 800;
 const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_PDF_MODEL = "google/gemini-2.5-flash";
@@ -834,6 +834,15 @@ async function getPdfPageCountWithPdfParse(buffer) {
   }
 }
 
+async function extractPdfTextFromAttachmentLocal(attachment) {
+  const fileSize = Number(attachment?.fileSize || 0);
+  if (fileSize > MAX_DIRECT_OCR_SIZE) return "";
+  const buffer = await fetchBlobBuffer(attachment.filePath, fileSize > INLINE_GEMINI_LIMIT ? LARGE_FILE_TRANSFER_TIMEOUT_MS : 25000);
+  const parsedText = await extractPdfTextWithPdfParse(buffer);
+  if (hasUsableExtractedText(parsedText)) return parsedText;
+  return extractPdfTextLocal(buffer);
+}
+
 function parseJsonObject(text) {
   const clean = String(text || "").replace(/```json|```/g, "").trim();
   if (!clean) return null;
@@ -1095,8 +1104,10 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
         temperature: 0,
         pdfEngine: strategy.engine
       });
+      const ended = String(text || "").includes("END_OF_DOCUMENT");
       const cleanText = normalizeExtractedText(text.replace(/END_OF_DOCUMENT|LESSON_NOT_FOUND/g, ""));
-      if (hasUsableExtractedText(cleanText)) return cleanText;
+      if (hasUsableExtractedText(cleanText)) return ended ? `${cleanText}\n\nEND_OF_DOCUMENT` : cleanText;
+      if (ended) return "END_OF_DOCUMENT";
       if (lessonTitle) {
         try {
           const relaxedContent = [
@@ -1147,8 +1158,10 @@ async function extractFullAttachmentTextWithOpenRouter(attachment, pageStart = 0
             temperature: 0,
             pdfEngine: strategy.engine
           });
+          const forcedEnded = String(forcedText || "").includes("END_OF_DOCUMENT");
           const forcedCleanText = normalizeExtractedText(String(forcedText || "").replace(/END_OF_DOCUMENT|LESSON_NOT_FOUND/g, ""));
-          if (hasUsableExtractedText(forcedCleanText)) return forcedCleanText;
+          if (hasUsableExtractedText(forcedCleanText)) return forcedEnded ? `${forcedCleanText}\n\nEND_OF_DOCUMENT` : forcedCleanText;
+          if (forcedEnded) return "END_OF_DOCUMENT";
           lastError = "تعذر قراءة PDF بعد إعادة إرساله كبيانات مباشرة.";
           continue;
         } catch (forceErr) {
@@ -1694,6 +1707,7 @@ async function previewAttachmentText(req, res) {
       .filter((id) => Number.isFinite(id) && id > 0)
   ));
   if (saveToLessonId > 0 && !saveToLessonIds.includes(saveToLessonId)) saveToLessonIds.push(saveToLessonId);
+  const appendToLessonText = body.appendToLessonText === true;
   const lessonTarget = !fullAttachment && body.lesson && typeof body.lesson === "object" ? {
     title: cleanDbText(body.lesson.title || "", 300),
     unit: cleanDbText(body.lesson.unit || "", 300),
@@ -1724,18 +1738,35 @@ async function previewAttachmentText(req, res) {
       AND file_path <> ''
     ORDER BY created_at ASC, id ASC;
   `;
-  const pageStart = Math.max(1, Number(body.pageStart || 0));
-  const pageEnd = Math.max(pageStart, Number(body.pageEnd || 0));
+  const rawPageStart = Number(body.pageStart || 0);
+  const rawPageEnd = Number(body.pageEnd || 0);
+  const hasPageRange = rawPageStart > 0 && rawPageEnd > 0;
+  const pageStart = hasPageRange ? Math.max(1, rawPageStart) : 0;
+  const pageEnd = hasPageRange ? Math.max(pageStart, rawPageEnd) : 0;
+  const includePageCount = body.includePageCount === true;
+  const localPdfTextOnly = body.localPdfTextOnly === true;
   const results = [];
   const saveTextParts = [];
   for (const row of rows || []) {
     const attachment = attachmentRow(row);
     try {
-      const text = pageStart && pageEnd
-        ? await extractFullAttachmentTextStrong(attachment, pageStart, pageEnd, lessonTarget)
-        : isPdfAttachment(attachment)
-          ? await extractFullAttachmentTextStrong(attachment, 0, 0, lessonTarget)
-          : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
+      let pageCount = 0;
+      if (includePageCount && isPdfAttachment(attachment)) {
+        try {
+          const fileSize = Number(attachment.fileSize || 0);
+          if (!fileSize || fileSize <= MAX_DIRECT_OCR_SIZE) {
+            const buffer = await fetchBlobBuffer(attachment.filePath, fileSize > INLINE_GEMINI_LIMIT ? LARGE_FILE_TRANSFER_TIMEOUT_MS : 25000);
+            pageCount = await getPdfPageCountWithPdfParse(buffer);
+          }
+        } catch {}
+      }
+      const text = localPdfTextOnly && isPdfAttachment(attachment) && !hasPageRange
+        ? await extractPdfTextFromAttachmentLocal(attachment)
+        : hasPageRange
+          ? await extractFullAttachmentTextStrong(attachment, pageStart, pageEnd, lessonTarget)
+          : isPdfAttachment(attachment)
+            ? await extractFullAttachmentTextStrong(attachment, 0, 0, lessonTarget)
+            : await extractText(Buffer.alloc(0), attachment.fileName, attachment.fileType, attachment.fileSize, {}, attachment.filePath);
       const ended = String(text || "").includes("END_OF_DOCUMENT");
       const cleanText = normalizeExtractedText(String(text || "").replace(/END_OF_DOCUMENT|LESSON_NOT_FOUND/g, ""));
       if (saveToLessonIds.length && hasUsableExtractedText(cleanText)) {
@@ -1748,7 +1779,8 @@ async function previewAttachmentText(req, res) {
           ? "ready_to_save"
           : "needs_pdf_generation",
         extractedText: saveToLessonIds.length ? "" : (hasUsableExtractedText(cleanText) ? cleanText : ""),
-        textLength: cleanText.length
+        textLength: cleanText.length,
+        pageCount
       });
     } catch (err) {
       const message = String(err?.message || err || "تعذر استخراج صفحات PDF.");
@@ -1767,14 +1799,32 @@ async function previewAttachmentText(req, res) {
   let savedLessonCount = 0;
   if (saveToLessonIds.length && saveTextParts.length) {
     const combinedText = normalizeExtractedText(saveTextParts.join("\n\n"));
-    const lessonRows = await sql`
-      UPDATE ai_lessons
-      SET lesson_text = ${combinedText}
-      WHERE id IN (
-        SELECT jsonb_array_elements_text(${JSON.stringify(saveToLessonIds)}::jsonb)::bigint
-      )
-      RETURNING id;
-    `;
+    const lessonRows = appendToLessonText
+      ? await sql`
+        UPDATE ai_lessons
+        SET lesson_text = btrim(
+          CASE
+            WHEN btrim(COALESCE(lesson_text, '')) = '' THEN ${combinedText}
+            ELSE COALESCE(lesson_text, '') || E'\n\n' || ${combinedText}
+          END
+        )
+        WHERE id IN (
+          SELECT jsonb_array_elements_text(${JSON.stringify(saveToLessonIds)}::jsonb)::bigint
+        )
+          AND (
+            btrim(COALESCE(lesson_text, '')) = ''
+            OR position(${combinedText} in COALESCE(lesson_text, '')) = 0
+          )
+        RETURNING id;
+      `
+      : await sql`
+        UPDATE ai_lessons
+        SET lesson_text = ${combinedText}
+        WHERE id IN (
+          SELECT jsonb_array_elements_text(${JSON.stringify(saveToLessonIds)}::jsonb)::bigint
+        )
+        RETURNING id;
+      `;
     savedLessonCount = Array.isArray(lessonRows) ? lessonRows.length : 0;
     saved = savedLessonCount > 0;
     savedTextLength = combinedText.length;
