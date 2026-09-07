@@ -1437,6 +1437,9 @@ if (window.location.protocol === 'file:') {
 let subscriptionState = { loaded: false, activeGrades: [], activeSubjects: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
 let subscriptionSubjectSelections = [];
 let subscriptionGradeOptions = [];
+let subscriptionCatalogLessons = [];
+let subscriptionCatalogLoaded = false;
+let subscriptionCatalogPromise = null;
 const SUBSCRIPTION_STATUS_CACHE_KEY = 'aiSubscriptionStatusCache';
 const SUBSCRIPTION_STATUS_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 
@@ -1753,6 +1756,46 @@ function getSelectedSubscriptionSubjects() {
   return Array.isArray(subscriptionSubjectSelections) ? [...subscriptionSubjectSelections] : [];
 }
 
+async function loadSubscriptionCatalog() {
+  if (subscriptionCatalogLoaded) return subscriptionCatalogLessons;
+  if (subscriptionCatalogPromise) return subscriptionCatalogPromise;
+  subscriptionCatalogPromise = apiRequest('/api/lessons', {
+    params: { includeText: '0', includeAttachments: '0', activeOnly: '1', limit: '50000' }
+  })
+    .then((data) => {
+      subscriptionCatalogLessons = Array.isArray(data?.lessons) ? data.lessons : [];
+      subscriptionCatalogLoaded = true;
+      subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(subscriptionCatalogLessons, 'grade'));
+      fillSubscriptionGradeOptions(subscriptionGradeOptions);
+      return subscriptionCatalogLessons;
+    })
+    .catch((error) => {
+      console.warn('subscription catalog failed', error);
+      subscriptionCatalogLessons = [];
+      subscriptionCatalogLoaded = true;
+      fillSubscriptionSubjectOptions();
+      return subscriptionCatalogLessons;
+    })
+    .finally(() => {
+      subscriptionCatalogPromise = null;
+    });
+  return subscriptionCatalogPromise;
+}
+
+function showSubscriptionSubjectsLoading(message = 'جاري تحميل مواد هذا الصف...') {
+  const select = document.getElementById('subscription-subject');
+  if (!select) return;
+  const { picker } = ensureSubscriptionSubjectPicker(select);
+  select.innerHTML = '';
+  picker.innerHTML = '';
+  const empty = document.createElement('div');
+  empty.className = 'subscription-subject-empty';
+  empty.textContent = message;
+  picker.appendChild(empty);
+  renderSelectedSubscriptionSubjects();
+  updateSubscriptionAmount();
+}
+
 function updateSubscriptionAmount() {
   const box = document.getElementById('subscription-amount');
   if (!box) return;
@@ -1764,8 +1807,11 @@ function updateSubscriptionAmount() {
 
 function getSubscriptionSubjectsForGrade(grade) {
   if (!grade) return [];
-  const rows = typeof activeLessons === 'function'
-    ? activeLessons().map(item => ({ grade: item.grade, subject: item.subject }))
+  const sourceLessons = subscriptionCatalogLessons.length
+    ? subscriptionCatalogLessons
+    : (typeof activeLessons === 'function' ? activeLessons() : []);
+  const rows = sourceLessons.length
+    ? sourceLessons.map(item => ({ grade: item.grade, subject: item.subject }))
     : (Array.isArray(D) ? D.map(row => ({ grade: row["1"], subject: row["2"] })) : []);
   const activeKeys = new Set(getActiveSubscriptionSubjects().map(item => subscriptionSubjectKey(item.grade, item.subject)));
   const seen = new Set();
@@ -1819,6 +1865,11 @@ function fillSubscriptionSubjectOptions() {
   const select = document.getElementById('subscription-subject');
   if (!select) return;
   const grade = getSelectedSubscriptionGrade();
+  if (grade && !subscriptionCatalogLoaded && !subscriptionCatalogLessons.length) {
+    showSubscriptionSubjectsLoading('جاري تحميل المواد غير المشترك بها لهذا الصف...');
+    loadSubscriptionCatalog().then(() => fillSubscriptionSubjectOptions());
+    return;
+  }
   const subjects = getSubscriptionSubjectsForGrade(grade);
   const { picker } = ensureSubscriptionSubjectPicker(select);
   select.innerHTML = '';
@@ -2329,6 +2380,7 @@ async function loadDatabase() {
   try {
     fillSubscriptionGradeOptions(subscriptionGradeOptions);
     populateTeacherFilters();
+    loadSubscriptionCatalog();
     setLessonDataProgress(18, 'جاري التحقق من الاشتراك...', 'نراجع المواد والصفوف المفعلة لهذا الحساب.');
     const hadCachedStatus = applyCachedSubscriptionStatus();
     if (!hadCachedStatus) await refreshSubscriptionStatus();
@@ -2336,7 +2388,6 @@ async function loadDatabase() {
     if (!hasConfirmedLessonAccess()) {
       lessons = [];
       attachments = [];
-      subscriptionGradeOptions = [];
       teacherSelectOptionsCache['t-grade'] = '';
       teacherSelectOptionsCache['t-subject'] = '';
       teacherSelectOptionsCache['t-semester'] = '';
@@ -2351,7 +2402,6 @@ async function loadDatabase() {
     setLessonDataProgress(78, 'تم استلام بيانات الدروس', 'جاري ترتيب الصفوف والمواد والوحدات.');
     lessons = Array.isArray(data?.lessons) ? data.lessons : [];
     attachments = Array.isArray(data?.attachments) ? data.attachments : [];
-    subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(activeLessons(), 'grade'));
     fillSubscriptionGradeOptions(subscriptionGradeOptions);
     setLessonDataProgress(92, 'جاري عرض القوائم...', 'يتم تجهيز خيارات الصف والمادة والفصل والوحدة والدرس.');
     populateTeacherFilters();
@@ -2362,7 +2412,6 @@ async function loadDatabase() {
           if (!hasConfirmedLessonAccess()) {
             lessons = [];
             attachments = [];
-            subscriptionGradeOptions = [];
             teacherSelectOptionsCache['t-grade'] = '';
             teacherSelectOptionsCache['t-subject'] = '';
             teacherSelectOptionsCache['t-semester'] = '';
@@ -2374,7 +2423,6 @@ async function loadDatabase() {
           const fresh = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
           lessons = Array.isArray(fresh?.lessons) ? fresh.lessons : [];
           attachments = Array.isArray(fresh?.attachments) ? fresh.attachments : [];
-          subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(activeLessons(), 'grade'));
           teacherSelectOptionsCache['t-grade'] = '';
           teacherSelectOptionsCache['t-subject'] = '';
           teacherSelectOptionsCache['t-semester'] = '';
@@ -2427,7 +2475,9 @@ function teacherGradeOptionsFromSubscriptions(items = []) {
 }
 
 function applySubscriptionToGrades() {
-  subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(activeLessons(), 'grade'));
+  if (subscriptionCatalogLessons.length) {
+    subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(subscriptionCatalogLessons, 'grade'));
+  }
   fillSubscriptionGradeOptions(subscriptionGradeOptions);
   populateTeacherFilters();
 }
