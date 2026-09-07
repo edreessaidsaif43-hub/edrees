@@ -1468,6 +1468,9 @@ const API_BASE = '/api/ai';
 let editingId = null;
 let addingLinkedSourceId = null;
 let selectedLessonsGradePage = '';
+let adminGradePages = [];
+let adminStats = null;
+let loadingGradePage = '';
 let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
 const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
@@ -1798,12 +1801,13 @@ function formatUploadError(err) {
 }
 
 async function loadDatabase() {
-  const data = await apiRequest('/api/lessons', { params: { includeText: '0', limit: '50000' } });
-  lessons = Array.isArray(data?.lessons) ? data.lessons : [];
-  attachments = Array.isArray(data?.attachments) ? data.attachments : [];
+  const data = await apiRequest('/api/lessons', { params: { gradeCatalog: '1', activeOnly: '0' } });
+  adminGradePages = Array.isArray(data?.grades) ? data.grades : [];
+  adminStats = data?.stats || null;
   updateStats();
   populateTeacherFilters();
   renderTable();
+  if (selectedLessonsGradePage) await loadLessonsForGrade(selectedLessonsGradePage);
 }
 
 function activeLessons() {
@@ -3488,6 +3492,12 @@ function gradePageOrderValue(grade) {
 }
 
 function getLessonGradePages() {
+  if (Array.isArray(adminGradePages) && adminGradePages.length) {
+    return adminGradePages
+      .map(item => String(item.grade || '').trim())
+      .filter(Boolean)
+      .sort((a, b) => gradePageOrderValue(a) - gradePageOrderValue(b) || a.localeCompare(b, 'ar'));
+  }
   const seen = new Set();
   return lessons
     .map(item => String(item.grade || '').trim())
@@ -3502,8 +3512,8 @@ function getLessonGradePages() {
 }
 
 function setLessonsGradePage(grade) {
-  selectedLessonsGradePage = grade || '';
-  renderTable();
+  if (!grade) return;
+  loadLessonsForGrade(grade);
 }
 
 function renderGradePages(grades) {
@@ -3516,32 +3526,67 @@ function renderGradePages(grades) {
   }
   wrap.style.display = 'flex';
   wrap.innerHTML = grades.map((grade) => {
-    const count = lessons.filter(item => normalizeGradePageName(item.grade) === normalizeGradePageName(grade)).length;
+    const fromCatalog = (adminGradePages || []).find(item => normalizeGradePageName(item.grade) === normalizeGradePageName(grade));
+    const count = fromCatalog ? Number(fromCatalog.count || 0) : lessons.filter(item => normalizeGradePageName(item.grade) === normalizeGradePageName(grade)).length;
     const active = normalizeGradePageName(grade) === normalizeGradePageName(selectedLessonsGradePage);
-    return `<button type="button" class="grade-page-btn ${active ? 'active' : ''}" data-grade="${escapeHtml(grade)}" onclick="setLessonsGradePage(this.dataset.grade)">${escapeHtml(grade)} <span class="grade-page-count">${count}</span></button>`;
+    const loading = normalizeGradePageName(grade) === normalizeGradePageName(loadingGradePage);
+    return `<button type="button" class="grade-page-btn ${active ? 'active' : ''}" data-grade="${escapeHtml(grade)}" onclick="setLessonsGradePage(this.dataset.grade)">${loading ? '⏳ ' : ''}${escapeHtml(grade)} <span class="grade-page-count">${count}</span></button>`;
   }).join('');
+}
+
+async function loadLessonsForGrade(grade) {
+  const normalizedGrade = normalizeGradePageName(grade);
+  if (!normalizedGrade) return;
+  loadingGradePage = grade;
+  renderGradePages(getLessonGradePages());
+  try {
+    const data = await apiRequest('/api/lessons', {
+      params: {
+        includeText: '0',
+        includeAttachments: '1',
+        limit: '50000',
+        grades: JSON.stringify([grade])
+      }
+    });
+    lessons = Array.isArray(data?.lessons) ? data.lessons : [];
+    attachments = Array.isArray(data?.attachments) ? data.attachments : [];
+    selectedLessonsGradePage = grade;
+    populateTeacherFilters();
+    renderTable();
+  } catch (error) {
+    showToast(error.message || 'تعذر تحميل دروس الصف', true);
+  } finally {
+    loadingGradePage = '';
+    renderGradePages(getLessonGradePages());
+  }
 }
 
 function renderTable() {
   const tbody = document.getElementById('lessons-tbody');
   const query = (document.getElementById('search-lessons')?.value || '').toLowerCase();
   const grades = getLessonGradePages();
-  if (!selectedLessonsGradePage || !grades.some(grade => normalizeGradePageName(grade) === normalizeGradePageName(selectedLessonsGradePage))) {
-    selectedLessonsGradePage = grades[0] || '';
+  if (selectedLessonsGradePage && !grades.some(grade => normalizeGradePageName(grade) === normalizeGradePageName(selectedLessonsGradePage))) {
+    selectedLessonsGradePage = '';
   }
   renderGradePages(grades);
   const selectedGradeKey = normalizeGradePageName(selectedLessonsGradePage);
-  const filtered = lessons.filter(l => {
+  const filtered = selectedGradeKey ? lessons.filter(l => {
     const inSelectedGrade = !selectedGradeKey || normalizeGradePageName(l.grade) === selectedGradeKey;
     const matchesQuery = !query || String(l.title || '').toLowerCase().includes(query) ||
       String(l.grade || '').toLowerCase().includes(query) ||
       String(l.subject || '').toLowerCase().includes(query) ||
       String(l.unit || '').toLowerCase().includes(query);
     return inSelectedGrade && matchesQuery;
-  });
+  }) : [];
 
   if (filtered.length === 0) {
     tbody.innerHTML = '';
+    const empty = document.getElementById('no-lessons');
+    if (empty) {
+      empty.innerHTML = selectedGradeKey
+        ? '<div style="font-size:48px;margin-bottom:1rem;">📭</div><div style="font-size:15px;font-weight:600;">لا توجد دروس في هذا الصف</div><div style="font-size:13px;margin-top:4px;">جرّب صفًا آخر أو أضف دروسًا جديدة</div>'
+        : '<div style="font-size:48px;margin-bottom:1rem;">👆</div><div style="font-size:15px;font-weight:600;">اختر الصف من الأعلى</div><div style="font-size:13px;margin-top:4px;">سيتم تحميل دروس الصف فقط عند الضغط عليه</div>';
+    }
     document.getElementById('no-lessons').style.display = 'block';
     return;
   }
@@ -3723,12 +3768,12 @@ async function deleteLesson(id) {
 
 function updateStats() {
   const convertedCount = attachments.filter(hasUsableAttachmentText).length;
-  document.getElementById('stat-lessons').textContent = lessons.length;
-  document.getElementById('stat-attachments').textContent = attachments.length;
-  document.getElementById('stat-text-ready').textContent = convertedCount;
-  document.getElementById('stat-text-missing').textContent = Math.max(0, attachments.length - convertedCount);
-  document.getElementById('stat-active').textContent = lessons.filter(l => l.status === 'active').length;
-  document.getElementById('stat-inactive').textContent = lessons.filter(l => l.status !== 'active').length;
+  document.getElementById('stat-lessons').textContent = adminStats ? Number(adminStats.lessons || 0) : lessons.length;
+  document.getElementById('stat-attachments').textContent = adminStats ? Number(adminStats.attachments || 0) : attachments.length;
+  document.getElementById('stat-text-ready').textContent = adminStats ? Number(adminStats.textReady || 0) : convertedCount;
+  document.getElementById('stat-text-missing').textContent = adminStats ? Number(adminStats.textMissing || 0) : Math.max(0, attachments.length - convertedCount);
+  document.getElementById('stat-active').textContent = adminStats ? Number(adminStats.active || 0) : lessons.filter(l => l.status === 'active').length;
+  document.getElementById('stat-inactive').textContent = adminStats ? Number(adminStats.inactive || 0) : lessons.filter(l => l.status !== 'active').length;
 }
 
 async function exportData() {

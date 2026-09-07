@@ -600,8 +600,56 @@ async function listData(req, res) {
   const listLimit = Math.max(1, Math.min(DATA_LIST_DEFAULT_LIMIT, Number(req?.query?.limit || DATA_LIST_DEFAULT_LIMIT)));
   const gradeFiltersJson = JSON.stringify(parseQueryList(req?.query?.grades));
   const subjectFiltersJson = JSON.stringify(parseQueryList(req?.query?.subjects));
-  const attachmentIdFiltersJson = JSON.stringify(parseQueryIds(req?.query?.attachmentIds));
+  const attachmentIdFilters = parseQueryIds(req?.query?.attachmentIds);
+  let attachmentIdFiltersJson = JSON.stringify(attachmentIdFilters);
   const activeOnly = String(req?.query?.activeOnly || "0") === "1";
+  const gradeCatalogOnly = String(req?.query?.gradeCatalog || "0") === "1";
+  if (gradeCatalogOnly) {
+    const gradeRows = await sql`
+      SELECT
+        grade,
+        COUNT(*)::int AS lesson_count,
+        COUNT(*) FILTER (WHERE status = 'active')::int AS active_count,
+        COUNT(*) FILTER (WHERE status <> 'active')::int AS inactive_count
+      FROM ai_lessons
+      WHERE btrim(COALESCE(grade, '')) <> ''
+        AND (${activeOnly} = false OR status = 'active')
+      GROUP BY grade
+      ORDER BY grade;
+    `;
+    const statRows = await sql`
+      SELECT
+        (SELECT COUNT(*)::int FROM ai_lessons) AS lesson_count,
+        (SELECT COUNT(*)::int FROM ai_lessons WHERE status = 'active') AS active_count,
+        (SELECT COUNT(*)::int FROM ai_lessons WHERE status <> 'active') AS inactive_count,
+        (SELECT COUNT(*)::int FROM ai_attachments) AS attachment_count,
+        (
+          SELECT COUNT(*)::int
+          FROM ai_attachments
+          WHERE char_length(btrim(COALESCE(extracted_text, ''))) >= ${MIN_SAVED_PDF_TEXT_LENGTH}
+            AND COALESCE(extracted_text, '') NOT LIKE '%[PDF saved:%'
+            AND COALESCE(extracted_text, '') NOT LIKE '%The file was saved, but text extraction did not return readable text%'
+            AND COALESCE(extracted_text, '') NOT LIKE '%النص سيُستخرج عند التوليد%'
+        ) AS text_ready_count;
+    `;
+    const stats = statRows?.[0] || {};
+    return send(res, 200, {
+      grades: gradeRows.map((row) => ({
+        grade: row.grade || "",
+        count: Number(row.lesson_count || 0),
+        active: Number(row.active_count || 0),
+        inactive: Number(row.inactive_count || 0)
+      })),
+      stats: {
+        lessons: Number(stats.lesson_count || 0),
+        active: Number(stats.active_count || 0),
+        inactive: Number(stats.inactive_count || 0),
+        attachments: Number(stats.attachment_count || 0),
+        textReady: Number(stats.text_ready_count || 0),
+        textMissing: Math.max(0, Number(stats.attachment_count || 0) - Number(stats.text_ready_count || 0))
+      }
+    });
+  }
   const subjectCatalogOnly = String(req?.query?.subjectCatalog || "0") === "1";
   if (subjectCatalogOnly) {
     const rows = await sql`
@@ -653,6 +701,15 @@ async function listData(req, res) {
     ORDER BY created_at DESC, id DESC
     LIMIT ${listLimit};
   ` : [];
+  if (includeAttachments && includeLessons && !attachmentIdFilters.length) {
+    const lessonAttachmentIds = lessons.length ? Array.from(new Set(lessons.flatMap((row) => {
+      const ids = Array.isArray(row.attachment_ids) && row.attachment_ids.length
+        ? row.attachment_ids
+        : (row.attachment_id ? [row.attachment_id] : []);
+      return ids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0);
+    }))) : [];
+    attachmentIdFiltersJson = JSON.stringify(lessonAttachmentIds.length ? lessonAttachmentIds : [-1]);
+  }
   const attachments = !includeAttachments
     ? []
     : includeText
