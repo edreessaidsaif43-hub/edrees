@@ -2405,78 +2405,23 @@ async function generateLesson() {
         result = await callGemini(prompt, settings);
         setGenerationProgressStage('response');
             } catch (aiErr) {
-        const canUseTextFallback = hasUsableAttachmentText(combinedAttachment);
-        if (String(aiErr?.message || '').includes('نص محفوظ صالح')) {
-          throw aiErr;
-        }
+        if (String(aiErr?.message || '').includes('نص محفوظ صالح')) throw aiErr;
         if (isGeminiQuotaError(aiErr)) {
-          console.warn('AI quota exceeded, using local fallback.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) {
-            throw new Error('لم يتم العثور على نص مستخرج من المرفق. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.');
-          } else {
-            result = localGenerateLesson(lesson, combinedAttachment);
-            usedFallback = true;
-            fallbackMessage = needsPdfRead
-              ? 'تم توليد التحضير من النص المستخرج والمحفوظ من الملف.'
-              : fallbackMessage;
-          }
-        } else if (isGeminiInvalidArgumentError(aiErr)) {
-          console.warn('AI could not read PDF, using safe fallback.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) {
-            throw new Error('لم يتم العثور على نص مستخرج من المرفق. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.');
-          } else {
-            result = localGenerateLesson(lesson, combinedAttachment);
-            usedFallback = true;
-            fallbackMessage = needsPdfRead
-              ? 'تم توليد التحضير من النص المستخرج والمحفوظ من الملف.'
-              : 'تم توليد التحضير من النص المستخرج والمحفوظ من المرفق.';
-          }
-        } else if (isRequestTimeoutError(aiErr)) {
-          console.warn('AI request took too long, using local fallback.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) {
-            throw new Error('لم يتم العثور على نص مستخرج من المرفق. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.');
-          } else {
-            result = localGenerateLesson(lesson, combinedAttachment);
-            usedFallback = true;
-            fallbackMessage = needsPdfRead
-              ? 'تم توليد التحضير من النص المستخرج والمحفوظ من الملف.'
-              : 'تم توليد التحضير من النص المستخرج والمحفوظ من المرفق.';
-          }
-        } else if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(aiErr)) {
-          console.warn('AI service is under high demand.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) {
-            throw new Error('لم يتم العثور على نص مستخرج من المرفق. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.');
-          } else {
-            result = localGenerateLesson(lesson, combinedAttachment);
-            usedFallback = true;
-            fallbackMessage = needsPdfRead
-              ? 'خدمة الذكاء الاصطناعي مشغولة، فتم توليد التحضير من النص المستخرج والمحفوظ من الملف.'
-              : 'تم توليد التحضير من النص المستخرج والمحفوظ من المرفق.';
-          }
-        } else if (typeof isGeminiPermissionError === 'function' && isGeminiPermissionError(aiErr)) {
-          console.warn('Selected AI model is not allowed, using local fallback.', aiErr);
-          if (needsPdfRead && !canUseTextFallback) {
-            throw new Error('لم يتم العثور على نص مستخرج من المرفق. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.');
-          } else {
-            result = localGenerateLesson(lesson, combinedAttachment);
-            usedFallback = true;
-            fallbackMessage = needsPdfRead
-              ? 'تم توليد التحضير من النص المستخرج والمحفوظ من الملف.'
-              : 'تم توليد التحضير من النص المستخرج والمحفوظ من المرفق.';
-          }
-        } else {
-          if (needsPdfRead && !canUseTextFallback) {
-            console.warn('AI PDF generation failed, trying recovery fallback.', aiErr);
-            throw new Error('لم يتم العثور على نص مستخرج من المرفق. لن يتم توليد تحضير عام؛ حوّل PDF إلى نص من لوحة الإدارة ثم أعد التوليد.');
-          } else if (needsPdfRead) {
-            console.warn('AI PDF generation failed, using saved text fallback.', aiErr);
-            result = localGenerateLesson(lesson, combinedAttachment);
-            usedFallback = true;
-            fallbackMessage = 'تم توليد التحضير من النص المستخرج والمحفوظ من الملف.';
-          } else {
-            throw aiErr;
-          }
+          throw new Error('تعذر توليد التحضير بالذكاء الاصطناعي بسبب الرصيد أو حد الاستخدام. لن يتم توليد تحضير عام؛ يرجى المحاولة بعد توفر الرصيد.');
         }
+        if (isGeminiInvalidArgumentError(aiErr)) {
+          throw new Error('تعذر توليد التحضير بالذكاء الاصطناعي من النص الحالي. حوّل المرفق إلى نص واضح من لوحة الإدارة ثم أعد التوليد.');
+        }
+        if (isRequestTimeoutError(aiErr)) {
+          throw new Error('استغرق توليد التحضير بالذكاء الاصطناعي وقتًا طويلًا. لن يتم توليد تحضير عام؛ يرجى إعادة المحاولة.');
+        }
+        if (typeof isGeminiHighDemandError === 'function' && isGeminiHighDemandError(aiErr)) {
+          throw new Error('خدمة الذكاء الاصطناعي مشغولة الآن. لن يتم توليد تحضير عام؛ يرجى إعادة المحاولة بعد قليل.');
+        }
+        if (typeof isGeminiPermissionError === 'function' && isGeminiPermissionError(aiErr)) {
+          throw new Error('النموذج الحالي لا يملك صلاحية التوليد المطلوبة. لن يتم توليد تحضير عام؛ تحقق من المفتاح أو الموديل.');
+        }
+        throw aiErr;
       }
     } else {
       result = localGenerateLesson(lesson, combinedAttachment);
@@ -2569,6 +2514,10 @@ function buildPdfLessonPrompt(lesson) {
 الدرس المطلوب: ${lesson.title}
 
 قواعد الإجابة الصارمة:
+- استخدم الذكاء الاصطناعي لتنظيم التحضير: حلل المرفق داخليًا، واستخرج الأفكار الرئيسة والمفردات والأنشطة والأسئلة والأمثلة والمهارات، ثم أعد ترتيبها في فقرات تربوية مترابطة وواضحة.
+- لا تنقل النص الخام كما هو، ولا تولد تحضيرًا عامًا منفصلًا عن المرفق؛ المطلوب صياغة منظمة مبنية على معلومات الملف مع تحسين العرض والترتيب.
+- رتب كل حقل على شكل نقاط أو فقرات قصيرة واضحة، واجعل كل نقطة تحمل معلومة محددة أو إجراء عمليًا، لا عنوانًا عامًا فقط.
+- عند وجود معلومات متفرقة في الملف، اجمعها تحت الفقرة المناسبة بدل ترك الحقل فارغًا أو كتابة ${unavailable}.
 - حقول منصة نور تعتمد على ملف PDF المرفق، لكن حقل procedures مسموح إثراؤه من خارج الملف عند نقص التفاصيل، بشرط أن يكون مناسبًا للمرحلة والصف والمادة والدرس في المناهج العمانية.
 - ركز فقط على الدرس المطلوب: "${lesson.title}".
 - تجاهل الدروس الأخرى الموجودة في نفس الملف.
@@ -2688,6 +2637,10 @@ function buildLessonPrompt(lesson, attachment) {
 ${relevantText}
 
 قواعد الإجابة الصارمة:
+- استخدم الذكاء الاصطناعي لتنظيم التحضير: حلل النص المرفق داخليًا، واستخرج الأفكار الرئيسة والمفردات والأنشطة والأسئلة والأمثلة والمهارات، ثم أعد ترتيبها في فقرات تربوية مترابطة وواضحة.
+- لا تنقل النص الخام كما هو، ولا تولد تحضيرًا عامًا منفصلًا عن المرفق؛ المطلوب صياغة منظمة مبنية على معلومات المرفق مع تحسين العرض والترتيب.
+- رتب كل حقل على شكل نقاط أو فقرات قصيرة واضحة، واجعل كل نقطة تحمل معلومة محددة أو إجراء عمليًا، لا عنوانًا عامًا فقط.
+- عند وجود معلومات متفرقة في المرفق، اجمعها تحت الفقرة المناسبة بدل ترك الحقل فارغًا أو كتابة ${unavailable}.
 - حقول منصة نور تعتمد على النص المرفق، لكن حقل procedures مسموح إثراؤه من خارج المرفق عند نقص التفاصيل، بشرط أن يكون مناسبًا للمرحلة والصف والمادة والدرس في المناهج العمانية.
 - ركز فقط على الدرس المطلوب: "${lesson.title}".
 - لا تستخدم أجزاء تخص دروسًا أخرى في نفس المرفق.
@@ -2816,7 +2769,7 @@ async function callGeminiBackend(prompt, settings, extra = {}) {
     body: JSON.stringify({
       model: settings.model,
       prompt,
-      maxOutputTokens: 8000,
+      maxOutputTokens: 12000,
       attachmentId: extra.attachmentId || null,
       attachmentIds: Array.isArray(extra.attachmentIds) ? extra.attachmentIds : [],
       includeAttachmentText: !!extra.includeAttachmentText
