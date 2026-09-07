@@ -1380,6 +1380,8 @@ if (window.location.protocol === 'file:') {
 let subscriptionState = { loaded: false, activeGrades: [], activeSubjects: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
 let subscriptionSubjectSelections = [];
 let subscriptionGradeOptions = [];
+const SUBSCRIPTION_STATUS_CACHE_KEY = 'aiSubscriptionStatusCache';
+const SUBSCRIPTION_STATUS_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 
 function subscriptionApiUrl(path) {
   const base = window.location.protocol === 'file:' ? 'https://altahdir.app' : '';
@@ -1543,6 +1545,56 @@ function updateSubscriptionPanel() {
     badge.textContent = '1 ريال لكل مادة';
     text.innerHTML = 'اختر الصف ثم المادة، حوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع الإيصال. الاشتراك ينتهي في 10/06 من كل سنة.';
     status.textContent = getSubscriptionUserId() ? 'اختر الصف والمادة وارفع الإيصال.' : 'سجل الدخول ثم أرسل الإيصال ليتم تفعيل المادة.';
+  }
+}
+
+function subscriptionStatusSnapshot() {
+  return {
+    loaded: true,
+    activeGrades: uniqueSubscriptionGrades(subscriptionState.activeGrades || []),
+    activeSubjects: Array.isArray(subscriptionState.activeSubjects) ? subscriptionState.activeSubjects : [],
+    pending: Array.isArray(subscriptionState.pending) ? subscriptionState.pending : [],
+    subscriptions: Array.isArray(subscriptionState.subscriptions) ? subscriptionState.subscriptions : [],
+    paymentNumber: subscriptionState.paymentNumber || '91470590'
+  };
+}
+
+function subscriptionIdentityKey(identity = getSubscriptionIdentity()) {
+  return String(identity.userId || identity.email || '').trim().toLowerCase();
+}
+
+function cacheSubscriptionStatus() {
+  try {
+    const identityKey = subscriptionIdentityKey();
+    if (!identityKey) return;
+    localStorage.setItem(SUBSCRIPTION_STATUS_CACHE_KEY, JSON.stringify({
+      identityKey,
+      savedAt: Date.now(),
+      state: subscriptionStatusSnapshot()
+    }));
+  } catch {}
+}
+
+function applyCachedSubscriptionStatus() {
+  try {
+    const identityKey = subscriptionIdentityKey();
+    if (!identityKey) return false;
+    const cached = JSON.parse(localStorage.getItem(SUBSCRIPTION_STATUS_CACHE_KEY) || 'null');
+    if (!cached || cached.identityKey !== identityKey) return false;
+    if ((Date.now() - Number(cached.savedAt || 0)) > SUBSCRIPTION_STATUS_CACHE_MAX_AGE_MS) return false;
+    if (!cached.state || typeof cached.state !== 'object') return false;
+    subscriptionState = {
+      loaded: true,
+      activeGrades: uniqueSubscriptionGrades(cached.state.activeGrades || []),
+      activeSubjects: Array.isArray(cached.state.activeSubjects) ? cached.state.activeSubjects : [],
+      pending: Array.isArray(cached.state.pending) ? cached.state.pending : [],
+      subscriptions: Array.isArray(cached.state.subscriptions) ? cached.state.subscriptions : [],
+      paymentNumber: cached.state.paymentNumber || '91470590'
+    };
+    updateSubscriptionPanel();
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -1793,13 +1845,21 @@ async function refreshSubscriptionStatus() {
   const userId = identity.userId || identity.email;
   if (!userId) {
     subscriptionState = { loaded: true, activeGrades: [], activeSubjects: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
+    try { localStorage.removeItem(SUBSCRIPTION_STATUS_CACHE_KEY); } catch {}
     updateSubscriptionPanel();
     return subscriptionState;
   }
   try {
     const params = new URLSearchParams({ action: 'status', userId });
     if (identity.email) params.set('email', identity.email);
-    const response = await fetch(subscriptionApiUrl('/api/subscriptions?' + params.toString()));
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    let response;
+    try {
+      response = await fetch(subscriptionApiUrl('/api/subscriptions?' + params.toString()), { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.message || 'تعذر جلب حالة الاشتراك.');
     subscriptionState = {
@@ -1810,8 +1870,11 @@ async function refreshSubscriptionStatus() {
       subscriptions: Array.isArray(data.subscriptions) ? data.subscriptions : [],
       paymentNumber: data.paymentNumber || '91470590'
     };
+    cacheSubscriptionStatus();
   } catch (error) {
-    subscriptionState = { loaded: true, activeGrades: [], activeSubjects: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
+    if (!applyCachedSubscriptionStatus()) {
+      subscriptionState = { loaded: true, activeGrades: [], activeSubjects: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
+    }
     console.warn('subscription status failed', error);
   }
   updateSubscriptionPanel();
@@ -2126,23 +2189,69 @@ function lessonLoadParamsFromSubscription() {
   const params = { includeText: '0', includeAttachments: '0', activeOnly: '1', limit: '50000' };
   if (activeSubjects.length) {
     params.subjects = JSON.stringify(uniqueList(activeSubjects.map(item => item.subject)));
+    params.grades = JSON.stringify(gradeFilterVariants(uniqueSubscriptionGrades(activeSubjects.map(item => item.grade))));
   } else if (activeGrades.length) {
     params.grades = JSON.stringify(gradeFilterVariants(activeGrades));
   }
   return params;
 }
 
+function hasConfirmedLessonAccess() {
+  return getActiveSubscriptionSubjects().length > 0 || uniqueSubscriptionGrades(subscriptionState.activeGrades || []).length > 0;
+}
+
 async function loadDatabase() {
   fillSubscriptionGradeOptions(subscriptionGradeOptions);
   populateTeacherFilters();
-  await refreshSubscriptionStatus();
-  populateTeacherFilters();
+  const hadCachedStatus = applyCachedSubscriptionStatus();
+  if (!hadCachedStatus) await refreshSubscriptionStatus();
+  if (!hasConfirmedLessonAccess()) {
+    lessons = [];
+    attachments = [];
+    subscriptionGradeOptions = [];
+    teacherSelectOptionsCache['t-grade'] = '';
+    teacherSelectOptionsCache['t-subject'] = '';
+    teacherSelectOptionsCache['t-semester'] = '';
+    teacherSelectOptionsCache['t-unit'] = '';
+    teacherSelectOptionsCache['t-lesson'] = '';
+    populateTeacherFilters();
+    return;
+  }
   const data = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
   lessons = Array.isArray(data?.lessons) ? data.lessons : [];
   attachments = Array.isArray(data?.attachments) ? data.attachments : [];
   subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(activeLessons(), 'grade'));
   fillSubscriptionGradeOptions(subscriptionGradeOptions);
   populateTeacherFilters();
+  if (hadCachedStatus) {
+    refreshSubscriptionStatus()
+      .then(async () => {
+        if (!hasConfirmedLessonAccess()) {
+          lessons = [];
+          attachments = [];
+          subscriptionGradeOptions = [];
+          teacherSelectOptionsCache['t-grade'] = '';
+          teacherSelectOptionsCache['t-subject'] = '';
+          teacherSelectOptionsCache['t-semester'] = '';
+          teacherSelectOptionsCache['t-unit'] = '';
+          teacherSelectOptionsCache['t-lesson'] = '';
+          populateTeacherFilters();
+          return;
+        }
+        const fresh = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
+        lessons = Array.isArray(fresh?.lessons) ? fresh.lessons : [];
+        attachments = Array.isArray(fresh?.attachments) ? fresh.attachments : [];
+        subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(activeLessons(), 'grade'));
+        teacherSelectOptionsCache['t-grade'] = '';
+        teacherSelectOptionsCache['t-subject'] = '';
+        teacherSelectOptionsCache['t-semester'] = '';
+        teacherSelectOptionsCache['t-unit'] = '';
+        teacherSelectOptionsCache['t-lesson'] = '';
+        fillSubscriptionGradeOptions(subscriptionGradeOptions);
+        populateTeacherFilters();
+      })
+      .catch(error => console.warn('background subscription refresh failed', error));
+  }
 }
 
 function activeLessons() {
@@ -2252,7 +2361,7 @@ function populateTeacherFilters(changedId = '') {
 
   const byGrade = all.filter(l => !grade || isSameSubscriptionGrade(l.grade, grade));
   if (!changedId || changedId === 't-grade' || changedId === 't-subject') {
-    subject = setSelectOptions('t-subject', uniqueSubjectValues(uniqueValues(byGrade, 'subject')), subject);
+    subject = setSelectOptions('t-subject', uniqueValues(byGrade, 'subject'), subject);
   }
 
   const bySubject = byGrade.filter(l => !subject || isSameSubscriptionSubject(l.subject, subject));
@@ -3566,7 +3675,6 @@ function loadDemoData() {
   }
 }
 
-ensureStaticSubjectOptions(['t-subject']);
 populateTeacherFilters();
 getAiSettings();
 updateUnifiedAuthUI();
