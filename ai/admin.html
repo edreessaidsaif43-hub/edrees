@@ -1471,6 +1471,7 @@ let selectedLessonsGradePage = '';
 let adminGradePages = [];
 let adminStats = null;
 let loadingGradePage = '';
+let adminDatabaseLoadPromise = null;
 let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
 const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
@@ -1801,13 +1802,23 @@ function formatUploadError(err) {
 }
 
 async function loadDatabase() {
-  const data = await apiRequest('/api/lessons', { params: { gradeCatalog: '1', activeOnly: '0' } });
+  const data = await apiRequest('/api/lessons', { params: { gradeCatalog: '1', activeOnly: '0', light: '1' } });
   adminGradePages = Array.isArray(data?.grades) ? data.grades : [];
   adminStats = data?.stats || null;
   updateStats();
   populateTeacherFilters();
   renderTable();
   if (selectedLessonsGradePage) await loadLessonsForGrade(selectedLessonsGradePage);
+}
+
+function ensureAdminDatabaseLoaded() {
+  if (!adminDatabaseLoadPromise) {
+    adminDatabaseLoadPromise = loadDatabase().catch(err => {
+      adminDatabaseLoadPromise = null;
+      showToast(err.message || 'تعذر تحميل فهرس الصفوف', true);
+    });
+  }
+  return adminDatabaseLoadPromise;
 }
 
 function activeLessons() {
@@ -2578,6 +2589,7 @@ function doLogin() {
     document.getElementById('admin-content').classList.add('show');
     updateStats();
     renderTable();
+    ensureAdminDatabaseLoaded();
   } else {
     document.getElementById('login-error').style.display = 'block';
   }
@@ -3824,7 +3836,6 @@ populateTeacherFilters();
 loadAiSettings();
 updateUnifiedAuthUI();
 resetMultiUnits();
-loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>

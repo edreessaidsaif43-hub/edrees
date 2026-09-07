@@ -604,6 +604,7 @@ async function listData(req, res) {
   let attachmentIdFiltersJson = JSON.stringify(attachmentIdFilters);
   const activeOnly = String(req?.query?.activeOnly || "0") === "1";
   const gradeCatalogOnly = String(req?.query?.gradeCatalog || "0") === "1";
+  const lightCatalogOnly = String(req?.query?.light || "0") === "1";
   if (gradeCatalogOnly) {
     const gradeRows = await sql`
       SELECT
@@ -617,6 +618,25 @@ async function listData(req, res) {
       GROUP BY grade
       ORDER BY grade;
     `;
+    const lightweightStats = {
+      lessons: gradeRows.reduce((total, row) => total + Number(row.lesson_count || 0), 0),
+      active: gradeRows.reduce((total, row) => total + Number(row.active_count || 0), 0),
+      inactive: gradeRows.reduce((total, row) => total + Number(row.inactive_count || 0), 0),
+      attachments: 0,
+      textReady: 0,
+      textMissing: 0
+    };
+    if (lightCatalogOnly) {
+      return send(res, 200, {
+        grades: gradeRows.map((row) => ({
+          grade: row.grade || "",
+          count: Number(row.lesson_count || 0),
+          active: Number(row.active_count || 0),
+          inactive: Number(row.inactive_count || 0)
+        })),
+        stats: lightweightStats
+      });
+    }
     const statRows = await sql`
       SELECT
         (SELECT COUNT(*)::int FROM ai_lessons) AS lesson_count,
