@@ -673,6 +673,45 @@
 
   /* LESSONS LIST */
   .lessons-list { display: flex; flex-direction: column; gap: 10px; margin-top: 1rem; }
+  .grade-pages {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin: 0 0 1rem;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+  }
+  .grade-page-btn {
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text-secondary);
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all .2s ease;
+  }
+  .grade-page-btn:hover {
+    border-color: var(--primary-light);
+    color: var(--primary);
+  }
+  .grade-page-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(26,86,160,.18);
+  }
+  .grade-page-count {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    margin-inline-start: 4px;
+  }
   .unit-batch-card {
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -1310,6 +1349,7 @@
           <div style="font-size:13px;font-weight:900;color:var(--primary);margin-bottom:10px;">تقدم تحويل المواد</div>
           <div id="material-batch-progress-list" style="display:flex;flex-direction:column;gap:9px;"></div>
         </div>
+        <div class="grade-pages" id="grade-pages" aria-label="صفحات الصفوف"></div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -1427,6 +1467,7 @@ let attachments = [];
 const API_BASE = '/api/ai';
 let editingId = null;
 let addingLinkedSourceId = null;
+let selectedLessonsGradePage = '';
 let lastResult = null;
 const AI_SETTINGS_KEY = 'aiSettings';
 const MAX_DIRECT_OCR_SIZE = 80 * 1024 * 1024;
@@ -2847,6 +2888,10 @@ function escapeHtml(value) {
   }[ch]));
 }
 
+function escapeAttribute(value) {
+  return escapeHtml(value).replace(/\\/g, '\\\\');
+}
+
 function getLessonTableAttachments(lesson) {
   const ids = Array.isArray(lesson?.attachmentIds) && lesson.attachmentIds.length
     ? lesson.attachmentIds
@@ -3423,15 +3468,77 @@ async function replaceAttachmentFile(attachmentId) {
 }
 
 // TABLE
+function normalizeGradePageName(value) {
+  return String(value || '')
+    .replace(/الصف/g, '')
+    .replace(/أ/g, 'ا')
+    .replace(/إ/g, 'ا')
+    .replace(/آ/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function gradePageOrderValue(grade) {
+  const key = normalizeGradePageName(grade);
+  const order = ['الاول','الثاني','الثالث','الرابع','الخامس','السادس','السابع','الثامن','التاسع','العاشر','الحادي عشر','الثاني عشر'];
+  const index = order.indexOf(key);
+  return index === -1 ? 999 : index;
+}
+
+function getLessonGradePages() {
+  const seen = new Set();
+  return lessons
+    .map(item => String(item.grade || '').trim())
+    .filter(Boolean)
+    .filter((grade) => {
+      const key = normalizeGradePageName(grade);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => gradePageOrderValue(a) - gradePageOrderValue(b) || a.localeCompare(b, 'ar'));
+}
+
+function setLessonsGradePage(grade) {
+  selectedLessonsGradePage = grade || '';
+  renderTable();
+}
+
+function renderGradePages(grades) {
+  const wrap = document.getElementById('grade-pages');
+  if (!wrap) return;
+  if (!grades.length) {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.style.display = 'flex';
+  wrap.innerHTML = grades.map((grade) => {
+    const count = lessons.filter(item => normalizeGradePageName(item.grade) === normalizeGradePageName(grade)).length;
+    const active = normalizeGradePageName(grade) === normalizeGradePageName(selectedLessonsGradePage);
+    return `<button type="button" class="grade-page-btn ${active ? 'active' : ''}" data-grade="${escapeHtml(grade)}" onclick="setLessonsGradePage(this.dataset.grade)">${escapeHtml(grade)} <span class="grade-page-count">${count}</span></button>`;
+  }).join('');
+}
+
 function renderTable() {
   const tbody = document.getElementById('lessons-tbody');
   const query = (document.getElementById('search-lessons')?.value || '').toLowerCase();
-  const filtered = lessons.filter(l =>
-    !query || l.title.toLowerCase().includes(query) ||
-    l.grade.toLowerCase().includes(query) ||
-    l.subject.toLowerCase().includes(query) ||
-    l.unit.toLowerCase().includes(query)
-  );
+  const grades = getLessonGradePages();
+  if (!selectedLessonsGradePage || !grades.some(grade => normalizeGradePageName(grade) === normalizeGradePageName(selectedLessonsGradePage))) {
+    selectedLessonsGradePage = grades[0] || '';
+  }
+  renderGradePages(grades);
+  const selectedGradeKey = normalizeGradePageName(selectedLessonsGradePage);
+  const filtered = lessons.filter(l => {
+    const inSelectedGrade = !selectedGradeKey || normalizeGradePageName(l.grade) === selectedGradeKey;
+    const matchesQuery = !query || String(l.title || '').toLowerCase().includes(query) ||
+      String(l.grade || '').toLowerCase().includes(query) ||
+      String(l.subject || '').toLowerCase().includes(query) ||
+      String(l.unit || '').toLowerCase().includes(query);
+    return inSelectedGrade && matchesQuery;
+  });
 
   if (filtered.length === 0) {
     tbody.innerHTML = '';
