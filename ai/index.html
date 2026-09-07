@@ -414,6 +414,53 @@
     background: linear-gradient(90deg, var(--primary), var(--accent));
     transition: width .35s ease;
   }
+  .lesson-data-progress {
+    display: none;
+    margin: -0.35rem 0 1.15rem;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border: 1px solid rgba(26,86,160,.16);
+    border-radius: var(--radius);
+  }
+  .lesson-data-progress.show { display: block; }
+  .lesson-data-progress-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .lesson-data-progress-title {
+    color: var(--primary-dark);
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .lesson-data-progress-percent {
+    color: var(--primary);
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .lesson-data-progress-track {
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(26,86,160,.10);
+    border: 1px solid rgba(26,86,160,.12);
+  }
+  .lesson-data-progress-bar {
+    width: 0%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    transition: width .35s ease;
+  }
+  .lesson-data-progress-note {
+    margin-top: 7px;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.6;
+  }
   .loading-percent {
     font-family: 'Cairo', sans-serif;
     font-size: 24px;
@@ -1079,6 +1126,16 @@
       <div class="form-card-title">
         <div class="icon">📝</div>
         بيانات الدرس
+      </div>
+      <div class="lesson-data-progress" id="lesson-data-progress" aria-live="polite" aria-hidden="true">
+        <div class="lesson-data-progress-head">
+          <div class="lesson-data-progress-title" id="lesson-data-progress-title">جاري تحميل الصفوف والدروس...</div>
+          <div class="lesson-data-progress-percent" id="lesson-data-progress-percent">0%</div>
+        </div>
+        <div class="lesson-data-progress-track" aria-hidden="true">
+          <div class="lesson-data-progress-bar" id="lesson-data-progress-bar"></div>
+        </div>
+        <div class="lesson-data-progress-note" id="lesson-data-progress-note">يتم التحقق من الاشتراك ثم تحميل المواد المتاحة لك.</div>
       </div>
       <div class="form-grid">
         <div class="field">
@@ -2040,6 +2097,73 @@ const ADDITIONAL_AI_SUBJECTS = [
   'الرياضيات الاساسية',
   'الرياضيات المتقدمة'
 ];
+let lessonDataProgressTimer = null;
+let lessonDataProgressHideTimer = null;
+let lessonDataProgressValue = 0;
+let lessonDataProgressToken = 0;
+
+function setLessonDataProgress(value, title = '', note = '', options = {}) {
+  const wrap = document.getElementById('lesson-data-progress');
+  const bar = document.getElementById('lesson-data-progress-bar');
+  const percent = document.getElementById('lesson-data-progress-percent');
+  const titleEl = document.getElementById('lesson-data-progress-title');
+  const noteEl = document.getElementById('lesson-data-progress-note');
+  if (!wrap || !bar || !percent) return;
+  const nextValue = Math.max(0, Math.min(100, Math.round(value)));
+  lessonDataProgressValue = options.allowDecrease ? nextValue : Math.max(lessonDataProgressValue, nextValue);
+  wrap.classList.add('show');
+  wrap.setAttribute('aria-hidden', 'false');
+  bar.style.width = lessonDataProgressValue + '%';
+  percent.textContent = lessonDataProgressValue + '%';
+  if (titleEl && title) titleEl.textContent = title;
+  if (noteEl && note) noteEl.textContent = note;
+}
+
+function startLessonDataProgress(title = 'جاري تحميل الصفوف والدروس...', note = 'يتم التحقق من الاشتراك ثم تحميل المواد المتاحة لك.') {
+  lessonDataProgressToken += 1;
+  const token = lessonDataProgressToken;
+  clearInterval(lessonDataProgressTimer);
+  clearTimeout(lessonDataProgressHideTimer);
+  lessonDataProgressValue = 0;
+  setLessonDataProgress(6, title, note, { allowDecrease: true });
+  lessonDataProgressTimer = setInterval(() => {
+    if (token !== lessonDataProgressToken) return;
+    const ceiling = 92;
+    if (lessonDataProgressValue >= ceiling) return;
+    const step = lessonDataProgressValue < 35 ? 4 : lessonDataProgressValue < 70 ? 3 : 1;
+    setLessonDataProgress(Math.min(ceiling, lessonDataProgressValue + step));
+  }, 650);
+  return token;
+}
+
+function finishLessonDataProgress(title = 'تم تحميل الصفوف والدروس', note = 'يمكنك الآن اختيار بيانات الدرس ثم توليد التحضير.') {
+  const token = lessonDataProgressToken;
+  clearInterval(lessonDataProgressTimer);
+  setLessonDataProgress(100, title, note);
+  lessonDataProgressHideTimer = setTimeout(() => {
+    if (token !== lessonDataProgressToken) return;
+    const wrap = document.getElementById('lesson-data-progress');
+    if (!wrap) return;
+    wrap.classList.remove('show');
+    wrap.setAttribute('aria-hidden', 'true');
+  }, 1200);
+}
+
+function failLessonDataProgress(message = 'تعذر تحميل الصفوف والدروس.') {
+  clearInterval(lessonDataProgressTimer);
+  setLessonDataProgress(100, 'لم يكتمل تحميل بيانات الدرس', message);
+}
+
+function refreshTeacherFiltersWithProgress(changedId, title, note) {
+  const token = startLessonDataProgress(title, note);
+  setLessonDataProgress(45, title, note);
+  setTimeout(() => {
+    if (token !== lessonDataProgressToken) return;
+    setLessonDataProgress(75, 'جاري تجهيز القوائم...', 'يتم ترتيب الخيارات حسب الصف والمادة والوحدة.');
+    populateTeacherFilters(changedId);
+    finishLessonDataProgress('تم تحديث القوائم', 'اختر الخيار التالي لإكمال بيانات الدرس.');
+  }, 60);
+}
 
 function uniqueSubjectValues(values = []) {
   const seen = new Set();
@@ -2201,56 +2325,69 @@ function hasConfirmedLessonAccess() {
 }
 
 async function loadDatabase() {
-  fillSubscriptionGradeOptions(subscriptionGradeOptions);
-  populateTeacherFilters();
-  const hadCachedStatus = applyCachedSubscriptionStatus();
-  if (!hadCachedStatus) await refreshSubscriptionStatus();
-  if (!hasConfirmedLessonAccess()) {
-    lessons = [];
-    attachments = [];
-    subscriptionGradeOptions = [];
-    teacherSelectOptionsCache['t-grade'] = '';
-    teacherSelectOptionsCache['t-subject'] = '';
-    teacherSelectOptionsCache['t-semester'] = '';
-    teacherSelectOptionsCache['t-unit'] = '';
-    teacherSelectOptionsCache['t-lesson'] = '';
+  startLessonDataProgress('جاري تحميل الصفوف والدروس...', 'يتم التحقق من الاشتراك ثم تحميل المواد المتاحة لك.');
+  try {
+    fillSubscriptionGradeOptions(subscriptionGradeOptions);
     populateTeacherFilters();
-    return;
-  }
-  const data = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
-  lessons = Array.isArray(data?.lessons) ? data.lessons : [];
-  attachments = Array.isArray(data?.attachments) ? data.attachments : [];
-  subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(activeLessons(), 'grade'));
-  fillSubscriptionGradeOptions(subscriptionGradeOptions);
-  populateTeacherFilters();
-  if (hadCachedStatus) {
-    refreshSubscriptionStatus()
-      .then(async () => {
-        if (!hasConfirmedLessonAccess()) {
-          lessons = [];
-          attachments = [];
-          subscriptionGradeOptions = [];
+    setLessonDataProgress(18, 'جاري التحقق من الاشتراك...', 'نراجع المواد والصفوف المفعلة لهذا الحساب.');
+    const hadCachedStatus = applyCachedSubscriptionStatus();
+    if (!hadCachedStatus) await refreshSubscriptionStatus();
+    setLessonDataProgress(38, 'تم التحقق من الاشتراك', 'جاري تجهيز طلب تحميل الصفوف والدروس.');
+    if (!hasConfirmedLessonAccess()) {
+      lessons = [];
+      attachments = [];
+      subscriptionGradeOptions = [];
+      teacherSelectOptionsCache['t-grade'] = '';
+      teacherSelectOptionsCache['t-subject'] = '';
+      teacherSelectOptionsCache['t-semester'] = '';
+      teacherSelectOptionsCache['t-unit'] = '';
+      teacherSelectOptionsCache['t-lesson'] = '';
+      populateTeacherFilters();
+      finishLessonDataProgress('لا توجد مواد مفعلة بعد', 'فعّل اشتراك المادة حتى تظهر الصفوف والدروس هنا.');
+      return;
+    }
+    setLessonDataProgress(56, 'جاري تحميل الصفوف والمواد...', 'قد يستغرق ظهور البيانات عدة ثوانٍ حسب عدد المواد المشترك بها.');
+    const data = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
+    setLessonDataProgress(78, 'تم استلام بيانات الدروس', 'جاري ترتيب الصفوف والمواد والوحدات.');
+    lessons = Array.isArray(data?.lessons) ? data.lessons : [];
+    attachments = Array.isArray(data?.attachments) ? data.attachments : [];
+    subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(activeLessons(), 'grade'));
+    fillSubscriptionGradeOptions(subscriptionGradeOptions);
+    setLessonDataProgress(92, 'جاري عرض القوائم...', 'يتم تجهيز خيارات الصف والمادة والفصل والوحدة والدرس.');
+    populateTeacherFilters();
+    finishLessonDataProgress('تم تحميل الصفوف والدروس', 'يمكنك الآن اختيار بيانات الدرس ثم توليد التحضير.');
+    if (hadCachedStatus) {
+      refreshSubscriptionStatus()
+        .then(async () => {
+          if (!hasConfirmedLessonAccess()) {
+            lessons = [];
+            attachments = [];
+            subscriptionGradeOptions = [];
+            teacherSelectOptionsCache['t-grade'] = '';
+            teacherSelectOptionsCache['t-subject'] = '';
+            teacherSelectOptionsCache['t-semester'] = '';
+            teacherSelectOptionsCache['t-unit'] = '';
+            teacherSelectOptionsCache['t-lesson'] = '';
+            populateTeacherFilters();
+            return;
+          }
+          const fresh = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
+          lessons = Array.isArray(fresh?.lessons) ? fresh.lessons : [];
+          attachments = Array.isArray(fresh?.attachments) ? fresh.attachments : [];
+          subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(activeLessons(), 'grade'));
           teacherSelectOptionsCache['t-grade'] = '';
           teacherSelectOptionsCache['t-subject'] = '';
           teacherSelectOptionsCache['t-semester'] = '';
           teacherSelectOptionsCache['t-unit'] = '';
           teacherSelectOptionsCache['t-lesson'] = '';
+          fillSubscriptionGradeOptions(subscriptionGradeOptions);
           populateTeacherFilters();
-          return;
-        }
-        const fresh = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
-        lessons = Array.isArray(fresh?.lessons) ? fresh.lessons : [];
-        attachments = Array.isArray(fresh?.attachments) ? fresh.attachments : [];
-        subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(activeLessons(), 'grade'));
-        teacherSelectOptionsCache['t-grade'] = '';
-        teacherSelectOptionsCache['t-subject'] = '';
-        teacherSelectOptionsCache['t-semester'] = '';
-        teacherSelectOptionsCache['t-unit'] = '';
-        teacherSelectOptionsCache['t-lesson'] = '';
-        fillSubscriptionGradeOptions(subscriptionGradeOptions);
-        populateTeacherFilters();
-      })
-      .catch(error => console.warn('background subscription refresh failed', error));
+        })
+        .catch(error => console.warn('background subscription refresh failed', error));
+    }
+  } catch (error) {
+    failLessonDataProgress(error?.message || 'تعذر تحميل الصفوف والدروس.');
+    throw error;
   }
 }
 
@@ -2378,9 +2515,15 @@ function populateTeacherFilters(changedId = '') {
   setLessonOptions(matching);
 }
 
-function loadSubjects() { populateTeacherFilters('t-grade'); }
-function loadSemesters() { populateTeacherFilters('t-subject'); }
-function loadLessons() { populateTeacherFilters('t-unit'); }
+function loadSubjects() {
+  refreshTeacherFiltersWithProgress('t-grade', 'جاري تحميل مواد الصف...', 'يتم عرض المواد والدروس المتاحة حسب اشتراكك.');
+}
+function loadSemesters() {
+  refreshTeacherFiltersWithProgress('t-subject', 'جاري تحميل الفصول والوحدات...', 'يتم ترتيب الدروس حسب المادة المختارة.');
+}
+function loadLessons() {
+  refreshTeacherFiltersWithProgress('t-unit', 'جاري تحميل الدروس...', 'يتم عرض الدروس الخاصة بالوحدة المختارة.');
+}
 
 function getLessonAttachments(lesson) {
   const ids = Array.isArray(lesson?.attachmentIds) && lesson.attachmentIds.length
@@ -2446,7 +2589,9 @@ async function retryLessonGenerationFromExtractedText(lesson, lessonAttachments,
 
 ['t-semester'].forEach(id => {
   const el = document.getElementById(id);
-  if (el) el.addEventListener('change', () => populateTeacherFilters(id));
+  if (el) el.addEventListener('change', () => {
+    refreshTeacherFiltersWithProgress(id, 'جاري تحميل الوحدات والدروس...', 'يتم عرض الوحدات والدروس حسب الفصل المختار.');
+  });
 });
 
 async function generateLesson() {
@@ -2664,6 +2809,8 @@ function buildPdfLessonPrompt(lesson) {
 - concepts يجب أن يحتوي المفاهيم والمصطلحات والمفردات الرئيسة الواردة في المرفق لهذا الدرس، مع شرح موجز لكل مفهوم أو ربطه بسياق الدرس.
 - procedures يجب أن يكون أطول قسم ومفصلًا جدًا وفق أسلوب التعلم النشط الموجَّه بمخرجات التعلم، ولا يقل عن 12 إلى 16 خطوة عملية للحصة. ابنِ كل خطوة من التسلسل: الهدف التعليمي → المفهوم → موقف تمهيدي محفز → سؤال تفكير → اكتشاف المفهوم → نشاط تفاعلي → تطبيق حياتي → تقويم أثناء التنفيذ → امتداد منزلي.
 - في procedures لا تولد أنشطة عشوائية؛ اشتق كل نشاط من الهدف والمفهوم الواردين في المرفق. ابدأ بتحليل الفعل المطلوب من الطالب: يتعرف، يميز، يطبق، يصمم، ينقد، يلتزم، ثم اربطه بالمفهوم الرئيس في الدرس.
+- في procedures اشرح كل نقطة شرحًا كافيًا ولا تكتب عنوانًا فقط؛ يجب أن تحتوي كل خطوة على: ماذا يفعل المعلم، ماذا يفعل الطلاب، ما الفكرة أو الدليل من الملف، والسؤال أو النشاط أو التغذية الراجعة المناسبة.
+- اعتمد أولًا على النص المستخرج من الملف في شرح كل نقطة من إجراءات التنفيذ، وإذا كان الملف مختصرًا أو ناقصًا فأكمل الأفكار تربويًا بما يناسب المنهج العماني والمرحلة والصف والمادة، دون اختراع أسماء نصوص أو أنشطة غير مذكورة.
 - حوّل المفهوم في procedures إلى صورة أو قصة أو لغز أو سؤال أو موقف حياتي أو مشكلة قصيرة تثير فضول الطلاب، ثم انتقل من المناقشة إلى نشاط عملي يشارك فيه الطالب.
 - يجب أن تتنوع أنشطة procedures حسب طبيعة الدرس بين: التعلم باللعب، التعلم التعاوني، الاستقصاء، حل المشكلات، الحوار والمناقشة، لعب الأدوار، التعلم بالمواقف، التعلم بالمشروع، القصص التعليمية، العصف الذهني، والتعلم القائم على الخبرة.
 - اربط كل نشاط في procedures بحياة الطالب في المنزل أو المدرسة أو الحي أو البيئة العمانية أو الأسرة أو الحياة اليومية، واجعل خطوات التنفيذ تسير غالبًا بصيغة: ألاحظ → أناقش → أكتشف → أطبق → أشارك → أقيم.
@@ -2799,6 +2946,8 @@ ${relevantText}
 - concepts يجب أن يحتوي المفاهيم والمصطلحات والمفردات الرئيسة الواردة في المرفق لهذا الدرس، مع شرح موجز لكل مفهوم أو ربطه بسياق الدرس.
 - procedures يجب أن يكون أطول قسم ومفصلًا جدًا وفق أسلوب التعلم النشط الموجَّه بمخرجات التعلم، ولا يقل عن 12 إلى 16 خطوة عملية للحصة. ابنِ كل خطوة من التسلسل: الهدف التعليمي → المفهوم → موقف تمهيدي محفز → سؤال تفكير → اكتشاف المفهوم → نشاط تفاعلي → تطبيق حياتي → تقويم أثناء التنفيذ → امتداد منزلي.
 - في procedures لا تولد أنشطة عشوائية؛ اشتق كل نشاط من الهدف والمفهوم الواردين في المرفق. ابدأ بتحليل الفعل المطلوب من الطالب: يتعرف، يميز، يطبق، يصمم، ينقد، يلتزم، ثم اربطه بالمفهوم الرئيس في الدرس.
+- في procedures اشرح كل نقطة شرحًا كافيًا ولا تكتب عنوانًا فقط؛ يجب أن تحتوي كل خطوة على: ماذا يفعل المعلم، ماذا يفعل الطلاب، ما الفكرة أو الدليل من المرفق، والسؤال أو النشاط أو التغذية الراجعة المناسبة.
+- اعتمد أولًا على النص المستخرج من المرفق في شرح كل نقطة من إجراءات التنفيذ، وإذا كان المرفق مختصرًا أو ناقصًا فأكمل الأفكار تربويًا بما يناسب المنهج العماني والمرحلة والصف والمادة، دون اختراع أسماء نصوص أو أنشطة غير مذكورة.
 - حوّل المفهوم في procedures إلى صورة أو قصة أو لغز أو سؤال أو موقف حياتي أو مشكلة قصيرة تثير فضول الطلاب، ثم انتقل من المناقشة إلى نشاط عملي يشارك فيه الطالب.
 - يجب أن تتنوع أنشطة procedures حسب طبيعة الدرس بين: التعلم باللعب، التعلم التعاوني، الاستقصاء، حل المشكلات، الحوار والمناقشة، لعب الأدوار، التعلم بالمواقف، التعلم بالمشروع، القصص التعليمية، العصف الذهني، والتعلم القائم على الخبرة.
 - اربط كل نشاط في procedures بحياة الطالب في المنزل أو المدرسة أو الحي أو البيئة العمانية أو الأسرة أو الحياة اليومية، واجعل خطوات التنفيذ تسير غالبًا بصيغة: ألاحظ → أناقش → أكتشف → أطبق → أشارك → أقيم.
@@ -3192,9 +3341,9 @@ function buildArabicGuideStyleProcedures(lesson = {}, sourceText = '') {
   const unit = String(lesson.unit || 'الوحدة').trim() || 'الوحدة';
   const source = String(sourceText || '').replace(/\s+/g, ' ').trim().slice(0, 900);
   const sourceLine = source
-    ? `3. قراءة النص: يطلب المعلم من التلاميذ قراءة الجزء المرتبط بدرس "${title}" من المرفق، ثم يتوقف عند العبارات أو الصور أو الأسئلة الأكثر ارتباطًا بالمفهوم: ${source}`
-    : `3. قراءة النص: يوجه المعلم التلاميذ إلى قراءة النص أو النشاط المرتبط بدرس "${title}" في الكتاب أو المرفق، مع تحديد الكلمات والأفكار الرئيسة.`;
-  return `1. التمهيد: يعرض المعلم صورة أو موقفًا قصيرًا مرتبطًا بدرس "${title}" من وحدة "${unit}"، ويطلب من التلاميذ تأمله ثم يطرح سؤالًا محفزًا يقودهم إلى فكرة الدرس.\n2. المناقشة الموجهة: يناقش المعلم التلاميذ في خبراتهم السابقة، ويستخلص معهم المفهوم الرئيس وما يرتبط به من قيم أو مهارات أو قواعد حسب طبيعة المادة.\n${sourceLine}\n4. النشاط (1): يوجه المعلم التلاميذ إلى تنفيذ نشاط فردي قصير من الكتاب أو من المرفق إن وجد، مثل تحديد فكرة، اختيار تصرف صحيح، مطابقة مفهوم بمعناه، أو استخراج دليل من النص، ثم يتابع التنفيذ ويقدم التغذية الراجعة.\n5. توضيح المفهوم: يشرح المعلم المفهوم الرئيس بأسلوب محسوس مناسب للمرحلة، ويستخدم لوحة أو بطاقات أو نموذجًا على السبورة لربط المفهوم بالأمثلة الواردة في الدرس.\n6. لعبة أو تطبيق عملي: ينفذ المعلم لعبة تعليمية أو موقفًا تطبيقيًا قصيرًا؛ يتعامل التلميذ مع موقف جديد ويجيب عن سؤالين: ماذا أفعل؟ وماذا يحدث إذا لم أفعل؟\n7. التعلم التعاوني: يقسم المعلم التلاميذ إلى مجموعات، وتستخرج كل مجموعة مثالًا أو حقًا وواجبًا أو قاعدة وتطبيقًا أو مشكلة وحلًا بحسب موضوع الدرس.\n8. ربط الدرس بالحياة: يطلب المعلم من التلاميذ ربط الفكرة بموقف من البيت أو المدرسة أو الحي أو البيئة العمانية، حتى يصبح التعلم قريبًا من واقعهم.\n9. النشاط (2): يوجه المعلم التلاميذ إلى نشاط متابعة مثل تصنيف بطاقات، رسم بسيط، تمثيل دور، حل موقف، أو إكمال جدول، ثم يناقش الإجابات مع الصف.\n10. التقويم التكويني: أثناء التنفيذ يسأل المعلم: لماذا اخترت؟ ما التصرف الصحيح؟ كيف عرفت؟ ماذا سيحدث إذا تغير الموقف؟ ويعالج الأخطاء فورًا.\n11. التقويم الختامي: يقدم المعلم موقفًا جديدًا أو بطاقة خروج قصيرة يثبت فيها التلميذ تحقق الهدف بتطبيق المفهوم لا بترديده فقط.\n12. الامتداد المنزلي: يطلب المعلم من التلميذ تطبيق فكرة الدرس في موقف بسيط داخل البيت أو ملاحظة سلوك مرتبط بها ومناقشته مع ولي الأمر.`;
+    ? `3. قراءة النص أو المصدر: يطلب المعلم من التلاميذ قراءة الجزء المرتبط بدرس "${title}" من المرفق، ثم يحدد معهم العبارات أو الصور أو الأسئلة التي تبني فكرة الدرس. يشرح المعلم كيف ترتبط هذه العبارات بمفهوم الدرس، ويكلف الطلاب باستخراج دليل مباشر من النص يدعم إجابتهم. النص المعتمد: ${source}`
+    : `3. قراءة النص أو المصدر: يوجه المعلم التلاميذ إلى قراءة النص أو النشاط المرتبط بدرس "${title}" في الكتاب أو المرفق، ثم يطلب منهم تحديد الكلمات والأفكار الرئيسة. إذا لم تتوافر تفاصيل كافية، يعرض المعلم مثالًا مناسبًا للمنهج العماني والصف والمادة دون ادعاء أنه وارد في المرفق.`;
+  return `1. التمهيد: يعرض المعلم صورة أو موقفًا قصيرًا مرتبطًا بدرس "${title}" من وحدة "${unit}"، ويطلب من التلاميذ تأمله ووصف ما يلاحظونه. يطرح سؤالًا محفزًا يقودهم إلى فكرة الدرس، ثم يربط إجاباتهم بخبرة قريبة من البيت أو المدرسة أو البيئة العمانية.\n2. المناقشة الموجهة: يناقش المعلم التلاميذ في خبراتهم السابقة حول موضوع الدرس، ويستخلص معهم المفهوم الرئيس وما يرتبط به من قيم أو مهارات أو قواعد حسب طبيعة المادة. يطلب من الطلاب تبرير إجاباتهم حتى لا تبقى المناقشة عامة.\n${sourceLine}\n4. النشاط (1): يوجه المعلم التلاميذ إلى تنفيذ نشاط فردي قصير من الكتاب أو من المرفق إن وجد، مثل تحديد فكرة، اختيار تصرف صحيح، مطابقة مفهوم بمعناه، أو استخراج دليل من النص. يشرح المطلوب خطوة بخطوة، ويتابع التنفيذ، ثم يقدم تغذية راجعة توضح سبب صحة الإجابة أو موضع الخطأ.\n5. توضيح المفهوم: يشرح المعلم المفهوم الرئيس بأسلوب محسوس مناسب للمرحلة، ويستخدم لوحة أو بطاقات أو نموذجًا على السبورة لربط المفهوم بالأمثلة الواردة في الدرس. يطلب من الطلاب تكوين مثال جديد يثبت فهمهم للمفهوم.\n6. لعبة أو تطبيق عملي: ينفذ المعلم لعبة تعليمية أو موقفًا تطبيقيًا قصيرًا يناسب المادة والصف؛ يتعامل التلميذ مع موقف جديد ويجيب عن سؤالين: ماذا أفعل؟ وماذا يحدث إذا لم أفعل؟ يربط المعلم الإجابات بهدف الدرس ويصحح الفهم أثناء اللعب.\n7. التعلم التعاوني: يقسم المعلم التلاميذ إلى مجموعات صغيرة، وتستخرج كل مجموعة مثالًا أو حقًا وواجبًا أو قاعدة وتطبيقًا أو مشكلة وحلًا بحسب موضوع الدرس. تعرض كل مجموعة ناتجها، ويطلب المعلم من بقية الطلاب إضافة دليل أو مثال من المرفق أو من واقعهم.\n8. ربط الدرس بالحياة: يطلب المعلم من التلاميذ ربط الفكرة بموقف من البيت أو المدرسة أو الحي أو البيئة العمانية، حتى يصبح التعلم قريبًا من واقعهم. يوضح المعلم كيف يمكن تطبيق المفهوم في سلوك يومي أو مهمة قصيرة.\n9. النشاط (2): يوجه المعلم التلاميذ إلى نشاط متابعة مثل تصنيف بطاقات، رسم بسيط، تمثيل دور، حل موقف، أو إكمال جدول. يختار النشاط بناءً على فكرة المرفق، ثم يناقش الإجابات مع الصف ويربط كل إجابة بالمفهوم الرئيس.\n10. التقويم التكويني: أثناء التنفيذ يسأل المعلم: لماذا اخترت؟ ما التصرف الصحيح؟ كيف عرفت؟ ماذا سيحدث إذا تغير الموقف؟ ويطلب من الطالب ذكر دليل من النص أو مثال مناسب من المنهج. يعالج الأخطاء فورًا بإعادة صياغة السؤال أو عرض مثال أوضح.\n11. التقويم الختامي: يقدم المعلم موقفًا جديدًا أو بطاقة خروج قصيرة يثبت فيها التلميذ تحقق الهدف بتطبيق المفهوم لا بترديده فقط. تكون المهمة مرتبطة بعنوان الدرس وتطلب من الطالب شرح السبب أو إعطاء مثال أو حل موقف.\n12. الامتداد المنزلي: يطلب المعلم من التلميذ تطبيق فكرة الدرس في موقف بسيط داخل البيت أو ملاحظة سلوك مرتبط بها ومناقشته مع ولي الأمر. يوضح للطالب ما الذي سيلاحظه أو يسجله حتى تكون الملاحظة عملية ومناسبة للمرحلة.`;
 }
 
 function localGenerateLesson(lesson, attachment) {
