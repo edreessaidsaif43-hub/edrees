@@ -602,6 +602,30 @@ async function listData(req, res) {
   const subjectFiltersJson = JSON.stringify(parseQueryList(req?.query?.subjects));
   const attachmentIdFiltersJson = JSON.stringify(parseQueryIds(req?.query?.attachmentIds));
   const activeOnly = String(req?.query?.activeOnly || "0") === "1";
+  const subjectCatalogOnly = String(req?.query?.subjectCatalog || "0") === "1";
+  if (subjectCatalogOnly) {
+    const rows = await sql`
+      SELECT DISTINCT
+        grade,
+        subject
+      FROM ai_lessons
+      WHERE (${activeOnly} = false OR status = 'active')
+        AND btrim(COALESCE(grade, '')) <> ''
+        AND btrim(COALESCE(subject, '')) <> ''
+        AND (${gradeFiltersJson}::jsonb = '[]'::jsonb OR grade IN (SELECT jsonb_array_elements_text(${gradeFiltersJson}::jsonb)))
+        AND (${subjectFiltersJson}::jsonb = '[]'::jsonb OR subject IN (SELECT jsonb_array_elements_text(${subjectFiltersJson}::jsonb)))
+      ORDER BY grade, subject
+      LIMIT ${listLimit};
+    `;
+    return send(res, 200, {
+      lessons: rows.map((row) => ({
+        grade: row.grade || "",
+        subject: row.subject || "",
+        status: "active"
+      })),
+      attachments: []
+    });
+  }
   const lessons = includeLessons ? await sql`
     SELECT
       id,
