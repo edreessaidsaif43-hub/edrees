@@ -1540,7 +1540,7 @@ async function generateGemini(req, res) {
   const requestedModel = String(body.model || process.env.OPENROUTER_MODEL || OPENROUTER_DEFAULT_MODEL).trim();
   const model = requestedModel.includes("/") ? requestedModel : OPENROUTER_DEFAULT_MODEL;
   const prompt = String(body.prompt || "");
-  const maxOutputTokens = Math.max(2500, Math.min(12000, Number(body.maxOutputTokens || 9000)));
+  const maxOutputTokens = Math.max(2500, Math.min(16000, Number(body.maxOutputTokens || 9000)));
   if (!apiKey) return fail(res, 400, "مفتاح OpenRouter غير مضبوط في الخادم.", "missing_openrouter_key");
   if (!prompt) return fail(res, 400, "Ù†Øµ Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯.", "invalid_payload");
   let finalPrompt = prompt;
