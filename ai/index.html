@@ -3423,35 +3423,39 @@ function copySection(key, btn) {
   });
 }
 
+function copiedSectionText(key) {
+  return String(document.getElementById('sec-' + key)?.textContent || '').trim();
+}
+
 function copyAll() {
   const texts = getResultUiTexts(window.__currentDisplayedLesson || {});
-  const noorLabels = {
-    objectives: texts.labels.objectives,
-    intro: texts.labels.intro,
-    procedures: texts.labels.procedures,
-    formativeAssessment: texts.labels.formativeAssessment,
-    closingAssessment: texts.labels.closingAssessment,
-    parentNotes: texts.labels.parentNotes
-  };
-  const enrichmentLabels = {
-    homework1: texts.labels.homework1,
-    homework2: texts.labels.homework2,
-    classroomGames: texts.labels.classroomGames,
-    citizenship: texts.labels.citizenship,
-    motivation: texts.labels.motivation,
-    attendance: texts.labels.attendance,
-    boardPlan: texts.labels.boardPlan
-  };
-  let text = texts.noorCopyHeader + '\n\n';
-  Object.entries(noorLabels).forEach(([k, label]) => {
-    const el = document.getElementById('sec-' + k);
-    if (el) text += `【 ${label} 】\n${el.textContent}\n\n`;
-  });
-  text += texts.enrichmentCopyHeader + '\n\n';
-  Object.entries(enrichmentLabels).forEach(([k, label]) => {
-    const el = document.getElementById('sec-' + k);
-    if (el) text += `【 ${label} 】\n${el.textContent}\n\n`;
-  });
+  const lesson = window.__currentDisplayedLesson || {};
+  const title = String(lesson.title || '').trim();
+  const lines = [
+    '----',
+    `عنوان الدرس: ${title}`,
+    '',
+    `أهداف الدرس:`,
+    copiedSectionText('objectives'),
+    '',
+    `التمهيد:`,
+    copiedSectionText('intro'),
+    '',
+    `إجراءات تنفيذ الدرس:`,
+    copiedSectionText('procedures'),
+    '',
+    `التقويم التكويني:`,
+    copiedSectionText('formativeAssessment'),
+    '',
+    `التقويم الختامي:`,
+    copiedSectionText('closingAssessment'),
+    '',
+    `ملاحظات ولي الأمر:`,
+    copiedSectionText('parentNotes'),
+    '',
+    '----'
+  ];
+  const text = lines.join('\n').replace(/\n{3,}/g, '\n\n');
   navigator.clipboard.writeText(text.trim()).then(() => showToast(texts.copyAllSuccess));
 }
 
