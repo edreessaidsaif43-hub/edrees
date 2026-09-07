@@ -606,6 +606,17 @@
     .home-card-price span{display:block;font-size:.78rem;font-weight:800;color:#526b86;line-height:1.65}
     .home-card-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
     .home-card-meta span{padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.72);border:1px solid rgba(214,225,238,.88);font-size:11px;font-weight:900;color:#445b76;box-shadow:0 8px 18px rgba(10,22,40,.035)}
+    .home-card.noor-fill-card{grid-column:1 / -1;min-height:0}
+    .noor-fill-intro{max-width:760px!important;margin-bottom:18px!important}
+    .noor-device-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:4px 0 18px}
+    .noor-device-panel{border-top:1px solid rgba(214,225,238,.95);padding-top:14px;min-width:0}
+    .noor-device-panel h4{font-size:.96rem;font-weight:900;color:#0a1628;margin-bottom:9px}
+    .noor-device-panel p{font-size:.82rem;line-height:1.8;margin:0;color:#5b718b;max-width:none}
+    .noor-steps{margin:0;padding:0 18px 0 0;color:#526b86;font-size:.84rem;line-height:1.85}
+    .noor-steps li{margin-bottom:5px}
+    .noor-tool-link{display:inline-flex;align-items:center;justify-content:center;min-height:42px;margin-top:12px;padding:10px 14px;border-radius:12px;background:var(--card-accent,#0f3d9e);color:#fff;text-decoration:none;font-size:.84rem;font-weight:900;box-shadow:0 10px 22px color-mix(in srgb, var(--card-accent,#0f3d9e) 22%, transparent)}
+    .noor-coming-soon{display:inline-flex;margin-top:12px;padding:9px 12px;border-radius:999px;background:rgba(255,255,255,.72);border:1px solid rgba(214,225,238,.9);font-size:.78rem;font-weight:900;color:#526b86}
+    @media(max-width:900px){.noor-device-grid{grid-template-columns:1fr}}
     .home-band{padding:34px 0}
     .home-band-box{border-radius:28px;padding:26px;background:linear-gradient(135deg,#fff7e8,#ffffff 58%,#eef9f7);border:1px solid rgba(236,202,139,.5);box-shadow:0 18px 40px rgba(10,22,40,.05)}
     .home-band-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:24px;align-items:center}
@@ -809,8 +820,44 @@
       </div>
 
       <div class="home-grid cards-focus-grid">
-        <a href="/t" class="home-card wide r" style="--card-accent:#0f3d9e;--card-soft:#eef4ff">
+        <div class="home-card noor-fill-card r" style="--card-accent:#0f766e;--card-soft:#ecfdf5">
           <div class="home-card-icon">01</div>
+          <h3>تعبئة منصة نور</h3>
+          <p class="noor-fill-intro">أداة تساعد المعلم على نقل التحضير المولّد من التحضير بالذكاء الاصطناعي إلى منصة نور بسرعة.</p>
+          <div class="noor-device-grid">
+            <div class="noor-device-panel">
+              <h4>الحاسب الآلي</h4>
+              <ol class="noor-steps">
+                <li>افتح متصفح كروم ثم ثبّت أداة التعبئة التلقائية للدرس.</li>
+                <li>ادخل إلى التحضير بالذكاء الاصطناعي.</li>
+                <li>اختر الصف والمادة والوحدة والدرس ثم اضغط توليد التحضير.</li>
+                <li>في أسفل التحضير اضغط زر نسخ التحضير كاملًا.</li>
+                <li>اذهب إلى منصة نور ثم اضغط إضافة تحضير.</li>
+                <li>اضغط زر تعبئة التحضير، ثم الصق نص الدرس في الصندوق.</li>
+                <li>اضغط تعبئة الدرس أو حفظه.</li>
+              </ol>
+              <a class="noor-tool-link" href="https://chromewebstore.google.com/detail/%D8%AA%D8%B9%D8%A8%D8%A6%D8%A9-%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%AF%D8%B1%D9%88%D8%B3-%D9%86%D9%88%D8%B1/fgdlajfbjmobhaeabmgdfgmecpjjlmng" target="_blank" rel="noopener noreferrer">تثبيت أداة كروم للكمبيوتر</a>
+            </div>
+            <div class="noor-device-panel">
+              <h4>هاتف الآيفون</h4>
+              <p>الدعم قادم قريبًا.</p>
+              <span class="noor-coming-soon">قريبًا</span>
+            </div>
+            <div class="noor-device-panel">
+              <h4>هاتف الأندرويد</h4>
+              <p>الدعم قادم قريبًا.</p>
+              <span class="noor-coming-soon">قريبًا</span>
+            </div>
+          </div>
+          <div class="home-card-meta">
+            <span>منصة نور</span>
+            <span>كروم</span>
+            <span>تعبئة تلقائية</span>
+          </div>
+        </div>
+
+        <a href="/t" class="home-card wide r" style="--card-accent:#0f3d9e;--card-soft:#eef4ff">
+          <div class="home-card-icon">02</div>
           <h3>تحضير الدروس بشكل يدوي</h3>
           <p>يتم تحضير الدروس بشكل يدوي من دليل المعلم والملفات والمرفقات المعتمدة.</p>
           <div class="home-card-price">
@@ -825,7 +872,7 @@
         </a>
 
         <a href="https://altahdir.app/ai/index.html" target="_blank" rel="noopener noreferrer" class="home-card wide r2" style="--card-accent:#2563eb;--card-soft:#eef6ff">
-          <div class="home-card-icon">02</div>
+          <div class="home-card-icon">03</div>
           <h3>التحضير بالذكاء الاصطناعي</h3>
           <p>توليد تحضير الدروس تلقائيًا من المرفقات المعتمدة مع أقسام جاهزة للنسخ.</p>
           <div class="home-card-price">
@@ -840,7 +887,7 @@
         </a>
 
         <a href="/m" class="home-card wide r2" style="--card-accent:#156f87;--card-soft:#eaf8fb">
-          <div class="home-card-icon">03</div>
+          <div class="home-card-icon">04</div>
           <h3>حقيبة المعلم</h3>
           <p>الوصول إلى المحتوى التعليمي والأنشطة والملفات من مكان واحد.</p>
           <div class="home-card-price">
@@ -854,7 +901,7 @@
         </a>
 
         <a href="/enjazy" class="home-card r" style="--card-accent:#9a6a17;--card-soft:#fff7e8">
-          <div class="home-card-icon">04</div>
+          <div class="home-card-icon">05</div>
           <h3>ملف الإنجاز الرقمي</h3>
           <p>يهدف إلى تنظيم المبادرات وإنجازات المعلم ويمكن عرضها على المدير للإجادة.</p>
           <div class="home-card-price">
@@ -867,7 +914,7 @@
         </a>
 
         <a href="/Motivation+/" class="home-card r2" style="--card-accent:#a53d2f;--card-soft:#fff0ec">
-          <div class="home-card-icon">05</div>
+          <div class="home-card-icon">06</div>
           <h3>تحفيز+</h3>
           <p>يهدف النظام إلى ضبط سلوك الطلبة في الصف وتحفيزهم بالنقاط.</p>
           <div class="home-card-price">
@@ -881,7 +928,7 @@
         </a>
 
         <a href="https://altahdir.app/mash/index.html" target="_blank" rel="noopener noreferrer" class="home-card r3" style="--card-accent:#5b4f9a;--card-soft:#f1efff">
-          <div class="home-card-icon">06</div>
+          <div class="home-card-icon">07</div>
           <h3>مشاريع المعلمين</h3>
           <p>عرض المشاريع والمبادرات التعليمية للمعلمين.</p>
           <div class="home-card-price">
@@ -894,7 +941,7 @@
         </a>
 
         <a href="https://gyab-xi.vercel.app/" target="_blank" rel="noopener noreferrer" class="home-card r3" style="--card-accent:#0d9488;--card-soft:#ecfbf8">
-          <div class="home-card-icon">07</div>
+          <div class="home-card-icon">08</div>
           <h3>نظام الحضور والتسرب المدرسي</h3>
           <p>متابعة الحضور والغياب والتسرب المدرسي من النظام المخصص.</p>
           <div class="home-card-price">
