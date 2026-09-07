@@ -493,7 +493,7 @@ function rowToSubscription(row) {
 }
 
 async function getStatus(req, res) {
-  if (!(await dbReady(res))) return;
+  if (!(await dbReady(res, false))) return;
   const userId = String(req.query?.userId || "").trim();
   const email = String(req.query?.email || "").trim().toLowerCase();
   if (!userId && !email) return send(res, 200, { activeGrades: [], pending: [], subscriptions: [], paymentNumber: PAYMENT_NUMBER });
