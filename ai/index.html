@@ -1452,27 +1452,51 @@ function getSessionUserId(session) {
   return String(session?.userId || session?.user_id || session?.id || '').trim();
 }
 
-function getSubscriptionUserId() {
-  const session = typeof getUnifiedSession === 'function'
+function getSessionEmail(session) {
+  return normalizeEmail(session?.email || session?.contact || session?.username || '');
+}
+
+function getSessionCandidates(record) {
+  if (!record || typeof record !== 'object') return [];
+  const list = [record];
+  ['user', 'profile', 'account', 'data'].forEach((key) => {
+    if (record[key] && typeof record[key] === 'object') list.push(record[key]);
+  });
+  if (record.data?.user && typeof record.data.user === 'object') list.push(record.data.user);
+  return list;
+}
+
+function getSubscriptionIdentity() {
+  const sessions = [];
+  const liveSession = typeof getUnifiedSession === 'function'
     ? getUnifiedSession()
     : (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
-  const sessionUserId = getSessionUserId(session);
-  if (sessionUserId) return sessionUserId;
+  if (liveSession) sessions.push(...getSessionCandidates(liveSession));
   const keys = ['lesson_platform_backend_session_v1', 'enjazy_session_v1', 'lesson_platform_current_user_v1'];
   for (const key of keys) {
     try {
       const raw = localStorage.getItem(key);
       const parsed = raw ? JSON.parse(raw) : null;
-      const parsedUserId = getSessionUserId(parsed);
-      if (parsedUserId) return parsedUserId;
+      if (parsed) sessions.push(...getSessionCandidates(parsed));
     } catch (e) {}
   }
+  let userId = '';
+  let email = '';
+  sessions.forEach((session) => {
+    if (!userId) userId = getSessionUserId(session);
+    if (!email) email = getSessionEmail(session);
+  });
   try {
     const params = new URLSearchParams(window.location.search || '');
-    const urlUserId = String(params.get('enjazyUserId') || params.get('userId') || '').trim();
-    if (urlUserId) return urlUserId;
+    userId = userId || String(params.get('enjazyUserId') || params.get('userId') || '').trim();
+    email = email || normalizeEmail(params.get('email') || '');
   } catch (e) {}
-  return '';
+  return { userId, email };
+}
+
+function getSubscriptionUserId() {
+  const identity = getSubscriptionIdentity();
+  return identity.userId || identity.email || '';
 }
 
 function updateSubscriptionPanel() {
@@ -1559,7 +1583,22 @@ function isSameSubscriptionGrade(a, b) {
 }
 
 function isSameSubscriptionSubject(a, b) {
-  return normalizeSubscriptionSubject(a) === normalizeSubscriptionSubject(b);
+  const left = normalizeSubscriptionSubject(a);
+  const right = normalizeSubscriptionSubject(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+  const compactLeft = left.replace(/\s+/g, '');
+  const compactRight = right.replace(/\s+/g, '');
+  return compactLeft === compactRight || compactLeft.includes(compactRight) || compactRight.includes(compactLeft);
+}
+
+function getActiveLessonSubjectRows() {
+  const source = typeof activeLessons === 'function'
+    ? activeLessons()
+    : (Array.isArray(D) ? D.map(row => ({ grade: row["1"], subject: row["2"] })) : []);
+  return source
+    .map(item => ({ grade: String(item.grade || '').trim(), subject: String(item.subject || '').trim() }))
+    .filter(item => item.grade && item.subject);
 }
 
 function getActiveSubscriptionSubjects() {
@@ -1567,13 +1606,17 @@ function getActiveSubscriptionSubjects() {
   const fromSubscriptions = (subscriptionState.subscriptions || [])
     .filter(item => item.status === 'active')
     .flatMap(item => {
-      const subjects = expandSubscriptionSubjectValues(item.subjects || [], item.grade || '');
+      const subjects = [
+        ...expandSubscriptionSubjectValues(item.subjects || [], item.grade || ''),
+        ...expandSubscriptionSubjectValues(item.activeSubjects || [], item.grade || '')
+      ];
       if (subjects.length) return subjects;
       return expandSubscriptionSubjectValues([item.activeItems || item.grade || '', ...(Array.isArray(item.grades) ? item.grades : [])]);
     });
   const seen = new Set();
   const out = [];
-  [...direct, ...fromSubscriptions].forEach((item) => {
+  const lessonRows = getActiveLessonSubjectRows();
+  function addSubject(item) {
     const grade = displaySubscriptionGrade(item?.grade || '');
     const subject = String(item?.subject || '').trim();
     const expiresAt = item?.expiresAt || item?.expires_at || '';
@@ -1582,6 +1625,19 @@ function getActiveSubscriptionSubjects() {
     if (seen.has(key)) return;
     seen.add(key);
     out.push({ grade, subject, expiresAt });
+  }
+  [...direct, ...fromSubscriptions].forEach((item) => {
+    const grade = displaySubscriptionGrade(item?.grade || '');
+    const subject = String(item?.subject || '').trim();
+    if (grade && subject) {
+      addSubject(item);
+      return;
+    }
+    if (subject && lessonRows.length) {
+      lessonRows
+        .filter(lesson => isSameSubscriptionSubject(lesson.subject, subject))
+        .forEach(lesson => addSubject({ ...item, grade: lesson.grade, subject: lesson.subject }));
+    }
   });
   return out;
 }
@@ -1765,14 +1821,17 @@ function renderSelectedSubscriptionSubjects() {
 }
 
 async function refreshSubscriptionStatus() {
-  const userId = getSubscriptionUserId();
+  const identity = getSubscriptionIdentity();
+  const userId = identity.userId || identity.email;
   if (!userId) {
     subscriptionState = { loaded: true, activeGrades: [], activeSubjects: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
     updateSubscriptionPanel();
     return subscriptionState;
   }
   try {
-    const response = await fetch(subscriptionApiUrl('/api/subscriptions?action=status&userId=' + encodeURIComponent(userId)));
+    const params = new URLSearchParams({ action: 'status', userId });
+    if (identity.email) params.set('email', identity.email);
+    const response = await fetch(subscriptionApiUrl('/api/subscriptions?' + params.toString()));
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.message || 'تعذر جلب حالة الاشتراك.');
     subscriptionState = {
@@ -2487,23 +2546,23 @@ function buildPdfLessonPrompt(lesson) {
 الدرس المطلوب: ${lesson.title}
 
 قواعد الإجابة الصارمة:
-- الحقول الخمسة الأولى لمنصة نور يجب أن تكون من ملف PDF المرفق فقط: objectives, intro, procedures, formativeAssessment, closingAssessment.
+- حقول منصة نور تعتمد على ملف PDF المرفق، لكن حقل procedures مسموح إثراؤه من خارج الملف عند نقص التفاصيل، بشرط أن يكون مناسبًا للمرحلة والصف والمادة والدرس في المناهج العمانية.
 - ركز فقط على الدرس المطلوب: "${lesson.title}".
 - تجاهل الدروس الأخرى الموجودة في نفس الملف.
 - إذا لم يظهر عنوان الدرس حرفيًا في المرفق، استخدم أقرب فقرة أو نشاط أو عنوان مرتبط بنفس الوحدة وموضوع الدرس بدل كتابة جميع الحقول "غير مذكور في المرفق".
-- لا تضف معلومات خارج الملف في حقول منصة نور، وإذا لم تجد معلومة واضحة اكتب: ${unavailable}
+- لا تضف معلومات خارج الملف في objectives وintro وformativeAssessment وclosingAssessment، وإذا لم تجد معلومة واضحة اكتب: ${unavailable}. أما procedures فلا تكتب فيه ${unavailable} إذا كان عنوان الدرس معروفًا؛ ولّد إجراءات تدريس مفصلة مناسبة للمنهج العماني مع الاستفادة من الملف قدر الإمكان.
 - parentNotes يولد حسب الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويكون مناسبًا لولي الأمر.
 - القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويستفيد من معلومات المرفق إن وجدت. إذا لم توجد تفاصيل كافية في المرفق فلا تكتب "غير مذكور في المرفق" في حقول الإثراء، بل ولّد محتوى تربويًا مناسبًا للدرس والمرحلة.
 - اجعل التحضير غنيًا بالمعلومات ومفصلًا، ولا تختصر الإجابات في جمل قصيرة.
 - اكتب في كل حقل 3 إلى 6 نقاط أو جمل واضحة على الأقل، حسب طبيعة الحقل.
 - objectives يجب أن يحتوي نواتج تعلم متعددة قابلة للملاحظة والقياس، مع ربطها بمحتوى الدرس.
 - intro يجب أن يحتوي تمهيدًا مفصلًا يتضمن سؤالًا افتتاحيًا وربطًا بخبرة الطالب ومفردات أو فكرة مركزية من المرفق.
-- procedures يجب أن يكون أطول قسم، ويتضمن خطوات متدرجة للحصة: تمهيد، عرض، مناقشة، نشاط فردي أو جماعي، توظيف أمثلة من المرفق، متابعة تعلم الطلاب، وتلخيص.
+- procedures يجب أن يكون أطول قسم ومفصلًا جدًا، ولا يقل عن 10 إلى 14 خطوة عملية للحصة، ويتضمن: تمهيدًا، تهيئة وربطًا بالخبرات السابقة، عرض المفهوم، أسئلة موجهة، شرحًا تدريجيًا، نشاطًا فرديًا، نشاطًا تعاونيًا، أمثلة تطبيقية، معالجة أخطاء شائعة، تفريدًا للتعلم، متابعة تعلم الطلاب، تقويمًا أثناء التنفيذ، تلخيصًا، وربطًا بالواجب. يجب أن يذكر داخل الخطوات أمثلة واضحة تناسب الدرس، والطريقة الأمثل لعرض كل جزء مثل: عرض بصري، تجربة أو نشاط عملي، نموذج على السبورة، مناقشة موجهة، تعلم تعاوني، بطاقات مفاهيم، موقف حياتي عماني، أو استخدام وسيلة تعليمية مناسبة للمادة. إذا لم يكف الملف لتفصيل هذه الخطوات فأكمل من معرفتك التربوية بما يناسب الصف والمادة والدرس في المناهج العمانية.
 - formativeAssessment وclosingAssessment يجب أن يحتوي كل منهما عدة أسئلة أو مهام واضحة، مع تنويع بين سؤال مباشر وتطبيقي واستنتاجي.
 - homework1 وhomework2 يجب أن يكونا واجبين مفصلين، مع تعليمات تنفيذ واضحة وما المطلوب من الطالب تسليمه.
 - classroomGames وcitizenship وmotivation وattendance وboardPlan يجب أن تكون عملية وغنية وتناسب الصف والدرس.
 - لا تستخدم عبارات عامة مثل "يناقش المعلم الدرس" فقط؛ اذكر ماذا يناقش، وما السؤال، وما النشاط، وما الناتج المتوقع.
-- اجعل كل حقل عمليًا ومباشرًا وجاهزًا للنسخ في منصة المعلم، مع الحفاظ على الاعتماد على المرفق في حقول منصة نور.
+- اجعل كل حقل عمليًا ومباشرًا وجاهزًا للنسخ في منصة المعلم، مع الحفاظ على الاعتماد على المرفق في الحقول الأخرى، والسماح بتوسيع إجراءات تنفيذ الدرس بما يناسب المنهج العماني.
 ${languageRule}
 
 أخرج النتيجة بصيغة JSON فقط بالشكل التالي بدون أي نص إضافي:
@@ -2606,23 +2665,23 @@ function buildLessonPrompt(lesson, attachment) {
 ${relevantText}
 
 قواعد الإجابة الصارمة:
-- الحقول الخمسة الأولى لمنصة نور يجب أن تكون من النص المرفق فقط: objectives, intro, procedures, formativeAssessment, closingAssessment.
+- حقول منصة نور تعتمد على النص المرفق، لكن حقل procedures مسموح إثراؤه من خارج المرفق عند نقص التفاصيل، بشرط أن يكون مناسبًا للمرحلة والصف والمادة والدرس في المناهج العمانية.
 - ركز فقط على الدرس المطلوب: "${lesson.title}".
 - لا تستخدم أجزاء تخص دروسًا أخرى في نفس المرفق.
 - إذا لم يظهر عنوان الدرس حرفيًا في النص، استخدم أقرب فقرة أو نشاط أو عنوان مرتبط بنفس الوحدة وموضوع الدرس بدل كتابة جميع الحقول "غير مذكور في المرفق".
-- لا تضف معلومات خارج المرفق في حقول منصة نور، وإذا لم تجد معلومة واضحة اكتب: ${unavailable}
+- لا تضف معلومات خارج المرفق في objectives وintro وformativeAssessment وclosingAssessment، وإذا لم تجد معلومة واضحة اكتب: ${unavailable}. أما procedures فلا تكتب فيه ${unavailable} إذا كان عنوان الدرس معروفًا؛ ولّد إجراءات تدريس مفصلة مناسبة للمنهج العماني مع الاستفادة من المرفق قدر الإمكان.
 - parentNotes يولد حسب الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويكون مناسبًا لولي الأمر.
 - القسم الإثرائي يولد حسب اسم الدرس والصف والمرحلة الدراسية في سلطنة عمان، ويستفيد من معلومات المرفق إن وجدت. إذا لم توجد تفاصيل كافية في المرفق فلا تكتب "غير مذكور في المرفق" في حقول الإثراء، بل ولّد محتوى تربويًا مناسبًا للدرس والمرحلة.
 - اجعل التحضير غنيًا بالمعلومات ومفصلًا، ولا تختصر الإجابات في جمل قصيرة.
 - اكتب في كل حقل 3 إلى 6 نقاط أو جمل واضحة على الأقل، حسب طبيعة الحقل.
 - objectives يجب أن يحتوي نواتج تعلم متعددة قابلة للملاحظة والقياس، مع ربطها بمحتوى الدرس.
 - intro يجب أن يحتوي تمهيدًا مفصلًا يتضمن سؤالًا افتتاحيًا وربطًا بخبرة الطالب ومفردات أو فكرة مركزية من المرفق.
-- procedures يجب أن يكون أطول قسم، ويتضمن خطوات متدرجة للحصة: تمهيد، عرض، مناقشة، نشاط فردي أو جماعي، توظيف أمثلة من المرفق، متابعة تعلم الطلاب، وتلخيص.
+- procedures يجب أن يكون أطول قسم ومفصلًا جدًا، ولا يقل عن 10 إلى 14 خطوة عملية للحصة، ويتضمن: تمهيدًا، تهيئة وربطًا بالخبرات السابقة، عرض المفهوم، أسئلة موجهة، شرحًا تدريجيًا، نشاطًا فرديًا، نشاطًا تعاونيًا، أمثلة تطبيقية، معالجة أخطاء شائعة، تفريدًا للتعلم، متابعة تعلم الطلاب، تقويمًا أثناء التنفيذ، تلخيصًا، وربطًا بالواجب. يجب أن يذكر داخل الخطوات أمثلة واضحة تناسب الدرس، والطريقة الأمثل لعرض كل جزء مثل: عرض بصري، تجربة أو نشاط عملي، نموذج على السبورة، مناقشة موجهة، تعلم تعاوني، بطاقات مفاهيم، موقف حياتي عماني، أو استخدام وسيلة تعليمية مناسبة للمادة. إذا لم يكف المرفق لتفصيل هذه الخطوات فأكمل من معرفتك التربوية بما يناسب الصف والمادة والدرس في المناهج العمانية.
 - formativeAssessment وclosingAssessment يجب أن يحتوي كل منهما عدة أسئلة أو مهام واضحة، مع تنويع بين سؤال مباشر وتطبيقي واستنتاجي.
 - homework1 وhomework2 يجب أن يكونا واجبين مفصلين، مع تعليمات تنفيذ واضحة وما المطلوب من الطالب تسليمه.
 - classroomGames وcitizenship وmotivation وattendance وboardPlan يجب أن تكون عملية وغنية وتناسب الصف والدرس.
 - لا تستخدم عبارات عامة مثل "يناقش المعلم الدرس" فقط؛ اذكر ماذا يناقش، وما السؤال، وما النشاط، وما الناتج المتوقع.
-- اجعل كل حقل عمليًا ومباشرًا وجاهزًا للنسخ في منصة المعلم، مع الحفاظ على الاعتماد على المرفق في حقول منصة نور.
+- اجعل كل حقل عمليًا ومباشرًا وجاهزًا للنسخ في منصة المعلم، مع الحفاظ على الاعتماد على المرفق في الحقول الأخرى، والسماح بتوسيع إجراءات تنفيذ الدرس بما يناسب المنهج العماني.
 ${languageRule}
 
 أخرج النتيجة بصيغة JSON فقط بالشكل التالي بدون أي نص إضافي:
@@ -2734,7 +2793,7 @@ async function callGeminiBackend(prompt, settings, extra = {}) {
     body: JSON.stringify({
       model: settings.model,
       prompt,
-      maxOutputTokens: 6500,
+      maxOutputTokens: 8000,
       attachmentId: extra.attachmentId || null,
       attachmentIds: Array.isArray(extra.attachmentIds) ? extra.attachmentIds : [],
       includeAttachmentText: !!extra.includeAttachmentText
@@ -2954,7 +3013,7 @@ function localGenerateLesson(lesson, attachment) {
     return {
       objectives: `Students are expected to identify the main ideas in "${title}" from the attachment, explain the key concepts, and apply them in a short classroom activity.`,
       intro: `The teacher begins with a short question related to "${title}", then presents a short excerpt from the attachment to activate students' prior knowledge.`,
-      procedures: `1. Present the lesson title and unit: ${unit}.\n2. Read the source text from the attachment: ${sourceText}\n3. Extract the key concepts and ideas from the source text only.\n4. Ask students to identify evidence from the text for each answer.\n5. Summarize the information from the attachment without adding external content.`,
+      procedures: `1. Present the lesson title and unit: ${unit}, and clarify the expected learning outcomes in simple language using a clear board display.\n2. Activate prior knowledge with a short question connected to the students' daily experience and the lesson topic.\n3. Read the relevant source text from the attachment: ${sourceText}\n4. Highlight the key vocabulary and ask students to predict the meaning from context before confirming it with examples.\n5. Explain the first idea step by step using a visual display, a board model, or a practical demonstration suitable for the grade level in Oman.\n6. Give a concrete example related to the lesson, then ask students to explain why the example fits the concept.\n7. Ask guided questions that move from recall to understanding, then to simple application.\n8. Organize students into pairs or small groups to complete a task using the best presentation method for the lesson, such as cards, a table, a drawing, role play, or a short experiment.\n9. Ask each group to share one answer and support it with evidence from the attachment or a suitable curriculum-linked example.\n10. Present a second example from Omani daily life, school context, or the subject field to deepen understanding.\n11. Address common misconceptions by comparing correct and incorrect responses without naming students.\n12. Provide differentiated support: an easier prompt for struggling students and an extension question for advanced students.\n13. Monitor student work, give immediate feedback, and record notes about students who need follow-up.\n14. Close the lesson with a student summary of the main idea and a quick connection to the homework task.`,
       formativeAssessment: 'Use oral questions during the lesson and observe students as they identify accurate details from the attachment.',
       closingAssessment: 'Ask students to summarize the most important idea from the lesson in one clear sentence.',
       parentNotes: lessonText.length > 40 ? `The parent reviews the lesson title "${title}" with the student and asks the student to explain one idea learned in simple English.` : unavailable,
@@ -2970,7 +3029,7 @@ function localGenerateLesson(lesson, attachment) {
   return {
     objectives: `يتوقع من الطالب أن يحدد الأفكار الأساسية في درس "${lesson.title}" اعتمادًا على المرفق، وأن يشرح المفاهيم الواردة فيه، وأن يطبقها في نشاط قصير داخل الصف.`,
     intro: `يمهد المعلم للدرس بسؤال قصير مرتبط بعنوان "${lesson.title}"، ثم يعرض مقتطفًا من المرفق لمناقشة المعرفة السابقة لدى الطلاب.`,
-    procedures: `1. عرض عنوان الدرس والوحدة: ${lesson.unit}.\n2. قراءة النص المعتمد من المرفق: ${compactText}\n3. استخراج المفاهيم والأفكار الواردة في النص فقط.\n4. تنفيذ نشاط قصير يطلب من الطلاب تحديد دليل من النص لكل إجابة.\n5. تلخيص ما ورد في المرفق دون إضافة معلومات خارجية.`,
+    procedures: `1. عرض عنوان الدرس والوحدة: ${lesson.unit}، وتوضيح نواتج التعلم المتوقعة بلغة مناسبة للطلاب مع كتابتها في زاوية واضحة من السبورة.\n2. تهيئة الطلاب بسؤال افتتاحي يرتبط بخبراتهم السابقة وموضوع الدرس، مثل موقف من البيئة المدرسية أو الحياة اليومية في سلطنة عمان.\n3. قراءة الجزء المرتبط بالدرس من المرفق: ${compactText}\n4. تحديد المفردات أو المفاهيم الرئيسة وكتابتها على السبورة مع توضيح معناها بسؤال موجه ومثال قصير.\n5. اختيار الطريقة الأمثل لعرض الفكرة الرئيسة حسب المادة: عرض بصري، تجربة عملية، خريطة مفاهيم، جدول مقارنة، نموذج على السبورة، أو مناقشة موجهة.\n6. شرح الفكرة الأولى تدريجيًا باستخدام مثال مناسب للصف والمادة في المناهج العمانية، ثم سؤال الطلاب عن سبب ارتباط المثال بالدرس.\n7. طرح أسئلة موجهة تبدأ بالتذكر ثم الفهم ثم التطبيق البسيط على موقف قريب من حياة الطالب.\n8. تنفيذ نشاط فردي قصير يطلب من كل طالب استخراج معلومة أو إجابة من النص أو من المثال المرتبط بالدرس.\n9. تنفيذ نشاط تعاوني في مجموعات صغيرة باستخدام بطاقات مفاهيم أو جدول أو رسم توضيحي أو مهمة حل مشكلة بحسب طبيعة الدرس.\n10. مناقشة إجابات المجموعات، مع مطالبة الطلاب بتقديم دليل من المرفق أو من المثال التعليمي المناسب.\n11. تقديم مثال تطبيقي إضافي من البيئة العمانية أو من واقع المدرسة لتقريب المفهوم وترسيخه.\n12. معالجة الأخطاء الشائعة بتوضيح الفرق بين الإجابة الصحيحة وغير الدقيقة بطريقة بناءة.\n13. تقديم دعم للطلاب المتعثرين بسؤال أبسط أو مثال محسوس، وتقديم سؤال إثرائي للطلاب المتقدمين.\n14. متابعة تعلم الطلاب أثناء النشاط وتقديم تغذية راجعة مباشرة وتسجيل الملاحظات اللازمة.\n15. تلخيص أهم أفكار الدرس بمشاركة الطلاب وربطها بالواجب أو النشاط الختامي.\n16. التأكد من تحقق نواتج التعلم بسؤال ختامي سريع يجيب عنه الطلاب شفهيًا أو كتابيًا.`,
     formativeAssessment: 'أسئلة شفوية أثناء الشرح، وملاحظة مشاركة الطلاب في استخراج المعلومات من المرفق.',
     closingAssessment: 'يطلب من الطلاب تلخيص أهم فكرة وردت في الدرس في جملة واحدة.',
     parentNotes: lessonText.length > 40 ? `يراجع ولي الأمر مع الطالب عنوان درس "${lesson.title}"، ويطلب منه شرح فكرة واحدة تعلمها بلغة بسيطة مناسبة للمرحلة الدراسية في سلطنة عمان.` : unavailable,
@@ -3022,7 +3081,7 @@ function buildCoreFallback(lesson = {}) {
     return {
       objectives: getEnglishFieldFallback('objectives', lesson),
       intro: getEnglishFieldFallback('intro', lesson),
-      procedures: `1. Present the lesson "${title}" from unit "${unit}".\n2. Discuss the lesson question and key vocabulary with students.\n3. Guide students through the main activity using the available teacher material.\n4. Ask students to answer short questions and justify their answers.\n5. End with a short summary of the lesson's main idea.`,
+      procedures: `1. Present the lesson "${title}" from unit "${unit}" and clarify the learning outcomes in student-friendly language.\n2. Begin with a motivating question connected to students' prior knowledge and daily experience.\n3. Discuss the lesson question and key vocabulary, then ask students to predict meanings before confirmation.\n4. Select the best presentation method for the lesson, such as visual display, board modeling, guided discussion, concept cards, group task, role play, or a short practical activity.\n5. Explain the first main idea gradually using a clear example suitable for the grade level in Oman.\n6. Model one answer or task on the board so students understand the expected work.\n7. Give a second example from school life, Omani context, or the subject area to help students transfer understanding.\n8. Guide students through the main activity using the available teacher material and suitable curriculum-linked examples.\n9. Ask direct questions to check recall, then application questions to check understanding.\n10. Let students complete an individual task and write one short evidence-based answer.\n11. Organize pair or group work to compare answers, solve a task, or classify lesson ideas.\n12. Ask groups to share responses and justify them using the attachment or a suitable lesson example.\n13. Address common misconceptions and re-explain the difficult point with a simpler example.\n14. Provide support for struggling students and an extension question for advanced students.\n15. Use quick formative assessment before moving to the closure.\n16. End with a student summary and connect the lesson to the homework task.`,
       formativeAssessment: getEnglishFieldFallback('formativeAssessment', lesson),
       closingAssessment: getEnglishFieldFallback('closingAssessment', lesson),
       parentNotes: getEnglishFieldFallback('parentNotes', lesson)
@@ -3033,7 +3092,7 @@ function buildCoreFallback(lesson = {}) {
   return {
     objectives: `يتوقع من الطالب أن يتعرف إلى المفاهيم الرئيسة في درس "${title}"، وأن يشرحها بأسلوبه، وأن يطبقها في نشاط مناسب لمستواه الدراسي.`,
     intro: `يمهد المعلم للدرس بسؤال قصير مرتبط بعنوان "${title}"، ثم يربط إجابات الطلاب بخبراتهم السابقة وبموضوع ${unit}.`,
-    procedures: `1. عرض عنوان الدرس "${title}" وتوضيح نواتج التعلم.\n2. مناقشة المفردات أو المفاهيم الرئيسة المرتبطة بالدرس.\n3. تنفيذ نشاط تعلّم فردي أو جماعي يناسب محتوى الدرس.\n4. متابعة إجابات الطلاب وتقديم تغذية راجعة مباشرة.\n5. تلخيص أهم ما تعلمه الطلاب وربطه بالواجب أو النشاط الختامي.`,
+    procedures: `1. عرض عنوان الدرس "${title}" من وحدة "${unit}" وتوضيح نواتج التعلم بلغة قريبة من مستوى الطلاب.\n2. تهيئة الطلاب بسؤال محفز يرتبط بخبراتهم السابقة وبموضوع الدرس في حياتهم أو بيئتهم العمانية.\n3. مناقشة المفردات أو المفاهيم الرئيسة المرتبطة بالدرس وكتابتها على السبورة.\n4. تحديد الطريقة الأمثل لعرض الدرس حسب طبيعته: عرض بصري، تجربة عملية، خريطة مفاهيم، جدول مقارنة، بطاقات، تعلم تعاوني، أو موقف حياتي.\n5. عرض الفكرة الأولى تدريجيًا مع مثال واضح يناسب الصف والمادة في المناهج العمانية.\n6. نمذجة إجابة أو مهمة قصيرة أمام الطلاب لتوضيح طريقة التفكير المطلوبة.\n7. تقديم مثال ثانٍ من البيئة العمانية أو من واقع المدرسة أو من مجال المادة لترسيخ المفهوم.\n8. تنفيذ نشاط فردي يطلب من كل طالب تحديد فكرة أو معلومة أو تطبيق مرتبط بالدرس.\n9. طرح أسئلة موجهة تبدأ بالتذكر ثم الفهم ثم التطبيق والاستنتاج بحسب طبيعة الدرس.\n10. تنظيم الطلاب في أزواج أو مجموعات صغيرة لتنفيذ مهمة تعاونية مثل المقارنة أو التصنيف أو حل موقف تطبيقي.\n11. متابعة عمل المجموعات وتقديم تغذية راجعة مباشرة وتصحيح المفاهيم غير الدقيقة.\n12. مطالبة الطلاب بتبرير إجاباتهم من محتوى الدرس أو من مثال تربوي مناسب للمرحلة.\n13. معالجة الأخطاء الشائعة بإعادة شرح النقطة الصعبة بطريقة أبسط أو باستخدام مثال آخر.\n14. تفريد التعلم بتقديم دعم للطالب المتعثر وسؤال إثرائي للطالب المتقدم.\n15. تنفيذ تقويم سريع أثناء الحصة للتأكد من تحقق الفهم قبل الانتقال للغلق.\n16. تلخيص الدرس بمشاركة الطلاب وربط أهم فكرة بالواجب أو النشاط الختامي.`,
     formativeAssessment: `يطرح المعلم أسئلة قصيرة أثناء الدرس للتأكد من فهم الطلاب لموضوع "${title}"، مع ملاحظة المشاركة وتصحيح المفاهيم عند الحاجة.`,
     closingAssessment: `يطلب المعلم من الطلاب ذكر فكرة رئيسة واحدة من درس "${title}" أو الإجابة عن سؤال ختامي قصير قبل نهاية الحصة.`,
     parentNotes: `يراجع ولي الأمر مع الطالب عنوان درس "${title}"، ويسأله عن أهم فكرة تعلمها وكيف يمكن تطبيقها في موقف بسيط.`
@@ -3184,7 +3243,7 @@ const RESULT_UI_TEXTS = {
     footers: {
       objectives: '📎 مستخرج من المرفق فقط',
       intro: '📎 مستخرج من المرفق فقط',
-      procedures: '📎 مستخرج من المرفق فقط',
+      procedures: '📎 من المرفق مع إثراء مناسب عند الحاجة',
       formativeAssessment: '📎 مستخرج من المرفق فقط',
       closingAssessment: '📎 مستخرج من المرفق فقط',
       parentNotes: '📎 مستخرج من المرفق فقط',
@@ -3228,7 +3287,7 @@ const RESULT_UI_TEXTS = {
     footers: {
       objectives: 'Based on the attachment only',
       intro: 'Based on the attachment only',
-      procedures: 'Based on the attachment only',
+      procedures: 'From the attachment with suitable enrichment when needed',
       formativeAssessment: 'Based on the attachment only',
       closingAssessment: 'Based on the attachment only',
       parentNotes: 'Based on the attachment only',

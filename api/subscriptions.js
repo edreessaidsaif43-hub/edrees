@@ -446,7 +446,7 @@ function safeReceiptUrl(value) {
 
 function parseAdminSubjectLines(value) {
   const lines = String(value || "")
-    .split(/\r?\n|[؛;]/)
+    .split(/\r?\n|[،,؛;]/)
     .map((line) => line.trim())
     .filter(Boolean);
   return uniqueSubscriptionSubjects(lines.map((line) => {
@@ -495,7 +495,8 @@ function rowToSubscription(row) {
 async function getStatus(req, res) {
   if (!(await dbReady(res))) return;
   const userId = String(req.query?.userId || "").trim();
-  if (!userId) return send(res, 200, { activeGrades: [], pending: [], subscriptions: [], paymentNumber: PAYMENT_NUMBER });
+  const email = String(req.query?.email || "").trim().toLowerCase();
+  if (!userId && !email) return send(res, 200, { activeGrades: [], pending: [], subscriptions: [], paymentNumber: PAYMENT_NUMBER });
   const rows = await sql`
     SELECT
       id,
@@ -512,6 +513,7 @@ async function getStatus(req, res) {
       updated_at
     FROM teacher_subscriptions
     WHERE user_id = ${userId}
+       OR (${email} <> '' AND LOWER(user_id) = ${email})
     ORDER BY updated_at DESC, id DESC;
   `;
   const subscriptions = (rows || []).map(rowToSubscription);
