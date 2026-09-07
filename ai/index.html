@@ -1445,6 +1445,8 @@ const CSV_CACHE_KEY = 'lesson_system_csv_cache_v2';
 const CSV_CACHE_TTL_MS = 1000 * 60 * 60 * 8;
 const SUBSCRIPTION_STATUS_CACHE_KEY = 'aiSubscriptionStatusCache';
 const SUBSCRIPTION_STATUS_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const SUBSCRIPTION_CATALOG_CACHE_KEY = 'aiSubscriptionSubjectCatalogCacheV1';
+const SUBSCRIPTION_CATALOG_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
 const TEACHER_LESSON_CACHE_KEY = 'aiTeacherLessonDataCacheV2';
 const TEACHER_LESSON_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
 
@@ -1885,61 +1887,71 @@ function hydrateSubscriptionDataFromCsv(csvText) {
   return D;
 }
 
-async function loadSubscriptionCatalog() {
-  if (subscriptionCatalogLoaded) return D.length ? D : subscriptionCatalogLessons;
-  if (subscriptionCatalogPromise) return subscriptionCatalogPromise;
-  const urls = [
-    'https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ/export?format=csv&gid=0',
-    'https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ/export?format=csv',
-    'https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ/pub?gid=0&single=true&output=csv'
-  ];
-  subscriptionCatalogPromise = (async () => {
-    const cachedCsv = getCachedCsv();
-    if (cachedCsv) {
-      try {
-        hydrateSubscriptionDataFromCsv(cachedCsv);
-        subscriptionCatalogLoaded = true;
-        setTimeout(async () => {
-          for (const url of urls) {
-            const fresh = await fetchSubscriptionCsvFromUrl(url);
-            if (fresh) {
-              setCachedCsv(fresh);
-              hydrateSubscriptionDataFromCsv(fresh);
-              break;
-            }
-          }
-        }, 0);
-        return D;
-      } catch {}
-    }
-    let csvText = null;
-    for (const url of urls) {
-      csvText = await fetchSubscriptionCsvFromUrl(url);
-      if (csvText) break;
-    }
-    if (!csvText && cachedCsv) csvText = cachedCsv;
-    if (!csvText || csvText.length < 100) throw new Error('فشل تحميل مواد الاشتراك');
-    hydrateSubscriptionDataFromCsv(csvText);
-    setCachedCsv(csvText);
+function cacheSubscriptionCatalog() {
+  try {
+    if (!Array.isArray(subscriptionCatalogLessons) || !subscriptionCatalogLessons.length) return;
+    localStorage.setItem(SUBSCRIPTION_CATALOG_CACHE_KEY, JSON.stringify({
+      savedAt: Date.now(),
+      lessons: subscriptionCatalogLessons
+    }));
+  } catch {}
+}
+
+function applyCachedSubscriptionCatalog() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(SUBSCRIPTION_CATALOG_CACHE_KEY) || 'null');
+    if (!cached || !Array.isArray(cached.lessons) || !cached.lessons.length) return false;
+    if ((Date.now() - Number(cached.savedAt || 0)) > SUBSCRIPTION_CATALOG_CACHE_MAX_AGE_MS) return false;
+    subscriptionCatalogLessons = cached.lessons;
     subscriptionCatalogLoaded = true;
-    return D;
-  })()
-    .catch(async (error) => {
-      console.warn('subscription CSV catalog failed', error);
-      try {
-        const data = await apiRequest('/api/lessons', {
-          params: { includeText: '0', includeAttachments: '0', activeOnly: '1', limit: '50000' }
-        });
-        subscriptionCatalogLessons = Array.isArray(data?.lessons) ? data.lessons : [];
-        subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(subscriptionCatalogLessons, 'grade'));
-        fillSubscriptionGradeOptions(subscriptionGradeOptions);
-      } catch (fallbackError) {
-        console.warn('subscription DB catalog fallback failed', fallbackError);
-        subscriptionCatalogLessons = [];
-        fillSubscriptionSubjectOptions();
-      }
+    subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(subscriptionCatalogLessons, 'grade'));
+    fillSubscriptionGradeOptions(subscriptionGradeOptions);
+    fillSubscriptionSubjectOptions();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function loadSubscriptionCatalog() {
+  if (subscriptionCatalogLoaded) return subscriptionCatalogLessons;
+  if (subscriptionCatalogPromise) return subscriptionCatalogPromise;
+  if (applyCachedSubscriptionCatalog()) {
+    subscriptionCatalogPromise = apiRequest('/api/lessons', {
+      params: { subjectCatalog: '1', activeOnly: '1', limit: '50000' }
+    }).then((data) => {
+      subscriptionCatalogLessons = Array.isArray(data?.lessons) ? data.lessons : [];
       subscriptionCatalogLoaded = true;
-      return D.length ? D : subscriptionCatalogLessons;
+      subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(subscriptionCatalogLessons, 'grade'));
+      fillSubscriptionGradeOptions(subscriptionGradeOptions);
+      cacheSubscriptionCatalog();
+      return subscriptionCatalogLessons;
+    }).catch((error) => {
+      console.warn('subscription catalog refresh failed', error);
+      return subscriptionCatalogLessons;
+    }).finally(() => {
+      subscriptionCatalogPromise = null;
+    });
+    return subscriptionCatalogLessons;
+  }
+  subscriptionCatalogPromise = (async () => {
+    const data = await apiRequest('/api/lessons', {
+      params: { subjectCatalog: '1', activeOnly: '1', limit: '50000' }
+    });
+    subscriptionCatalogLessons = Array.isArray(data?.lessons) ? data.lessons : [];
+    subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(subscriptionCatalogLessons, 'grade'));
+    fillSubscriptionGradeOptions(subscriptionGradeOptions);
+    fillSubscriptionSubjectOptions();
+    cacheSubscriptionCatalog();
+    subscriptionCatalogLoaded = true;
+    return subscriptionCatalogLessons;
+  })()
+    .catch((error) => {
+      console.warn('subscription catalog failed', error);
+      subscriptionCatalogLessons = [];
+      fillSubscriptionSubjectOptions();
+      subscriptionCatalogLoaded = true;
+      return subscriptionCatalogLessons;
     })
     .finally(() => {
       subscriptionCatalogPromise = null;
@@ -1972,11 +1984,7 @@ function updateSubscriptionAmount() {
 
 function getSubscriptionSubjectsForGrade(grade) {
   if (!grade) return [];
-  const rows = Array.isArray(D) && D.length
-    ? D.map(row => ({ grade: row["1"], subject: row["2"] }))
-    : subscriptionCatalogLessons.length
-      ? subscriptionCatalogLessons.map(item => ({ grade: item.grade, subject: item.subject }))
-      : (typeof activeLessons === 'function' ? activeLessons().map(item => ({ grade: item.grade, subject: item.subject })) : []);
+  const rows = subscriptionCatalogLessons.map(item => ({ grade: item.grade, subject: item.subject }));
   const activeKeys = new Set(getActiveSubscriptionSubjects().map(item => subscriptionSubjectKey(item.grade, item.subject)));
   const seen = new Set();
   const subjects = [];
@@ -2621,6 +2629,7 @@ async function loadDatabase() {
   try {
     fillSubscriptionGradeOptions(subscriptionGradeOptions);
     populateTeacherFilters();
+    applyCachedSubscriptionCatalog();
     loadSubscriptionCatalog();
     setLessonDataProgress(18, 'جاري التحقق من الاشتراك...', 'نراجع المواد والصفوف المفعلة لهذا الحساب.');
     const hadCachedStatus = applyCachedSubscriptionStatus();
@@ -2709,9 +2718,7 @@ function teacherSubjectOptionsFromSubscriptions(grade = '', items = []) {
 }
 
 function applySubscriptionToGrades() {
-  if (Array.isArray(D) && D.length) {
-    subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(D.map(row => ({ grade: row["1"] })), 'grade'));
-  } else if (subscriptionCatalogLessons.length) {
+  if (subscriptionCatalogLessons.length) {
     subscriptionGradeOptions = uniqueSubscriptionGrades(uniqueValues(subscriptionCatalogLessons, 'grade'));
   }
   fillSubscriptionGradeOptions(subscriptionGradeOptions);
