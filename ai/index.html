@@ -1447,20 +1447,51 @@ function isGradeSubscribed(grade) {
   return uniqueSubscriptionGrades(subscriptionState.activeGrades).some(g => normalizeSubscriptionGrade(g) === wanted);
 }
 
-function getSubscriptionUserId() {
+function getSubscriptionSessionValues(record) {
+  if (!record || typeof record !== 'object') return [];
+  const values = [];
+  const stack = [record, record.user, record.profile, record.account, record.data, record.data?.user].filter(Boolean);
+  stack.forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    values.push({
+      userId: String(item.userId || item.user_id || item.id || '').trim(),
+      email: normalizeEmail(item.email || item.contact || item.username || '')
+    });
+  });
+  return values;
+}
+
+function getSubscriptionIdentity() {
+  const records = [];
   const session = typeof getUnifiedSession === 'function'
     ? getUnifiedSession()
     : (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
-  if (session?.userId) return String(session.userId).trim();
+  if (session) records.push(session);
   const keys = ['lesson_platform_backend_session_v1', 'enjazy_session_v1', 'lesson_platform_current_user_v1'];
   for (const key of keys) {
     try {
       const raw = localStorage.getItem(key);
       const parsed = raw ? JSON.parse(raw) : null;
-      if (parsed?.userId) return String(parsed.userId).trim();
+      if (parsed) records.push(parsed);
     } catch (e) {}
   }
-  return '';
+  let userId = '';
+  let email = '';
+  records.flatMap(getSubscriptionSessionValues).forEach((item) => {
+    if (!userId && item.userId) userId = item.userId;
+    if (!email && item.email) email = item.email;
+  });
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    userId = userId || String(params.get('enjazyUserId') || params.get('userId') || '').trim();
+    email = email || normalizeEmail(params.get('email') || '');
+  } catch (e) {}
+  return { userId, email };
+}
+
+function getSubscriptionUserId() {
+  const identity = getSubscriptionIdentity();
+  return identity.userId || identity.email || '';
 }
 
 function updateSubscriptionPanel() {
@@ -1746,14 +1777,17 @@ function renderSelectedSubscriptionSubjects() {
 }
 
 async function refreshSubscriptionStatus() {
-  const userId = getSubscriptionUserId();
+  const identity = getSubscriptionIdentity();
+  const userId = identity.userId || identity.email;
   if (!userId) {
     subscriptionState = { loaded: true, activeGrades: [], activeSubjects: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
     updateSubscriptionPanel();
     return subscriptionState;
   }
   try {
-    const response = await fetch(subscriptionApiUrl('/api/subscriptions?action=status&userId=' + encodeURIComponent(userId)));
+    const params = new URLSearchParams({ action: 'status', userId });
+    if (identity.email) params.set('email', identity.email);
+    const response = await fetch(subscriptionApiUrl('/api/subscriptions?' + params.toString()));
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.message || 'تعذر جلب حالة الاشتراك.');
     subscriptionState = {

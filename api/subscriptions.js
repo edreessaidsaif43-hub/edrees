@@ -499,22 +499,23 @@ async function getStatus(req, res) {
   if (!userId && !email) return send(res, 200, { activeGrades: [], pending: [], subscriptions: [], paymentNumber: PAYMENT_NUMBER });
   const rows = await sql`
     SELECT
-      id,
-      user_id,
-      grade,
-      CASE WHEN pg_column_size(grades) <= 1048576 THEN grades ELSE '[]'::jsonb END AS grades,
-      CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END AS subjects,
-      status,
-      CASE WHEN LEFT(receipt_url, 5) = 'data:' THEN '' ELSE LEFT(receipt_url, 4097) END AS receipt_url,
-      LEFT(receipt_file_name, 180) AS receipt_file_name,
-      LEFT(receipt_file_type, 80) AS receipt_file_type,
-      LEFT(admin_note, 500) AS admin_note,
-      created_at,
-      updated_at
-    FROM teacher_subscriptions
-    WHERE user_id = ${userId}
-       OR (${email} <> '' AND LOWER(user_id) = ${email})
-    ORDER BY updated_at DESC, id DESC;
+      s.id,
+      s.user_id,
+      s.grade,
+      CASE WHEN pg_column_size(s.grades) <= 1048576 THEN s.grades ELSE '[]'::jsonb END AS grades,
+      CASE WHEN pg_column_size(s.subjects) <= 1048576 THEN s.subjects ELSE '[]'::jsonb END AS subjects,
+      s.status,
+      CASE WHEN LEFT(s.receipt_url, 5) = 'data:' THEN '' ELSE LEFT(s.receipt_url, 4097) END AS receipt_url,
+      LEFT(s.receipt_file_name, 180) AS receipt_file_name,
+      LEFT(s.receipt_file_type, 80) AS receipt_file_type,
+      LEFT(s.admin_note, 500) AS admin_note,
+      s.created_at,
+      s.updated_at
+    FROM teacher_subscriptions s
+    LEFT JOIN teacher_users u ON u.id = s.user_id
+    WHERE s.user_id = ${userId}
+       OR (${email} <> '' AND (LOWER(s.user_id) = ${email} OR LOWER(u.contact_norm) = ${email}))
+    ORDER BY s.updated_at DESC, s.id DESC;
   `;
   const subscriptions = (rows || []).map(rowToSubscription);
   const allSubjects = subscriptions
