@@ -1435,6 +1435,7 @@ const MIN_FULL_MATERIAL_TEXT_LENGTH = 20000;
 const MATERIAL_OCR_PAGE_STEP = 1;
 const MATERIAL_OCR_MAX_PAGES = 800;
 const MATERIAL_OCR_CHUNK_TIMEOUT_MS = 95 * 1000;
+const MATERIAL_BATCH_CONCURRENCY = 3;
 let singleConvertedUpload = null;
 let singleConvertedFileKey = '';
 const pendingAttachmentTexts = new Map();
@@ -3212,7 +3213,8 @@ async function extractStoredMaterialTexts() {
   let completed = 0;
   let failed = 0;
   try {
-    for (const job of jobs) {
+    let nextJobIndex = 0;
+    const processJob = async (job) => {
       let ticker = null;
       try {
         const data = await extractMaterialTextByPageChunks(job);
@@ -3235,8 +3237,15 @@ async function extractStoredMaterialTexts() {
         updateMaterialBatchProgress(job.key, 100, formatAdminRequestError(err, 'ocr'), 'danger');
       }
       const overall = ((completed + failed) / jobs.length) * 100;
-      setAttachmentProgress(overall, 'تحويل دفعة مواد إلى نص', `اكتمل استخراج المرفق كاملًا لـ ${completed} من ${jobs.length} مواد${failed ? `، وتعذر ${failed}` : ''}.`);
-    }
+      setAttachmentProgress(overall, 'تحويل دفعة مواد إلى نص', `اكتمل استخراج المرفق كاملًا لـ ${completed} من ${jobs.length} مواد${failed ? `، وتعذر ${failed}` : ''}. يعمل الآن حتى ${Math.min(MATERIAL_BATCH_CONCURRENCY, jobs.length)} مواد بالتوازي.`);
+    };
+    const workerCount = Math.min(MATERIAL_BATCH_CONCURRENCY, jobs.length);
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+      while (nextJobIndex < jobs.length) {
+        const job = jobs[nextJobIndex++];
+        await processJob(job);
+      }
+    }));
     await loadDatabase();
     const msg = failed
       ? `اكتمل تحويل ${completed} مواد، وتعذر تحويل ${failed} مواد.`

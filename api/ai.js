@@ -823,6 +823,7 @@ async function openRouterPdfPart(attachment, options = {}) {
   const fileName = attachment?.fileName || "lesson.pdf";
   const inlineBuffer = Buffer.isBuffer(options.pdfBuffer) && options.pdfBuffer.length ? options.pdfBuffer : null;
   const fileSize = inlineBuffer ? inlineBuffer.length : Number(attachment?.fileSize || 0);
+  const forceUrl = options.forceBase64 === true ? false : (options.forceUrl === true || attachment?.forceUrl === true);
   if (inlineBuffer) {
     if (inlineBuffer.length > OPENROUTER_INLINE_PDF_MAX_BYTES) {
       throw new Error(`حجم الصفحة بعد قص PDF هو ${inlineBuffer.length} بايت ويتجاوز حد OCR ${OPENROUTER_FILE_PARSER_MAX_BYTES} بايت.`);
@@ -839,7 +840,7 @@ async function openRouterPdfPart(attachment, options = {}) {
   if (options.forceBase64 && fileSize > MAX_DIRECT_OCR_SIZE) {
     throw new Error("تعذر إرسال PDF كبيانات مباشرة لأن حجم الملف كبير جدًا. أعد رفع الملف أو استخدم ملفًا أصغر.");
   }
-  const canInline = url && (!fileSize || fileSize <= INLINE_GEMINI_LIMIT || options.forceBase64);
+  const canInline = !forceUrl && url && (!fileSize || fileSize <= INLINE_GEMINI_LIMIT || options.forceBase64);
   if (canInline) {
     try {
       const base64 = await fetchBlobBase64(url);
@@ -905,17 +906,40 @@ async function createPdfPageRangeBuffer(sourceBuffer, pageStart, pageEnd) {
   return Buffer.from(await outputPdf.save({ useObjectStreams: true }));
 }
 
+async function uploadPdfPageRangeBuffer(pageBuffer, fileName) {
+  const safeName = safeFileName(fileName || "ocr-page.pdf");
+  const pathname = `ai/ocr-pages/${Date.now()}-${Math.floor(Math.random() * 900000 + 100000)}-${safeName}`;
+  const blob = await put(pathname, pageBuffer, {
+    access: "public",
+    contentType: "application/pdf",
+    addRandomSuffix: true,
+  });
+  if (!blob?.url) throw new Error("تعذر تجهيز صفحة PDF كرابط مؤقت لخدمة OCR.");
+  return blob.url;
+}
+
 async function createPdfPageRangeAttachment(attachment, pageStart, pageEnd) {
   const fileSize = Number(attachment?.fileSize || 0);
   const buffer = await fetchBlobBuffer(attachment.filePath, fileSize > INLINE_GEMINI_LIMIT ? LARGE_FILE_TRANSFER_TIMEOUT_MS : 25000);
   const pageBuffer = await createPdfPageRangeBuffer(buffer, pageStart, pageEnd);
   if (!pageBuffer.length) throw new Error("تعذر قص صفحة PDF قبل إرسالها إلى OCR.");
-  if (pageBuffer.length > OPENROUTER_INLINE_PDF_MAX_BYTES) {
+  const pageFileName = `${String(attachment?.fileName || "lesson.pdf").replace(/\.pdf$/i, "")}-pages-${pageStart}-${pageEnd}.pdf`;
+  if (pageBuffer.length > OPENROUTER_FILE_PARSER_MAX_BYTES) {
     throw new Error(`حجم الصفحة بعد قص PDF هو ${pageBuffer.length} بايت ويتجاوز حد OCR ${OPENROUTER_FILE_PARSER_MAX_BYTES} بايت.`);
+  }
+  if (pageBuffer.length > OPENROUTER_INLINE_PDF_MAX_BYTES) {
+    const pageUrl = await uploadPdfPageRangeBuffer(pageBuffer, pageFileName);
+    return {
+      ...attachment,
+      fileName: pageFileName,
+      fileSize: pageBuffer.length,
+      filePath: pageUrl,
+      forceUrl: true
+    };
   }
   return {
     ...attachment,
-    fileName: `${String(attachment?.fileName || "lesson.pdf").replace(/\.pdf$/i, "")}-pages-${pageStart}-${pageEnd}.pdf`,
+    fileName: pageFileName,
     fileSize: pageBuffer.length,
     pageBuffer
   };
