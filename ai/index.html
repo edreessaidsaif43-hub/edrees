@@ -2202,10 +2202,12 @@ async function submitSubscriptionRequest() {
     subscriptionSubjectSelections = [];
     const subjectSelect = document.getElementById('subscription-subject');
     if (subjectSelect) Array.from(subjectSelect.options).forEach(option => { option.selected = false; });
+    invalidateTeacherLessonDataCache();
     await refreshSubscriptionStatus();
     fillSubscriptionSubjectOptions();
     if (typeof applySubscriptionToGrades === 'function') applySubscriptionToGrades();
-    if (typeof populateTeacherFilters === 'function') populateTeacherFilters();
+    if (typeof loadDatabase === 'function') await loadDatabase();
+    else if (typeof populateTeacherFilters === 'function') populateTeacherFilters();
   } catch (error) {
     if (typeof showMessage === 'function') showMessage(error.message, 'error');
     else if (typeof showToast === 'function') showToast(error.message, true);
@@ -2553,6 +2555,13 @@ function resetTeacherOptionsCache() {
   teacherSelectOptionsCache['t-semester'] = '';
   teacherSelectOptionsCache['t-unit'] = '';
   teacherSelectOptionsCache['t-lesson'] = '';
+}
+
+function invalidateTeacherLessonDataCache() {
+  lessons = [];
+  attachments = [];
+  resetTeacherOptionsCache();
+  try { localStorage.removeItem(TEACHER_LESSON_CACHE_KEY); } catch {}
 }
 
 function teacherLessonCacheSignature() {
