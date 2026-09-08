@@ -1705,6 +1705,9 @@ function getCachedCsv() {
           <button onclick="copyUnitContent()" style="background:#16a34a;color:white;padding:8px 16px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">
             📚 تحضير وحدة كاملة
           </button>
+          <button onclick="copySubjectContent()" style="background:#9333ea;color:white;padding:8px 16px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">
+            📘 تحضير المادة
+          </button>
         </div>
       `;
       
@@ -1775,6 +1778,27 @@ ${d["12"] || ''}
       }
 
       const text = unitLessons.map(formatLessonPreparation).join('\n\n');
+      copyToClipboard(text);
+    }
+
+    function copySubjectContent() {
+      if (!window.currentLessonData) {
+        showMessage('لا يوجد درس', 'error');
+        return;
+      }
+
+      const current = window.currentLessonData;
+      const subjectLessons = D.filter(r =>
+        isSameSubscriptionGrade(r["1"], current["1"]) &&
+        isSameSubscriptionSubject(r["2"], current["2"])
+      );
+
+      if (!subjectLessons.length) {
+        showMessage('لم يتم العثور على دروس المادة', 'error');
+        return;
+      }
+
+      const text = subjectLessons.map(formatLessonPreparation).join('\n\n');
       copyToClipboard(text);
     }
     
