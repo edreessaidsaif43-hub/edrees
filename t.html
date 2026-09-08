@@ -1698,24 +1698,12 @@ function getCachedCsv() {
           ${createContentBlock('مرفقات', contents[7], '📎')}
         </div>
 
-        <div style="background:linear-gradient(135deg,#a78bfa,#c084fc);color:white;padding:10px;border-radius:10px;text-align:center;margin-bottom:12px;border:2px solid #9333ea;font-size:12px;font-weight:700;">
-          ✨ أقسام الذكاء الاصطناعي
-        </div>
-
-        <div style="display:grid;gap:10px;margin-bottom:16px">
-          ${createContentBlock('الواجب الأول', contents[8], '✍️', '#f3e8ff')}
-          ${createContentBlock('الواجب الثاني', contents[9], '📄', '#f3e8ff')}
-          ${createContentBlock('ألعاب صفية', contents[10], '🎯', '#f3e8ff')}
-          ${createContentBlock('الم واطنة', contents[11], '🏛️', '#f3e8ff')}
-          ${createContentBlock('التحفيز', contents[15], '⭐', '#f3e8ff')}
-          ${createContentBlock('الانتظام', contents[12], '⏰', '#f3e8ff')}
-          ${createContentBlock('تقويم شفوي', contents[13], '🗣️', '#f3e8ff')}
-          ${createContentBlock('السبورة', contents[14], '🖊️', '#f3e8ff')}
-        </div>
-        
-        <div style="text-align:center;padding:10px;background:#f8fafc;border-radius:10px;">
+        <div style="display:grid;gap:8px;text-align:center;padding:10px;background:#f8fafc;border-radius:10px;">
           <button onclick="copyAllContent()" style="background:#3b82f6;color:white;padding:8px 16px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">
             📋 نسخ الكل
+          </button>
+          <button onclick="copyUnitContent()" style="background:#16a34a;color:white;padding:8px 16px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">
+            📚 تحضير وحدة كاملة
           </button>
         </div>
       `;
@@ -1735,8 +1723,58 @@ function getCachedCsv() {
         return;
       }
       
-      const d = window.currentLessonData;
-      const text = `📖 ${d["5"]}\n\n🎯 أهداف:\n${d["6"]}\n\n💡 مفاهيم:\n${d["7"]}\n\n🚀 تمهيد:\n${d["8"]}\n\n⚡ تنفيذ:\n${d["9"]}\n\n📊 تقويم تكويني:\n${d["10"]}\n\n✅ تقويم ختامي:\n${d["11"]}\n\n✨ محتوى ذكاء اصطناعي:\n\n✍️ واجب:\n${d["14"]}\n\n🎮 ألعاب:\n${d["16"]}`;
+      const text = formatLessonPreparation(window.currentLessonData);
+      copyToClipboard(text);
+    }
+
+    function formatLessonPreparation(d) {
+      const text = `----
+عنوان الدرس: ${d["5"] || ''}
+
+أهداف الدرس:
+${d["6"] || ''}
+
+التمهيد:
+${d["8"] || ''}
+
+المفاهيم:
+${d["7"] || ''}
+
+إجراءات تنفيذ الدرس:
+${d["9"] || ''}
+
+التقويم التكويني:
+${d["10"] || ''}
+
+التقويم الختامي:
+${d["11"] || ''}
+
+ملاحظات ولي الأمر:
+${d["12"] || ''}
+----`;
+      return text;
+    }
+
+    function copyUnitContent() {
+      if (!window.currentLessonData) {
+        showMessage('لا يوجد درس', 'error');
+        return;
+      }
+
+      const current = window.currentLessonData;
+      const unitLessons = D.filter(r =>
+        isSameSubscriptionGrade(r["1"], current["1"]) &&
+        isSameSubscriptionSubject(r["2"], current["2"]) &&
+        r["3"] === current["3"] &&
+        r["4"] === current["4"]
+      );
+
+      if (!unitLessons.length) {
+        showMessage('لم يتم العثور على دروس الوحدة', 'error');
+        return;
+      }
+
+      const text = unitLessons.map(formatLessonPreparation).join('\n\n');
       copyToClipboard(text);
     }
     
