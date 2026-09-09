@@ -3120,6 +3120,34 @@ function countWords(value = '') {
 function buildProceduresExpansionPrompt(lesson, attachment, currentProcedures = '') {
   const relevantText = pickRelevantAttachmentText(attachment?.extractedText || '', lesson) || '';
   const unavailable = lessonUnavailableText(lesson);
+  if (isEnglishLesson(lesson)) {
+    return `You are an educational assistant preparing a lesson plan for teachers in Oman.
+
+Task: Expand only the "Lesson Procedures" section for the lesson below, and return valid JSON containing only the procedures field.
+
+Lesson data:
+Grade: ${lesson.grade}
+Subject: ${lesson.subject}
+Semester: ${lesson.semester}
+Unit: ${lesson.unit}
+Target lesson: ${lesson.title}
+
+Extracted attachment text:
+${relevantText}
+
+Current short procedures:
+${currentProcedures || unavailable}
+
+Strict rules:
+- Return valid JSON only in this shape: {"procedures":""}
+- The procedures field alone must be at least 900 English words.
+- Write 12 to 16 numbered steps, and each step must be an explained paragraph, not just a heading.
+- Every step should explain what the teacher does, what the students do, the evidence or idea from the attachment, the presentation method, a thinking question, an activity or application, and feedback or formative assessment during implementation.
+- Write everything in English only. Do not include Arabic sentences or translate the result into Arabic.
+- Use the extracted attachment text first. If details are missing, add suitable educational ideas for the Omani curriculum, grade, subject, and lesson without inventing names of texts or activities that are not in the attachment.
+- Do not write "Not mentioned in the attachment" inside procedures if the lesson title is known; expand the procedures educationally in English.
+- Do not add any fields other than procedures.`;
+  }
   return `أنت مساعد تعليمي لإعداد تحضير درس للمعلمين في سلطنة عُمان.
 
 المطلوب: توسيع قسم "إجراءات تنفيذ الدرس" فقط للدرس الآتي، وإرجاع JSON يحتوي على الحقل procedures فقط.
@@ -3152,7 +3180,9 @@ async function ensureLongProcedures(result, lesson, attachment, settings) {
   if (countWords(bestProcedures) >= MIN_PROCEDURES_WORDS) return result;
   for (let attempt = 1; attempt <= 2 && countWords(bestProcedures) < MIN_PROCEDURES_WORDS; attempt += 1) {
     try {
-      setGenerationProgress(74 + attempt * 4, `إجراءات تنفيذ الدرس قصيرة؛ جاري توسيعها إلى 900 كلمة على الأقل... محاولة ${attempt}`);
+      setGenerationProgress(74 + attempt * 4, isEnglishLesson(lesson)
+        ? `Lesson procedures are short; expanding them to at least 900 English words... attempt ${attempt}`
+        : `إجراءات تنفيذ الدرس قصيرة؛ جاري توسيعها إلى 900 كلمة على الأقل... محاولة ${attempt}`);
       const expanded = await callGeminiBackend(
         buildProceduresExpansionPrompt(lesson, attachment, bestProcedures),
         { ...settings, model: LESSON_GENERATION_MODEL },
@@ -3177,7 +3207,7 @@ function containsArabicScript(value) {
 function isEnglishSubject(subject) {
   const raw = String(subject || '').toLowerCase();
   const normalized = normalizeSubscriptionSubject(subject).toLowerCase();
-  return raw.includes('english') || normalized.includes('اللغه الانجليزيه') || normalized.includes('انجليزي');
+  return normalized === 'english' || raw.includes('english') || raw.includes('انجليزي');
 }
 
 function isEnglishLesson(lesson = {}) {
@@ -4191,29 +4221,30 @@ function copyAll() {
   const texts = getResultUiTexts(window.__currentDisplayedLesson || {});
   const lesson = window.__currentDisplayedLesson || {};
   const title = String(lesson.title || '').trim();
+  const english = isEnglishLesson(lesson);
   const lines = [
     '----',
-    `عنوان الدرس: ${title}`,
+    `${english ? 'Lesson Title' : 'عنوان الدرس'}: ${title}`,
     '',
-    `أهداف الدرس:`,
+    `${english ? 'Lesson Objectives' : 'أهداف الدرس'}:`,
     copiedSectionText('objectives'),
     '',
-    `التمهيد:`,
+    `${english ? 'Introduction' : 'التمهيد'}:`,
     copiedSectionText('intro'),
     '',
-    `المفاهيم:`,
+    `${english ? 'Concepts' : 'المفاهيم'}:`,
     copiedSectionText('concepts'),
     '',
-    `إجراءات تنفيذ الدرس:`,
+    `${english ? 'Lesson Procedures' : 'إجراءات تنفيذ الدرس'}:`,
     copiedSectionText('procedures'),
     '',
-    `التقويم التكويني:`,
+    `${english ? 'Formative Assessment' : 'التقويم التكويني'}:`,
     copiedSectionText('formativeAssessment'),
     '',
-    `التقويم الختامي:`,
+    `${english ? 'Closing Assessment' : 'التقويم الختامي'}:`,
     copiedSectionText('closingAssessment'),
     '',
-    `ملاحظات ولي الأمر:`,
+    `${english ? 'Parent Notes' : 'ملاحظات ولي الأمر'}:`,
     copiedSectionText('parentNotes'),
     '',
     '----'
