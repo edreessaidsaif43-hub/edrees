@@ -1447,7 +1447,7 @@ const SUBSCRIPTION_STATUS_CACHE_KEY = 'aiSubscriptionStatusCache';
 const SUBSCRIPTION_STATUS_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const SUBSCRIPTION_CATALOG_CACHE_KEY = 'aiSubscriptionSubjectCatalogCacheV1';
 const SUBSCRIPTION_CATALOG_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
-const TEACHER_LESSON_CACHE_KEY = 'aiTeacherLessonDataCacheV2';
+const TEACHER_LESSON_CACHE_KEY = 'aiTeacherLessonDataCacheV3';
 const TEACHER_LESSON_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
 
 function subscriptionApiUrl(path) {
@@ -2532,17 +2532,52 @@ function gradeFilterVariants(values = []) {
   return uniqueList(out);
 }
 
+function subjectFilterVariantsFromSubscriptions(activeSubjects = []) {
+  const out = [];
+  activeSubjects.forEach((item) => {
+    const subject = String(item?.subject || '').trim();
+    const grade = item?.grade || '';
+    if (subject) out.push(subject);
+    subscriptionCatalogLessons.forEach((lesson) => {
+      if (
+        (!grade || isSameSubscriptionGrade(lesson.grade, grade)) &&
+        isSameSubscriptionSubject(lesson.subject, subject)
+      ) {
+        out.push(lesson.subject);
+      }
+    });
+  });
+  return uniqueList(out);
+}
+
 function lessonLoadParamsFromSubscription() {
   const activeSubjects = getActiveSubscriptionSubjects();
   const activeGrades = uniqueSubscriptionGrades(subscriptionState.activeGrades || []);
   const params = { includeText: '0', includeAttachments: '0', activeOnly: '1', limit: '50000' };
   if (activeSubjects.length) {
-    params.subjects = JSON.stringify(uniqueList(activeSubjects.map(item => item.subject)));
+    params.subjects = JSON.stringify(subjectFilterVariantsFromSubscriptions(activeSubjects));
     params.grades = JSON.stringify(gradeFilterVariants(uniqueSubscriptionGrades(activeSubjects.map(item => item.grade))));
   } else if (activeGrades.length) {
     params.grades = JSON.stringify(gradeFilterVariants(activeGrades));
   }
   return params;
+}
+
+function lessonLoadParamsBySubscribedGrades() {
+  const activeSubjects = getActiveSubscriptionSubjects();
+  const activeGrades = activeSubjects.length
+    ? uniqueSubscriptionGrades(activeSubjects.map(item => item.grade))
+    : uniqueSubscriptionGrades(subscriptionState.activeGrades || []);
+  const params = { includeText: '0', includeAttachments: '0', activeOnly: '1', limit: '50000' };
+  if (activeGrades.length) params.grades = JSON.stringify(gradeFilterVariants(activeGrades));
+  return params;
+}
+
+async function fetchTeacherLessonDataFromSubscription() {
+  const data = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
+  if (Array.isArray(data?.lessons) && data.lessons.length) return data;
+  if (!getActiveSubscriptionSubjects().length) return data;
+  return await apiRequest('/api/lessons', { params: lessonLoadParamsBySubscribedGrades() });
 }
 
 function hasConfirmedLessonAccess() {
@@ -2618,11 +2653,12 @@ function clearTeacherLessonData() {
 async function refreshTeacherLessonDataInBackground() {
   try {
     await refreshSubscriptionStatus();
+    await loadSubscriptionCatalog();
     if (!hasConfirmedLessonAccess()) {
       clearTeacherLessonData();
       return;
     }
-    const fresh = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
+    const fresh = await fetchTeacherLessonDataFromSubscription();
     lessons = Array.isArray(fresh?.lessons) ? fresh.lessons : [];
     attachments = Array.isArray(fresh?.attachments) ? fresh.attachments : [];
     resetTeacherOptionsCache();
@@ -2639,7 +2675,7 @@ async function loadDatabase() {
     fillSubscriptionGradeOptions(subscriptionGradeOptions);
     populateTeacherFilters();
     applyCachedSubscriptionCatalog();
-    loadSubscriptionCatalog();
+    const subscriptionCatalogLoad = loadSubscriptionCatalog();
     setLessonDataProgress(18, 'جاري التحقق من الاشتراك...', 'نراجع المواد والصفوف المفعلة لهذا الحساب.');
     const hadCachedStatus = applyCachedSubscriptionStatus();
     if (!hadCachedStatus) await refreshSubscriptionStatus();
@@ -2655,8 +2691,9 @@ async function loadDatabase() {
       refreshTeacherLessonDataInBackground();
       return;
     }
+    await subscriptionCatalogLoad;
     setLessonDataProgress(56, 'جاري تحميل الصفوف والمواد...', 'قد يستغرق ظهور البيانات عدة ثوانٍ حسب عدد المواد المشترك بها.');
-    const data = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
+    const data = await fetchTeacherLessonDataFromSubscription();
     setLessonDataProgress(78, 'تم استلام بيانات الدروس', 'جاري ترتيب الصفوف والمواد والوحدات.');
     lessons = Array.isArray(data?.lessons) ? data.lessons : [];
     attachments = Array.isArray(data?.attachments) ? data.attachments : [];
