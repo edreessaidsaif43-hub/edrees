@@ -1666,7 +1666,7 @@ function applyCachedSubscriptionStatus() {
 }
 
 function normalizeSubscriptionSubject(value) {
-  return String(value || '')
+  const normalized = String(value || '')
     .replace(/أ/g, 'ا')
     .replace(/إ/g, 'ا')
     .replace(/آ/g, 'ا')
@@ -1674,6 +1674,33 @@ function normalizeSubscriptionSubject(value) {
     .replace(/ة/g, 'ه')
     .replace(/\s+/g, ' ')
     .trim();
+  const compact = normalized.replace(/\s+/g, '');
+  if (
+    compact.includes('انجليزي') ||
+    compact.includes('الانجليزي') ||
+    compact.includes('اللغهالانجليزيه') ||
+    compact.includes('لغهانجليزيه') ||
+    compact.includes('english')
+  ) {
+    return 'english';
+  }
+  if (
+    compact.includes('دينيحياتي') ||
+    compact.includes('التربيهالاسلاميه') ||
+    compact.includes('تربيهاسلاميه') ||
+    compact.includes('اسلامي')
+  ) {
+    return 'islamic-education';
+  }
+  if (
+    compact.includes('عربي') ||
+    compact.includes('لغتيالجميله') ||
+    compact.includes('اللغهالعربيه') ||
+    compact.includes('لغهعربيه')
+  ) {
+    return 'arabic-language';
+  }
+  return normalized;
 }
 
 function subscriptionSubjectKey(grade, subject) {
