@@ -917,7 +917,7 @@ function updateSubscriptionPanel() {
 }
 
 function normalizeSubscriptionSubject(value) {
-  return String(value || '')
+  const normalized = String(value || '')
     .replace(/أ/g, 'ا')
     .replace(/إ/g, 'ا')
     .replace(/آ/g, 'ا')
@@ -925,6 +925,16 @@ function normalizeSubscriptionSubject(value) {
     .replace(/ة/g, 'ه')
     .replace(/\s+/g, ' ')
     .trim();
+  const compact = normalized.replace(/\s+/g, '');
+  if (
+    compact.includes('دراسات') ||
+    compact.includes('الدراساتالاجتماعيه') ||
+    compact.includes('الجغرافيا') ||
+    compact.includes('جغرافيا')
+  ) {
+    return 'social-studies';
+  }
+  return normalized;
 }
 
 function subscriptionSubjectKey(grade, subject) {
