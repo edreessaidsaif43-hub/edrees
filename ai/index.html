@@ -1700,7 +1700,12 @@ function normalizeSubscriptionSubject(value) {
   ) {
     return 'arabic-language';
   }
-  return normalized;
+  return normalized
+    .split(' ')
+    .map(word => word.replace(/^ال(?=.)/, ''))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function subscriptionSubjectKey(grade, subject) {
