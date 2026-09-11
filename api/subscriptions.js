@@ -924,9 +924,18 @@ async function adminStopUser(req, res) {
   if (!userId) return fail(res, 400, "بيانات المستخدم غير صحيحة.", "invalid_payload");
   const rows = await sql`
     UPDATE teacher_subscriptions
-    SET status = 'stopped', admin_note = ${note}, updated_at = NOW()
+    SET
+      status = 'stopped',
+      subjects = COALESCE((
+        SELECT jsonb_agg(subject_item.value || jsonb_build_object('status', 'stopped'))
+        FROM jsonb_array_elements(
+          CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END
+        ) AS subject_item(value)
+      ), '[]'::jsonb),
+      admin_note = ${note},
+      updated_at = NOW()
     WHERE user_id = ${userId}
-      AND status = 'active'
+      AND status <> 'stopped'
     RETURNING id;
   `;
   send(res, 200, { ok: true, stopped: rows?.length || 0 });
