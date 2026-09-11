@@ -153,7 +153,7 @@ function receiptCell(item){
   const receipts = Array.isArray(item.receipts) && item.receipts.length
     ? item.receipts
     : (item.receiptUrl ? [{ url: item.receiptUrl, fileName: item.receiptFileName, fileType: item.receiptFileType }] : []);
-  const safeReceipts = receipts.slice(0, 5).filter(receipt => receipt && receipt.url);
+  const safeReceipts = receipts.filter(receipt => receipt && receipt.url);
   if(!safeReceipts.length) return '<div class="meta">لا توجد صورة إيصال آمنة للعرض.</div>';
   return '<div class="receipt-list">' + safeReceipts.map((receipt, index) => {
     const previewItem = { receiptUrl: receipt.url, receiptFileName: receipt.fileName, receiptFileType: receipt.fileType };

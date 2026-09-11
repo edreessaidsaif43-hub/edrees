@@ -784,8 +784,7 @@ async function adminActiveList(req, res) {
           'updatedAt', updated_at
         ) ORDER BY updated_at DESC) AS receipts
       FROM receipt_rows
-      WHERE rn <= 5
-        AND receipt_url <> ''
+      WHERE receipt_url <> ''
       GROUP BY user_id
     )
     SELECT
@@ -829,7 +828,7 @@ async function adminActiveList(req, res) {
       fileName: String(receipt?.fileName || "").slice(0, 180),
       fileType: String(receipt?.fileType || "").slice(0, 80),
       updatedAt: receipt?.updatedAt || "",
-    })).filter((receipt) => receipt.url).slice(0, 5) : [],
+    })).filter((receipt) => receipt.url) : [],
     adminNote: row.admin_note,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
