@@ -1,5 +1,5 @@
 ﻿import { neon } from "@neondatabase/serverless";
-import { put } from "@vercel/blob";
+import { list, put } from "@vercel/blob";
 import { requireAdmin } from "../enjazy/server_api/_lib/admin-auth.js";
 
 export const config = {
@@ -444,6 +444,54 @@ function safeReceiptUrl(value) {
   return url;
 }
 
+function receiptFileNameFromPath(value) {
+  const path = String(value || "");
+  const clean = path.split("?")[0].split("#")[0];
+  const name = clean.split("/").filter(Boolean).pop() || "receipt";
+  try { return decodeURIComponent(name); } catch { return name; }
+}
+
+async function listStoredReceiptsForUser(userId) {
+  const prefix = `receipts/${String(userId || "").trim()}/`;
+  if (!userId || prefix.length > 220) return [];
+  const receipts = [];
+  let cursor;
+  try {
+    for (let i = 0; i < 10; i += 1) {
+      const result = await list({ prefix, limit: 1000, cursor });
+      const blobs = Array.isArray(result?.blobs) ? result.blobs : [];
+      blobs.forEach((blob) => {
+        const url = safeReceiptUrl(blob?.url || blob?.downloadUrl);
+        if (!url) return;
+        receipts.push({
+          url,
+          fileName: receiptFileNameFromPath(blob?.pathname || url),
+          fileType: "",
+          updatedAt: blob?.uploadedAt || "",
+        });
+      });
+      if (!result?.hasMore || !result?.cursor) break;
+      cursor = result.cursor;
+    }
+  } catch (error) {
+    console.warn("subscription receipt blob list failed", error?.message || error);
+  }
+  return receipts;
+}
+
+function mergeReceiptLists(primary = [], fallback = []) {
+  const seen = new Set();
+  return [...primary, ...fallback]
+    .filter((receipt) => {
+      const url = safeReceiptUrl(receipt?.url);
+      if (!url || seen.has(url)) return false;
+      seen.add(url);
+      receipt.url = url;
+      return true;
+    })
+    .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+}
+
 function parseAdminSubjectLines(value) {
   const lines = String(value || "")
     .split(/\r?\n|[،,؛;]/)
@@ -830,7 +878,7 @@ async function adminActiveList(req, res) {
     LEFT JOIN teacher_users u ON u.id = latest_rows.user_id
     ORDER BY au.latest_updated_at DESC, au.latest_id DESC;
   `;
-  const subscriptions = (rows || []).slice(0, limit).map((row) => ({
+  let subscriptions = (rows || []).slice(0, limit).map((row) => ({
     id: row.id,
     userId: row.user_id,
     activeItems: row.active_items || '',
@@ -853,6 +901,10 @@ async function adminActiveList(req, res) {
     updatedAt: row.updated_at,
     profile: row.profile || {},
   }));
+  subscriptions = await Promise.all(subscriptions.map(async (subscription) => ({
+    ...subscription,
+    receipts: mergeReceiptLists(subscription.receipts, await listStoredReceiptsForUser(subscription.userId)),
+  })));
   send(res, 200, {
     subscriptions,
     limit,
