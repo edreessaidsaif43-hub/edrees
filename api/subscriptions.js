@@ -557,6 +557,7 @@ async function requestSubscription(req, res) {
       CASE WHEN LEFT(receipt_url, 5) = 'data:' THEN '' ELSE LEFT(receipt_url, 4097) END AS receipt_url,
       LEFT(receipt_file_name, 180) AS receipt_file_name,
       LEFT(receipt_file_type, 80) AS receipt_file_type,
+      CASE WHEN pg_column_size(receipt_history) <= 1048576 THEN receipt_history ELSE '[]'::jsonb END AS receipt_history,
       LEFT(admin_note, 500) AS admin_note,
       created_at,
       updated_at
@@ -565,6 +566,7 @@ async function requestSubscription(req, res) {
     LIMIT 1;
   `;
   const existing = existingRows?.[0] || {};
+  const existingHistory = subscriptionHistory(existing);
   const existingGrades = subscriptionGrades(existing);
   const existingSubjects = subscriptionSubjects(existing);
   const reusableExistingSubjects = existingSubjects.filter((item) => isSubjectEntryActive(item));
@@ -607,7 +609,7 @@ async function requestSubscription(req, res) {
     INSERT INTO teacher_subscriptions (
       user_id, grade, grades, subjects, status, receipt_url, receipt_file_name, receipt_file_type, receipt_history, admin_note, created_at, updated_at
     ) VALUES (
-      ${userId}, ${gradeText}, ${JSON.stringify(nextGrades)}::jsonb, ${JSON.stringify(nextSubjects)}::jsonb, ${requestStatus}, ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, ${JSON.stringify([nextHistoryEntry])}::jsonb, '', NOW(), NOW()
+      ${userId}, ${gradeText}, ${JSON.stringify(nextGrades)}::jsonb, ${JSON.stringify(nextSubjects)}::jsonb, ${requestStatus}, ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, ${JSON.stringify([nextHistoryEntry, ...existingHistory])}::jsonb, '', NOW(), NOW()
     )
     ON CONFLICT (user_id)
     DO UPDATE SET
@@ -769,10 +771,27 @@ async function adminActiveList(req, res) {
         LEFT(s.receipt_file_name, 180) AS receipt_file_name,
         LEFT(s.receipt_file_type, 80) AS receipt_file_type,
         s.updated_at,
-        ROW_NUMBER() OVER (PARTITION BY s.user_id ORDER BY s.updated_at DESC, s.id DESC) AS rn
+        s.id,
+        0 AS receipt_order
       FROM teacher_subscriptions s
       INNER JOIN active_users au ON au.user_id = s.user_id
       WHERE COALESCE(s.receipt_url, '') <> ''
+        AND jsonb_array_length(CASE WHEN pg_column_size(s.receipt_history) <= 1048576 THEN s.receipt_history ELSE '[]'::jsonb END) = 0
+      UNION ALL
+      SELECT
+        s.user_id,
+        CASE WHEN LEFT(COALESCE(history_item.value->>'receiptUrl', ''), 5) = 'data:' THEN '' ELSE LEFT(COALESCE(history_item.value->>'receiptUrl', ''), 4097) END AS receipt_url,
+        LEFT(COALESCE(history_item.value->>'receiptFileName', ''), 180) AS receipt_file_name,
+        LEFT(COALESCE(history_item.value->>'receiptFileType', ''), 80) AS receipt_file_type,
+        s.updated_at,
+        s.id,
+        history_item.ordinality AS receipt_order
+      FROM teacher_subscriptions s
+      INNER JOIN active_users au ON au.user_id = s.user_id
+      CROSS JOIN LATERAL jsonb_array_elements(
+        CASE WHEN pg_column_size(s.receipt_history) <= 1048576 THEN s.receipt_history ELSE '[]'::jsonb END
+      ) WITH ORDINALITY AS history_item(value, ordinality)
+      WHERE COALESCE(history_item.value->>'receiptUrl', '') <> ''
     ),
     active_receipts AS (
       SELECT
@@ -782,7 +801,7 @@ async function adminActiveList(req, res) {
           'fileName', receipt_file_name,
           'fileType', receipt_file_type,
           'updatedAt', updated_at
-        ) ORDER BY updated_at DESC) AS receipts
+        ) ORDER BY updated_at DESC, id DESC, receipt_order ASC) AS receipts
       FROM receipt_rows
       WHERE receipt_url <> ''
       GROUP BY user_id
