@@ -707,7 +707,6 @@ async function adminActiveList(req, res) {
         MAX(updated_at) AS latest_updated_at,
         MAX(id) AS latest_id
       FROM teacher_subscriptions
-      WHERE status = 'active'
       GROUP BY user_id
       ORDER BY MAX(updated_at) DESC, MAX(id) DESC
       LIMIT ${fetchLimit} OFFSET ${offset}
@@ -726,7 +725,6 @@ async function adminActiveList(req, res) {
         s.updated_at
       FROM teacher_subscriptions s
       INNER JOIN active_users au ON au.user_id = s.user_id
-      WHERE s.status = 'active'
       ORDER BY s.user_id, s.updated_at DESC, s.id DESC
     ),
     active_subjects AS (
@@ -774,8 +772,7 @@ async function adminActiveList(req, res) {
         ROW_NUMBER() OVER (PARTITION BY s.user_id ORDER BY s.updated_at DESC, s.id DESC) AS rn
       FROM teacher_subscriptions s
       INNER JOIN active_users au ON au.user_id = s.user_id
-      WHERE s.status = 'active'
-        AND COALESCE(s.receipt_url, '') <> ''
+      WHERE COALESCE(s.receipt_url, '') <> ''
     ),
     active_receipts AS (
       SELECT
