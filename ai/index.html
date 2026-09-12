@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -4088,9 +4088,9 @@ const RESULT_UI_TEXTS = {
     enrichmentSubtitle: 'Generated according to the lesson title, grade level, and information available in the attachment.',
     copyButton: 'Copy',
     copiedButton: 'Copied',
-    copyAllButton: 'Copy Full Lesson Plan',
+    copyAllButton: '📋 نسخ التحضير كاملًا',
     copySuccess: 'Section copied successfully.',
-    copyAllSuccess: 'Full lesson plan copied successfully.',
+    copyAllSuccess: 'تم نسخ التحضير كاملًا ✅',
     noorCopyHeader: '[ Noor Lesson Plan Sections ]',
     enrichmentCopyHeader: '[ Enrichment Section ]',
     labels: {
@@ -4226,30 +4226,29 @@ function copyAll() {
   const texts = getResultUiTexts(window.__currentDisplayedLesson || {});
   const lesson = window.__currentDisplayedLesson || {};
   const title = String(lesson.title || '').trim();
-  const english = isEnglishLesson(lesson);
   const lines = [
     '----',
-    `${english ? 'Lesson Title' : 'عنوان الدرس'}: ${title}`,
+    `عنوان الدرس: ${title}`,
     '',
-    `${english ? 'Lesson Objectives' : 'أهداف الدرس'}:`,
+    'الأهداف الرئيسية:',
     copiedSectionText('objectives'),
     '',
-    `${english ? 'Introduction' : 'التمهيد'}:`,
+    'التمهيد:',
     copiedSectionText('intro'),
     '',
-    `${english ? 'Concepts' : 'المفاهيم'}:`,
+    'المفاهيم:',
     copiedSectionText('concepts'),
     '',
-    `${english ? 'Lesson Procedures' : 'إجراءات تنفيذ الدرس'}:`,
+    'إجراءات تنفيذ الدرس:',
     copiedSectionText('procedures'),
     '',
-    `${english ? 'Formative Assessment' : 'التقويم التكويني'}:`,
+    'التقويم التكويني:',
     copiedSectionText('formativeAssessment'),
     '',
-    `${english ? 'Closing Assessment' : 'التقويم الختامي'}:`,
+    'التقويم الختامي:',
     copiedSectionText('closingAssessment'),
     '',
-    `${english ? 'Parent Notes' : 'ملاحظات ولي الأمر'}:`,
+    'ملاحظات ولي الأمر:',
     copiedSectionText('parentNotes'),
     '',
     '----'
@@ -4304,6 +4303,8 @@ loadDatabase().catch(err => showToast(err.message, true));
 </script>
 </body>
 </html>
+
+
 
 
 
