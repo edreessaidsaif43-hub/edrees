@@ -927,6 +927,15 @@ function normalizeSubscriptionSubject(value) {
     .trim();
   const compact = normalized.replace(/\s+/g, '');
   if (
+    compact.includes('عربي') ||
+    compact.includes('اللغهالعربيه') ||
+    compact.includes('لغهعربيه') ||
+    compact.includes('احبلغتي') ||
+    compact.includes('لغتيالجميله')
+  ) {
+    return 'arabic-language';
+  }
+  if (
     compact.includes('دراسات') ||
     compact.includes('الدراساتالاجتماعيه') ||
     compact.includes('الجغرافيا') ||

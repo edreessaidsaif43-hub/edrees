@@ -318,14 +318,25 @@ function parseRequestedGrades(fields = {}) {
 }
 
 function normalizeSubjectName(value) {
-  return String(value || '')
+  const normalized = String(value || '')
     .replace(/أ/g, 'ا')
     .replace(/إ/g, 'ا')
     .replace(/آ/g, 'ا')
     .replace(/ى/g, 'ي')
     .replace(/ة/g, 'ه')
     .replace(/\s+/g, ' ')
-    .trim()
+    .trim();
+  const compact = normalized.replace(/\s+/g, '');
+  if (
+    compact.includes('عربي') ||
+    compact.includes('اللغهالعربيه') ||
+    compact.includes('لغهعربيه') ||
+    compact.includes('احبلغتي') ||
+    compact.includes('لغتيالجميله')
+  ) {
+    return 'arabic-language';
+  }
+  return normalized
     .split(' ')
     .map((word) => word.replace(/^ال/, ''))
     .join(' ');
