@@ -425,7 +425,7 @@ function subscriptionSubjects(row) {
 
 function subscriptionAmountOmr(fields = {}, subjects = [], grades = []) {
   if (String(fields.product || "") === "motivation") return 2;
-  return subjects.length || grades.length || 1;
+  return (subjects.length || grades.length || 1) * 2;
 }
 
 function subscriptionInitialStatus(fields = {}) {
