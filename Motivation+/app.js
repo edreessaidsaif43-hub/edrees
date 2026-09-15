@@ -1876,7 +1876,7 @@ function renderClassSelector() {
     if (topSelector) topSelector.value = cls.id;
   }
   if (topSelector) {
-    topSelector.style.display = currentTeacher && state.classes.length ? "inline-flex" : "none";
+    topSelector.style.setProperty("display", currentTeacher && state.classes.length ? "inline-flex" : "none", "important");
   }
 
   document.getElementById("class-name").value = cls ? cls.name : "";
