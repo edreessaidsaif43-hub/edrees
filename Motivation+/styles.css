@@ -4118,10 +4118,10 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   .topbar-right .top-class-selector,
   #top-class-selector {
     order: 10 !important;
-    flex: 0 0 calc(30% - 4px) !important;
-    width: calc(30% - 4px) !important;
+    flex: 0 0 calc(40% - 4px) !important;
+    width: calc(40% - 4px) !important;
     max-width: none !important;
-    min-width: 92px !important;
+    min-width: 104px !important;
     min-height: 44px !important;
     padding: 0 8px !important;
     font-size: 0.78rem !important;
@@ -4129,18 +4129,31 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 
   .topbar-right .tabs {
     order: 11 !important;
-    flex: 1 1 calc(70% - 4px) !important;
-    width: calc(70% - 4px) !important;
+    flex: 1 1 calc(60% - 4px) !important;
+    width: calc(60% - 4px) !important;
     display: grid !important;
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 5px !important;
   }
 
   .topbar-right .tab {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     min-height: 44px !important;
     padding: 8px 4px !important;
     border-radius: 12px !important;
-    font-size: 0.78rem !important;
+    font-size: 0 !important;
     white-space: nowrap !important;
   }
+
+  .topbar-right .tab::before {
+    display: block !important;
+    font-size: 1.25rem !important;
+    line-height: 1 !important;
+  }
+
+  .topbar-right .tab[data-tab="teacher"]::before { content: "👨‍🏫"; }
+  .topbar-right .tab[data-tab="student"]::before { content: "🎓"; }
+  .topbar-right .tab[data-tab="parent"]::before { content: "👪"; }
 }
