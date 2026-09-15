@@ -328,6 +328,14 @@ function normalizeSubjectName(value) {
     .trim();
   const compact = normalized.replace(/\s+/g, '');
   if (
+    compact.includes('حاسوب') ||
+    compact.includes('الحاسوب') ||
+    compact.includes('عالميالرقمي') ||
+    compact.includes('عالميرقمي')
+  ) {
+    return 'computer-science';
+  }
+  if (
     compact.includes('عربي') ||
     compact.includes('اللغهالعربيه') ||
     compact.includes('لغهعربيه') ||

@@ -1693,6 +1693,14 @@ function normalizeSubscriptionSubject(value) {
     return 'islamic-education';
   }
   if (
+    compact.includes('حاسوب') ||
+    compact.includes('الحاسوب') ||
+    compact.includes('عالميالرقمي') ||
+    compact.includes('عالميرقمي')
+  ) {
+    return 'computer-science';
+  }
+  if (
     compact.includes('عربي') ||
     compact.includes('احبلغتي') ||
     compact.includes('لغتيالجميله') ||

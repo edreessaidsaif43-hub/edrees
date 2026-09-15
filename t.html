@@ -936,6 +936,14 @@ function normalizeSubscriptionSubject(value) {
     return 'arabic-language';
   }
   if (
+    compact.includes('حاسوب') ||
+    compact.includes('الحاسوب') ||
+    compact.includes('عالميالرقمي') ||
+    compact.includes('عالميرقمي')
+  ) {
+    return 'computer-science';
+  }
+  if (
     compact.includes('دراسات') ||
     compact.includes('الدراساتالاجتماعيه') ||
     compact.includes('الجغرافيا') ||
@@ -943,7 +951,12 @@ function normalizeSubscriptionSubject(value) {
   ) {
     return 'social-studies';
   }
-  return normalized;
+  return normalized
+    .split(' ')
+    .map(word => word.replace(/^ال(?=.)/, ''))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function subscriptionSubjectKey(grade, subject) {
