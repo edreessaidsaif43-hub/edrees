@@ -1,6 +1,7 @@
 ﻿const ACCOUNTS_KEY = "smart_points_accounts_v1";
 const SESSION_KEY = "smart_points_session_v1";
 const DATA_PREFIX = "smart_points_data_";
+const DATA_BACKUP_PREFIX = "smart_points_data_backup_";
 const SHARED_CLASSES_KEY = "smart_points_shared_classes_v1";
 const PUBLIC_STATE_CACHE_KEY = "motivation_public_state_cache_v1";
 const UNIFIED_AUTH_URL = "file:///C:/Users/Irfan%20Bashir/Documents/New%20project2/enjazy/auth.html";
@@ -714,6 +715,54 @@ function accountDataKey(accountId) {
   return `${DATA_PREFIX}${accountId}`;
 }
 
+function accountBackupDataKey(accountId) {
+  return `${DATA_BACKUP_PREFIX}${accountId}`;
+}
+
+function getStateDataWeight(snapshot) {
+  const merged = mergeState(snapshot);
+  const classes = Array.isArray(merged.classes) ? merged.classes : [];
+  const students = classes.reduce((sum, cls) => sum + (Array.isArray(cls.students) ? cls.students.length : 0), 0);
+  const history = classes.reduce((sum, cls) => {
+    return sum + (Array.isArray(cls.students)
+      ? cls.students.reduce((sSum, student) => sSum + (Array.isArray(student.history) ? student.history.length : 0), 0)
+      : 0);
+  }, 0);
+  const photos = classes.reduce((sum, cls) => {
+    return sum + (Array.isArray(cls.students)
+      ? cls.students.filter((student) => student && student.photoDataUrl).length
+      : 0);
+  }, 0);
+  return { classes: classes.length, students, history, photos };
+}
+
+function isRemoteStateDangerouslySparse(localSnapshot, remoteSnapshot) {
+  const localWeight = getStateDataWeight(localSnapshot);
+  const remoteWeight = getStateDataWeight(remoteSnapshot);
+  if (!localWeight.students) return false;
+  if (!remoteWeight.students) return true;
+  return remoteWeight.students < localWeight.students && remoteWeight.history < localWeight.history;
+}
+
+function backupTeacherData(reason = "auto") {
+  if (!currentTeacher) return;
+  try {
+    const backupState = mergeState(JSON.parse(JSON.stringify(state)));
+    (backupState.classes || []).forEach((cls) => {
+      (cls.students || []).forEach((student) => {
+        if (student && student.photoDataUrl) student.photoDataUrl = "";
+      });
+    });
+    const backups = JSON.parse(localStorage.getItem(accountBackupDataKey(currentTeacher.id)) || "[]");
+    backups.unshift({
+      reason,
+      savedAt: Date.now(),
+      state: backupState
+    });
+    localStorage.setItem(accountBackupDataKey(currentTeacher.id), JSON.stringify(backups.slice(0, 10)));
+  } catch {}
+}
+
 function filterStateForTeacher(stateObj, teacherId) {
   const merged = mergeState(stateObj);
   const cleanTeacherId = normalizeName(teacherId || "");
@@ -1150,6 +1199,12 @@ async function pullRemoteStateIfNeeded(forceRemote = false) {
   }
 
   if (forceRemote) {
+    if (isRemoteStateDangerouslySparse(state, remoteState)) {
+      await saveStateToRemote(userId, copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state));
+      showAuthMessage("تم منع استبدال بيانات الطلاب بنسخة سحابية فارغة، وتم رفع النسخة المحلية الحالية.", true);
+      return "pushed";
+    }
+    backupTeacherData("before_forced_remote_pull");
     state = copyStudentPhotosBetweenStates(remoteState, state);
     savePublicStateCache(state);
     renderAll();
@@ -1160,6 +1215,11 @@ async function pullRemoteStateIfNeeded(forceRemote = false) {
   const remoteTs = Number(remoteState.updatedAt || 0);
   const hasNewLiveGame = remoteHasNewLiveGame(state, remoteState);
   if (remoteTs > localTs || hasNewLiveGame) {
+    if (isRemoteStateDangerouslySparse(state, remoteState)) {
+      await saveStateToRemote(userId, copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state));
+      return "pushed";
+    }
+    backupTeacherData("before_remote_pull");
     state = copyStudentPhotosBetweenStates(remoteState, state);
     savePublicStateCache(state);
     renderAll();
