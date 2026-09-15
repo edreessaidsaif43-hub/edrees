@@ -1527,7 +1527,7 @@ function updateSessionUI() {
     if (mobileTeacherInfo) mobileTeacherInfo.title = `المعلم الحالي: ${currentTeacher.name}`;
     if (mobileSessionTools) {
       mobileSessionTools.hidden = false;
-      mobileSessionTools.style.setProperty("display", "flex", "important");
+      mobileSessionTools.style.removeProperty("display");
     }
     app.dataset.sessionState = "in";
     app.classList.add("teacher-authenticated");

@@ -4302,6 +4302,14 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 }
 
 /* Absolute final phone header override. */
+@media (min-width: 761px) {
+  .mobile-session-tools {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}
+
 @media (max-width: 760px) {
   .topbar-right > #session-info,
   .topbar-right > #top-class-selector,
