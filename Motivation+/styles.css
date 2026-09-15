@@ -4106,31 +4106,65 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   }
 
   .topbar-right .session-info {
-    order: 1 !important;
-    flex: 1 0 100% !important;
+    order: 10 !important;
+    flex: 0 0 44px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 0 !important;
+    border-radius: 12px !important;
+  }
+
+  .topbar-right .session-info::before {
+    content: "👨‍🏫" !important;
+    font-size: 1.2rem !important;
+    line-height: 1 !important;
   }
 
   .topbar-right > .btn {
     order: 2 !important;
-    flex: 1 1 46% !important;
+    flex: 0 0 44px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 0 !important;
+    border-radius: 12px !important;
   }
 
   .topbar-right .top-class-selector,
   #top-class-selector {
-    order: 10 !important;
-    flex: 0 0 calc(40% - 4px) !important;
-    width: calc(40% - 4px) !important;
+    order: 11 !important;
+    flex: 0 0 44px !important;
+    width: 44px !important;
     max-width: none !important;
-    min-width: 104px !important;
+    min-width: 44px !important;
     min-height: 44px !important;
-    padding: 0 8px !important;
-    font-size: 0.78rem !important;
+    padding: 0 !important;
+    font-size: 0 !important;
+    color: transparent !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Ctext x='22' y='28' text-anchor='middle' font-size='20'%3E%F0%9F%8F%AB%3C/text%3E%3C/svg%3E") !important;
+    background-position: center !important;
+    background-size: 34px 34px !important;
+    background-repeat: no-repeat !important;
+  }
+
+  .topbar-right .top-class-selector option,
+  #top-class-selector option {
+    font-size: 0.95rem !important;
   }
 
   .topbar-right .tabs {
-    order: 11 !important;
-    flex: 1 1 calc(60% - 4px) !important;
-    width: calc(60% - 4px) !important;
+    order: 13 !important;
+    flex: 1 1 calc(100% - 153px) !important;
+    width: auto !important;
     display: grid !important;
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 5px !important;
@@ -4156,4 +4190,40 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   .topbar-right .tab[data-tab="teacher"]::before { content: "👨‍🏫"; }
   .topbar-right .tab[data-tab="student"]::before { content: "🎓"; }
   .topbar-right .tab[data-tab="parent"]::before { content: "👪"; }
+
+  #logout-btn::before { content: "🚪"; font-size: 1.15rem !important; }
+  #sync-now-btn::before { content: "🔄"; font-size: 1.15rem !important; }
+  #edit-profile-btn::before { content: "⚙️"; font-size: 1.15rem !important; }
+
+  .topbar-right #logout-btn {
+    order: 12 !important;
+  }
+}
+
+@media (max-width: 430px) {
+  #teacher-app.teacher-authenticated .teacher-side-nav {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: 2px !important;
+    min-height: 64px !important;
+    padding: 5px 5px max(5px, env(safe-area-inset-bottom)) !important;
+  }
+
+  #teacher-app.teacher-authenticated .teacher-side-link {
+    height: 54px !important;
+    min-height: 54px !important;
+    border-radius: 12px !important;
+    padding: 5px 1px !important;
+  }
+
+  #teacher-app.teacher-authenticated .teacher-side-link::before {
+    font-size: 1.18rem !important;
+  }
+
+  #teacher-app.teacher-authenticated .teacher-side-link::after {
+    display: none !important;
+  }
+
+  body {
+    padding-bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+  }
 }
