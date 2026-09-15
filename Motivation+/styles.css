@@ -191,6 +191,9 @@ body {
   gap: 8px;
   flex-wrap: wrap;
 }
+.mobile-session-tools {
+  display: none;
+}
 .session-info {
   background: #e0f2fe;
   color: #075985;
@@ -2307,6 +2310,66 @@ body.feature-fullscreen .feature-card.fullscreen-feature {
   overflow: auto !important;
 }
 
+/* Dedicated phone session tools, independent from desktop controls. */
+@media (max-width: 760px) {
+  .topbar-right > #session-info,
+  .topbar-right > #top-class-selector,
+  .topbar-right > #logout-btn {
+    display: none !important;
+  }
+
+  .topbar-right .mobile-session-tools:not([hidden]) {
+    order: 10 !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, 38px) !important;
+    gap: 5px !important;
+    flex: 0 0 124px !important;
+    width: 124px !important;
+  }
+
+  .mobile-session-icon {
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    border: 1px solid rgba(15, 118, 110, 0.18) !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08) !important;
+    font-family: inherit !important;
+    font-size: 1.05rem !important;
+    line-height: 1 !important;
+    text-align: center !important;
+  }
+
+  .mobile-class-selector {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    color: transparent !important;
+    font-size: 0.01px !important;
+    text-indent: -999px !important;
+    background-color: #ffffff !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='38' height='38' viewBox='0 0 38 38'%3E%3Ctext x='19' y='25' text-anchor='middle' font-size='18'%3E%F0%9F%8F%AB%3C/text%3E%3C/svg%3E") !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    background-size: 30px 30px !important;
+  }
+
+  .mobile-class-selector option {
+    color: #0f172a !important;
+    font-size: 0.95rem !important;
+  }
+
+  .topbar-right .tabs {
+    order: 11 !important;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    width: auto !important;
+  }
+}
+
 body.feature-fullscreen .feature-fullscreen-backdrop {
   display: block !important;
   z-index: 2390 !important;
@@ -4235,5 +4298,52 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 
   body {
     padding-bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* Absolute final phone header override. */
+@media (max-width: 760px) {
+  .topbar-right > #session-info,
+  .topbar-right > #top-class-selector,
+  .topbar-right > #logout-btn {
+    display: none !important;
+  }
+
+  .topbar-right .mobile-session-tools:not([hidden]) {
+    display: grid !important;
+    order: 1 !important;
+    grid-template-columns: repeat(3, 38px) !important;
+    gap: 5px !important;
+    flex: 0 0 124px !important;
+    width: 124px !important;
+    min-width: 124px !important;
+    max-width: 124px !important;
+  }
+
+  .topbar-right .tabs {
+    order: 2 !important;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    width: auto !important;
+  }
+
+  .mobile-session-tools .mobile-session-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    border-radius: 10px !important;
+    font-size: 1.05rem !important;
+  }
+
+  .mobile-session-tools .mobile-class-selector {
+    display: inline-flex !important;
+    color: transparent !important;
+    font-size: 0.01px !important;
+    text-indent: -999px !important;
   }
 }

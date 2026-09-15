@@ -1516,12 +1516,19 @@ function updateSessionUI() {
   const syncBtn = document.getElementById("sync-now-btn");
   const editProfileBtn = document.getElementById("edit-profile-btn");
   const app = document.getElementById("teacher-app");
+  const mobileSessionTools = document.getElementById("mobile-session-tools");
+  const mobileTeacherInfo = document.getElementById("mobile-teacher-info");
   const openAuthBtn = document.getElementById("open-unified-auth");
   const accountCard = document.querySelector(".teacher-account-card");
   const subscriptionCard = document.getElementById("motivation-subscription-card");
 
   if (currentTeacher) {
     info.textContent = `المعلم الحالي: ${currentTeacher.name}`;
+    if (mobileTeacherInfo) mobileTeacherInfo.title = `المعلم الحالي: ${currentTeacher.name}`;
+    if (mobileSessionTools) {
+      mobileSessionTools.hidden = false;
+      mobileSessionTools.style.setProperty("display", "flex", "important");
+    }
     app.dataset.sessionState = "in";
     app.classList.add("teacher-authenticated");
     if (!app.dataset.activeTeacherPanel) app.dataset.activeTeacherPanel = activeTeacherPanelName || "students";
@@ -1544,6 +1551,10 @@ function updateSessionUI() {
     renderMotivationSubscriptionStatus();
   } else {
     info.textContent = "غير مسجل";
+    if (mobileSessionTools) {
+      mobileSessionTools.hidden = true;
+      mobileSessionTools.style.setProperty("display", "none", "important");
+    }
     app.dataset.sessionState = "out";
     delete app.dataset.activeTeacherPanel;
     app.classList.remove("teacher-authenticated", "logged-out-preview");
@@ -1858,11 +1869,13 @@ function renderProfessionalWheelLabels(wheel, center, students) {
 function renderClassSelector() {
   const selector = document.getElementById("class-selector");
   const topSelector = document.getElementById("top-class-selector");
+  const mobileSelector = document.getElementById("mobile-class-selector");
   const shareInfo = document.getElementById("class-share-info");
   const cls = getActiveClass();
 
   selector.innerHTML = "";
   if (topSelector) topSelector.innerHTML = "";
+  if (mobileSelector) mobileSelector.innerHTML = "";
   state.classes.forEach((c) => {
     const option = document.createElement("option");
     option.value = c.id;
@@ -1870,13 +1883,18 @@ function renderClassSelector() {
     if (c.id === state.activeClassId) option.selected = true;
     selector.appendChild(option);
     if (topSelector) topSelector.appendChild(option.cloneNode(true));
+    if (mobileSelector) mobileSelector.appendChild(option.cloneNode(true));
   });
   if (cls && cls.id) {
     selector.value = cls.id;
     if (topSelector) topSelector.value = cls.id;
+    if (mobileSelector) mobileSelector.value = cls.id;
   }
   if (topSelector) {
     topSelector.style.setProperty("display", currentTeacher && state.classes.length ? "inline-flex" : "none", "important");
+  }
+  if (mobileSelector) {
+    mobileSelector.style.setProperty("display", currentTeacher && state.classes.length ? "inline-flex" : "none", "important");
   }
 
   document.getElementById("class-name").value = cls ? cls.name : "";
@@ -4153,6 +4171,14 @@ function handleClassSelectorChange(e) {
 document.getElementById("class-selector").addEventListener("change", handleClassSelectorChange);
 const topClassSelector = document.getElementById("top-class-selector");
 if (topClassSelector) topClassSelector.addEventListener("change", handleClassSelectorChange);
+const mobileClassSelector = document.getElementById("mobile-class-selector");
+if (mobileClassSelector) mobileClassSelector.addEventListener("change", handleClassSelectorChange);
+const mobileLogoutBtn = document.getElementById("mobile-logout-btn");
+if (mobileLogoutBtn) {
+  mobileLogoutBtn.addEventListener("click", () => {
+    document.getElementById("logout-btn")?.click();
+  });
+}
 
 document.getElementById("new-class").addEventListener("click", () => {
   if (!ensureAuthOrNotify()) return;
