@@ -3869,3 +3869,206 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 #teacher-app:not([data-active-teacher-panel]) [data-teacher-panel] {
   display: none !important;
 }
+
+/* Phone lesson menu: keep the in-class tools reachable from a fixed bottom bar. */
+@media (max-width: 760px) {
+  html,
+  body {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  body {
+    padding: 74px 10px calc(112px + env(safe-area-inset-bottom)) !important;
+  }
+
+  main,
+  .main-wrap,
+  .view,
+  #teacher,
+  #teacher-app,
+  #teacher-app > .grid,
+  #teacher-app > .card.wide,
+  #reports-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .topbar {
+    gap: 10px !important;
+    margin: 8px 0 12px !important;
+  }
+
+  .topbar > div:first-child,
+  .topbar-right,
+  .tabs {
+    width: 100% !important;
+  }
+
+  .topbar h1 {
+    font-size: 1.45rem !important;
+  }
+
+  .topbar p {
+    font-size: 0.86rem !important;
+  }
+
+  .topbar-right {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .session-info,
+  .top-class-selector,
+  .topbar-right > .btn,
+  .tabs {
+    grid-column: 1 / -1 !important;
+  }
+
+  .tabs {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    overflow: visible !important;
+  }
+
+  .tab,
+  .btn,
+  input,
+  select,
+  textarea {
+    min-height: 42px !important;
+    max-width: 100% !important;
+  }
+
+  .card {
+    border-radius: 14px !important;
+    padding: 14px !important;
+  }
+
+  .field-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  #teacher-app.teacher-authenticated {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    padding: 0 0 14px !important;
+  }
+
+  #teacher-app.teacher-authenticated .teacher-side-nav {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    z-index: 99990 !important;
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(54px, 1fr)) !important;
+    gap: 4px !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 76px !important;
+    max-height: none !important;
+    padding: 7px 7px max(7px, env(safe-area-inset-bottom)) !important;
+    overflow: visible !important;
+    direction: rtl !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    border: 0 !important;
+    border-top: 1px solid rgba(15, 118, 110, 0.16) !important;
+    border-radius: 18px 18px 0 0 !important;
+    box-shadow: 0 -12px 30px rgba(15, 23, 42, 0.2) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+  }
+
+  #teacher-app.teacher-authenticated .teacher-side-title,
+  #teacher-app.teacher-authenticated .teacher-side-link.side-class,
+  #teacher-app.teacher-authenticated .teacher-side-link.side-add-students,
+  #teacher-app.teacher-authenticated .teacher-side-link.side-rewards,
+  #teacher-app.teacher-authenticated .teacher-side-link.side-gifts,
+  #teacher-app.teacher-authenticated .teacher-side-link.side-reports {
+    display: none !important;
+  }
+
+  #teacher-app.teacher-authenticated .teacher-side-link {
+    display: flex !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 62px !important;
+    min-height: 62px !important;
+    margin: 0 !important;
+    padding: 6px 2px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    border-radius: 14px !important;
+    border: 1px solid transparent !important;
+    background: transparent !important;
+    color: #475569 !important;
+    font-size: 0 !important;
+    line-height: 1 !important;
+    text-align: center !important;
+    text-decoration: none !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+  }
+
+  #teacher-app.teacher-authenticated .teacher-side-link::before {
+    display: block !important;
+    font-size: 1.22rem !important;
+    line-height: 1 !important;
+  }
+
+  #teacher-app.teacher-authenticated .teacher-side-link::after {
+    display: block !important;
+    width: 100% !important;
+    color: inherit !important;
+    font-size: 0.62rem !important;
+    font-weight: 900 !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  #teacher-app.teacher-authenticated .teacher-side-link.active {
+    color: #0f766e !important;
+    border-color: rgba(15, 118, 110, 0.22) !important;
+    background: #ecfdf5 !important;
+    box-shadow: inset 0 -3px 0 #0f766e !important;
+  }
+
+  .teacher-side-link.side-students::before { content: "👥" !important; }
+  .teacher-side-link.side-students::after { content: "الطلاب" !important; }
+  .teacher-side-link.side-points::before { content: "⭐" !important; }
+  .teacher-side-link.side-points::after { content: "النقاط" !important; }
+  .teacher-side-link.side-teams::before { content: "🤝" !important; }
+  .teacher-side-link.side-teams::after { content: "الفرق" !important; }
+  .teacher-side-link.side-challenges::before { content: "🏆" !important; }
+  .teacher-side-link.side-challenges::after { content: "تحديات" !important; }
+  .teacher-side-link.side-random::before { content: "🎲" !important; }
+  .teacher-side-link.side-random::after { content: "اختيار" !important; }
+  .teacher-side-link.side-timer::before { content: "⏱️" !important; }
+  .teacher-side-link.side-timer::after { content: "مؤقت" !important; }
+
+  #teacher-app[data-active-teacher-panel] > .grid > [data-teacher-panel].teacher-panel-active,
+  #teacher-app[data-active-teacher-panel] > .card.wide[data-teacher-panel].teacher-panel-active {
+    display: block !important;
+    grid-column: 1 / -1 !important;
+  }
+
+  #teacher-app[data-active-teacher-panel] > #reports-panel[data-teacher-panel].teacher-panel-active {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  #students-table {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
