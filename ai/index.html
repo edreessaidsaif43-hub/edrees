@@ -2988,10 +2988,6 @@ async function generateLesson() {
     showError('يلزم تفعيل اشتراك المادة أولًا. أرسل الإيصال من بطاقة الاشتراك.');
     return;
   }
-  if (grade && subject && !isSubjectSubscribed(grade, subject)) {
-    showError('هذه المادة غير مشمولة في اشتراكك. ستظهر لك المواد المشترك فيها فقط.');
-    return;
-  }
   if (!grade || !subject || !semester || !lessonId) {
     showError('يرجى اختيار جميع الحقول المطلوبة قبل التوليد.');
     return;
@@ -3000,6 +2996,10 @@ async function generateLesson() {
   const lesson = lessons.find(l => l.id == lessonId);
   if (!lesson) { showError('لم يتم العثور على الدرس.'); return; }
   if (lesson.status !== 'active') { showError('هذا الدرس غير متاح حاليًا.'); return; }
+  if (!isSubjectSubscribed(lesson.grade, lesson.subject) && !isSubjectSubscribed(grade, subject)) {
+    showError('هذه المادة غير مشمولة في اشتراكك. ستظهر لك المواد المشترك فيها فقط.');
+    return;
+  }
 
   let lessonAttachments = await ensureLessonAttachmentsLoaded(lesson);
   let attachment = lessonAttachments[0];

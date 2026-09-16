@@ -1696,10 +1696,6 @@ function getCachedCsv() {
         showMessage('يلزم تفعيل اشتراك المادة أولًا. أرسل الإيصال من بطاقة الاشتراك.', 'error');
         return;
       }
-      if (grade && subject && !isSubjectSubscribed(grade, subject)) {
-        showMessage('هذه المادة غير مشمولة في اشتراكك.', 'error');
-        return;
-      }
       if (!grade || !subject || !semester || !unit || !lesson) {
         showMessage('أكمل جميع الاختيارات', 'error');
         return;
@@ -1714,6 +1710,10 @@ function getCachedCsv() {
       const lessonData = D.find(r => isSameSubscriptionGrade(r["1"], grade) && isSameSubscriptionSubject(r["2"], subject) && r["3"] === semester && r["4"] === unit && r["5"] === lesson);
       if (!lessonData) {
         showMessage('الدرس غير موجود', 'error');
+        return;
+      }
+      if (!isSubjectSubscribed(lessonData["1"], lessonData["2"]) && !isSubjectSubscribed(grade, subject)) {
+        showMessage('هذه المادة غير مشمولة في اشتراكك.', 'error');
         return;
       }
       
