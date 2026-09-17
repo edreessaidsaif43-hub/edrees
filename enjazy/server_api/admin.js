@@ -3,7 +3,7 @@ import {
   listMotivationAccountsByAdmin,
   loadMotivationAccountByAdmin,
   listTeacherAccounts,
-  listTeacherAccountsPage,
+  listPasswordAccountsByAdmin,
   loadTeacherAccountByAdmin,
   updateTeacherAccountByAdmin,
   updateTeacherPasswordByAdmin,
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "GET" && action === "password_accounts") {
-    const out = await listTeacherAccountsPage({
+    const out = await listPasswordAccountsByAdmin({
       search: req.query?.search,
       offset: req.query?.offset,
       limit: req.query?.limit,

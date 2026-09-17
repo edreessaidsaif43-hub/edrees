@@ -13,6 +13,13 @@ const MOTIVATION_DATABASE_URL =
   process.env.MOTIVATION_DATABASE_URL ||
   process.env.MOTIVATION_POSTGRES_URL ||
   DATABASE_URL;
+const EDU_DATABASE_URL =
+  process.env.EDU_DATABASE_URL ||
+  process.env.POSTGRES_URL ||
+  process.env.POSTGRES_PRISMA_URL ||
+  process.env.DATABASE_URL ||
+  process.env.MASH_DATABASE_URL ||
+  "";
 
 function safeNeonClient(url) {
   const normalized = String(url || "").trim();
@@ -27,6 +34,7 @@ function safeNeonClient(url) {
 const sql = safeNeonClient(DATABASE_URL);
 const mashSql = safeNeonClient(MASH_DATABASE_URL);
 const motivationSql = safeNeonClient(MOTIVATION_DATABASE_URL);
+const eduSql = safeNeonClient(EDU_DATABASE_URL);
 const hasDbEnv = !!sql;
 const hasMashDbEnv = !!mashSql;
 const hasMotivationDbEnv = !!motivationSql;
@@ -874,6 +882,58 @@ export async function listTeacherAccountsPage({ search = "", offset = 0, limit =
   }
 }
 
+async function listLegacyEduUsers() {
+  if (!eduSql) return [];
+  try {
+    const rows = await eduSql`
+      SELECT item->>'user_id' AS user_id,
+        LOWER(TRIM(COALESCE(item->>'email', item->>'username', ''))) AS email,
+        item->>'full_name' AS full_name,
+        item->>'created_at' AS created_at
+      FROM edu_storage,
+        LATERAL jsonb_array_elements(
+          CASE WHEN jsonb_typeof(data->'users') = 'array' THEN data->'users' ELSE '[]'::jsonb END
+        ) AS item
+      WHERE id = 'main';
+    `;
+    return (rows || []).filter((row) => row.email && row.email.includes("@"));
+  } catch (error) {
+    if (String(error?.code || "") === "42P01") return [];
+    throw error;
+  }
+}
+
+export async function listPasswordAccountsByAdmin({ search = "", offset = 0, limit = 50 } = {}) {
+  if (!hasDbEnv) return dbUnavailable();
+  try {
+    const [teachers, legacy] = await Promise.all([listTeacherAccounts(), listLegacyEduUsers()]);
+    if (teachers.error) return teachers;
+    const accounts = teachers.data || [];
+    const contacts = new Set(accounts.map((a) => normalizeContact(a.profile?.contact)));
+    for (const user of legacy) {
+      if (contacts.has(user.email)) continue;
+      contacts.add(user.email);
+      accounts.push({
+        userId: `edu:${user.email}`,
+        profile: { name: String(user.full_name || ""), contact: user.email },
+        entriesCount: 0,
+        createdAt: user.created_at || null,
+        updatedAt: user.created_at || null,
+        source: "edu",
+      });
+    }
+    const term = String(search || "").trim().toLowerCase();
+    const matched = term ? accounts.filter((a) => [a.userId, a.profile?.name, a.profile?.contact, a.profile?.school, a.profile?.subject, a.profile?.grades]
+      .some((value) => String(value || "").toLowerCase().includes(term))) : accounts;
+    matched.sort((a, b) => (new Date(b.updatedAt || 0).getTime() || 0) - (new Date(a.updatedAt || 0).getTime() || 0));
+    const start = Math.max(0, Math.floor(Number(offset) || 0));
+    const size = Math.min(100, Math.max(1, Math.floor(Number(limit) || 50)));
+    return { data: matched.slice(start, start + size), total: matched.length };
+  } catch (error) {
+    return { error: "upstream_failed", message: String(error?.message || error) };
+  }
+}
+
 export async function listTeacherAccounts() {
   if (!hasDbEnv) return dbUnavailable();
   try {
@@ -988,6 +1048,26 @@ export async function updateTeacherPasswordByAdmin(payload) {
     }
     if (newPassword.length < 4) {
       return { error: "invalid_payload", message: "Password must be at least 4 characters." };
+    }
+
+    if (userId.startsWith("edu:")) {
+      const email = normalizeContact(userId.slice(4));
+      if (!email || !email.includes("@")) return { error: "invalid_payload", message: "Invalid legacy account." };
+      const legacy = (await listLegacyEduUsers()).find((user) => user.email === email);
+      if (!legacy) return { error: "not_found", message: "Legacy account not found." };
+      const existing = await getUserByContact(email);
+      if (existing) {
+        await sql`UPDATE teacher_users SET password = ${newPassword}, updated_at = NOW() WHERE id = ${existing.id};`;
+        return { data: { ok: true, userId: existing.id } };
+      }
+      const profile = { name: String(legacy.full_name || ""), contact: email, school: "", subject: "", grades: "", shareTheme: "classic" };
+      const legacyId = String(legacy.user_id || "").trim();
+      const id = legacyId && !(await getUserById(legacyId)) ? legacyId : randomId(10);
+      await sql`
+        INSERT INTO teacher_users (id, contact_norm, password, profile, entries, created_at, updated_at)
+        VALUES (${id}, ${email}, ${newPassword}, ${JSON.stringify(profile)}::jsonb, '[]'::jsonb, NOW(), NOW());
+      `;
+      return { data: { ok: true, userId: id } };
     }
 
     const user = await getUserById(userId);
