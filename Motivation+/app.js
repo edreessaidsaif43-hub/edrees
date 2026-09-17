@@ -930,18 +930,15 @@ function saveStateToRemote(userId, payloadState, deletedSharedIds = []) {
 
 async function postStateToRemote(userId, payloadState, deletedSharedIds) {
   try {
-    await fetchJsonSafe(MOTIVATION_API_SAVE, {
+    const endpoint = RUNTIME_ORIGIN || DEPLOY_FALLBACK_ORIGIN;
+    const response = await fetch(`${endpoint}${MOTIVATION_API_SAVE}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, state: payloadState, deletedSharedIds })
     });
+    if (!response.ok) throw new Error(`http_${response.status}`);
     return true;
   } catch (err) {
-    const reason = String((err && err.message) || "");
-    if (!remoteSyncWarningShown && reason.includes("endpoint_not_found")) {
-      showAuthMessage("مزامنة البيانات بين الأجهزة غير مفعلة على الخادم حاليًا. سيتم الحفظ على هذا الجهاز فقط.", true);
-      remoteSyncWarningShown = true;
-    }
     return false;
   }
 }
@@ -958,7 +955,7 @@ function scheduleRemoteSave() {
   remoteSaveTimer = setTimeout(async () => {
     const snapshot = copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state);
     await saveStateToRemote(userId, snapshot);
-  }, 450);
+  }, 80);
 }
 
 async function flushRemoteSaveNow(deletedSharedIds = []) {
