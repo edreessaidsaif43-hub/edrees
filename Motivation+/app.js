@@ -919,8 +919,16 @@ async function loadStateFromRemote(userId) {
   }
 }
 
-async function saveStateToRemote(userId, payloadState, deletedSharedIds = []) {
+let remoteSaveQueue = Promise.resolve();
+
+function saveStateToRemote(userId, payloadState, deletedSharedIds = []) {
   if (!userId || !payloadState) return false;
+  const save = remoteSaveQueue.then(() => postStateToRemote(userId, payloadState, deletedSharedIds));
+  remoteSaveQueue = save.catch(() => false);
+  return save;
+}
+
+async function postStateToRemote(userId, payloadState, deletedSharedIds) {
   try {
     await fetchJsonSafe(MOTIVATION_API_SAVE, {
       method: "POST",
@@ -3113,7 +3121,7 @@ function addWinnerPointsById(cls, studentId, delta, reasonLabel, opts = {}) {
   cls.students[idx] = student;
   return { ok: true, student };
 }
-function updateStudentPoints(studentId, reasonKey) {
+async function updateStudentPoints(studentId, reasonKey) {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
@@ -3137,8 +3145,14 @@ function updateStudentPoints(studentId, reasonKey) {
       triggerCelebration("⭐ إنجاز جديد", `${student.name} تجاوز 100 نقطة!`);
     }
   }
-  saveTeacherData({ skipPublicCache: true });
+  const savedLocally = saveTeacherData({ skipPublicCache: true });
   renderAfterPointsChange();
+  const savedRemotely = await flushRemoteSaveNow();
+  if (!savedLocally && !savedRemotely) {
+    showAuthMessage("تعذر حفظ النقاط. تحقق من الاتصال ثم أعد المحاولة.", true);
+  } else if (!savedRemotely) {
+    showAuthMessage("حُفظت النقاط على هذا الجهاز فقط. تعذرت المزامنة مع الخادم.", true);
+  }
 }
 
 
@@ -4552,7 +4566,7 @@ document.getElementById("reset-mini-challenge").addEventListener("click", () => 
 // Student / parent portals
 
 
-document.getElementById("add-bonus-points").addEventListener("click", () => {
+document.getElementById("add-bonus-points").addEventListener("click", async () => {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
@@ -4587,17 +4601,25 @@ document.getElementById("add-bonus-points").addEventListener("click", () => {
     if (!ok) return;
   }
   applyPointsChange(student, delta, reasonLabel);
-  saveTeacherData({ skipPublicCache: true });
+  const savedLocally = saveTeacherData({ skipPublicCache: true });
   renderAfterPointsChange();
+  const savedRemotely = await flushRemoteSaveNow();
   if (delta > 0) {
     playEventSound("winner");
     triggerCelebration("⭐ إضافة نقاط مباشرة", `${student.name} حصل على ${Math.abs(delta)} نقطة`);
-    status.textContent = `تمت إضافة ${Math.abs(delta)} نقطة للطالب ${student.name}.`;
+    document.getElementById("bonus-points-status").textContent = `تمت إضافة ${Math.abs(delta)} نقطة للطالب ${student.name}.`;
   } else {
-    status.textContent = `تم خصم ${Math.abs(delta)} نقطة من الطالب ${student.name}.`;
+    document.getElementById("bonus-points-status").textContent = `تم خصم ${Math.abs(delta)} نقطة من الطالب ${student.name}.`;
   }
   pointsEl.value = String(delta);
   reasonEl.value = "";
+  if (!savedLocally && !savedRemotely) {
+    document.getElementById("bonus-points-status").textContent = "تعذر حفظ النقاط.";
+    showAuthMessage("تعذر حفظ النقاط. تحقق من الاتصال ثم أعد المحاولة.", true);
+  } else if (!savedRemotely) {
+    document.getElementById("bonus-points-status").textContent = "حُفظت النقاط على هذا الجهاز فقط.";
+    showAuthMessage("حُفظت النقاط على هذا الجهاز فقط. تعذرت المزامنة مع الخادم.", true);
+  }
 });
 document.getElementById("student-login").addEventListener("click", async () => {
   const code = document.getElementById("student-code-input").value;
