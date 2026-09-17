@@ -208,7 +208,7 @@ function compressStudentPhotoFile(file, onProgress) {
       img.onerror = () => reject(new Error("Failed to load image"));
       img.onload = () => {
         try {
-          const maxSide = 520;
+          const maxSide = 320;
           const ratio = Math.min(1, maxSide / Math.max(img.width || 1, img.height || 1));
           const width = Math.max(1, Math.round((img.width || 1) * ratio));
           const height = Math.max(1, Math.round((img.height || 1) * ratio));
@@ -218,7 +218,7 @@ function compressStudentPhotoFile(file, onProgress) {
           const ctx = canvas.getContext("2d");
           ctx.drawImage(img, 0, 0, width, height);
           if (onProgress) onProgress(82);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.78);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.68);
           if (onProgress) onProgress(100);
           resolve(dataUrl);
         } catch (err) {
@@ -829,7 +829,7 @@ function savePublicStateCache(snapshot) {
 }
 
 function saveTeacherData(options = {}) {
-  if (!currentTeacher) return;
+  if (!currentTeacher) return false;
   state.updatedAt = Date.now();
   (state.classes || []).forEach((cls) => {
     ensureClassShareMeta(cls, currentTeacher.id);
@@ -837,9 +837,14 @@ function saveTeacherData(options = {}) {
   });
   try {
     localStorage.setItem(accountDataKey(currentTeacher.id), JSON.stringify(state));
-  } catch {}
+  } catch {
+    if (!options.skipPublicCache) savePublicStateCache(state);
+    scheduleRemoteSave();
+    return false;
+  }
   if (!options.skipPublicCache) savePublicStateCache(state);
   scheduleRemoteSave();
+  return true;
 }
 
 function getUnifiedUserId() {
@@ -3187,13 +3192,18 @@ async function handleStudentPhotoUpload(studentId, event) {
     setPhotoUploadProgress(100, "جاري مزامنة الصورة بين الأجهزة...");
     showAuthMessage("جاري مزامنة الصورة بين الأجهزة...");
     await setStudentPhotoDataUrl(cls, studentId, dataUrl);
-    saveTeacherData({ skipPublicCache: true });
-    await flushRemoteSaveNow();
+    const savedLocally = saveTeacherData({ skipPublicCache: true });
+    const savedRemotely = await flushRemoteSaveNow();
+    if (!savedLocally && !savedRemotely) {
+      throw new Error("photo_save_failed");
+    }
     const cell = document.getElementById(`photo-${studentId}`);
     if (cell) {
       cell.innerHTML = renderPhotoCellContent(student.name, dataUrl);
     }
-    showAuthMessage(`تم حفظ صورة الطالب ${student.name} بنجاح.`);
+    showAuthMessage(savedRemotely
+      ? `تم حفظ صورة الطالب ${student.name} بنجاح.`
+      : `تم حفظ الصورة على هذا الجهاز فقط. تعذرت المزامنة بين الأجهزة.`, !savedRemotely);
     setTimeout(() => hidePhotoUploadProgress(), 1200);
   } catch {
     showAuthMessage("حدث خطأ أثناء تحميل/حفظ الصورة.", true);
