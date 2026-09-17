@@ -914,13 +914,13 @@ async function loadStateFromRemote(userId) {
   }
 }
 
-async function saveStateToRemote(userId, payloadState) {
+async function saveStateToRemote(userId, payloadState, deletedSharedIds = []) {
   if (!userId || !payloadState) return false;
   try {
     await fetchJsonSafe(MOTIVATION_API_SAVE, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, state: payloadState })
+      body: JSON.stringify({ userId, state: payloadState, deletedSharedIds })
     });
     return true;
   } catch (err) {
@@ -948,7 +948,7 @@ function scheduleRemoteSave() {
   }, 450);
 }
 
-async function flushRemoteSaveNow() {
+async function flushRemoteSaveNow(deletedSharedIds = []) {
   if (!currentTeacher || !currentTeacher.userId) return true;
   if (remoteSaveTimer) {
     clearTimeout(remoteSaveTimer);
@@ -956,7 +956,7 @@ async function flushRemoteSaveNow() {
   }
   pendingRemoteSave = false;
   const snapshot = copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state);
-  return saveStateToRemote(String(currentTeacher.userId), snapshot);
+  return saveStateToRemote(String(currentTeacher.userId), snapshot, deletedSharedIds);
 }
 
 function readUnifiedSession() {
@@ -4238,8 +4238,12 @@ document.getElementById("delete-class").addEventListener("click", async () => {
   state.activeClassId = state.classes.length ? state.classes[0].id : "";
   wheelRotation = 0;
   saveTeacherData();
-  await flushRemoteSaveNow();
+  const savedRemotely = await flushRemoteSaveNow(cls.sharedId ? [cls.sharedId] : []);
   renderAll();
+  if (!savedRemotely) {
+    showAuthMessage("حُذف الصف من هذا الجهاز، لكن تعذر حفظ الحذف على الخادم. تحقق من الاتصال ثم أعد المحاولة قبل تحديث الصفحة.", true);
+    return;
+  }
   showAuthMessage(state.classes.length ? "تم حذف الصف." : "تم حذف الصف. لا توجد صفوف حاليًا، أنشئ صفًا جديدًا.");
 });
 

@@ -513,6 +513,30 @@ export async function saveTeacherMotivation(payload) {
     `;
 
     const classes = Array.isArray(state?.classes) ? state.classes : [];
+    const deletedSharedIds = Array.isArray(payload?.deletedSharedIds) ? payload.deletedSharedIds : [];
+    for (const value of deletedSharedIds) {
+      const sharedId = String(value || "").trim();
+      if (!sharedId) continue;
+      await motivationSql`
+        DELETE FROM motivation_shared_classes
+        WHERE shared_id = ${sharedId} AND owner_user_id = ${normalizedUserId};
+      `;
+      const joinedRows = await motivationSql`
+        SELECT teacher_user_ids
+        FROM motivation_shared_classes
+        WHERE shared_id = ${sharedId}
+        LIMIT 1;
+      `;
+      const teacherIds = joinedRows?.[0]?.teacher_user_ids;
+      if (Array.isArray(teacherIds) && teacherIds.includes(normalizedUserId)) {
+        await motivationSql`
+          UPDATE motivation_shared_classes
+          SET teacher_user_ids = ${JSON.stringify(teacherIds.filter((id) => id !== normalizedUserId))}::jsonb,
+              updated_at = NOW()
+          WHERE shared_id = ${sharedId};
+        `;
+      }
+    }
     for (const cls of classes) {
       const sharedId = String(cls?.sharedId || "").trim();
       const inviteCode = normalizeInviteCode(cls?.inviteCode || "");
