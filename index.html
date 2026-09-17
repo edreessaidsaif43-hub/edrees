@@ -606,7 +606,16 @@
     .home-card-price span{display:block;font-size:.78rem;font-weight:800;color:#526b86;line-height:1.65}
     .home-card-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
     .home-card-meta span{padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.72);border:1px solid rgba(214,225,238,.88);font-size:11px;font-weight:900;color:#445b76;box-shadow:0 8px 18px rgba(10,22,40,.035)}
-    .home-card.noor-fill-card{grid-column:1 / -1;min-height:0}
+    .home-card.noor-fill-card{grid-column:span 4;min-height:235px;display:block}
+    .noor-fill-card summary{list-style:none;cursor:pointer;display:flex;flex-direction:column;min-height:185px}
+    .noor-fill-card summary::-webkit-details-marker{display:none}
+    .noor-fill-card summary:focus-visible{outline:2px solid #0f766e;outline-offset:5px}
+    .noor-fill-card summary::after{content:'عرض التفاصيل ↓';color:#0f766e;font-size:.84rem;font-weight:900;margin-top:auto}
+    .noor-fill-card[open] summary::after{content:'إخفاء التفاصيل ↑'}
+    .noor-fill-card[open]{grid-column:1 / -1}
+    .noor-fill-card[open] summary{min-height:0;margin-bottom:14px}
+    @media(max-width:1000px){.home-card.noor-fill-card:not([open]){grid-column:span 6}}
+    @media(max-width:650px){.home-card.noor-fill-card{grid-column:1 / -1}}
     .noor-fill-intro{max-width:760px!important;margin-bottom:18px!important}
     .noor-device-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:4px 0 18px}
     .noor-device-panel{border-top:1px solid rgba(214,225,238,.95);padding-top:14px;min-width:0}
@@ -820,10 +829,12 @@
       </div>
 
       <div class="home-grid cards-focus-grid">
-        <div class="home-card noor-fill-card r" style="--card-accent:#0f766e;--card-soft:#ecfdf5">
-          <div class="home-card-icon">01</div>
-          <h3>تعبئة منصة نور</h3>
-          <p class="noor-fill-intro">أداة تساعد المعلم على نقل التحضير المولّد من التحضير بالذكاء الاصطناعي إلى منصة نور بسرعة.</p>
+        <details class="home-card noor-fill-card r" style="--card-accent:#0f766e;--card-soft:#ecfdf5">
+          <summary>
+            <div class="home-card-icon">01</div>
+            <h3>تعبئة منصة نور</h3>
+            <p class="noor-fill-intro">انقل تحضير الدرس إلى منصة نور من الحاسب أو الهاتف.</p>
+          </summary>
           <div class="noor-device-grid">
             <div class="noor-device-panel">
               <h4>الحاسب الآلي</h4>
@@ -868,13 +879,7 @@
               <a class="noor-tool-link" href="https://addons.mozilla.org/en-US/firefox/addon/%D8%A7%D9%84%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%B0%D9%83%D9%8A-%D9%84%D9%84%D9%85%D8%B9%D9%84%D9%85-%D8%A7%D9%84%D8%B9%D9%85%D8%A7%D9%86%D9%8A/" target="_blank" rel="noopener noreferrer">تحميل أداة فايرفوكس للأندرويد</a>
             </div>
           </div>
-          <div class="home-card-meta">
-            <span>منصة نور</span>
-            <span>كروم</span>
-            <span>فايرفوكس</span>
-            <span>تعبئة تلقائية</span>
-          </div>
-        </div>
+        </details>
 
         <a href="/t" class="home-card wide r" style="--card-accent:#0f3d9e;--card-soft:#eef4ff">
           <div class="home-card-icon">02</div>
