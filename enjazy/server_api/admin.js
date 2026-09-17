@@ -3,6 +3,7 @@ import {
   listMotivationAccountsByAdmin,
   loadMotivationAccountByAdmin,
   listTeacherAccounts,
+  listTeacherAccountsPage,
   loadTeacherAccountByAdmin,
   updateTeacherAccountByAdmin,
   updateTeacherPasswordByAdmin,
@@ -36,6 +37,24 @@ export default async function handler(req, res) {
   if (req.method === "GET" && action === "accounts") {
     const out = await listTeacherAccounts();
     if (out.error === "db_not_configured") {
+      res.status(500).json({ error: "db_not_configured", message: "Neon database is not configured." });
+      return;
+    }
+    if (out.error) {
+      res.status(502).json({ error: out.error, message: out.message || "Failed to list accounts." });
+      return;
+    }
+    res.status(200).json({ accounts: out.data || [] });
+    return;
+  }
+
+  if (req.method === "GET" && action === "password_accounts") {
+    const out = await listTeacherAccountsPage({
+      search: req.query?.search,
+      offset: req.query?.offset,
+      limit: req.query?.limit,
+    });
+    if (out.error === "db_not_configured") {
       res.status(500).json({
         error: "db_not_configured",
         message: "Neon database is not configured. Set DATABASE_URL (or POSTGRES_URL) in Vercel.",
@@ -46,7 +65,7 @@ export default async function handler(req, res) {
       res.status(502).json({ error: out.error, message: out.message || "Failed to list accounts." });
       return;
     }
-    res.status(200).json({ accounts: out.data || [] });
+    res.status(200).json({ accounts: out.data || [], total: out.total || 0 });
     return;
   }
 

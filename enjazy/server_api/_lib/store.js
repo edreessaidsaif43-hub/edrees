@@ -825,27 +825,72 @@ export async function readPortfolio(id) {
   }
 }
 
+export async function listTeacherAccountsPage({ search = "", offset = 0, limit = 50 } = {}) {
+  if (!hasDbEnv) return dbUnavailable();
+  try {
+    await ensureSchema();
+    const term = String(search || "").trim().slice(0, 120);
+    const pattern = `%${term.replace(/[\\%_]/g, "\\$&")}%`;
+    const pageOffset = Math.max(0, Math.floor(Number(offset) || 0));
+    const pageLimit = Math.min(100, Math.max(1, Math.floor(Number(limit) || 50)));
+    const totals = await sql`
+      SELECT COUNT(*)::int AS total
+      FROM teacher_users
+      WHERE ${term} = '' OR id ILIKE ${pattern} ESCAPE '\\'
+        OR contact_norm ILIKE ${pattern} ESCAPE '\\'
+        OR profile->>'name' ILIKE ${pattern} ESCAPE '\\'
+        OR profile->>'contact' ILIKE ${pattern} ESCAPE '\\'
+        OR profile->>'school' ILIKE ${pattern} ESCAPE '\\'
+        OR profile->>'subject' ILIKE ${pattern} ESCAPE '\\'
+        OR profile->>'grades' ILIKE ${pattern} ESCAPE '\\';
+    `;
+    const rows = await sql`
+      SELECT id, profile, created_at, updated_at,
+        jsonb_array_length(CASE WHEN jsonb_typeof(entries) = 'array' THEN entries ELSE '[]'::jsonb END) AS entries_count
+      FROM teacher_users
+      WHERE ${term} = '' OR id ILIKE ${pattern} ESCAPE '\\'
+        OR contact_norm ILIKE ${pattern} ESCAPE '\\'
+        OR profile->>'name' ILIKE ${pattern} ESCAPE '\\'
+        OR profile->>'contact' ILIKE ${pattern} ESCAPE '\\'
+        OR profile->>'school' ILIKE ${pattern} ESCAPE '\\'
+        OR profile->>'subject' ILIKE ${pattern} ESCAPE '\\'
+        OR profile->>'grades' ILIKE ${pattern} ESCAPE '\\'
+      ORDER BY updated_at DESC, id DESC
+      LIMIT ${pageLimit} OFFSET ${pageOffset};
+    `;
+    const accounts = (rows || []).map((r) => {
+      const profile = sanitizeProfile(r.profile || {});
+      return {
+        userId: r.id,
+        profile,
+        entriesCount: Number(r.entries_count || 0),
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      };
+    });
+    return { data: accounts, total: Number(totals?.[0]?.total || 0) };
+  } catch (error) {
+    return { error: "upstream_failed", message: String(error?.message || error) };
+  }
+}
+
 export async function listTeacherAccounts() {
   if (!hasDbEnv) return dbUnavailable();
   try {
     await ensureSchema();
     const rows = await sql`
-      SELECT id, profile, created_at, updated_at, entries
+      SELECT id, profile, created_at, updated_at,
+        jsonb_array_length(CASE WHEN jsonb_typeof(entries) = 'array' THEN entries ELSE '[]'::jsonb END) AS entries_count
       FROM teacher_users
-      ORDER BY updated_at DESC;
+      ORDER BY updated_at DESC, id DESC;
     `;
-    const accounts = (rows || []).map((r) => {
-      const profile = sanitizeProfile(r.profile || {});
-      const entries = Array.isArray(r.entries) ? r.entries : [];
-      return {
-        userId: r.id,
-        profile,
-        entriesCount: entries.length,
-        createdAt: r.created_at,
-        updatedAt: r.updated_at,
-      };
-    });
-    return { data: accounts };
+    return { data: (rows || []).map((r) => ({
+      userId: r.id,
+      profile: sanitizeProfile(r.profile || {}),
+      entriesCount: Number(r.entries_count || 0),
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    })) };
   } catch (error) {
     return { error: "upstream_failed", message: String(error?.message || error) };
   }
