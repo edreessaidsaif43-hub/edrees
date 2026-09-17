@@ -909,6 +909,33 @@ export async function updateTeacherAccountByAdmin(payload) {
   }
 }
 
+export async function updateTeacherPasswordByAdmin(payload) {
+  if (!hasDbEnv) return dbUnavailable();
+  try {
+    const userId = String(payload?.userId || "").trim();
+    const newPassword = String(payload?.newPassword || "");
+    if (!userId || !newPassword) {
+      return { error: "invalid_payload", message: "Missing userId or new password." };
+    }
+    if (newPassword.length < 4) {
+      return { error: "invalid_payload", message: "Password must be at least 4 characters." };
+    }
+
+    const user = await getUserById(userId);
+    if (!user) return { error: "not_found", message: "User not found." };
+
+    await sql`
+      UPDATE teacher_users
+      SET password = ${newPassword}, updated_at = NOW()
+      WHERE id = ${userId};
+    `;
+
+    return { data: { ok: true, userId } };
+  } catch (error) {
+    return { error: "upstream_failed", message: String(error?.message || error) };
+  }
+}
+
 export async function deleteTeacherAccountByAdmin(userId) {
   if (!hasDbEnv) return dbUnavailable();
   try {

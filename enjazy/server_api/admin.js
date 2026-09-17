@@ -5,6 +5,7 @@ import {
   listTeacherAccounts,
   loadTeacherAccountByAdmin,
   updateTeacherAccountByAdmin,
+  updateTeacherPasswordByAdmin,
   deleteTeacherAccountByAdmin,
 } from "./_lib/store.js";
 
@@ -146,6 +147,24 @@ export default async function handler(req, res) {
       const status =
         out.error === "not_found" ? 404 : out.error === "invalid_payload" || out.error === "contact_exists" ? 400 : 502;
       res.status(status).json({ error: out.error, message: out.message || "Failed to update account." });
+      return;
+    }
+    res.status(200).json(out.data);
+    return;
+  }
+
+  if (req.method === "POST" && action === "update_password") {
+    const out = await updateTeacherPasswordByAdmin(req.body || {});
+    if (out.error === "db_not_configured") {
+      res.status(500).json({
+        error: "db_not_configured",
+        message: "Neon database is not configured. Set DATABASE_URL (or POSTGRES_URL) in Vercel.",
+      });
+      return;
+    }
+    if (out.error) {
+      const status = out.error === "not_found" ? 404 : out.error === "invalid_payload" ? 400 : 502;
+      res.status(status).json({ error: out.error, message: out.message || "Failed to update password." });
       return;
     }
     res.status(200).json(out.data);
