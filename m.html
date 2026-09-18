@@ -579,7 +579,19 @@
         <div><label class="block text-emerald-200 font-bold mb-2">المواد الدراسية</label><select id="submit-subject" multiple required class="w-full p-4 border-2 border-emerald-400 rounded-xl input-field outline-none bg-white text-gray-900 font-semibold" size="5"><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="الرياضيات">الرياضيات</option><option value="العلوم">العلوم</option><option value="الفيزياء">الفيزياء</option><option value="الكيمياء">الكيمياء</option><option value="الأحياء">الأحياء</option><option value="الدراسات الاجتماعية">الدراسات الاجتماعية</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="الحاسوب">الحاسوب</option><option value="التربية الفنية">التربية الفنية</option><option value="التربية الرياضية">التربية الرياضية</option><option value="التربية الموسيقية">التربية الموسيقية</option></select></div>
         <div><label class="block text-emerald-200 font-bold mb-2">الفصل الدراسي</label><select id="submit-semester" required class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"><option value="">اختر الفصل الدراسي</option><option value="الفصل الأول">الفصل الأول</option><option value="الفصل الثاني">الفصل الثاني</option></select></div>
         <div><label class="block text-emerald-200 font-bold mb-2">عنوان المشاركة</label><input type="text" id="lesson-name" required placeholder="مثال: الكسور العشرية - الصف السادس" class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"></div>
-        <div><label class="block text-emerald-200 font-bold mb-2">رابط المحتوى</label><input type="url" id="content-link" required class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"></div>
+        <div>
+          <label for="content-source" class="block text-emerald-200 font-bold mb-2">طريقة إضافة المحتوى</label>
+          <select id="content-source" class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium" onchange="updateContentSourceUI()">
+            <option value="link">إضافة رابط</option>
+            <option value="file">رفع ملف (حتى 100 MB)</option>
+          </select>
+        </div>
+        <div id="content-link-wrap"><label for="content-link" class="block text-emerald-200 font-bold mb-2">رابط المحتوى</label><input type="url" id="content-link" required placeholder="https://example.com/content" class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"></div>
+        <div id="content-file-wrap" class="hidden">
+          <label for="content-file" class="block text-emerald-200 font-bold mb-2">ملف المحتوى</label>
+          <input type="file" id="content-file" class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium" onchange="validateContentFile()">
+          <p id="content-file-status" class="text-emerald-100 text-sm mt-2" role="status">الحد الأقصى للملف 100 MB.</p>
+        </div>
         <button id="submit-review-btn" type="submit" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transition-all">🚀 إرسال للمراجعة</button>
       </form>
     </div>
@@ -3785,6 +3797,56 @@
       }
     });
 
+    const MAX_CONTENT_FILE_BYTES = 100 * 1024 * 1024;
+    let pendingUploadedContent = null;
+
+    function updateContentSourceUI() {
+      const isFile = document.getElementById('content-source').value === 'file';
+      document.getElementById('content-link-wrap').classList.toggle('hidden', isFile);
+      document.getElementById('content-file-wrap').classList.toggle('hidden', !isFile);
+      document.getElementById('content-link').required = !isFile;
+      document.getElementById('content-file').required = isFile;
+    }
+
+    function validateContentFile() {
+      const input = document.getElementById('content-file');
+      const status = document.getElementById('content-file-status');
+      const file = input.files && input.files[0];
+      pendingUploadedContent = null;
+      if (!file) {
+        status.textContent = 'الحد الأقصى للملف 100 MB.';
+        return false;
+      }
+      if (file.size > MAX_CONTENT_FILE_BYTES) {
+        input.value = '';
+        status.textContent = 'الملف أكبر من 100 MB. اختر ملفًا أصغر.';
+        showToast('❌ حجم الملف يتجاوز 100 MB', 'error');
+        return false;
+      }
+      status.textContent = `${file.name} · ${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+      return true;
+    }
+
+    async function uploadContentFile(file, submitBtn) {
+      if (pendingUploadedContent?.file === file) return pendingUploadedContent.url;
+      const blobClient = await import('https://esm.sh/@vercel/blob@0.27.0/client');
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'content.bin';
+      const uploaded = await blobClient.upload(`edu/submissions/${Date.now()}-${safeName}`, file, {
+        access: 'public',
+        handleUploadUrl: '/api/edu-upload',
+        multipart: file.size >= 10 * 1024 * 1024,
+        onUploadProgress: ({ percentage }) => {
+          const percent = Math.min(100, Math.round(percentage || 0));
+          if (submitBtn) submitBtn.textContent = `⏳ جاري رفع الملف: ${percent}%`;
+          document.getElementById('content-file-status').textContent = `جاري رفع الملف: ${percent}%`;
+        }
+      });
+      if (!uploaded?.url) throw new Error('لم يرجع الخادم رابط الملف المرفوع');
+      pendingUploadedContent = { file, url: uploaded.url };
+      document.getElementById('content-file-status').textContent = 'اكتمل رفع الملف. جاري إرسال المشاركة للمراجعة...';
+      return uploaded.url;
+    }
+
     document.getElementById('submit-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       if (isSubmittingContent) {
@@ -3809,10 +3871,16 @@
       const subjectSelect = document.getElementById('submit-subject');
       const selectedSubjects = Array.from(subjectSelect.selectedOptions).map(option => option.value);
       const lessonName = document.getElementById('lesson-name').value.trim();
-      const contentLink = document.getElementById('content-link').value.trim();
+      const isFile = document.getElementById('content-source').value === 'file';
+      const contentFile = document.getElementById('content-file').files[0];
+      let contentLink = document.getElementById('content-link').value.trim();
 
-      if (!teacherName || !contentType || !semester || selectedGrades.length === 0 || selectedSubjects.length === 0 || !lessonName || !contentLink) {
+      if (!teacherName || !contentType || !semester || selectedGrades.length === 0 || selectedSubjects.length === 0 || !lessonName || (isFile ? !contentFile : !contentLink)) {
         showToast('❌ يرجى ملء جميع الحقول', 'error');
+        return;
+      }
+      if (isFile && contentFile.size > MAX_CONTENT_FILE_BYTES) {
+        showToast('❌ حجم الملف يتجاوز 100 MB', 'error');
         return;
       }
 
@@ -3826,6 +3894,8 @@
       }
 
       try {
+        if (isFile) contentLink = await uploadContentFile(contentFile, submitBtn);
+        if (submitBtn) submitBtn.textContent = '⏳ جاري إرسال المشاركة للمراجعة...';
         const gameData = {
           teacher_name: currentUser.full_name,
           teacher_user_id: currentUser.user_id || '',
@@ -3844,7 +3914,9 @@
         const result = await apiPost({ action: 'addGame', game: gameData });
         if (result.success) {
           showToast('✅ تم إرسال المحتوى للمراجعة بنجاح', 'success');
+          pendingUploadedContent = null;
           document.getElementById('submit-form').reset();
+          updateContentSourceUI();
           const teacherInput = document.getElementById('teacher-name');
           if (teacherInput && currentUser) {
             teacherInput.value = currentUser.full_name || '';
@@ -3856,7 +3928,10 @@
         }
       } catch (err) {
         console.error(err);
-        showToast('❌ خطأ في الاتصال بالخادم', 'error');
+        const message = String(err?.message || 'خطأ في الاتصال بالخادم');
+        showToast(message.includes('BLOB_READ_WRITE_TOKEN')
+          ? '❌ خدمة رفع الملفات غير مهيأة على Vercel'
+          : `❌ تعذر رفع الملف أو إرسال المشاركة: ${message}`, 'error');
       } finally {
         isSubmittingContent = false;
         if (submitBtn) {
