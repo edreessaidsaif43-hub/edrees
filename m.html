@@ -395,7 +395,14 @@
     <div id="files-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
     <div id="files-pagination" class="mt-6"></div>
    </section>
-   <section id="section-stars" class="hidden max-w-6xl mx-auto"><div class="mb-8 text-center"><h2 class="text-3xl md:text-4xl font-extrabold text-white mb-2">⭐ المعلمون المتميزون</h2><p class="text-white text-lg font-medium">أفضل المساهمين في منصتنا</p></div><div id="stars-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div></section>
+   <section id="section-stars" class="hidden max-w-6xl mx-auto">
+    <div class="mb-6 text-center"><h2 class="text-3xl md:text-4xl font-extrabold text-white mb-2">⭐ المعلمون المتميزون</h2><p class="text-white text-lg font-medium">منافسة جديدة كل فصل دراسي، مع الاحتفاظ بمجموع المساهمات والدروع عبر السنوات.</p></div>
+    <div class="card-glass rounded-2xl p-4 md:p-5 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div><label for="stars-season-select" class="block text-slate-800 font-black mb-2">الفصل والسنة الدراسية</label><select id="stars-season-select" class="w-full md:min-w-72 p-3 border-2 border-amber-300 rounded-xl bg-white text-slate-900 font-bold" onchange="selectStarSeason(this.value)"></select></div>
+      <p id="stars-season-dates" class="text-slate-600 font-bold text-sm"></p>
+    </div>
+    <div id="stars-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+   </section>
 
    <section id="section-account" class="hidden max-w-2xl mx-auto">
     <div class="bg-gradient-to-br from-fuchsia-400/10 to-violet-400/10 rounded-2xl p-8 shadow-xl border-2 border-fuchsia-400/30">
@@ -686,6 +693,8 @@
     let presentations = [];
     let storedFiles = [];
     let starTeachers = [];
+    let selectedStarSeasonKey = '';
+    let starSeasonStats = {};
     let isSubmittingContent = false;
     let approvedGames = [];
     let approvedByType = { game: [], presentation: [], file: [] };
@@ -2493,15 +2502,96 @@
       if (tab === 'account') {
         loadMySubmissions(true);
       }
+      if (tab === 'stars') {
+        calculateStarTeachers();
+      }
+    }
+
+    const schoolDateFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Muscat', year: 'numeric', month: 'numeric', day: 'numeric'
+    });
+
+    function getSchoolDateParts(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return null;
+      const parts = schoolDateFormatter.formatToParts(date);
+      return Object.fromEntries(parts.filter(part => part.type !== 'literal').map(part => [part.type, Number(part.value)]));
+    }
+
+    function getSubmissionSeasonKey(value) {
+      const date = getSchoolDateParts(value);
+      if (!date) return '';
+      const { year, month, day } = date;
+      if (month >= 9) return `${year}-1`;
+      if (month === 1 && day <= 30) return `${year - 1}-1`;
+      if (month >= 2 && (month < 6 || (month === 6 && day <= 10))) return `${year - 1}-2`;
+      return '';
+    }
+
+    function getCurrentStarSeasonKey() {
+      const { year, month } = getSchoolDateParts(new Date());
+      if (month >= 9) return `${year}-1`;
+      if (month === 1) return `${year - 1}-1`;
+      return `${year - 1}-2`;
+    }
+
+    function getStarSeasonLabel(key) {
+      const [startYear, term] = key.split('-').map(Number);
+      return `${term === 1 ? 'الفصل الدراسي الأول' : 'الفصل الدراسي الثاني'} · ${startYear}/${startYear + 1}`;
+    }
+
+    function getStarSeasonDates(key) {
+      const [startYear, term] = key.split('-').map(Number);
+      return term === 1
+        ? `من 01/09/${startYear} إلى 30/01/${startYear + 1}`
+        : `من 01/02/${startYear + 1} إلى 10/06/${startYear + 1}`;
+    }
+
+    function selectStarSeason(key) {
+      selectedStarSeasonKey = key;
+      calculateStarTeachers();
     }
 
     function calculateStarTeachers() {
-      starTeachers = Object.values(teacherStatsByKey).map(t => ({
+      const currentKey = getCurrentStarSeasonKey();
+      const seasonKeys = new Set([currentKey]);
+      approvedGames.forEach(item => {
+        const key = getSubmissionSeasonKey(item.created_at);
+        if (key) seasonKeys.add(key);
+      });
+      const orderedKeys = [...seasonKeys].sort((a, b) => {
+        const [aYear, aTerm] = a.split('-').map(Number);
+        const [bYear, bTerm] = b.split('-').map(Number);
+        return bYear - aYear || bTerm - aTerm;
+      });
+      if (!seasonKeys.has(selectedStarSeasonKey)) selectedStarSeasonKey = currentKey;
+
+      const seasonSelect = document.getElementById('stars-season-select');
+      if (seasonSelect) {
+        seasonSelect.innerHTML = orderedKeys.map(key => `<option value="${key}">${getStarSeasonLabel(key)}</option>`).join('');
+        seasonSelect.value = selectedStarSeasonKey;
+      }
+      const datesLabel = document.getElementById('stars-season-dates');
+      if (datesLabel) datesLabel.textContent = `فترة المنافسة: ${getStarSeasonDates(selectedStarSeasonKey)}`;
+
+      const stats = {};
+      approvedGames.forEach(item => {
+        if (getSubmissionSeasonKey(item.created_at) !== selectedStarSeasonKey) return;
+        const key = getTeacherKey(item);
+        if (!key) return;
+        if (!stats[key]) stats[key] = { key, name: item.teacher_name || 'معلم غير معروف', count: 0, byType: { game: 0, presentation: 0, file: 0 }, items: [] };
+        stats[key].count += 1;
+        if (stats[key].byType[item.content_type] != null) stats[key].byType[item.content_type] += 1;
+        stats[key].items.push(item);
+      });
+      starSeasonStats = stats;
+      starTeachers = Object.values(stats).map(t => ({
         key: t.key,
         name: t.name,
-        count: t.count
+        count: t.count,
+        lifetimeCount: teacherStatsByKey[t.key]?.count || t.count
       }))
-        .sort((a, b) => b.count - a.count)
+        .sort((a, b) => b.count - a.count || b.lifetimeCount - a.lifetimeCount || a.name.localeCompare(b.name, 'ar'))
         .slice(0, 20);
 
       renderStarTeachers();
@@ -2511,7 +2601,7 @@
       const grid = document.getElementById('stars-grid');
       if (!grid) return;
       if (!starTeachers.length) {
-        grid.innerHTML = '<div class="col-span-full text-center text-white text-lg py-12">لا يوجد معلمون بعد</div>';
+        grid.innerHTML = '<div class="col-span-full text-center text-white text-lg py-12">لا توجد مشاركات معتمدة في هذا الفصل بعد. يمكنك اختيار فصل سابق من القائمة.</div>';
         return;
       }
       const medals = ['🥇', '🥈', '🥉'];
@@ -2519,10 +2609,10 @@
       const nextRanks = starTeachers.slice(3, 20);
 
       const detailedTopThreeHtml = topThree.map((teacher, index) => {
-        const teacherData = teacherStatsByKey[teacher.key] || { items: [], byType: { game: 0, presentation: 0, file: 0 } };
+        const teacherData = starSeasonStats[teacher.key] || { items: [], byType: { game: 0, presentation: 0, file: 0 } };
         const teacherGames = teacherData.items;
         const byType = teacherData.byType;
-        const shields = calculateShields(teacher.count);
+        const shields = calculateShields(teacher.lifetimeCount);
 
         let totalViews = 0;
         let totalRatings = 0;
@@ -2534,9 +2624,9 @@
           ratingsCount += stats.count;
         });
         const teacherAvgRating = ratingsCount ? (totalRatings / ratingsCount) : 0;
-        const currentShield = getCurrentShieldInfo(teacher.count);
-        const nextShield = getNextShieldInfo(teacher.count);
-        const progressToNext = teacher.count % 100;
+        const currentShield = getCurrentShieldInfo(teacher.lifetimeCount);
+        const nextShield = getNextShieldInfo(teacher.lifetimeCount);
+        const progressToNext = teacher.lifetimeCount % 100;
 
         return `
           <div class="card-glass rounded-3xl p-6 shadow-2xl border-2 ${index === 0 ? 'border-yellow-300' : index === 1 ? 'border-gray-300' : 'border-amber-300'}">
@@ -2548,7 +2638,7 @@
 
             <div class="grid grid-cols-2 gap-3 mb-4">
               <div class="bg-indigo-50 rounded-xl p-3 text-center">
-                <p class="text-xs text-indigo-700 font-bold">إجمالي المساهمات</p>
+                <p class="text-xs text-indigo-700 font-bold">نقاط هذا الفصل</p>
                 <p class="text-2xl font-black text-indigo-900">${teacher.count}</p>
               </div>
               <div class="bg-emerald-50 rounded-xl p-3 text-center">
@@ -2556,6 +2646,8 @@
                 <p class="text-2xl font-black text-emerald-900">${totalViews}</p>
               </div>
             </div>
+
+            <p class="mb-4 text-sm font-bold text-slate-700 text-center">الرصيد التاريخي: ${teacher.lifetimeCount} مشاركة معتمدة</p>
 
             <div class="mb-4 bg-slate-50 rounded-xl p-3 border border-slate-200">
               <p class="text-sm font-bold text-slate-700 mb-2">تفاصيل المحتوى</p>
@@ -2583,7 +2675,7 @@
           <div class="space-y-2">
             ${nextRanks.map((teacher, idx) => {
               const rank = idx + 4;
-              const shields = calculateShields(teacher.count);
+              const shields = calculateShields(teacher.lifetimeCount);
               const shieldInfo = shields > 0 ? getShieldInfo(shields) : null;
               return `
                 <div class="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3">
@@ -2591,10 +2683,10 @@
                     <span class="w-9 h-9 rounded-full bg-slate-100 text-slate-700 font-black flex items-center justify-center">${rank}</span>
                     <div>
                       <p class="font-bold text-gray-800">${teacher.name}</p>
-                      <p class="text-xs text-gray-500">🛡️ ${shieldInfo ? shieldInfo.name : 'بدون درع'} (${shields}/10)</p>
+                      <p class="text-xs text-gray-500">الرصيد التاريخي: ${teacher.lifetimeCount} · 🛡️ ${shieldInfo ? shieldInfo.name : 'بدون درع'} (${shields}/10)</p>
                     </div>
                   </div>
-                  <p class="text-sm font-bold text-gray-600">المساهمات: ${teacher.count}</p>
+                  <p class="text-sm font-bold text-gray-600">نقاط الفصل: ${teacher.count}</p>
                 </div>
               `;
             }).join('')}
