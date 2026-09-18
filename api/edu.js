@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { loginTeacher } from "../enjazy/server_api/_lib/store.js";
 
 const DATABASE_URL =
   process.env.EDU_DATABASE_URL ||
@@ -417,12 +418,30 @@ export default async function handler(req, res) {
         return send(res, 200, { success: true, data: updated });
       }
 
-      if (action === "deleteGame") {
-        const gameId = String(body.gameId || body.id || "").trim();
-        if (!gameId) return send(res, 400, { success: false, error: "missing_game_id" });
+      if (action === "deleteOwnGame") {
+        const gameId = String(body.gameId || "").trim();
+        const email = String(body.email || "").trim().toLowerCase();
+        const password = String(body.password || "");
+        if (!gameId || !email || !password) return send(res, 400, { success: false, error: "missing_credentials" });
+        const auth = await loginTeacher({ contact: email, password });
+        if (auth.error || !auth.data?.userId) return send(res, 401, { success: false, error: "invalid_credentials" });
+        const userId = String(auth.data.userId);
         await ensureSchema();
-        await sql`DELETE FROM edu_contents WHERE id = ${gameId};`;
+        const deleted = await sql`
+          DELETE FROM edu_contents
+          WHERE id = ${gameId}
+            AND (
+              data->>'teacher_user_id' = ${userId}
+              OR (COALESCE(data->>'teacher_user_id', '') = '' AND LOWER(data->>'teacher_email') = ${email})
+            )
+          RETURNING id;
+        `;
+        if (!deleted.length) return send(res, 404, { success: false, error: "not_found_or_not_owner" });
         return send(res, 200, { success: true });
+      }
+
+      if (action === "deleteGame") {
+        return send(res, 403, { success: false, error: "use_authenticated_delete" });
       }
 
       if (action === "saveStorage") {

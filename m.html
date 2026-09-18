@@ -2130,7 +2130,10 @@
               <p>📖 المواد: ${subjects.length ? subjects.join('، ') : '-'}</p>
               <p>🔗 الرابط: <a href="${item.game_link || '#'}" target="_blank" rel="noopener noreferrer" class="text-blue-700 underline">فتح المحتوى</a></p>
             </div>
-            <button type="button" ${canEdit ? `onclick="openEditSubmission('${encodedId}')"` : 'disabled'} class="w-full bg-amber-500 text-white py-2 rounded-lg font-bold disabled:opacity-60">✏️ تعديل المشاركة</button>
+            <div class="flex gap-2">
+              <button type="button" ${canEdit ? `onclick="openEditSubmission('${encodedId}')"` : 'disabled'} class="flex-1 bg-amber-500 text-white py-2 rounded-lg font-bold disabled:opacity-60">✏️ تعديل المشاركة</button>
+              <button type="button" ${canEdit ? `onclick="deleteMySubmission('${encodedId}', this)"` : 'disabled'} class="flex-1 bg-red-600 text-white py-2 rounded-lg font-bold disabled:opacity-60">🗑️ حذف المشاركة</button>
+            </div>
           </div>
         `;
       }).join('');
@@ -2308,6 +2311,41 @@
 
     function goToSubmitLogin() {
       goToUnifiedAuth('login');
+    }
+
+    async function deleteMySubmission(encodedId, button) {
+      const id = decodeURIComponent(encodedId || '');
+      const user = getCurrentUser();
+      const item = mySubmissionsCache.find(entry => String(entry.id) === id);
+      if (!user || !item || !isSubmissionOwnedByUser(item, user)) {
+        showToast('لا يمكن حذف هذه المشاركة من هذا الحساب', 'error');
+        return;
+      }
+      if (!window.confirm(`هل تريد حذف "${item.lesson_name || 'هذه المشاركة'}" نهائيًا؟ لا يمكن التراجع عن الحذف.`)) return;
+      const password = window.prompt('أدخل كلمة مرور حسابك لتأكيد الحذف:');
+      if (password === null) return;
+      if (!password) {
+        showToast('كلمة المرور مطلوبة لتأكيد الحذف', 'error');
+        return;
+      }
+      const originalText = button.textContent;
+      setButtonLoadingState(button, true, '⏳ جاري الحذف...', originalText);
+      try {
+        const result = await apiPost({ action: 'deleteOwnGame', gameId: id, email: user.email, password }, 20000);
+        if (!result?.success) throw new Error(result?.error || 'تعذر الحذف');
+        mySubmissionsCache = mySubmissionsCache.filter(entry => String(entry.id) !== id);
+        allGames = allGames.filter(entry => String(entry.id) !== id);
+        invalidateApiGetCache('getGames');
+        invalidateApiGetCache('getAllGames');
+        renderMySubmissions();
+        await loadDataFromVercelDatabase({ preferCache: false });
+        showToast('تم حذف المشاركة بنجاح', 'success');
+      } catch (error) {
+        console.error(error);
+        showToast('تعذر حذف المشاركة. تحقق من كلمة المرور وحاول مجددًا.', 'error');
+      } finally {
+        setButtonLoadingState(button, false, '', originalText);
+      }
     }
 
     function goToUnifiedAuth(mode = 'login', payload = null) {
