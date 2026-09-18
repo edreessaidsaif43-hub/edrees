@@ -1,6 +1,7 @@
 import { handleUpload } from '@vercel/blob/client';
 
 const MAX_CONTENT_FILE_BYTES = 100 * 1024 * 1024;
+const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -12,11 +13,14 @@ export default async function handler(req, res) {
       body: req.body || {},
       request: req,
       onBeforeGenerateToken: async (pathname) => {
-        if (!/^edu\/submissions\/[a-zA-Z0-9._-]{1,160}$/.test(pathname)) {
+        const isContent = /^edu\/submissions\/[a-zA-Z0-9._-]{1,160}$/.test(pathname);
+        const isThumbnail = /^edu\/thumbnails\/[a-zA-Z0-9._-]{1,160}$/.test(pathname);
+        if (!isContent && !isThumbnail) {
           throw new Error('invalid_upload_path');
         }
         return {
-          maximumSizeInBytes: MAX_CONTENT_FILE_BYTES,
+          ...(isThumbnail ? { allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'] } : {}),
+          maximumSizeInBytes: isThumbnail ? MAX_THUMBNAIL_BYTES : MAX_CONTENT_FILE_BYTES,
           addRandomSuffix: true,
         };
       },

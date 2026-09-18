@@ -611,6 +611,7 @@
           <input type="file" id="content-file" class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium" onchange="validateContentFile()">
           <p id="content-file-status" class="text-emerald-100 text-sm mt-2" role="status">الحد الأقصى للملف 100 MB.</p>
         </div>
+        <p id="video-frame-note" class="hidden text-emerald-100 text-sm" role="status">تُلتقط الصورة المصغّرة تلقائيًا من بداية ملف الفيديو. بعض روابط الفيديو الخارجية لا تسمح بالتقاط الإطار.</p>
         <button id="submit-review-btn" type="submit" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transition-all">🚀 إرسال للمراجعة</button>
       </form>
     </div>
@@ -679,7 +680,7 @@
         <input id="edit-submission-id" type="hidden">
         <div>
           <label class="block text-gray-700 font-bold mb-2">نوع المحتوى</label>
-          <select id="edit-content-type" required class="w-full p-3 border-2 border-emerald-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+          <select id="edit-content-type" required onchange="updateEditThumbnailUI()" class="w-full p-3 border-2 border-emerald-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
             <option value="game">🎮 لعبة تعليمية</option>
             <option value="video">🎬 فيديو تعليمي</option>
             <option value="presentation">📊 عرض تقديمي</option>
@@ -706,6 +707,7 @@
           <label class="block text-gray-700 font-bold mb-2">رابط المحتوى</label>
           <input type="url" id="edit-content-link" required class="w-full p-3 border-2 border-emerald-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
         </div>
+        <p id="edit-video-frame-note" class="hidden text-gray-600 text-sm" role="status">تُنشأ الصورة المصغّرة تلقائيًا من بداية الفيديو عند تغيير رابطه، إذا سمح مصدر الفيديو بذلك.</p>
         <button id="edit-submission-save" type="submit" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 rounded-xl font-bold">💾 حفظ التعديلات</button>
       </form>
     </div>
@@ -2208,6 +2210,7 @@
       activeMySubmission = item;
       document.getElementById('edit-submission-id').value = item.id || '';
       document.getElementById('edit-content-type').value = item.content_type || 'game';
+      updateEditThumbnailUI();
       document.getElementById('edit-submit-semester').value = normalizeSemester(item.semester);
       document.getElementById('edit-lesson-name').value = item.lesson_name || '';
       document.getElementById('edit-content-link').value = item.game_link || '';
@@ -2247,6 +2250,11 @@
       setButtonLoadingState(saveBtn, true, '⏳ جاري حفظ التعديلات...');
 
       try {
+        const openingFrameUrl = contentType === 'video'
+          ? (gameLink === activeMySubmission.game_link && activeMySubmission.content_type === 'video'
+              ? activeMySubmission.opening_frame_url || ''
+              : await createOpeningFrameUrl(gameLink, saveBtn))
+          : '';
         const payload = await apiPost({
           action: 'updateGame',
           gameId: activeMySubmission.id,
@@ -2261,6 +2269,7 @@
           semester,
           lesson_name: lessonName,
           content_type: contentType,
+          opening_frame_url: openingFrameUrl,
           reviewed_at: null,
           updated_at: new Date().toISOString()
         });
@@ -2817,6 +2826,17 @@
       renderPaginationControls('games-pagination', 'game', totalItems);
     }
 
+    function getVideoThumbnailUrl(video) {
+      const customUrl = String(video.opening_frame_url || '').trim();
+      if (customUrl) {
+        try {
+          const parsed = new URL(customUrl);
+          if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return parsed.href;
+        } catch (error) {}
+      }
+      return '';
+    }
+
     function renderVideos() {
       const grid = document.getElementById('videos-grid');
       if (!grid) return;
@@ -2844,10 +2864,14 @@
         const contentId = getContentId(video);
         const grades = parseMultiValues(video.grade);
         const subjects = parseMultiValues(video.subject);
+        const thumbnailUrl = getVideoThumbnailUrl(video);
         return `
           <article id="content-card-${getSafeDomId(contentId)}" class="video-card card-glass rounded-2xl overflow-hidden shadow-lg">
+            <div class="relative aspect-video bg-gradient-to-br from-slate-800 via-orange-800 to-rose-700 overflow-hidden">
+              ${thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" alt="صورة مصغّرة لفيديو ${escapeHtml(video.lesson_name || '')}" loading="lazy" decoding="async" onerror="this.remove()" class="absolute inset-0 w-full h-full object-cover">` : ''}
+              <span class="absolute inset-0 flex items-center justify-center pointer-events-none"><span class="w-14 h-14 rounded-full bg-black/65 border border-white/70 text-white flex items-center justify-center text-2xl shadow-xl">▶</span></span>
+            </div>
             <div class="bg-gradient-to-br from-orange-500 to-rose-600 p-6 text-white">
-              <div class="text-4xl mb-3" aria-hidden="true">🎬</div>
               <h3 class="text-xl font-black leading-snug mb-3">${escapeHtml(video.lesson_name || 'فيديو تعليمي')}</h3>
               <div class="flex items-center gap-3"><img src="${escapeHtml(getTeacherProfileImage(video))}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border-2 border-white/50 bg-white"><p class="font-bold">${escapeHtml(video.teacher_name || 'معلم')}</p></div>
               <p class="text-xs opacity-80 mt-3">📅 ${formatDate(video.reviewed_at || video.created_at)}</p>
@@ -3894,8 +3918,85 @@
 
     function updateContentTypeUI() {
       const input = document.getElementById('content-file');
-      input.accept = document.getElementById('content-type').value === 'video' ? 'video/*,.mp4,.webm,.mov,.m4v,.ogv' : '';
+      const isVideo = document.getElementById('content-type').value === 'video';
+      input.accept = isVideo ? 'video/*,.mp4,.webm,.mov,.m4v,.ogv' : '';
+      document.getElementById('video-frame-note').classList.toggle('hidden', !isVideo);
       if (input.files?.length) validateContentFile();
+    }
+
+    function updateEditThumbnailUI() {
+      const isVideo = document.getElementById('edit-content-type').value === 'video';
+      document.getElementById('edit-video-frame-note').classList.toggle('hidden', !isVideo);
+    }
+
+    async function captureOpeningFrame(source) {
+      const local = source instanceof File;
+      if (!local && !/\.(mp4|webm|mov|m4v|ogv|ogg)(?:[?#]|$)/i.test(source)) return null;
+      const video = document.createElement('video');
+      const objectUrl = local ? URL.createObjectURL(source) : '';
+      if (!local) video.crossOrigin = 'anonymous';
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      try {
+        return await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('frame_timeout')), 12000);
+          video.addEventListener('loadeddata', () => {
+            try {
+              const canvas = document.createElement('canvas');
+              const width = Math.min(640, video.videoWidth);
+              if (!width || !video.videoHeight) throw new Error('empty_frame');
+              canvas.width = width;
+              canvas.height = Math.round(width * video.videoHeight / video.videoWidth);
+              canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+              canvas.toBlob(blob => {
+                clearTimeout(timer);
+                if (blob) resolve(blob);
+                else reject(new Error('frame_export_failed'));
+              }, 'image/jpeg', 0.8);
+            } catch (error) {
+              clearTimeout(timer);
+              reject(error);
+            }
+          }, { once: true });
+          video.addEventListener('error', () => { clearTimeout(timer); reject(new Error('video_unavailable')); }, { once: true });
+          video.src = objectUrl || source;
+          video.load();
+        });
+      } finally {
+        video.removeAttribute('src');
+        video.load();
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+      }
+    }
+
+    async function createOpeningFrameUrl(source, button) {
+      try {
+        if (button) button.textContent = '⏳ جاري استخراج صورة بداية الفيديو...';
+        const frame = await captureOpeningFrame(source);
+        if (!frame) return '';
+        const file = new File([frame], 'opening-frame.jpg', { type: 'image/jpeg' });
+        return await uploadOpeningFrame(file, button);
+      } catch (error) {
+        console.warn('تعذر استخراج الإطار الأول للفيديو:', error);
+        showToast('تعذر استخراج صورة بداية الفيديو؛ ستظهر أيقونة التشغيل بدلًا منها', 'info');
+        return '';
+      }
+    }
+
+    async function uploadOpeningFrame(file, button) {
+      const blobClient = await import('https://esm.sh/@vercel/blob@0.27.0/client');
+      const uploaded = await blobClient.upload(`edu/thumbnails/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`, file, {
+        access: 'public',
+        handleUploadUrl: '/api/edu-upload',
+        contentType: file.type,
+        onUploadProgress: ({ percentage }) => {
+          const percent = Math.min(100, Math.round(percentage || 0));
+          if (button) button.textContent = `⏳ جاري حفظ صورة بداية الفيديو: ${percent}%`;
+        }
+      });
+      if (!uploaded?.url) throw new Error('تعذر حفظ صورة بداية الفيديو');
+      return uploaded.url;
     }
 
     function updateContentSourceUI() {
@@ -4002,6 +4103,8 @@
       }
 
       try {
+        const frameSource = contentType === 'video' ? (isFile ? contentFile : contentLink) : null;
+        const openingFrameUrl = frameSource ? await createOpeningFrameUrl(frameSource, submitBtn) : '';
         if (isFile) contentLink = await uploadContentFile(contentFile, submitBtn);
         if (submitBtn) submitBtn.textContent = '⏳ جاري إرسال المشاركة للمراجعة...';
         const gameData = {
@@ -4014,6 +4117,7 @@
           semester,
           lesson_name: lessonName,
           game_link: contentLink,
+          opening_frame_url: openingFrameUrl,
           status: 'pending',
           content_type: contentType,
           created_at: new Date().toISOString()

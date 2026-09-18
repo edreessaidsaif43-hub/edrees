@@ -81,6 +81,8 @@ function normalizeContent(input = {}) {
     semester,
     lesson_name: String(input.lesson_name || "").trim(),
     game_link: String(input.game_link || "").trim(),
+    thumbnail_url: String(input.thumbnail_url || "").trim(),
+    opening_frame_url: String(input.opening_frame_url || "").trim(),
     status: String(input.status || "pending").trim(),
     content_type: String(input.content_type || "game").trim(),
     created_at: createdAt,
@@ -403,6 +405,8 @@ export default async function handler(req, res) {
           content_type: body.content_type ?? body.game?.content_type ?? current.content_type,
           status: body.status ?? body.game?.status ?? current.status,
           game_link: body.gameLink ?? body.game_link ?? body.game?.game_link ?? current.game_link,
+          thumbnail_url: body.thumbnail_url ?? body.game?.thumbnail_url ?? current.thumbnail_url,
+          opening_frame_url: body.opening_frame_url ?? body.game?.opening_frame_url ?? current.opening_frame_url,
           reviewed_at: body.reviewed_at ?? body.game?.reviewed_at ?? current.reviewed_at,
         });
         await sql`
