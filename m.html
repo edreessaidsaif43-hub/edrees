@@ -84,6 +84,7 @@
       opacity: 0.9;
     }
     .main-nav-games { --tab-accent: linear-gradient(90deg, #a78bfa, #6366f1); }
+    .main-nav-videos { --tab-accent: linear-gradient(90deg, #fb923c, #ef4444); }
     .main-nav-presentations { --tab-accent: linear-gradient(90deg, #f472b6, #fb7185); }
     .main-nav-files { --tab-accent: linear-gradient(90deg, #22d3ee, #3b82f6); }
     .main-nav-stars { --tab-accent: linear-gradient(90deg, #facc15, #f59e0b); }
@@ -302,7 +303,7 @@
       <div class="text-right">
        <p class="text-amber-200 font-black text-sm mb-1">منصة موارد المعلم</p>
        <h1 id="site-title" class="text-3xl md:text-5xl font-black text-white tracking-tight">حقيبة المعلم</h1>
-       <p id="welcome-message" class="text-sky-100 text-base md:text-lg mt-2">ألعاب، عروض، ملفات، تقييمات وتعليقات في مساحة واحدة منظمة وسريعة.</p>
+       <p id="welcome-message" class="text-sky-100 text-base md:text-lg mt-2">ألعاب، فيديوهات، عروض، ملفات، تقييمات وتعليقات في مساحة واحدة منظمة وسريعة.</p>
       </div>
      </div>
      <div class="grid grid-cols-3 gap-2 text-center min-w-full md:min-w-[330px]">
@@ -324,6 +325,7 @@
 
    <nav class="section-nav flex justify-center gap-2 flex-wrap">
     <button onclick="switchTab('browse')" id="tab-browse" class="main-nav-btn main-nav-games tab-active px-6 py-3 rounded-xl font-bold transition-all">📚 الألعاب</button>
+    <button onclick="switchTab('videos')" id="tab-videos" class="main-nav-btn main-nav-videos tab-inactive px-6 py-3 rounded-xl font-bold transition-all">🎬 فيديوهات</button>
     <button onclick="switchTab('presentations')" id="tab-presentations" class="main-nav-btn main-nav-presentations tab-inactive px-6 py-3 rounded-xl font-bold transition-all">📊 العروض التقديمية</button>
     <button onclick="switchTab('files')" id="tab-files" class="main-nav-btn main-nav-files tab-inactive px-6 py-3 rounded-xl font-bold transition-all">📁 الملفات المخزنة</button>
     <button onclick="switchTab('submit')" id="tab-submit" class="main-nav-btn main-nav-submit tab-inactive px-6 py-3 rounded-xl font-bold transition-all">➕ إرسال محتوى</button>
@@ -361,6 +363,23 @@
     </div>
     <div id="games-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
     <div id="games-pagination" class="mt-6"></div>
+   </section>
+
+   <section id="section-videos" class="hidden max-w-6xl mx-auto">
+    <div class="mb-8 text-center">
+      <h2 class="text-3xl md:text-4xl font-extrabold text-white mb-2">🎬 فيديوهات تعليمية</h2>
+      <p class="text-sky-100 text-lg font-medium">شروحات مرئية مرتبة حسب الصف والمادة والفصل الدراسي.</p>
+    </div>
+    <div class="mb-6 rounded-2xl p-6 border-2 border-orange-300/30 bg-gradient-to-r from-orange-500/10 to-rose-500/10">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div><label for="search-lesson-videos" class="block text-orange-100 font-bold mb-2">🔍 البحث عن الدرس</label><input type="text" id="search-lesson-videos" placeholder="ابحث عن اسم الدرس..." class="w-full p-3 border-2 border-orange-300 rounded-xl outline-none bg-white text-gray-800 font-medium" oninput="applyVideoFilters()"></div>
+        <div><label for="filter-grade-videos" class="block text-orange-100 font-bold mb-2">🎓 الصف الدراسي</label><select id="filter-grade-videos" class="w-full p-3 border-2 border-orange-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyVideoFilters()"></select></div>
+        <div><label for="filter-subject-videos" class="block text-orange-100 font-bold mb-2">📖 المادة الدراسية</label><select id="filter-subject-videos" class="w-full p-3 border-2 border-orange-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyVideoFilters()"></select></div>
+        <div><label for="filter-semester-videos" class="block text-orange-100 font-bold mb-2">الفصل الدراسي</label><select id="filter-semester-videos" class="w-full p-3 border-2 border-orange-300 rounded-xl outline-none bg-white text-gray-800 font-medium" onchange="applyVideoFilters()"></select></div>
+      </div>
+    </div>
+    <div id="videos-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    <div id="videos-pagination" class="mt-6"></div>
    </section>
 
    <section id="section-presentations" class="hidden max-w-6xl mx-auto">
@@ -574,7 +593,7 @@
       </div>
       <form id="submit-form" class="space-y-5 hidden">
         <div><label class="block text-emerald-200 font-bold mb-2">اسم المعلم</label><input type="text" id="teacher-name" required placeholder="أدخل اسمك الكامل" class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"></div>
-        <div><label class="block text-emerald-200 font-bold mb-2">نوع المحتوى</label><select id="content-type" required class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"><option value="">اختر نوع المحتوى</option><option value="game">🎮 لعبة تعليمية</option><option value="presentation">📊 عرض تقديمي</option><option value="file">📁 ملف مخزن</option></select></div>
+        <div><label class="block text-emerald-200 font-bold mb-2">نوع المحتوى</label><select id="content-type" required onchange="updateContentTypeUI()" class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"><option value="">اختر نوع المحتوى</option><option value="game">🎮 لعبة تعليمية</option><option value="video">🎬 فيديو تعليمي</option><option value="presentation">📊 عرض تقديمي</option><option value="file">📁 ملف مخزن</option></select></div>
         <div><label class="block text-emerald-200 font-bold mb-2">الصفوف الدراسية</label><select id="submit-grade" multiple required class="w-full p-4 border-2 border-emerald-400 rounded-xl input-field outline-none bg-white text-gray-900 font-semibold" size="5"><option value="الصف الأول">الصف الأول</option><option value="الصف الثاني">الصف الثاني</option><option value="الصف الثالث">الصف الثالث</option><option value="الصف الرابع">الصف الرابع</option><option value="الصف الخامس">الصف الخامس</option><option value="الصف السادس">الصف السادس</option><option value="الصف السابع">الصف السابع</option><option value="الصف الثامن">الصف الثامن</option><option value="الصف التاسع">الصف التاسع</option><option value="الصف العاشر">الصف العاشر</option><option value="الصف الحادي عشر">الصف الحادي عشر</option><option value="الصف الثاني عشر">الصف الثاني عشر</option></select></div>
         <div><label class="block text-emerald-200 font-bold mb-2">المواد الدراسية</label><select id="submit-subject" multiple required class="w-full p-4 border-2 border-emerald-400 rounded-xl input-field outline-none bg-white text-gray-900 font-semibold" size="5"><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="الرياضيات">الرياضيات</option><option value="العلوم">العلوم</option><option value="الفيزياء">الفيزياء</option><option value="الكيمياء">الكيمياء</option><option value="الأحياء">الأحياء</option><option value="الدراسات الاجتماعية">الدراسات الاجتماعية</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="الحاسوب">الحاسوب</option><option value="التربية الفنية">التربية الفنية</option><option value="التربية الرياضية">التربية الرياضية</option><option value="التربية الموسيقية">التربية الموسيقية</option></select></div>
         <div><label class="block text-emerald-200 font-bold mb-2">الفصل الدراسي</label><select id="submit-semester" required class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"><option value="">اختر الفصل الدراسي</option><option value="الفصل الأول">الفصل الأول</option><option value="الفصل الثاني">الفصل الثاني</option></select></div>
@@ -662,6 +681,7 @@
           <label class="block text-gray-700 font-bold mb-2">نوع المحتوى</label>
           <select id="edit-content-type" required class="w-full p-3 border-2 border-emerald-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
             <option value="game">🎮 لعبة تعليمية</option>
+            <option value="video">🎬 فيديو تعليمي</option>
             <option value="presentation">📊 عرض تقديمي</option>
             <option value="file">📁 ملف مخزن</option>
           </select>
@@ -698,7 +718,7 @@
 
     const defaultConfig = {
       site_title: 'حقيبة المعلم',
-      welcome_message: 'ألعاب، عروض، ملفات، تقييمات وتعليقات في مساحة واحدة منظمة وسريعة.'
+      welcome_message: 'ألعاب، فيديوهات، عروض، ملفات، تقييمات وتعليقات في مساحة واحدة منظمة وسريعة.'
     };
 
     let allGames = [];
@@ -709,14 +729,14 @@
     let starSeasonStats = {};
     let isSubmittingContent = false;
     let approvedGames = [];
-    let approvedByType = { game: [], presentation: [], file: [] };
+    let approvedByType = { game: [], video: [], presentation: [], file: [] };
     let teacherStatsByKey = {};
     let usersIndex = { list: [], byEmail: new Map(), byName: new Map() };
     let usersIndexReady = false;
-    const filterDebounceTimers = { game: null, presentation: null, file: null };
+    const filterDebounceTimers = { game: null, video: null, presentation: null, file: null };
     const ITEMS_PER_PAGE = 9;
     const MY_SUBMISSIONS_PER_PAGE = 5;
-    const pageState = { game: 1, presentation: 1, file: 1 };
+    const pageState = { game: 1, video: 1, presentation: 1, file: 1 };
     const REMOTE_STORAGE_VERSION = 1;
     const CURRENT_USER_STORAGE_KEY = 'lesson_platform_current_user_v1';
     const BACKEND_SESSION_STORAGE_KEY = 'lesson_platform_backend_session_v1';
@@ -966,6 +986,7 @@
       approvedGames = allGames.filter(g => g.status === 'approved');
       approvedByType = {
         game: approvedGames.filter(g => g.content_type === 'game'),
+        video: approvedGames.filter(g => g.content_type === 'video'),
         presentation: approvedGames.filter(g => g.content_type === 'presentation'),
         file: approvedGames.filter(g => g.content_type === 'file')
       };
@@ -979,7 +1000,7 @@
             key,
             name: game.teacher_name || 'معلم غير معروف',
             count: 0,
-            byType: { game: 0, presentation: 0, file: 0 },
+            byType: { game: 0, video: 0, presentation: 0, file: 0 },
             items: []
           };
         }
@@ -994,6 +1015,7 @@
 
     function rerenderVisibleContent() {
       if (!document.getElementById('section-browse')?.classList.contains('hidden')) renderGames();
+      if (!document.getElementById('section-videos')?.classList.contains('hidden')) renderVideos();
       if (!document.getElementById('section-presentations')?.classList.contains('hidden')) renderPresentations();
       if (!document.getElementById('section-files')?.classList.contains('hidden')) renderStoredFiles();
           renderMySubmissions();
@@ -1027,10 +1049,11 @@
       const nextPage = Math.max(1, (pageState[type] || 1) + Number(delta || 0));
       setPage(type, nextPage);
       if (type === 'game') renderGames();
+      if (type === 'video') renderVideos();
       if (type === 'presentation') renderPresentations();
       if (type === 'file') renderStoredFiles();
           renderMySubmissions();
-      const sectionId = type === 'game' ? 'section-browse' : type === 'presentation' ? 'section-presentations' : 'section-files';
+      const sectionId = type === 'game' ? 'section-browse' : type === 'video' ? 'section-videos' : type === 'presentation' ? 'section-presentations' : 'section-files';
       const section = document.getElementById(sectionId);
       if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -1721,6 +1744,11 @@
         const s = document.getElementById('filter-subject-games'); if (s) s.value = '';
         const semester = document.getElementById('filter-semester-games'); if (semester) semester.value = '';
         const q = document.getElementById('search-lesson-games'); if (q) q.value = '';
+      } else if (targetTab === 'videos') {
+        const g = document.getElementById('filter-grade-videos'); if (g) g.value = '';
+        const s = document.getElementById('filter-subject-videos'); if (s) s.value = '';
+        const semester = document.getElementById('filter-semester-videos'); if (semester) semester.value = '';
+        const q = document.getElementById('search-lesson-videos'); if (q) q.value = '';
       } else if (targetTab === 'presentations') {
         const g = document.getElementById('filter-grade-presentations'); if (g) g.value = '';
         const s = document.getElementById('filter-subject-presentations'); if (s) s.value = '';
@@ -1738,8 +1766,8 @@
       const contentId = decodeURIComponent(contentIdEncoded || '');
       const contentType = decodeURIComponent(contentTypeEncoded || '');
       if (!contentId) return;
-      const targetTab = contentType === 'presentation' ? 'presentations' : contentType === 'file' ? 'files' : 'browse';
-      const typeKey = contentType === 'presentation' ? 'presentation' : contentType === 'file' ? 'file' : 'game';
+      const targetTab = contentType === 'video' ? 'videos' : contentType === 'presentation' ? 'presentations' : contentType === 'file' ? 'files' : 'browse';
+      const typeKey = contentType === 'video' ? 'video' : contentType === 'presentation' ? 'presentation' : contentType === 'file' ? 'file' : 'game';
 
       resetContentFiltersForTab(targetTab);
       const allItems = approvedByType[typeKey] || [];
@@ -1750,6 +1778,7 @@
 
       switchTab(targetTab);
       if (targetTab === 'browse') renderGames();
+      if (targetTab === 'videos') renderVideos();
       if (targetTab === 'presentations') renderPresentations();
       if (targetTab === 'files') renderStoredFiles();
           renderMySubmissions();
@@ -2083,7 +2112,7 @@
         const status = getSubmissionStatusLabel(item.status);
         const canEdit = !!item.id;
         const encodedId = encodeURIComponent(String(item.id || ''));
-        const typeLabel = item.content_type === 'game' ? '🎮 لعبة' : item.content_type === 'presentation' ? '📊 عرض' : '📁 ملف';
+        const typeLabel = item.content_type === 'game' ? '🎮 لعبة' : item.content_type === 'video' ? '🎬 فيديو' : item.content_type === 'presentation' ? '📊 عرض' : '📁 ملف';
 
         return `
           <div class="card-glass rounded-xl p-4 border border-white/20">
@@ -2495,7 +2524,7 @@
         goToUnifiedAuth('login');
         return;
       }
-      ['browse', 'presentations', 'files', 'stars', 'account', 'submit', 'admin'].forEach(t => {
+      ['browse', 'videos', 'presentations', 'files', 'stars', 'account', 'submit', 'admin'].forEach(t => {
         const section = document.getElementById(`section-${t}`);
         const tabBtn = document.getElementById(`tab-${t}`);
         if (section) section.classList.add('hidden');
@@ -2591,7 +2620,7 @@
         if (getSubmissionSeasonKey(item.created_at) !== selectedStarSeasonKey) return;
         const key = getTeacherKey(item);
         if (!key) return;
-        if (!stats[key]) stats[key] = { key, name: item.teacher_name || 'معلم غير معروف', count: 0, byType: { game: 0, presentation: 0, file: 0 }, items: [] };
+        if (!stats[key]) stats[key] = { key, name: item.teacher_name || 'معلم غير معروف', count: 0, byType: { game: 0, video: 0, presentation: 0, file: 0 }, items: [] };
         stats[key].count += 1;
         if (stats[key].byType[item.content_type] != null) stats[key].byType[item.content_type] += 1;
         stats[key].items.push(item);
@@ -2621,7 +2650,7 @@
       const nextRanks = starTeachers.slice(3, 20);
 
       const detailedTopThreeHtml = topThree.map((teacher, index) => {
-        const teacherData = starSeasonStats[teacher.key] || { items: [], byType: { game: 0, presentation: 0, file: 0 } };
+        const teacherData = starSeasonStats[teacher.key] || { items: [], byType: { game: 0, video: 0, presentation: 0, file: 0 } };
         const teacherGames = teacherData.items;
         const byType = teacherData.byType;
         const shields = calculateShields(teacher.lifetimeCount);
@@ -2663,8 +2692,9 @@
 
             <div class="mb-4 bg-slate-50 rounded-xl p-3 border border-slate-200">
               <p class="text-sm font-bold text-slate-700 mb-2">تفاصيل المحتوى</p>
-              <div class="grid grid-cols-3 gap-2 text-center">
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
                 <div class="bg-purple-100 rounded-lg p-2"><p class="text-xs font-bold text-purple-700">🎮 ألعاب</p><p class="font-black text-purple-900">${byType.game}</p></div>
+                <div class="bg-orange-100 rounded-lg p-2"><p class="text-xs font-bold text-orange-700">🎬 فيديوهات</p><p class="font-black text-orange-900">${byType.video}</p></div>
                 <div class="bg-pink-100 rounded-lg p-2"><p class="text-xs font-bold text-pink-700">📊 عروض</p><p class="font-black text-pink-900">${byType.presentation}</p></div>
                 <div class="bg-cyan-100 rounded-lg p-2"><p class="text-xs font-bold text-cyan-700">📁 ملفات</p><p class="font-black text-cyan-900">${byType.file}</p></div>
               </div>
@@ -2787,6 +2817,60 @@
       renderPaginationControls('games-pagination', 'game', totalItems);
     }
 
+    function renderVideos() {
+      const grid = document.getElementById('videos-grid');
+      if (!grid) return;
+      const selectedGrade = (document.getElementById('filter-grade-videos')?.value || '').trim();
+      const selectedSubject = (document.getElementById('filter-subject-videos')?.value || '').trim();
+      const selectedSemester = normalizeSemester(document.getElementById('filter-semester-videos')?.value || '');
+      const searchTerm = (document.getElementById('search-lesson-videos')?.value || '').toLowerCase().trim();
+      const items = approvedByType.video.filter(video => {
+        const grades = parseMultiValues(video.grade);
+        const subjects = parseMultiValues(video.subject);
+        return (!selectedGrade || grades.includes(selectedGrade))
+          && (!selectedSubject || subjects.includes(selectedSubject))
+          && (!selectedSemester || getContentSemester(video) === selectedSemester)
+          && (!searchTerm || String(video.lesson_name || '').toLowerCase().includes(searchTerm));
+      });
+      if (!items.length) {
+        grid.innerHTML = '<div class="col-span-full text-center text-white text-lg">لا توجد فيديوهات تطابق الفلتر الحالي</div>';
+        renderPaginationControls('videos-pagination', 'video', 0);
+        return;
+      }
+      const totalPages = Math.max(1, Math.ceil(items.length / ITEMS_PER_PAGE));
+      if (pageState.video > totalPages) pageState.video = totalPages;
+      const start = (pageState.video - 1) * ITEMS_PER_PAGE;
+      grid.innerHTML = items.slice(start, start + ITEMS_PER_PAGE).map(video => {
+        const contentId = getContentId(video);
+        const grades = parseMultiValues(video.grade);
+        const subjects = parseMultiValues(video.subject);
+        return `
+          <article id="content-card-${getSafeDomId(contentId)}" class="video-card card-glass rounded-2xl overflow-hidden shadow-lg">
+            <div class="bg-gradient-to-br from-orange-500 to-rose-600 p-6 text-white">
+              <div class="text-4xl mb-3" aria-hidden="true">🎬</div>
+              <h3 class="text-xl font-black leading-snug mb-3">${escapeHtml(video.lesson_name || 'فيديو تعليمي')}</h3>
+              <div class="flex items-center gap-3"><img src="${escapeHtml(getTeacherProfileImage(video))}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border-2 border-white/50 bg-white"><p class="font-bold">${escapeHtml(video.teacher_name || 'معلم')}</p></div>
+              <p class="text-xs opacity-80 mt-3">📅 ${formatDate(video.reviewed_at || video.created_at)}</p>
+            </div>
+            <div class="p-6">
+              <div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(grade => `<span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full font-bold">${escapeHtml(grade)}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div>
+              <div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(subject => `<span class="bg-rose-100 text-rose-800 text-xs px-2 py-1 rounded-full font-bold">${escapeHtml(subject)}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div>
+              ${renderSemesterBadge(video, 'bg-orange-100 text-orange-800')}
+              ${renderRatingAndViews(contentId)}
+              <button type="button" data-video-id="${escapeHtml(contentId)}" data-video-url="${escapeHtml(video.game_link || '')}" class="watch-video-btn bg-gradient-to-r from-orange-500 to-rose-600 text-white py-3 px-4 rounded-xl font-bold block text-center w-full">▶ شاهد الفيديو</button>
+              ${renderCommentsBlock(contentId)}
+            </div>
+          </article>`;
+      }).join('');
+      grid.onclick = event => {
+        const button = event.target.closest('.watch-video-btn');
+        if (!button || !grid.contains(button)) return;
+        if (!button.dataset.videoUrl) return showToast('رابط الفيديو غير متاح', 'error');
+        openContent(button.dataset.videoId, encodeURIComponent(button.dataset.videoUrl));
+      };
+      renderPaginationControls('videos-pagination', 'video', items.length);
+    }
+
     function renderPresentations() {
       const grid = document.getElementById('presentations-grid');
       if (!grid) return;
@@ -2907,6 +2991,7 @@
     }
 
     function applyGameFilters() { setPage('game', 1); debounceRenderFilter('game', renderGames); }
+    function applyVideoFilters() { setPage('video', 1); debounceRenderFilter('video', renderVideos); }
     function applyPresentationFilters() { setPage('presentation', 1); debounceRenderFilter('presentation', renderPresentations); }
     function applyFilesFilters() { setPage('file', 1); debounceRenderFilter('file', renderStoredFiles); }
 
@@ -2929,11 +3014,13 @@
       rebuildContentIndexes();
       if (resetPages) {
         setPage('game', 1);
+        setPage('video', 1);
         setPage('presentation', 1);
         setPage('file', 1);
       }
       calculateStarTeachers();
       renderGames();
+      renderVideos();
       renderPresentations();
       renderStoredFiles();
       renderMySubmissions();
@@ -3003,7 +3090,7 @@
       container.innerHTML = pending.map(item => {
         const grades = Array.isArray(item.grade) ? item.grade : (typeof item.grade === 'string' ? item.grade.split(',').map(s => s.trim()) : []);
         const subjects = Array.isArray(item.subject) ? item.subject : (typeof item.subject === 'string' ? item.subject.split(',').map(s => s.trim()) : []);
-        const typeLabel = item.content_type === 'game' ? '🎮 لعبة' : item.content_type === 'presentation' ? '📊 عرض' : '📁 ملف';
+        const typeLabel = item.content_type === 'game' ? '🎮 لعبة' : item.content_type === 'video' ? '🎬 فيديو' : item.content_type === 'presentation' ? '📊 عرض' : '📁 ملف';
         return `
           <div class="card-glass rounded-2xl p-4 border border-white/20">
             <div class="flex flex-wrap justify-between items-start gap-2 mb-3">
@@ -3787,6 +3874,7 @@
         applyLanguagePreference(language);
         applyBackgroundPreference(background);
         renderGames();
+        renderVideos();
         renderPresentations();
         renderStoredFiles();
           renderMySubmissions();
@@ -3799,6 +3887,16 @@
 
     const MAX_CONTENT_FILE_BYTES = 100 * 1024 * 1024;
     let pendingUploadedContent = null;
+
+    function isVideoFile(file) {
+      return !!file && (String(file.type || '').startsWith('video/') || /\.(mp4|webm|mov|m4v|ogv|ogg)$/i.test(file.name));
+    }
+
+    function updateContentTypeUI() {
+      const input = document.getElementById('content-file');
+      input.accept = document.getElementById('content-type').value === 'video' ? 'video/*,.mp4,.webm,.mov,.m4v,.ogv' : '';
+      if (input.files?.length) validateContentFile();
+    }
 
     function updateContentSourceUI() {
       const isFile = document.getElementById('content-source').value === 'file';
@@ -3821,6 +3919,12 @@
         input.value = '';
         status.textContent = 'الملف أكبر من 100 MB. اختر ملفًا أصغر.';
         showToast('❌ حجم الملف يتجاوز 100 MB', 'error');
+        return false;
+      }
+      if (document.getElementById('content-type').value === 'video' && !isVideoFile(file)) {
+        input.value = '';
+        status.textContent = 'اختر ملف فيديو بصيغة مدعومة.';
+        showToast('❌ اختر ملف فيديو', 'error');
         return false;
       }
       status.textContent = `${file.name} · ${(file.size / (1024 * 1024)).toFixed(1)} MB`;
@@ -3883,6 +3987,10 @@
         showToast('❌ حجم الملف يتجاوز 100 MB', 'error');
         return;
       }
+      if (isFile && contentType === 'video' && !isVideoFile(contentFile)) {
+        showToast('❌ اختر ملف فيديو', 'error');
+        return;
+      }
 
       const submitBtn = document.getElementById('submit-review-btn');
       const originalBtnText = submitBtn ? submitBtn.textContent : '';
@@ -3917,6 +4025,7 @@
           pendingUploadedContent = null;
           document.getElementById('submit-form').reset();
           updateContentSourceUI();
+          updateContentTypeUI();
           const teacherInput = document.getElementById('teacher-name');
           if (teacherInput && currentUser) {
             teacherInput.value = currentUser.full_name || '';
@@ -3994,6 +4103,10 @@
     }
 
     async function initApp() {
+      for (const filter of ['grade', 'subject', 'semester']) {
+        document.getElementById(`filter-${filter}-videos`).innerHTML =
+          document.getElementById(`filter-${filter}-games`).innerHTML;
+      }
       if (detectIOSSafari()) {
         document.documentElement.classList.add('ios-safari-fast');
         document.body.classList.add('ios-safari-fast');
