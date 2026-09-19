@@ -40,6 +40,34 @@
       min-height: 100vh;
     }
 
+    @media (min-width: 769px) {
+      .max-w-4xl > header {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 140px;
+        padding: 24px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 8px;
+        background: linear-gradient(115deg, #0f766e 0%, #155e75 52%, #1e3a8a 100%);
+      }
+
+      .max-w-4xl > header::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(125deg, transparent 0 48px, rgba(255, 255, 255, 0.05) 49px 50px);
+        pointer-events: none;
+      }
+
+      .max-w-4xl > header > * {
+        position: relative;
+      }
+    }
+
     .glass-effect {
       background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(15px);
@@ -761,8 +789,7 @@
    <footer class="text-center mt-6 text-white/80">
     <p class="text-xs md:text-base mb-4">🎓 نظام تحضير الدروس المتطور</p>
     <div class="glass-effect rounded-xl p-3 text-gray-700 text-xs">
-     <p class="font-semibold mb-2">©️ جميع الحقوق محفوظة</p>
-     <div class="space-y-1 border-t border-gray-300 pt-2">
+     <div class="space-y-1">
       <p class="font-bold text-gray-800">الأستاذ إدريس الذيابي</p>
       <p class="text-gray-700">معلم فيزياء</p>
       <p class="text-gray-700">مدرسة ابن دريد</p>
