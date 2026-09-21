@@ -3972,14 +3972,22 @@
       if (!local && !/\.(mp4|webm|mov|m4v|ogv|ogg)(?:[?#]|$)/i.test(source)) return null;
       const video = document.createElement('video');
       const objectUrl = local ? URL.createObjectURL(source) : '';
+      let settled = false;
       if (!local) video.crossOrigin = 'anonymous';
       video.muted = true;
       video.playsInline = true;
       video.preload = 'auto';
       try {
         return await new Promise((resolve, reject) => {
-          const timer = setTimeout(() => reject(new Error('frame_timeout')), 12000);
+          const finish = (callback, value) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            callback(value);
+          };
+          const timer = setTimeout(() => finish(reject, new Error('frame_timeout')), 5000);
           video.addEventListener('loadeddata', () => {
+            if (settled) return;
             try {
               const canvas = document.createElement('canvas');
               const width = Math.min(640, video.videoWidth);
@@ -3988,16 +3996,14 @@
               canvas.height = Math.round(width * video.videoHeight / video.videoWidth);
               canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
               canvas.toBlob(blob => {
-                clearTimeout(timer);
-                if (blob) resolve(blob);
-                else reject(new Error('frame_export_failed'));
+                if (blob) finish(resolve, blob);
+                else finish(reject, new Error('frame_export_failed'));
               }, 'image/jpeg', 0.8);
             } catch (error) {
-              clearTimeout(timer);
-              reject(error);
+              finish(reject, error);
             }
           }, { once: true });
-          video.addEventListener('error', () => { clearTimeout(timer); reject(new Error('video_unavailable')); }, { once: true });
+          video.addEventListener('error', () => finish(reject, new Error('video_unavailable')), { once: true });
           video.src = objectUrl || source;
           video.load();
         });
@@ -4020,6 +4026,13 @@
         showToast('تعذر استخراج صورة بداية الفيديو؛ ستظهر أيقونة التشغيل بدلًا منها', 'info');
         return '';
       }
+    }
+
+    function createOpeningFrameUrlWithoutBlocking(source) {
+      return Promise.race([
+        createOpeningFrameUrl(source, null),
+        new Promise(resolve => setTimeout(() => resolve(''), 7000))
+      ]);
     }
 
     async function uploadOpeningFrame(file, button) {
@@ -4142,8 +4155,10 @@
 
       try {
         const frameSource = contentType === 'video' ? (isFile ? contentFile : contentLink) : null;
-        const openingFrameUrl = frameSource ? await createOpeningFrameUrl(frameSource, submitBtn) : '';
-        if (isFile) contentLink = await uploadContentFile(contentFile, submitBtn);
+        const framePromise = frameSource ? createOpeningFrameUrlWithoutBlocking(frameSource) : Promise.resolve('');
+        const contentPromise = isFile ? uploadContentFile(contentFile, submitBtn) : Promise.resolve(contentLink);
+        const [uploadedContentLink, openingFrameUrl] = await Promise.all([contentPromise, framePromise]);
+        contentLink = uploadedContentLink;
         if (submitBtn) submitBtn.textContent = '⏳ جاري إرسال المشاركة للمراجعة...';
         const gameData = {
           teacher_name: currentUser.full_name,
