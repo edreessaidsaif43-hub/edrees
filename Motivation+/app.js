@@ -1983,7 +1983,7 @@ function renderStudentsTable() {
       <td>${s.name}<span class="level-chip">${lvl.emoji} ${lvl.name}</span>${s.team ? `<span class="team-chip">${s.team}</span>` : ""}</td>
       <td><span class="code-chip">${s.code}</span></td>
       <td>${s.points || 0}</td>
-      <td><img src="https://api.qrserver.com/v1/create-qr-code/?size=65x65&data=${encodeURIComponent(s.code)}" alt="QR"/></td>
+      <td><img src="https://api.qrserver.com/v1/create-qr-code/?size=65x65&data=${encodeURIComponent(s.code)}" alt="QR" loading="lazy" decoding="async" width="65" height="65"/></td>
       <td>
         <div class="action-buttons">
           <input id="photo-input-${s.id}" class="student-photo-input" type="file" accept="image/*" onchange="handleStudentPhotoUpload('${s.id}', event)" />
@@ -4315,7 +4315,22 @@ document.getElementById("add-student").addEventListener("click", () => {
   renderAll();
 });
 
-document.getElementById("import-csv").addEventListener("click", () => {
+let excelLibraryPromise = null;
+
+function loadExcelLibrary() {
+  if (typeof XLSX !== "undefined") return Promise.resolve();
+  if (excelLibraryPromise) return excelLibraryPromise;
+  excelLibraryPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    script.onload = resolve;
+    script.onerror = () => reject(new Error("xlsx_load_failed"));
+    document.head.appendChild(script);
+  });
+  return excelLibraryPromise;
+}
+
+document.getElementById("import-csv").addEventListener("click", async () => {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
@@ -4332,8 +4347,11 @@ document.getElementById("import-csv").addEventListener("click", () => {
   const isExcel = fileName.endsWith(".xlsx") || fileName.endsWith(".xls");
 
   if (isExcel) {
-    if (typeof XLSX === "undefined") {
-      showAuthMessage("مكتبة قراءة Excel غير متاحة حاليًا.", true);
+    try {
+      showAuthMessage("جاري تجهيز قارئ Excel...");
+      await loadExcelLibrary();
+    } catch {
+      showAuthMessage("تعذر تحميل قارئ Excel. تحقق من الاتصال ثم أعد المحاولة.", true);
       return;
     }
 
@@ -4775,11 +4793,19 @@ document.getElementById("share-whatsapp").addEventListener("click", () => {
 
 function ensureRemoteAutoPull() {
   if (remoteAutoPullTimer) return;
-  remoteAutoPullTimer = setInterval(() => {
-    if (!currentTeacher || !currentTeacher.userId) return;
-    if (document.hidden) return;
-    pullRemoteStateIfNeeded(false);
-  }, 1000);
+  const scheduleNextPull = () => {
+    const hasLiveActivity = getRecentLiveGameEvents(state).length > 0;
+    const isMobile = window.matchMedia("(max-width: 760px)").matches;
+    const delay = hasLiveActivity ? 2000 : (isMobile ? 300000 : 30000);
+    remoteAutoPullTimer = setTimeout(async () => {
+      remoteAutoPullTimer = null;
+      if (currentTeacher && currentTeacher.userId && !document.hidden) {
+        await pullRemoteStateIfNeeded(false);
+      }
+      scheduleNextPull();
+    }, delay);
+  };
+  scheduleNextPull();
 }
 async function bootstrapApp() {
   currentTeacher = getCurrentTeacher();

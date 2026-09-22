@@ -516,6 +516,14 @@
   <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js" type="text/javascript"></script>
  <style id="subscription-style">
+.page-section-label{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 14px;border-radius:8px;font-size:15px;font-weight:900}
+.page-section-label span{font-size:18px}
+.subscription-section{padding:16px;border:1px solid #fed7aa;border-radius:10px;background:#fff7ed;margin-bottom:28px}
+.subscription-section .page-section-label{background:#ffedd5;color:#9a3412}
+.preparation-section{padding:18px;border:1px solid #bfdbfe;border-radius:10px;background:#f8fbff}
+.preparation-section .page-section-label{background:#dbeafe;color:#174ea6}
+.subscription-section .subscription-card{margin:0}
+@media(max-width:760px){.subscription-section,.preparation-section{padding:12px}.subscription-section{margin-bottom:22px}}
 .subscription-card{background:#fff;border:1px solid #dbe7f5;border-radius:12px;padding:16px;margin:16px 0;box-shadow:0 8px 24px rgba(15,23,42,.06);direction:rtl;text-align:right}
 .subscription-card.active{border-color:#b7e4c7;background:#f7fff9}
 .subscription-card.pending{border-color:#fde68a;background:#fffbea}
@@ -731,6 +739,8 @@
    </header>
    <main class="glass-effect rounded-2xl p-3 md:p-8 mb-6 fade-in">
 
+    <section class="subscription-section" aria-labelledby="subscription-section-title">
+      <div class="page-section-label" id="subscription-section-title"><span>💳</span> الاشتراك وتفعيل المواد</div>
     <div class="subscription-card" id="subscription-card">
       <div class="subscription-head">
         <div class="subscription-title">اشتراك المواد</div>
@@ -757,7 +767,10 @@
       </div>
       <div class="subscription-status" id="subscription-status">سجل الدخول ثم أرسل الإيصال ليتم تفعيل المادة.</div>
     </div>
+    </section>
 
+    <section class="preparation-section" aria-labelledby="preparation-section-title">
+      <div class="page-section-label" id="preparation-section-title"><span>📚</span> البحث عن الدرس والتحضير</div>
     <div class="mb-3"><label class="block text-gray-700 font-semibold mb-1 text-right text-xs">🎓 الصف</label> <select id="grade" onchange="updateSubjects()" class="lesson-select w-full p-2 border-2 border-gray-300 rounded-lg text-right text-sm input-focus transition-all duration-300 bg-white"> <option value="">اختر الصف</option> </select>
     </div>
     <div class="mb-3"><label class="block text-gray-700 font-semibold mb-1 text-right text-xs">📖 المادة</label> <select id="subject" onchange="updateSemesters()" class="lesson-select w-full p-2 border-2 border-gray-300 rounded-lg text-right text-sm input-focus transition-all duration-300 bg-white"> <option value="">اختر المادة</option> </select>
@@ -772,6 +785,7 @@
       <button onclick="searchLesson()" class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg font-bold text-sm btn-hover transition-all duration-300"> 🔍 بحث </button>
       <button onclick="goToUnifiedLogin()" class="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white px-4 py-2 rounded-lg font-bold text-sm btn-hover transition-all duration-300"> 👤 تسجيل الدخول / إنشاء حساب </button>
     </div>
+    </section>
    </main>
    <section id="result-container" class="fade-in">
     <div class="result-card rounded-2xl p-3 md:p-8 text-right">

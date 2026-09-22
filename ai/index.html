@@ -881,6 +881,14 @@
   }
 </style>
 <style id="subscription-style">
+.page-section-label{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 14px;border-radius:8px;font-size:15px;font-weight:900}
+.page-section-label span{font-size:18px}
+.subscription-section{padding:16px;border:1px solid #fed7aa;border-radius:10px;background:#fff7ed;margin:18px 0 30px}
+.subscription-section .page-section-label{background:#ffedd5;color:#9a3412}
+.subscription-section .subscription-card{margin:0}
+.form-card.preparation-section{border:1px solid #bfdbfe;background:#f8fbff;box-shadow:0 12px 30px rgba(37,99,235,.08)}
+.form-card.preparation-section .form-card-title{margin:-4px 0 22px;padding:12px 14px;border-radius:8px;background:#dbeafe;color:#174ea6}
+@media(max-width:760px){.subscription-section{padding:12px;margin-bottom:22px}}
 .subscription-card{background:#fff;border:1px solid #dbe7f5;border-radius:12px;padding:16px;margin:16px 0;box-shadow:0 8px 24px rgba(15,23,42,.06);direction:rtl;text-align:right}
 .subscription-card.active{border-color:#b7e4c7;background:#f7fff9}
 .subscription-card.pending{border-color:#fde68a;background:#fffbea}
@@ -1094,6 +1102,8 @@
     </div>
 
     <!-- SUBSCRIPTION -->
+    <section class="subscription-section" aria-labelledby="subscription-section-title">
+      <div class="page-section-label" id="subscription-section-title"><span>💳</span> الاشتراك وتفعيل المواد</div>
     <div class="subscription-card" id="subscription-card">
       <div class="subscription-head">
         <div class="subscription-title">اشتراك المواد</div>
@@ -1120,12 +1130,13 @@
       </div>
       <div class="subscription-status" id="subscription-status">سجل الدخول ثم أرسل الإيصال ليتم تفعيل المادة.</div>
     </div>
+    </section>
 
     <!-- SELECTION FORM -->
-    <div class="form-card">
+    <div class="form-card preparation-section">
       <div class="form-card-title">
         <div class="icon">📝</div>
-        بيانات الدرس
+        اختيار الدرس وتوليد التحضير
       </div>
       <div class="lesson-data-progress" id="lesson-data-progress" aria-live="polite" aria-hidden="true">
         <div class="lesson-data-progress-head">
