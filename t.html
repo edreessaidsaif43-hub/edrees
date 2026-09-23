@@ -977,6 +977,14 @@ function normalizeSubscriptionSubject(value) {
     return 'arabic-language';
   }
   if (
+    compact.includes('التربيهالبدنيهوالصحيه') ||
+    compact.includes('تربيهبدنيهصحيه') ||
+    compact.includes('الرياضهالمدرسيه') ||
+    compact.includes('رياضهمدرسيه')
+  ) {
+    return 'physical-education';
+  }
+  if (
     compact.includes('حاسوب') ||
     compact.includes('الحاسوب') ||
     compact.includes('عالميالرقمي') ||

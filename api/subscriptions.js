@@ -328,6 +328,14 @@ function normalizeSubjectName(value) {
     .trim();
   const compact = normalized.replace(/\s+/g, '');
   if (
+    compact.includes('التربيهالبدنيهوالصحيه') ||
+    compact.includes('تربيهبدنيهصحيه') ||
+    compact.includes('الرياضهالمدرسيه') ||
+    compact.includes('رياضهمدرسيه')
+  ) {
+    return 'physical-education';
+  }
+  if (
     compact.includes('حاسوب') ||
     compact.includes('الحاسوب') ||
     compact.includes('عالميالرقمي') ||
