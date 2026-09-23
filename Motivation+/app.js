@@ -4618,22 +4618,30 @@ document.getElementById("add-bonus-points").addEventListener("click", async () =
   applyPointsChange(student, delta, reasonLabel);
   const savedLocally = saveTeacherData({ skipPublicCache: true });
   renderAfterPointsChange();
-  const savedRemotely = await flushRemoteSaveNow();
   if (delta > 0) {
     playEventSound("winner");
     triggerCelebration("⭐ إضافة نقاط مباشرة", `${student.name} حصل على ${Math.abs(delta)} نقطة`);
-    document.getElementById("bonus-points-status").textContent = `تمت إضافة ${Math.abs(delta)} نقطة للطالب ${student.name}.`;
+    document.getElementById("bonus-points-status").textContent = savedLocally
+      ? `تمت إضافة ${Math.abs(delta)} نقطة للطالب ${student.name}. جاري المزامنة...`
+      : "جاري حفظ النقاط على الخادم...";
   } else {
-    document.getElementById("bonus-points-status").textContent = `تم خصم ${Math.abs(delta)} نقطة من الطالب ${student.name}.`;
+    document.getElementById("bonus-points-status").textContent = savedLocally
+      ? `تم خصم ${Math.abs(delta)} نقطة من الطالب ${student.name}. جاري المزامنة...`
+      : "جاري حفظ النقاط على الخادم...";
   }
   pointsEl.value = String(delta);
   reasonEl.value = "";
+  const savedRemotely = await flushRemoteSaveNow();
   if (!savedLocally && !savedRemotely) {
     document.getElementById("bonus-points-status").textContent = "تعذر حفظ النقاط.";
     showAuthMessage("تعذر حفظ النقاط. تحقق من الاتصال ثم أعد المحاولة.", true);
   } else if (!savedRemotely) {
     document.getElementById("bonus-points-status").textContent = "حُفظت النقاط على هذا الجهاز فقط.";
     showAuthMessage("حُفظت النقاط على هذا الجهاز فقط. تعذرت المزامنة مع الخادم.", true);
+  } else {
+    document.getElementById("bonus-points-status").textContent = delta > 0
+      ? `تمت إضافة ${Math.abs(delta)} نقطة للطالب ${student.name} وحفظها.`
+      : `تم خصم ${Math.abs(delta)} نقطة من الطالب ${student.name} وحفظها.`;
   }
 });
 document.getElementById("student-login").addEventListener("click", async () => {
