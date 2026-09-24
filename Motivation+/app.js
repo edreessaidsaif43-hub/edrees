@@ -48,6 +48,7 @@ const reasons = {
   disrespect: { label: "عدم الالتزام بالتعليمات", delta: -3 }
 };
 const LEVEL_STEP_POINTS = 50;
+const MIN_STUDENT_POINTS = -20;
 
 function uid() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -3095,7 +3096,7 @@ function applyPointsChange(student, delta, reasonLabel, opts = {}) {
   const beforePoints = Number(student.points || 0);
   const beforeLevelIndex = getLevelIndex(beforePoints);
   const safeDelta = Number(delta || 0);
-  const nextPoints = Math.max(0, beforePoints + safeDelta);
+  const nextPoints = Math.max(MIN_STUDENT_POINTS, beforePoints + safeDelta);
   student.points = nextPoints;
   student.history = student.history || [];
   student.history.push({ delta: safeDelta, reason: reasonLabel, at: new Date().toISOString() });
@@ -3149,6 +3150,8 @@ async function updateStudentPoints(studentId, reasonKey) {
     showAuthMessage("تعذر حفظ النقاط. تحقق من الاتصال ثم أعد المحاولة.", true);
   } else if (!savedRemotely) {
     showAuthMessage("حُفظت النقاط على هذا الجهاز فقط. تعذرت المزامنة مع الخادم.", true);
+  } else {
+    showAuthMessage(`تم حفظ نقاط الطالب ${student.name} ومزامنتها.`);
   }
 }
 
