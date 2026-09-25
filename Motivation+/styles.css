@@ -4518,30 +4518,58 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   }
 }
 
+.student-codes-print-root {
+  display: none;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 8mm;
+}
+
 @media print {
-  body.printing-student-codes * {
-    visibility: hidden !important;
+  body.printing-student-codes > *:not(#student-codes-print-root) {
+    display: none !important;
   }
 
-  body.printing-student-codes #student-codes-print-area,
-  body.printing-student-codes #student-codes-print-area * {
-    visibility: visible !important;
-  }
-
-  body.printing-student-codes #student-codes-print-area {
-    position: absolute;
-    inset: 0;
-    width: 100%;
+  body.printing-student-codes #student-codes-print-root {
+    display: block !important;
+    width: 194mm;
     margin: 0;
-    display: grid !important;
+    padding: 0;
+  }
+
+  body.printing-student-codes .student-code-print-page {
+    width: 194mm;
+    height: 281mm;
+    display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 8mm;
+    grid-template-rows: repeat(3, 1fr);
+    gap: 6mm;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  body.printing-student-codes .student-code-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 
   body.printing-student-codes .student-code-label {
-    min-height: 82mm;
-    padding: 5mm;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 0;
+    height: 100%;
+    padding: 4mm;
     border: 1px dashed #555;
     box-shadow: none;
+    overflow: hidden;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body.printing-student-codes .student-code-label img {
+    width: 38mm;
+    height: 38mm;
   }
 }

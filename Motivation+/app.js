@@ -3142,11 +3142,12 @@ function renderStudentCodeLabels(students) {
   const area = document.getElementById("student-codes-print-area");
   const cls = getActiveClass();
   if (!area || !cls) return;
-  if (!students.length) {
+  const orderedStudents = [...students].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "ar"));
+  if (!orderedStudents.length) {
     area.innerHTML = "<p class='muted'>لا يوجد طلاب للطباعة.</p>";
     return;
   }
-  area.innerHTML = students.map((student) => {
+  area.innerHTML = orderedStudents.map((student) => {
     const code = normalizeName(student.code).toUpperCase();
     const parentAccessUrl = `${RUNTIME_ORIGIN || DEPLOY_FALLBACK_ORIGIN}/Motivation+/?parentCode=${encodeURIComponent(code)}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(parentAccessUrl)}`;
@@ -5060,9 +5061,26 @@ document.getElementById("print-student-codes").addEventListener("click", async (
         img.addEventListener("load", resolve, { once: true });
         img.addEventListener("error", resolve, { once: true });
       })));
+  document.getElementById("student-codes-print-root")?.remove();
+  const printRoot = document.createElement("div");
+  printRoot.id = "student-codes-print-root";
+  printRoot.className = "student-codes-print-root";
+  const labels = Array.from(area.querySelectorAll(".student-code-label"));
+  for (let index = 0; index < labels.length; index += 6) {
+    const page = document.createElement("div");
+    page.className = "student-code-print-page";
+    labels.slice(index, index + 6).forEach((label) => page.appendChild(label.cloneNode(true)));
+    printRoot.appendChild(page);
+  }
+  document.body.appendChild(printRoot);
+  const cleanupPrint = () => {
+    document.body.classList.remove("printing-student-codes");
+    printRoot.remove();
+  };
   document.body.classList.add("printing-student-codes");
-  window.addEventListener("afterprint", () => document.body.classList.remove("printing-student-codes"), { once: true });
+  window.addEventListener("afterprint", cleanupPrint, { once: true });
   window.print();
+  window.setTimeout(cleanupPrint, 5000);
 });
 
 document.getElementById("print-report").addEventListener("click", () => {
