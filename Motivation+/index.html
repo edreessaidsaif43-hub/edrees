@@ -449,15 +449,20 @@
           <article class="card">
             <h2>رسالة لولي الأمر</h2>
             <div class="field-row">
-              <input id="parent-code" placeholder="كود الطالب" />
+              <select id="parent-message-student"></select>
               <input id="parent-message" placeholder="رسالة قصيرة" />
             </div>
             <button id="send-parent-msg" class="btn">إرسال</button>
+            <p id="parent-message-status" class="muted">اختر الطالب ثم اكتب الرسالة.</p>
           </article>
 
           <article class="card">
-            <h2>تقرير أسبوعي</h2>
-            <button id="generate-report" class="btn">إنشاء التقرير</button>
+            <h2>تقارير الطالب والصف</h2>
+            <div class="field-row">
+              <select id="report-student-select"></select>
+              <button id="generate-student-report" class="btn">تقرير الطالب</button>
+              <button id="generate-report" class="btn secondary">تقرير الصف</button>
+            </div>
             <button id="print-report" class="btn secondary">طباعة PDF</button>
             <button id="share-whatsapp" class="btn secondary">مشاركة WhatsApp</button>
             <pre id="report-output"></pre>
@@ -621,7 +626,7 @@
       }
     })();
   </script>
-  <script src="./app.js?v=20260924-negative-points-1"></script>
+  <script src="./app.js?v=20260925-reports-messages-1"></script>
 </body>
 </html>
 

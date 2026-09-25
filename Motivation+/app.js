@@ -3072,8 +3072,13 @@ function generateReportText(cls) {
   lines.push("أهم المؤشرات:");
   insights.forEach((x) => lines.push(`- ${x}`));
   lines.push("");
-  lines.push("ترتيب الطلاب:");
-  ranked.forEach((s, i) => lines.push(`${i + 1}) ${s.name} - ${s.points || 0} نقطة`));
+  lines.push("تقرير طلاب الصف:");
+  ranked.forEach((student, index) => {
+    const history = Array.isArray(student.history) ? student.history : [];
+    const added = history.reduce((sum, entry) => sum + Math.max(0, Number(entry.delta || 0)), 0);
+    const deducted = history.reduce((sum, entry) => sum + Math.abs(Math.min(0, Number(entry.delta || 0))), 0);
+    lines.push(`${index + 1}) ${student.name} | الرصيد: ${Number(student.points || 0)} | المضاف: +${added} | المخصوم: -${deducted}`);
+  });
   const challenge = cls ? normalizeChallenge(cls.challenge) : null;
   if (challenge && challenge.title) {
     lines.push("");
@@ -3084,6 +3089,47 @@ function generateReportText(cls) {
     lines.push(`الفائز: ${winner ? winner.name : "لم يتم الإعلان بعد"}`);
   }
   return lines.join("\n");
+}
+
+function generateStudentReportText(cls, student) {
+  const history = Array.isArray(student && student.history) ? student.history : [];
+  const added = history.reduce((sum, entry) => sum + Math.max(0, Number(entry.delta || 0)), 0);
+  const deducted = history.reduce((sum, entry) => sum + Math.abs(Math.min(0, Number(entry.delta || 0))), 0);
+  const lines = [
+    `تقرير الطالب: ${student.name}`,
+    `الصف: ${cls.name} | المادة: ${cls.subject || "-"}`,
+    `النقاط الحالية: ${Number(student.points || 0)}`,
+    `إجمالي النقاط المضافة: +${added}`,
+    `إجمالي النقاط المخصومة: -${deducted}`,
+    `التاريخ: ${new Date().toLocaleDateString("ar-EG")}`,
+    "",
+    "سجل النقاط:"
+  ];
+  if (!history.length) {
+    lines.push("لا توجد عمليات نقاط مسجلة.");
+  } else {
+    [...history].reverse().forEach((entry, index) => {
+      const delta = Number(entry.delta || 0);
+      const sign = delta > 0 ? "+" : "";
+      lines.push(`${index + 1}) ${sign}${delta} نقطة | ${entry.reason || "بدون سبب"} | ${formatMessageDateTime(entry.at)}`);
+    });
+  }
+  return lines.join("\n");
+}
+
+function renderReportsPanelControls() {
+  const reportSelect = document.getElementById("report-student-select");
+  const messageSelect = document.getElementById("parent-message-student");
+  if (!reportSelect || !messageSelect) return;
+  const cls = currentTeacher ? getActiveClass() : null;
+  const students = Array.isArray(cls && cls.students) ? cls.students : [];
+  [reportSelect, messageSelect].forEach((select) => {
+    const currentValue = select.value;
+    select.innerHTML = "<option value=''>اختر الطالب</option>" + students.map((student) =>
+      `<option value="${student.id}">${student.name} (${Number(student.points || 0)} نقطة)</option>`
+    ).join("");
+    if (students.some((student) => student.id === currentValue)) select.value = currentValue;
+  });
 }
 
 function openWhatsApp(text) {
@@ -3097,9 +3143,10 @@ function applyPointsChange(student, delta, reasonLabel, opts = {}) {
   const beforeLevelIndex = getLevelIndex(beforePoints);
   const safeDelta = Number(delta || 0);
   const nextPoints = Math.max(MIN_STUDENT_POINTS, beforePoints + safeDelta);
+  const appliedDelta = nextPoints - beforePoints;
   student.points = nextPoints;
   student.history = student.history || [];
-  student.history.push({ delta: safeDelta, reason: reasonLabel, at: new Date().toISOString() });
+  student.history.push({ delta: appliedDelta, reason: reasonLabel, at: new Date().toISOString() });
 
   const afterLevelIndex = getLevelIndex(nextPoints);
   const leveledUp = afterLevelIndex > beforeLevelIndex;
@@ -3107,7 +3154,7 @@ function applyPointsChange(student, delta, reasonLabel, opts = {}) {
     const lvl = getStudentLevel(nextPoints);
     triggerCelebration("🏅 ترقية مستوى", `${student.name} وصل إلى مستوى ${lvl.name} ${lvl.emoji}`);
   }
-  return { beforePoints, afterPoints: nextPoints, leveledUp };
+  return { beforePoints, afterPoints: nextPoints, appliedDelta, leveledUp };
 }
 
 function addWinnerPointsById(cls, studentId, delta, reasonLabel, opts = {}) {
@@ -4074,6 +4121,7 @@ function renderAll() {
   renderLuckyGame();
   renderCountdown();
   renderDirectPointsCard();
+  renderReportsPanelControls();
   setupTeacherSidePanels();
 }
 
@@ -4086,6 +4134,7 @@ function renderAfterPointsChange() {
   renderLiveDetails();
   renderTeams();
   renderDirectPointsCard();
+  renderReportsPanelControls();
   setupTeacherSidePanels();
 }
 window.updateStudentPoints = updateStudentPoints;
@@ -4753,22 +4802,42 @@ document.getElementById("parent-login").addEventListener("click", async () => {
   renderParentPanel(found);
 });
 
-document.getElementById("send-parent-msg").addEventListener("click", () => {
+document.getElementById("send-parent-msg").addEventListener("click", async () => {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
 
-  const code = normalizeName(document.getElementById("parent-code").value).toUpperCase();
+  const studentId = normalizeName(document.getElementById("parent-message-student").value);
+  const student = (cls.students || []).find((item) => item.id === studentId);
   const msg = normalizeName(document.getElementById("parent-message").value);
-  if (!code || !msg) return;
+  const status = document.getElementById("parent-message-status");
+  if (!student) {
+    status.textContent = "اختر الطالب أولاً.";
+    return;
+  }
+  if (!msg) {
+    status.textContent = "اكتب الرسالة أولاً.";
+    return;
+  }
 
+  const code = normalizeName(student.code).toUpperCase();
   const prev = getParentMessageEntries(cls, code);
   prev.push({ text: msg, at: new Date().toISOString() });
   cls.parentMessages[code] = prev;
-  document.getElementById("parent-code").value = "";
   document.getElementById("parent-message").value = "";
-  saveTeacherData({ skipPublicCache: true });
-  showAuthMessage("تم حفظ رسالة ولي الأمر مع التاريخ.");
+  const savedLocally = saveTeacherData({ skipPublicCache: true });
+  status.textContent = `جاري إرسال رسالة ولي أمر ${student.name}...`;
+  const savedRemotely = await flushRemoteSaveNow();
+  if (!savedLocally && !savedRemotely) {
+    status.textContent = "تعذر حفظ الرسالة. تحقق من الاتصال ثم أعد المحاولة.";
+    showAuthMessage(status.textContent, true);
+  } else if (!savedRemotely) {
+    status.textContent = "حُفظت الرسالة على هذا الجهاز فقط وتعذرت مزامنتها.";
+    showAuthMessage(status.textContent, true);
+  } else {
+    status.textContent = `تم إرسال الرسالة إلى صفحة ولي أمر الطالب ${student.name}.`;
+    showAuthMessage(status.textContent);
+  }
 });
 
 // Reports
@@ -4780,6 +4849,22 @@ document.getElementById("generate-report").addEventListener("click", () => {
 
   document.getElementById("report-output").textContent = generateReportText(cls);
 });
+
+function showSelectedStudentReport() {
+  if (!ensureAuthOrNotify()) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+  const studentId = normalizeName(document.getElementById("report-student-select").value);
+  const student = (cls.students || []).find((item) => item.id === studentId);
+  if (!student) {
+    document.getElementById("report-output").textContent = "اختر الطالب لعرض تقريره.";
+    return;
+  }
+  document.getElementById("report-output").textContent = generateStudentReportText(cls, student);
+}
+
+document.getElementById("generate-student-report").addEventListener("click", showSelectedStudentReport);
+document.getElementById("report-student-select").addEventListener("change", showSelectedStudentReport);
 
 document.getElementById("print-report").addEventListener("click", () => {
   if (!ensureAuthOrNotify()) return;
