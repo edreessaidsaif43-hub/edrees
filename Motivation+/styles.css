@@ -2310,6 +2310,12 @@ body.feature-fullscreen .feature-card.fullscreen-feature {
   overflow: auto !important;
 }
 
+#teacher-app #reports-panel.teacher-panel-active > .card {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
 /* Dedicated phone session tools, independent from desktop controls. */
 @media (max-width: 760px) {
   .topbar-right > #session-info,
@@ -4354,4 +4360,11 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
     font-size: 0.01px !important;
     text-indent: -999px !important;
   }
+}
+
+/* Keep the report cards visible when their parent panel is selected. */
+#teacher-app[data-active-teacher-panel="reports"] #reports-panel.teacher-panel-active > .card {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }

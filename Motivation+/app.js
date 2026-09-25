@@ -4001,8 +4001,19 @@ function setupTeacherSidePanels() {
   if (!teacherApp) return;
 
   teacherApp.querySelectorAll(":scope > .grid > article, :scope > .grid > .card, :scope > .card.wide, :scope > #reports-panel").forEach((node) => {
+    if (node.closest("#reports-panel") && node.id !== "reports-panel") return;
     if (!node.dataset.teacherPanel) node.dataset.teacherPanel = "setup";
   });
+
+  const reportsPanel = document.getElementById("reports-panel");
+  if (reportsPanel) {
+    reportsPanel.querySelectorAll("[data-teacher-panel]").forEach((node) => {
+      node.removeAttribute("data-teacher-panel");
+      node.removeAttribute("hidden");
+      node.classList.remove("teacher-panel-active");
+      node.style.removeProperty("display");
+    });
+  }
 
   Object.entries(getTeacherPanelTargets()).forEach(([name, nodes]) => {
     nodes.filter(Boolean).forEach((node) => {
