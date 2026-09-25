@@ -4253,7 +4253,7 @@ function activateMainTab(tabName) {
 
 tabs.forEach((tab) => {
   tab.addEventListener("click", () => {
-    if (currentTeacher && !motivationSubscriptionState.active) {
+    if (tab.dataset.tab === "teacher" && currentTeacher && !motivationSubscriptionState.active) {
       activateMainTab("teacher");
       renderMotivationSubscriptionStatus();
       showAuthMessage("يلزم تفعيل اشتراك تحفيز+ أولًا. قيمة الاشتراك 2 ريال عماني.", true);
