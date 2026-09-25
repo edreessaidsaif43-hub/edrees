@@ -4368,3 +4368,134 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   visibility: visible !important;
   opacity: 1 !important;
 }
+
+.student-codes-print-area {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.student-code-label {
+  min-height: 280px;
+  padding: 14px;
+  border: 1px dashed #64748b;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  break-inside: avoid;
+}
+
+.student-code-label-brand {
+  color: #1a56c8;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.student-code-label-name {
+  font-size: 18px;
+}
+
+.student-code-label-class,
+.student-code-label small {
+  color: #475569;
+}
+
+.student-code-label img {
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
+}
+
+.student-code-label-token {
+  direction: ltr;
+  font-family: monospace;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+.student-actions-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.student-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid #dbe3ec;
+  border-inline-start: 4px solid #64748b;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.student-action-row.is-added {
+  border-inline-start-color: #15803d;
+}
+
+.student-action-row.is-deducted {
+  border-inline-start-color: #b91c1c;
+}
+
+.student-action-info {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.student-action-info span,
+.student-action-info small {
+  overflow-wrap: anywhere;
+}
+
+.student-action-info small {
+  color: #64748b;
+}
+
+@media (max-width: 560px) {
+  .student-action-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .student-action-row .delete-student-action {
+    width: 100%;
+  }
+}
+
+@media print {
+  body.printing-student-codes * {
+    visibility: hidden !important;
+  }
+
+  body.printing-student-codes #student-codes-print-area,
+  body.printing-student-codes #student-codes-print-area * {
+    visibility: visible !important;
+  }
+
+  body.printing-student-codes #student-codes-print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    margin: 0;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8mm;
+  }
+
+  body.printing-student-codes .student-code-label {
+    min-height: 82mm;
+    padding: 5mm;
+    border: 1px dashed #555;
+    box-shadow: none;
+  }
+}

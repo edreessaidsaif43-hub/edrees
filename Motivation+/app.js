@@ -3120,16 +3120,90 @@ function generateStudentReportText(cls, student) {
 function renderReportsPanelControls() {
   const reportSelect = document.getElementById("report-student-select");
   const messageSelect = document.getElementById("parent-message-student");
-  if (!reportSelect || !messageSelect) return;
+  const printSelect = document.getElementById("print-code-student");
+  const actionsSelect = document.getElementById("actions-student-select");
+  if (!reportSelect || !messageSelect || !printSelect || !actionsSelect) return;
   const cls = currentTeacher ? getActiveClass() : null;
   const students = Array.isArray(cls && cls.students) ? cls.students : [];
-  [reportSelect, messageSelect].forEach((select) => {
+  [reportSelect, messageSelect, printSelect, actionsSelect].forEach((select) => {
     const currentValue = select.value;
     select.innerHTML = "<option value=''>اختر الطالب</option>" + students.map((student) =>
       `<option value="${student.id}">${student.name} (${Number(student.points || 0)} نقطة)</option>`
     ).join("");
     if (students.some((student) => student.id === currentValue)) select.value = currentValue;
   });
+  renderStudentActionsEditor();
+}
+
+function escapeReportMarkup(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderStudentCodeLabels(students) {
+  const area = document.getElementById("student-codes-print-area");
+  const cls = getActiveClass();
+  if (!area || !cls) return;
+  if (!students.length) {
+    area.innerHTML = "<p class='muted'>لا يوجد طلاب للطباعة.</p>";
+    return;
+  }
+  area.innerHTML = students.map((student) => {
+    const code = normalizeName(student.code).toUpperCase();
+    const parentAccessUrl = `${RUNTIME_ORIGIN || DEPLOY_FALLBACK_ORIGIN}/Motivation+/?parentCode=${encodeURIComponent(code)}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(parentAccessUrl)}`;
+    return `
+      <section class="student-code-label">
+        <div class="student-code-label-brand">تحفيز+</div>
+        <strong class="student-code-label-name">${escapeReportMarkup(student.name)}</strong>
+        <span class="student-code-label-class">${escapeReportMarkup(cls.name)}</span>
+        <img src="${qrUrl}" alt="رمز متابعة ${escapeReportMarkup(student.name)}" width="150" height="150" loading="eager" />
+        <b class="student-code-label-token">${escapeReportMarkup(code)}</b>
+        <small>امسح الرمز من بوابة ولي الأمر لمتابعة الطالب</small>
+      </section>`;
+  }).join("");
+}
+
+function renderStudentActionsEditor() {
+  const select = document.getElementById("actions-student-select");
+  const list = document.getElementById("student-actions-list");
+  const status = document.getElementById("student-actions-status");
+  const cls = currentTeacher ? getActiveClass() : null;
+  if (!select || !list || !status || !cls) return;
+  const student = (cls.students || []).find((item) => item.id === select.value);
+  if (!student) {
+    list.innerHTML = "<p class='muted'>اختر الطالب لعرض إجراءاته.</p>";
+    status.textContent = "";
+    return;
+  }
+  const actions = (Array.isArray(student.history) ? student.history : [])
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => Number(entry.delta || 0) !== 0)
+    .reverse();
+  if (!actions.length) {
+    list.innerHTML = "<p class='muted'>لا توجد إجراءات نقاط مسجلة لهذا الطالب.</p>";
+    status.textContent = "";
+    return;
+  }
+  list.innerHTML = actions.map(({ entry, index }) => {
+    const delta = Number(entry.delta || 0);
+    const deltaText = `${delta > 0 ? "+" : ""}${delta}`;
+    const typeClass = delta > 0 ? "is-added" : "is-deducted";
+    return `
+      <div class="student-action-row ${typeClass}">
+        <div class="student-action-info">
+          <strong>${deltaText} نقطة</strong>
+          <span>${escapeReportMarkup(entry.reason || "بدون سبب")}</span>
+          <small>${formatMessageDateTime(entry.at)}</small>
+        </div>
+        <button type="button" class="btn danger delete-student-action" data-action-index="${index}">حذف الإجراء</button>
+      </div>`;
+  }).join("");
+  status.textContent = `الرصيد الحالي: ${Number(student.points || 0)} نقطة.`;
 }
 
 function openWhatsApp(text) {
@@ -4876,6 +4950,78 @@ function showSelectedStudentReport() {
 
 document.getElementById("generate-student-report").addEventListener("click", showSelectedStudentReport);
 document.getElementById("report-student-select").addEventListener("change", showSelectedStudentReport);
+document.getElementById("actions-student-select").addEventListener("change", renderStudentActionsEditor);
+document.getElementById("student-actions-list").addEventListener("click", async (event) => {
+  const button = event.target.closest(".delete-student-action");
+  if (!button || !ensureAuthOrNotify()) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+  const studentId = normalizeName(document.getElementById("actions-student-select").value);
+  const student = (cls.students || []).find((item) => item.id === studentId);
+  const actionIndex = Number(button.dataset.actionIndex);
+  const history = Array.isArray(student && student.history) ? student.history : [];
+  const action = Number.isInteger(actionIndex) ? history[actionIndex] : null;
+  if (!student || !action) return;
+  const delta = Number(action.delta || 0);
+  const ok = window.confirm(`حذف إجراء ${delta > 0 ? "+" : ""}${delta} نقطة للطالب ${student.name}؟ سيتم عكس أثره على الرصيد.`);
+  if (!ok) return;
+
+  history.splice(actionIndex, 1);
+  student.points = Math.max(MIN_STUDENT_POINTS, Number(student.points || 0) - delta);
+  const savedLocally = saveTeacherData({ skipPublicCache: true });
+  renderAfterPointsChange();
+  const status = document.getElementById("student-actions-status");
+  status.textContent = "تم حذف الإجراء. جاري المزامنة...";
+  const savedRemotely = await flushRemoteSaveNow();
+  if (!savedLocally && !savedRemotely) {
+    status.textContent = "تعذر حفظ حذف الإجراء. تحقق من الاتصال ثم أعد المحاولة.";
+    showAuthMessage(status.textContent, true);
+  } else if (!savedRemotely) {
+    status.textContent = "حُذف الإجراء على هذا الجهاز فقط وتعذرت المزامنة.";
+    showAuthMessage(status.textContent, true);
+  } else {
+    status.textContent = `تم حذف الإجراء وحفظ رصيد ${student.name}: ${student.points} نقطة.`;
+    showAuthMessage(status.textContent);
+  }
+});
+
+document.getElementById("preview-student-code").addEventListener("click", () => {
+  if (!ensureAuthOrNotify()) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+  const studentId = normalizeName(document.getElementById("print-code-student").value);
+  const student = (cls.students || []).find((item) => item.id === studentId);
+  renderStudentCodeLabels(student ? [student] : []);
+});
+
+document.getElementById("preview-all-codes").addEventListener("click", () => {
+  if (!ensureAuthOrNotify()) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+  renderStudentCodeLabels(cls.students || []);
+});
+
+document.getElementById("print-student-codes").addEventListener("click", async () => {
+  if (!ensureAuthOrNotify()) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+  const area = document.getElementById("student-codes-print-area");
+  if (!area.querySelector(".student-code-label")) {
+    const studentId = normalizeName(document.getElementById("print-code-student").value);
+    const student = (cls.students || []).find((item) => item.id === studentId);
+    renderStudentCodeLabels(student ? [student] : (cls.students || []));
+  }
+  const images = Array.from(area.querySelectorAll("img"));
+  await Promise.all(images.map((img) => img.complete
+    ? Promise.resolve()
+    : new Promise((resolve) => {
+        img.addEventListener("load", resolve, { once: true });
+        img.addEventListener("error", resolve, { once: true });
+      })));
+  document.body.classList.add("printing-student-codes");
+  window.addEventListener("afterprint", () => document.body.classList.remove("printing-student-codes"), { once: true });
+  window.print();
+});
 
 document.getElementById("print-report").addEventListener("click", () => {
   if (!ensureAuthOrNotify()) return;
@@ -4947,6 +5093,13 @@ async function bootstrapApp() {
   ensureMiniChallengeTicker();
   ensureRemoteAutoPull();
   renderAll();
+  const parentCode = normalizeName(new URLSearchParams(window.location.search).get("parentCode") || "").toUpperCase();
+  if (parentCode) {
+    activateMainTab("parent");
+    const input = document.getElementById("parent-code-input");
+    if (input) input.value = parentCode;
+    document.getElementById("parent-login")?.click();
+  }
 }
 
 bootstrapApp();
