@@ -4426,6 +4426,52 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   margin-top: 12px;
 }
 
+.gift-settings-item {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  margin-bottom: 8px;
+  border: 1px solid #dbe3ec;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.gift-settings-item img,
+.gift-settings-placeholder,
+.gift-store-image,
+.gift-store-image-placeholder {
+  width: 64px;
+  height: 64px;
+  border-radius: 7px;
+  object-fit: cover;
+  background: #f1f5f9;
+}
+
+.gift-settings-placeholder,
+.gift-store-image-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+
+.gift-settings-item > div:not(.gift-settings-placeholder) {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.gift-settings-item small {
+  color: #64748b;
+}
+
+.reward-store-item .gift-store-image,
+.reward-store-item .gift-store-image-placeholder {
+  flex: 0 0 64px;
+}
+
 .student-action-row {
   display: flex;
   align-items: center;

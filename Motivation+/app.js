@@ -130,7 +130,8 @@ function normalizeGift(gift) {
   return {
     id: normalizeName(gift && gift.id ? gift.id : `GF-${uid()}`),
     requiredPoints: Math.max(1, Number(gift && gift.requiredPoints ? gift.requiredPoints : 1)),
-    name: normalizeName(gift && gift.name ? gift.name : "هدية")
+    name: normalizeName(gift && gift.name ? gift.name : "هدية"),
+    imageDataUrl: String(gift && gift.imageDataUrl ? gift.imageDataUrl : "")
   };
 }
 
@@ -2046,6 +2047,7 @@ async function hydrateStudentPhotosInTable(cls) {
 
 function renderRewards() {
   const list = document.getElementById("rewards-list");
+  if (!list) return;
   const cls = getActiveClass();
 
   if (!currentTeacher) {
@@ -2085,7 +2087,12 @@ function renderGiftStoreSettings() {
 
   list.innerHTML = gifts
     .sort((a, b) => Number(a.requiredPoints) - Number(b.requiredPoints))
-    .map((g) => `<p>${g.requiredPoints} نقطة = ${g.name} <button class="btn danger" onclick="removeGift('${g.id}')">حذف</button></p>`)
+    .map((g) => `
+      <div class="gift-settings-item">
+        ${g.imageDataUrl ? `<img src="${g.imageDataUrl}" alt="صورة ${escapeReportMarkup(g.name)}" loading="lazy" />` : `<div class="gift-settings-placeholder">🎁</div>`}
+        <div><strong>${escapeReportMarkup(g.name)}</strong><small>${g.requiredPoints} نقطة</small></div>
+        <button class="btn danger" onclick="removeGift('${g.id}')">حذف</button>
+      </div>`)
     .join("");
 }
 
@@ -2298,8 +2305,7 @@ function renderLiveDetails() {
   const top3Box = document.getElementById("live-top3");
   const challengeBox = document.getElementById("live-challenge");
   const eventsBox = document.getElementById("live-recent-events");
-  const rewardsBox = document.getElementById("live-rewards-progress");
-  if (!head || !summary || !top3Box || !challengeBox || !eventsBox || !rewardsBox) return;
+  if (!head || !summary || !top3Box || !challengeBox || !eventsBox) return;
 
   if (!currentTeacher || !cls) {
     head.innerHTML = "<span class='muted'>لا توجد بيانات مباشرة.</span>";
@@ -2307,7 +2313,6 @@ function renderLiveDetails() {
     top3Box.innerHTML = "<p class='muted'>لا يوجد.</p>";
     challengeBox.innerHTML = "<p class='muted'>لا يوجد.</p>";
     eventsBox.innerHTML = "<p class='muted'>لا يوجد.</p>";
-    rewardsBox.innerHTML = "<p class='muted'>لا يوجد.</p>";
     return;
   }
 
@@ -2361,17 +2366,6 @@ function renderLiveDetails() {
     </div>
   `).join("") || "<p class='muted'>لا توجد أحداث حتى الآن.</p>";
 
-  rewardsBox.innerHTML = (cls.rewards || [])
-    .sort((a, b) => Number(a.points || 0) - Number(b.points || 0))
-    .map((r) => {
-      const reached = cls.students.filter((s) => Number(s.points || 0) >= Number(r.points || 0)).length;
-      return `
-        <div class="live-item">
-          <span>${r.name} (${r.points})</span>
-          <span class="live-sub">${reached} طالب محقق</span>
-        </div>
-      `;
-    }).join("") || "<p class='muted'>لا توجد مكافآت.</p>";
 }
 
 function renderChallenge() {
@@ -3870,7 +3864,8 @@ function renderStudentRewardStore(cls, student) {
         const buttonLabel = alreadyClaimed ? "تم الاستلام" : "استلام";
         return `
           <div class="reward-store-item">
-            <span>🎁 ${gift.name} - يحتاج ${required} نقطة</span>
+            ${gift.imageDataUrl ? `<img class="gift-store-image" src="${gift.imageDataUrl}" alt="صورة ${escapeReportMarkup(gift.name)}" loading="lazy" />` : `<span class="gift-store-image-placeholder">🎁</span>`}
+            <span>${escapeReportMarkup(gift.name)} - يحتاج ${required} نقطة</span>
             <button class="btn secondary" onclick="claimStudentGiftByCode('${student.code}', '${gift.id}')" ${eligibleByRemaining && !alreadyClaimed ? "" : "disabled"}>${buttonLabel}</button>
           </div>
         `;
@@ -3931,7 +3926,6 @@ function renderStudentPanel(found) {
   const ranked = rankStudents(cls);
   const rank = ranked.findIndex((s) => s.id === student.id) + 1;
   const badges = studentBadges(student);
-  const unlocked = cls.rewards.filter((r) => Number(student.points || 0) >= Number(r.points || 0));
   const level = getStudentLevel(student.points || 0);
 
   panel.innerHTML = `
@@ -3942,9 +3936,7 @@ function renderStudentPanel(found) {
     <p>المستوى: <strong>${level.name} ${level.emoji}</strong> (كل 50 نقطة = مستوى جديد)</p>
     <p>ترتيبك في الصف: <strong>#${rank || "-"}</strong></p>
     <div class="badges">${badges.length ? badges.map((b) => `<span class="badge">${b}</span>`).join("") : "لا توجد إنجازات بعد."}</div>
-    <h3>المكافآت المتاحة</h3>
-    <ul>${unlocked.length ? unlocked.map((r) => `<li>${r.name} (${r.points})</li>`).join("") : "<li>استمر لجمع النقاط.</li>"}</ul>
-    <h3>متجر المكافآت</h3>
+    <h3>متجر الهدايا</h3>
     <p>الرصيد الحالي: <strong>${student.points || 0}</strong> نقطة</p>
     <p class="muted">يمكنك استلام الهدايا المتاحة حسب نقاطك بدون خصم من الرصيد.</p>
     ${renderStudentRewardStore(cls, student)}
@@ -4121,7 +4113,6 @@ function setupTeacherSidePanels() {
     "#feature-countdown": "timer",
     "#class-management": "setup",
     "#student-name": "addStudents",
-    "#rewards-panel": "rewards",
     "#gift-panel": "gifts",
     "#reports-panel": "reports"
   };
@@ -4143,7 +4134,6 @@ function getTeacherPanelTargets() {
   return {
     setup: [document.getElementById("class-management")],
     addStudents: [document.getElementById("student-name")?.closest("article")],
-    rewards: [document.getElementById("rewards-panel")],
     gifts: [document.getElementById("gift-panel")],
     points: [document.getElementById("feature-points")],
     students: [document.getElementById("students-table")?.closest("article")],
@@ -4173,7 +4163,7 @@ function keepTeacherPanelPosition() {
   });
 }
 function showTeacherPanel(panelName, activeLink = null) {
-  const validPanels = new Set(["setup", "addStudents", "rewards", "gifts", "points", "students", "teams", "challenges", "random", "timer", "reports"]);
+  const validPanels = new Set(["setup", "addStudents", "gifts", "points", "students", "teams", "challenges", "random", "timer", "reports"]);
   const normalized = validPanels.has(panelName) ? panelName : "students";
   activeTeacherPanelName = normalized;
   const teacherApp = document.getElementById("teacher-app");
@@ -4546,7 +4536,7 @@ document.getElementById("import-csv").addEventListener("click", async () => {
 
 // Rewards, teams, challenge
 
-document.getElementById("add-reward").addEventListener("click", () => {
+document.getElementById("add-reward")?.addEventListener("click", () => {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
@@ -4562,14 +4552,24 @@ document.getElementById("add-reward").addEventListener("click", () => {
   renderRewards();
 });
 
-document.getElementById("add-gift").addEventListener("click", () => {
+document.getElementById("add-gift").addEventListener("click", async () => {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
 
   const requiredPoints = Math.max(1, Number(document.getElementById("gift-points").value || 0));
   const name = normalizeName(document.getElementById("gift-name").value);
+  const imageInput = document.getElementById("gift-image");
+  const imageFile = imageInput && imageInput.files ? imageInput.files[0] : null;
   if (!requiredPoints || !name) return;
+  if (imageFile && !String(imageFile.type || "").startsWith("image/")) {
+    showAuthMessage("ملف الهدية يجب أن يكون صورة.", true);
+    return;
+  }
+  if (imageFile && Number(imageFile.size || 0) > MAX_STUDENT_PHOTO_BYTES) {
+    showAuthMessage("حجم صورة الهدية يجب ألا يتجاوز 20MB.", true);
+    return;
+  }
 
   cls.giftStore = Array.isArray(cls.giftStore) ? cls.giftStore.map(normalizeGift) : [];
   const duplicate = cls.giftStore.some((g) => normalizeName(g.name) === name && Number(g.requiredPoints) === requiredPoints);
@@ -4578,11 +4578,30 @@ document.getElementById("add-gift").addEventListener("click", () => {
     return;
   }
 
-  cls.giftStore.push({ id: `GF-${uid()}`, requiredPoints, name });
+  let imageDataUrl = "";
+  if (imageFile) {
+    try {
+      showAuthMessage("جاري تجهيز صورة الهدية...");
+      imageDataUrl = await compressStudentPhotoFile(imageFile);
+    } catch {
+      showAuthMessage("تعذر قراءة صورة الهدية. اختر صورة أخرى.", true);
+      return;
+    }
+  }
+  cls.giftStore.push({ id: `GF-${uid()}`, requiredPoints, name, imageDataUrl });
   document.getElementById("gift-points").value = "";
   document.getElementById("gift-name").value = "";
-  saveTeacherData();
+  if (imageInput) imageInput.value = "";
+  const savedLocally = saveTeacherData();
   renderGiftStoreSettings();
+  const savedRemotely = await flushRemoteSaveNow();
+  if (!savedLocally && !savedRemotely) {
+    showAuthMessage("تعذر حفظ الهدية وصورتها. تحقق من الاتصال ثم أعد المحاولة.", true);
+  } else if (!savedRemotely) {
+    showAuthMessage("حُفظت الهدية وصورتها على هذا الجهاز فقط وتعذرت المزامنة.", true);
+  } else {
+    showAuthMessage(`تم حفظ الهدية "${name}" وصورتها بنجاح.`);
+  }
 });
 
 document.getElementById("auto-teams").addEventListener("click", () => {

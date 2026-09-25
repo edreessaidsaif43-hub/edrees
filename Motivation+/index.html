@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20260925-edit-actions-1" />
+  <link rel="stylesheet" href="./styles.css?v=20260925-gift-images-1" />
 <style id="copied-index-navbar-style">
   :root{--blue:#1a56c8;--blue2:#0f3d9e;--green:#1a8a3a;--ink:#0a1628;--ink3:#5a7a9a;--paper:#f7f9fc;--paper2:#eef2f8;--line:#d0dcea;--w:#fff}
   #nav{position:fixed;top:0;left:0;right:0;z-index:9999;height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(247,249,252,.95);border-bottom:1px solid var(--line);backdrop-filter:blur(12px);transition:box-shadow .3s;font-family:'Tajawal',sans-serif;box-sizing:border-box}
@@ -204,7 +204,6 @@
           <span class="teacher-side-title">⚙️ الإعداد الأساسي</span>
           <a href="javascript:void(0)" onclick="showTeacherPanel('setup', this); return false;" data-teacher-panel-trigger="setup" class="teacher-side-link side-class">🏫 الصف</a>
           <a href="javascript:void(0)" onclick="showTeacherPanel('addStudents', this); return false;" data-teacher-panel-trigger="addStudents" class="teacher-side-link side-add-students">👨‍🎓 الطلبة</a>
-          <a href="javascript:void(0)" onclick="showTeacherPanel('rewards', this); return false;" data-teacher-panel-trigger="rewards" class="teacher-side-link side-rewards">🎁 المكافآت</a>
           <a href="javascript:void(0)" onclick="showTeacherPanel('gifts', this); return false;" data-teacher-panel-trigger="gifts" class="teacher-side-link side-gifts">🎀 الهدايا</a>
           <span class="teacher-side-title">📊 التقارير</span>
           <a href="javascript:void(0)" onclick="showTeacherPanel('reports', this); return false;" data-teacher-panel-trigger="reports" class="teacher-side-link side-reports">📈 التقارير والرسائل</a>
@@ -255,23 +254,13 @@
             <small>ملاحظة: ارفع ملف Excel أو CSV، وسيتم أخذ أسماء الطلاب من العمود الأول تلقائيًا.</small>
           </article>
 
-          <article id="rewards-panel" class="card section-3" data-teacher-panel="rewards">
-            <h2>نظام المكافآت</h2>
-            <h3>أ) مكافآت الإنجاز حسب النقاط</h3>
-            <div id="rewards-list"></div>
-            <div class="field-row">
-              <input id="reward-points" type="number" placeholder="النقاط" />
-              <input id="reward-name" placeholder="اسم مكافأة الإنجاز" />
-              <button id="add-reward" class="btn">إضافة</button>
-            </div>
-          </article>
-
           <article id="gift-panel" class="card section-4" data-teacher-panel="gifts">
             <h2>قائمة هدايا المتجر (بدون خصم نقاط)</h2>
             <div id="gift-store-list"></div>
             <div class="field-row">
               <input id="gift-points" type="number" placeholder="الحد الأدنى للنقاط" />
               <input id="gift-name" placeholder="اسم الهدية" />
+              <input id="gift-image" type="file" accept="image/*" aria-label="صورة الهدية" />
               <button id="add-gift" class="btn secondary">إضافة هدية</button>
             </div>
             <small>الطالب يستلم الهدية عند توفر النقاط المطلوبة، ولا يتم خصم نقاطه.</small>
@@ -540,10 +529,6 @@
             <h3>آخر الأحداث</h3>
             <div id="live-recent-events"></div>
           </section>
-          <section class="live-detail-card">
-            <h3>المكافآت المحققة</h3>
-            <div id="live-rewards-progress"></div>
-          </section>
         </div>
       </article>
     </section>
@@ -652,7 +637,7 @@
       }
     })();
   </script>
-  <script src="./app.js?v=20260925-mobile-points-reason-1"></script>
+  <script src="./app.js?v=20260925-gift-images-1"></script>
 </body>
 </html>
 
