@@ -178,6 +178,29 @@
       white-space: normal;
     }
 
+    /* Keep native Firefox menus opaque and readable on desktop. */
+    @-moz-document url-prefix() {
+      @media (min-width: 769px) {
+        .lesson-select,
+        .subscription-form select {
+          color-scheme: light;
+          color: #111827 !important;
+          background-color: #ffffff !important;
+          background-clip: padding-box;
+          opacity: 1;
+        }
+
+        .lesson-select option,
+        .lesson-select optgroup,
+        .subscription-form select option,
+        .subscription-form select optgroup {
+          color: #111827 !important;
+          background-color: #ffffff !important;
+          opacity: 1;
+        }
+      }
+    }
+
     @supports (-webkit-touch-callout: none) {
       body {
         -webkit-user-select: none;
