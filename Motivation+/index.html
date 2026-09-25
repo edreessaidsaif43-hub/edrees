@@ -419,14 +419,18 @@
 
           <article id="feature-points" class="card section-11" data-teacher-panel="points">
             <h2>تعديل نقاط الطالب (إضافة / خصم)</h2>
-            <p class="muted">اختر الطالب ثم أدخل عدد النقاط. القيمة الموجبة للإضافة والسالبة للخصم.</p>
+            <p class="muted">اختر الطالب ونوع العملية، ثم أدخل عدد النقاط وسببها.</p>
             <div class="field-row">
               <select id="bonus-student-select"></select>
-              <input id="bonus-points" type="number" value="5" placeholder="عدد النقاط (+ أو -)" />
-              <input id="bonus-reason" placeholder="سبب الإضافة (اختياري)" />
+              <select id="bonus-operation" aria-label="نوع تعديل النقاط">
+                <option value="add">إضافة نقاط</option>
+                <option value="subtract">خصم نقاط</option>
+              </select>
+              <input id="bonus-points" type="number" min="1" step="1" inputmode="numeric" value="5" placeholder="عدد النقاط" />
+              <input id="bonus-reason" required placeholder="سبب الإضافة أو الخصم (إجباري)" />
               <button id="add-bonus-points" class="btn">تنفيذ التعديل</button>
             </div>
-            <p id="bonus-points-status" class="muted">يمكنك إضافة نقاط أو خصم نقاط بالسالب. الحد الأدنى لنقاط الطالب هو -20.</p>
+            <p id="bonus-points-status" class="muted">اختر إضافة أو خصم، ثم اكتب السبب. الحد الأدنى لنقاط الطالب هو -20.</p>
           </article>
 
         </div>
@@ -648,7 +652,7 @@
       }
     })();
   </script>
-  <script src="./app.js?v=20260925-edit-actions-1"></script>
+  <script src="./app.js?v=20260925-mobile-points-reason-1"></script>
 </body>
 </html>
 

@@ -4010,6 +4010,9 @@ function renderParentPanel(found) {
   const messages = getParentMessageEntries(cls, student.code);
   const points = Number(student.points || 0);
   const level = getStudentLevel(points);
+  const pointsHistory = (Array.isArray(student.history) ? student.history : [])
+    .filter((entry) => Number(entry.delta || 0) !== 0)
+    .reverse();
   const messagesHtml = messages.length
     ? `<div class="reward-store-list">
         ${[...messages].reverse().map((m) => `
@@ -4020,6 +4023,17 @@ function renderParentPanel(found) {
         `).join("")}
       </div>`
     : "<p class='muted'>لا توجد رسائل جديدة.</p>";
+  const pointsHistoryHtml = pointsHistory.length
+    ? `<div class="reward-store-list">
+        ${pointsHistory.map((entry) => {
+          const delta = Number(entry.delta || 0);
+          return `<div class="reward-store-item">
+            <span><strong>${delta > 0 ? "+" : ""}${delta} نقطة</strong> — ${escapeReportMarkup(entry.reason || "بدون سبب")}</span>
+            <small class="muted">${formatMessageDateTime(entry.at)}</small>
+          </div>`;
+        }).join("")}
+      </div>`
+    : "<p class='muted'>لا توجد عمليات نقاط مسجلة.</p>";
 
   panel.innerHTML = `
     <div id="parent-panel-photo" class="profile-photo">${renderPhotoCellContent(student.name, "")}</div>
@@ -4028,6 +4042,8 @@ function renderParentPanel(found) {
     <p>النقاط: <strong>${points}</strong></p>
     <p>المستوى: <strong>${level.name} ${level.emoji}</strong></p>
     <p>السلوك العام: <strong>${points >= 70 ? "ممتاز" : points >= 30 ? "جيد" : "يحتاج متابعة"}</strong></p>
+    <h3>تفاصيل النقاط وأسبابها</h3>
+    ${pointsHistoryHtml}
     <h3>رسائل المعلم</h3>
     ${messagesHtml}
   `;
@@ -4065,7 +4081,7 @@ function renderDirectPointsCard() {
     return `<option value="${s.id}" ${selected}>${s.name} (${Number(s.points || 0)} نقطة)</option>`;
   }).join("");
 
-  status.textContent = "يمكنك إضافة نقاط (+) أو خصم نقاط (-).";
+  status.textContent = "اختر إضافة أو خصم، ثم اكتب السبب الإجباري.";
 }
 
 let activeTeacherPanelName = "students";
@@ -4724,15 +4740,16 @@ document.getElementById("add-bonus-points").addEventListener("click", async () =
   if (!cls) return;
 
   const select = document.getElementById("bonus-student-select");
+  const operationEl = document.getElementById("bonus-operation");
   const pointsEl = document.getElementById("bonus-points");
   const reasonEl = document.getElementById("bonus-reason");
   const status = document.getElementById("bonus-points-status");
-  if (!select || !pointsEl || !reasonEl || !status) return;
+  if (!select || !operationEl || !pointsEl || !reasonEl || !status) return;
 
   const studentId = normalizeName(select.value);
-  const delta = Number(pointsEl.value || 0);
-  if (!Number.isFinite(delta) || delta === 0) {
-    status.textContent = "أدخل قيمة نقاط صحيحة (موجبة أو سالبة، وليس صفر).";
+  const pointsAmount = Math.abs(Number(pointsEl.value || 0));
+  if (!Number.isFinite(pointsAmount) || pointsAmount <= 0) {
+    status.textContent = "أدخل عدد نقاط صحيحًا أكبر من صفر.";
     return;
   }
   if (!studentId) {
@@ -4747,7 +4764,13 @@ document.getElementById("add-bonus-points").addEventListener("click", async () =
   }
 
   const customReason = normalizeName(reasonEl.value);
-  const reasonLabel = customReason || (delta > 0 ? "إضافة نقاط مباشرة من بطاقة 11" : "خصم نقاط مباشرة من بطاقة 11");
+  if (!customReason) {
+    status.textContent = "يجب كتابة سبب إضافة أو خصم النقاط.";
+    reasonEl.focus();
+    return;
+  }
+  const delta = operationEl.value === "subtract" ? -pointsAmount : pointsAmount;
+  const reasonLabel = customReason;
   if (delta < 0) {
     const ok = window.confirm(`سيتم خصم ${Math.abs(delta)} نقطة من الطالب ${student.name}. هل تريد المتابعة؟`);
     if (!ok) return;
@@ -4766,7 +4789,7 @@ document.getElementById("add-bonus-points").addEventListener("click", async () =
       ? `تم خصم ${Math.abs(delta)} نقطة من الطالب ${student.name}. جاري المزامنة...`
       : "جاري حفظ النقاط على الخادم...";
   }
-  pointsEl.value = String(delta);
+  pointsEl.value = String(pointsAmount);
   reasonEl.value = "";
   const savedRemotely = await flushRemoteSaveNow();
   if (!savedLocally && !savedRemotely) {
