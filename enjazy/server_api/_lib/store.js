@@ -453,6 +453,12 @@ export async function loadTeacherMotivation(userId) {
       LIMIT 1;
     `;
     const row = rows?.[0] || null;
+    let state = row?.state && typeof row.state === "object" ? row.state : null;
+    const deletedClassIds = new Set(
+      Array.isArray(state?.deletedClassIds)
+        ? state.deletedClassIds.map((id) => String(id || "").trim()).filter(Boolean)
+        : []
+    );
     const sharedRows = await motivationSql`
       SELECT class_data
       FROM motivation_shared_classes
@@ -460,8 +466,12 @@ export async function loadTeacherMotivation(userId) {
     `;
     const sharedClasses = (sharedRows || [])
       .map((r) => (r?.class_data && typeof r.class_data === "object" ? r.class_data : null))
-      .filter(Boolean);
-    let state = row?.state && typeof row.state === "object" ? row.state : null;
+      .filter((cls) => {
+        if (!cls) return false;
+        const classId = String(cls?.id || "").trim();
+        const sharedId = String(cls?.sharedId || "").trim();
+        return !deletedClassIds.has(classId) && !deletedClassIds.has(sharedId);
+      });
     if (sharedClasses.length) {
       const classes = Array.isArray(state?.classes) ? [...state.classes] : [];
       const byShared = new Map();

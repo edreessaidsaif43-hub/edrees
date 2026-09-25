@@ -435,6 +435,7 @@ function createDefaultState() {
   return {
     classes: [firstClass],
     activeClassId: firstClass.id,
+    deletedClassIds: [],
     // Keep default state timestamp at 0 so cloud state always wins on a fresh device.
     updatedAt: 0
   };
@@ -657,6 +658,7 @@ function mergeState(raw) {
       return {
         classes: [],
         activeClassId: "",
+        deletedClassIds: Array.isArray(raw.deletedClassIds) ? Array.from(new Set(raw.deletedClassIds.map((id) => normalizeName(String(id))).filter(Boolean))) : [],
         updatedAt: Number(raw.updatedAt || 0)
       };
     }
@@ -664,6 +666,7 @@ function mergeState(raw) {
     return repairOldChallengePointDeductions({
       classes,
       activeClassId: activeExists ? raw.activeClassId : classes[0].id,
+      deletedClassIds: Array.isArray(raw.deletedClassIds) ? Array.from(new Set(raw.deletedClassIds.map((id) => normalizeName(String(id))).filter(Boolean))) : [],
       updatedAt: Number(raw.updatedAt || 0),
       pointsRepairVersion: Number(raw.pointsRepairVersion || 0)
     }, raw.pointsRepairVersion);
@@ -684,6 +687,7 @@ function mergeState(raw) {
   return repairOldChallengePointDeductions({
     classes: [legacy],
     activeClassId: legacy.id,
+    deletedClassIds: [],
     updatedAt: Number(raw.updatedAt || 0),
     pointsRepairVersion: Number(raw.pointsRepairVersion || 0)
   }, raw.pointsRepairVersion);
@@ -4382,6 +4386,9 @@ document.getElementById("join-class").addEventListener("click", async () => {
 
   const already = state.classes.some((c) => c.id === joined.classData.id);
   if (!already) state.classes.push(normalizeClass(joined.classData));
+  const joinedIds = new Set([joined.classData.id, joined.classData.sharedId].map((id) => normalizeName(id)).filter(Boolean));
+  state.deletedClassIds = (Array.isArray(state.deletedClassIds) ? state.deletedClassIds : [])
+    .filter((id) => !joinedIds.has(normalizeName(id)));
   state.activeClassId = joined.classData.id;
   codeInput.value = "";
   saveTeacherData();
@@ -4400,6 +4407,10 @@ document.getElementById("delete-class").addEventListener("click", async () => {
     await removeAllClassStudentPhotos(cls);
   } catch {}
   state.classes = state.classes.filter((c) => c.id !== cls.id);
+  state.deletedClassIds = Array.isArray(state.deletedClassIds) ? state.deletedClassIds : [];
+  [cls.id, cls.sharedId].map((id) => normalizeName(id)).filter(Boolean).forEach((id) => {
+    if (!state.deletedClassIds.includes(id)) state.deletedClassIds.push(id);
+  });
   state.activeClassId = state.classes.length ? state.classes[0].id : "";
   wheelRotation = 0;
   saveTeacherData();
