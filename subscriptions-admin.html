@@ -21,6 +21,11 @@
     .btn-danger{background:#dc2626}.btn-ok{background:#15803d}.btn-muted{background:#64748b}
     .meta{font-size:13px;color:#64748b;line-height:1.8}
     .hidden{display:none}.msg{font-size:13px;margin-top:8px;color:#64748b}.empty{text-align:center;color:#64748b;padding:30px}
+    .filters{display:grid;grid-template-columns:minmax(260px,1fr) minmax(160px,220px) auto;gap:10px;align-items:end;margin:0 0 16px;padding:14px;border:1px solid #dbe4ef;border-radius:10px;background:#f8fafc}
+    .filters .field{min-width:0}
+    .filters input,.filters select{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:10px;background:#fff;font-family:inherit}
+    .filters-actions{display:flex;gap:8px;align-items:center}
+    .filter-count{grid-column:1 / -1;color:#64748b;font-size:12px;font-weight:800}
     .table-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:12px;background:#fff}
     table{width:100%;border-collapse:collapse;min-width:1050px}
     th,td{border-bottom:1px solid #e2e8f0;padding:10px;vertical-align:top;text-align:right}
@@ -49,6 +54,9 @@
     .op a{color:#1a56a0;font-weight:900}
     @media(max-width:760px){
       body{padding:12px}
+      .filters{grid-template-columns:1fr;padding:12px}
+      .filters-actions{width:100%}
+      .filters-actions button{flex:1}
       .table-wrap{border:0;overflow:visible;background:transparent}
       table,thead,tbody,tr,td{display:block;width:100%;min-width:0}
       table{min-width:0}
@@ -93,6 +101,24 @@
         </div>
         <button class="btn-muted" onclick="loadSubscriptions()">تحديث</button>
       </div>
+      <div class="filters" aria-label="فلاتر الاشتراكات">
+        <div class="field">
+          <label for="subscription-search">البحث</label>
+          <input id="subscription-search" type="search" placeholder="الاسم، المعرّف، التواصل، الصف أو المادة" oninput="scheduleSubscriptionFilter()">
+        </div>
+        <div class="field">
+          <label for="subscription-status-filter">الحالة</label>
+          <select id="subscription-status-filter" onchange="applySubscriptionFilters()">
+            <option value="">كل الحالات</option>
+            <option value="pending">قيد المراجعة</option>
+            <option value="active">مفعل</option>
+            <option value="rejected">مرفوض</option>
+            <option value="stopped">متوقف</option>
+          </select>
+        </div>
+        <div class="filters-actions"><button class="btn-muted" type="button" onclick="clearSubscriptionFilters()">مسح الفلاتر</button></div>
+        <div class="filter-count" id="filter-count"></div>
+      </div>
       <div id="list"></div>
     </div>
   </div>
@@ -101,6 +127,25 @@
 let adminPassword = '';
 let adminPage = 1;
 const ADMIN_PAGE_SIZE = 25;
+let subscriptionFilterTimer = null;
+
+function subscriptionFilterQuery(){
+  const search = document.getElementById('subscription-search')?.value.trim() || '';
+  const status = document.getElementById('subscription-status-filter')?.value || '';
+  return '&q=' + encodeURIComponent(search) + '&status=' + encodeURIComponent(status);
+}
+function scheduleSubscriptionFilter(){
+  clearTimeout(subscriptionFilterTimer);
+  subscriptionFilterTimer = setTimeout(() => loadSubscriptions(1), 300);
+}
+function applySubscriptionFilters(){ clearTimeout(subscriptionFilterTimer); loadSubscriptions(1); }
+function clearSubscriptionFilters(){
+  const search = document.getElementById('subscription-search');
+  const status = document.getElementById('subscription-status-filter');
+  if(search) search.value = '';
+  if(status) status.value = '';
+  loadSubscriptions(1);
+}
 
 function api(path){ return (location.protocol === 'file:' ? 'https://altahdir.app' : '') + path; }
 function esc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -165,7 +210,7 @@ async function loadSubscriptions(page = adminPage){
   const list = document.getElementById('list');
   list.innerHTML = '<div class="empty">جاري التحميل...</div>';
   try{
-    const res = await fetch(api('/api/subscriptions?action=admin_list&limit=' + ADMIN_PAGE_SIZE + '&offset=' + offset), { headers: { 'x-admin-password': adminPassword } });
+    const res = await fetch(api('/api/subscriptions?action=admin_list&limit=' + ADMIN_PAGE_SIZE + '&offset=' + offset + subscriptionFilterQuery()), { headers: { 'x-admin-password': adminPassword } });
     const data = await res.json().catch(() => ({}));
     if(!res.ok) throw new Error(data.message || 'تعذر تحميل الاشتراكات.');
     const rawItems = Array.isArray(data.subscriptions) ? data.subscriptions : [];
@@ -174,6 +219,8 @@ async function loadSubscriptions(page = adminPage){
     const total = data.total !== undefined && data.total !== null ? Number(data.total) : (serverPaged ? NaN : rawItems.length);
     const hasMore = serverPaged ? !!data.hasMore : offset + items.length < rawItems.length;
     const limit = Number(data.limit || ADMIN_PAGE_SIZE);
+    const filterCount = document.getElementById('filter-count');
+    if(filterCount) filterCount.textContent = items.length ? 'النتائج الظاهرة في هذه الصفحة: ' + items.length : '';
     if(adminPage > 1 && !items.length){ return loadSubscriptions(adminPage - 1); }
     if(!items.length){ list.innerHTML = '<div class="empty">لا توجد إيصالات حتى الآن.</div>'; return; }
     const table = '<div class="table-wrap"><table><thead><tr><th>المستخدم</th><th>الاشتراك</th><th>الحالة</th><th>الإيصال</th><th>آخر تحديث</th><th>ملاحظة وإجراءات</th></tr></thead><tbody>' + items.map(item => {

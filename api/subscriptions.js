@@ -722,6 +722,10 @@ async function adminList(req, res) {
   const limit = boundedInt(req.query?.limit, ADMIN_LIST_DEFAULT_LIMIT, 1, ADMIN_LIST_MAX_LIMIT);
   const offset = boundedInt(req.query?.offset, 0, 0, 1000000);
   const fetchLimit = limit + 1;
+  const query = String(req.query?.q || '').trim().slice(0, 160);
+  const queryPattern = '%' + query + '%';
+  const requestedStatus = String(req.query?.status || '').trim();
+  const status = ['pending', 'active', 'rejected', 'stopped'].includes(requestedStatus) ? requestedStatus : '';
   const rows = await sql`
     SELECT
       s.id,
@@ -740,6 +744,13 @@ async function adminList(req, res) {
       ) AS profile
     FROM teacher_subscriptions s
     LEFT JOIN teacher_users u ON u.id = s.user_id
+    WHERE (${query} = '' OR
+      s.user_id ILIKE ${queryPattern} OR
+      COALESCE(s.grade, '') ILIKE ${queryPattern} OR
+      COALESCE(s.subjects::text, '') ILIKE ${queryPattern} OR
+      COALESCE(u.profile->>'name', '') ILIKE ${queryPattern} OR
+      COALESCE(u.profile->>'contact', '') ILIKE ${queryPattern})
+      AND (${status} = '' OR s.status = ${status})
     ORDER BY s.updated_at DESC, s.id DESC
     LIMIT ${fetchLimit} OFFSET ${offset};
   `;
@@ -777,15 +788,24 @@ async function adminActiveList(req, res) {
   const limit = boundedInt(req.query?.limit, ADMIN_LIST_DEFAULT_LIMIT, 1, ADMIN_LIST_MAX_LIMIT);
   const offset = boundedInt(req.query?.offset, 0, 0, 1000000);
   const fetchLimit = limit + 1;
+  const query = String(req.query?.q || '').trim().slice(0, 160);
+  const queryPattern = '%' + query + '%';
   const rows = await sql`
     WITH active_users AS (
       SELECT
-        user_id,
-        MAX(updated_at) AS latest_updated_at,
-        MAX(id) AS latest_id
-      FROM teacher_subscriptions
-      GROUP BY user_id
-      ORDER BY MAX(updated_at) DESC, MAX(id) DESC
+        s0.user_id AS user_id,
+        MAX(s0.updated_at) AS latest_updated_at,
+        MAX(s0.id) AS latest_id
+      FROM teacher_subscriptions s0
+      LEFT JOIN teacher_users u0 ON u0.id = s0.user_id
+      WHERE (${query} = '' OR
+        s0.user_id ILIKE ${queryPattern} OR
+        COALESCE(s0.grade, '') ILIKE ${queryPattern} OR
+        COALESCE(s0.subjects::text, '') ILIKE ${queryPattern} OR
+        COALESCE(u0.profile->>'name', '') ILIKE ${queryPattern} OR
+        COALESCE(u0.profile->>'contact', '') ILIKE ${queryPattern})
+      GROUP BY s0.user_id
+      ORDER BY MAX(s0.updated_at) DESC, MAX(s0.id) DESC
       LIMIT ${fetchLimit} OFFSET ${offset}
     ),
     latest_rows AS (

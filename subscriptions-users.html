@@ -27,6 +27,11 @@
     .hidden{display:none}
     .msg{font-size:13px;margin-top:8px;color:#64748b}
     .empty{text-align:center;color:#64748b;padding:30px}
+    .filters{display:grid;grid-template-columns:minmax(260px,1fr) auto;gap:10px;align-items:end;margin:0 0 16px;padding:14px;border:1px solid #dbe4ef;border-radius:10px;background:#f8fafc}
+    .filters .field{min-width:0}
+    .filters input,.filters select{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:10px;background:#fff;font-family:inherit}
+    .filters-actions{display:flex;gap:8px;align-items:center}
+    .filter-count{grid-column:1 / -1;color:#64748b;font-size:12px;font-weight:800}
     .table-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:12px;background:#fff}
     table{width:100%;border-collapse:collapse;min-width:920px}
     th,td{border-bottom:1px solid #e2e8f0;padding:10px;vertical-align:middle;text-align:right}
@@ -60,6 +65,9 @@
     .pager-actions{display:flex;gap:8px;align-items:center}
     @media(max-width:760px){
       body{padding:12px}
+      .filters{grid-template-columns:1fr;padding:12px}
+      .filters-actions{width:100%}
+      .filters-actions button{flex:1}
       .table-wrap{border:0;overflow:visible;background:transparent}
       table,thead,tbody,tr,td{display:block;width:100%;min-width:0}
       table{min-width:0}
@@ -106,6 +114,14 @@
         </div>
         <button class="btn-muted" onclick="loadUsers(1)">تحديث</button>
       </div>
+      <div class="filters" aria-label="فلتر المستخدمين">
+        <div class="field">
+          <label for="users-search">البحث في المستخدمين</label>
+          <input id="users-search" type="search" placeholder="الاسم، المعرّف، التواصل، الصف أو المادة" oninput="scheduleUsersFilter()">
+        </div>
+        <div class="filters-actions"><button class="btn-muted" type="button" onclick="clearUsersFilter()">مسح البحث</button></div>
+        <div class="filter-count" id="filter-count"></div>
+      </div>
       <div id="list"></div>
     </div>
   </div>
@@ -122,6 +138,20 @@
 let adminPassword = '';
 let usersPage = 1;
 const PAGE_SIZE = 25;
+let usersFilterTimer = null;
+
+function usersFilterQuery(){
+  return '&q=' + encodeURIComponent(document.getElementById('users-search')?.value.trim() || '');
+}
+function scheduleUsersFilter(){
+  clearTimeout(usersFilterTimer);
+  usersFilterTimer = setTimeout(() => loadUsers(1), 300);
+}
+function clearUsersFilter(){
+  const search = document.getElementById('users-search');
+  if(search) search.value = '';
+  loadUsers(1);
+}
 
 function api(path){ return (location.protocol === 'file:' ? 'https://altahdir.app' : '') + path; }
 function esc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -210,10 +240,12 @@ async function loadUsers(page = usersPage){
   const list = document.getElementById('list');
   list.innerHTML = '<div class="empty">جاري التحميل...</div>';
   try{
-    const res = await fetch(api('/api/subscriptions?action=admin_active_list&limit=' + PAGE_SIZE + '&offset=' + offset), { headers: { 'x-admin-password': adminPassword } });
+    const res = await fetch(api('/api/subscriptions?action=admin_active_list&limit=' + PAGE_SIZE + '&offset=' + offset + usersFilterQuery()), { headers: { 'x-admin-password': adminPassword } });
     const data = await res.json().catch(() => ({}));
     if(!res.ok) throw new Error(data.message || 'تعذر تحميل المستخدمين المشتركين.');
     const items = Array.isArray(data.subscriptions) ? data.subscriptions : [];
+    const filterCount = document.getElementById('filter-count');
+    if(filterCount) filterCount.textContent = items.length ? 'النتائج الظاهرة في هذه الصفحة: ' + items.length : '';
     if(usersPage > 1 && !items.length) return loadUsers(usersPage - 1);
     if(!items.length){ list.innerHTML = '<div class="empty">لا توجد اشتراكات حالياً.</div>'; return; }
     const table = '<div class="table-wrap"><table><thead><tr><th>المستخدم</th><th>الصف / المادة المفعلة</th><th>الإيصال</th><th>آخر تحديث</th><th>الإجراء</th></tr></thead><tbody>' + items.map(item => {
