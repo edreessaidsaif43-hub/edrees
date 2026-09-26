@@ -210,7 +210,7 @@ function compressStudentPhotoFile(file, onProgress) {
       img.onerror = () => reject(new Error("Failed to load image"));
       img.onload = () => {
         try {
-          const maxSide = 320;
+          const maxSide = 220;
           const ratio = Math.min(1, maxSide / Math.max(img.width || 1, img.height || 1));
           const width = Math.max(1, Math.round((img.width || 1) * ratio));
           const height = Math.max(1, Math.round((img.height || 1) * ratio));
@@ -220,7 +220,7 @@ function compressStudentPhotoFile(file, onProgress) {
           const ctx = canvas.getContext("2d");
           ctx.drawImage(img, 0, 0, width, height);
           if (onProgress) onProgress(82);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.68);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.62);
           if (onProgress) onProgress(100);
           resolve(dataUrl);
         } catch (err) {
@@ -343,7 +343,7 @@ function renderPhotoCellContent(studentName, dataUrl) {
   const rawName = String(studentName || "");
   const safeName = rawName.replace(/"/g, "&quot;");
   if (dataUrl) {
-    return `<img src="${dataUrl}" alt="صورة ${safeName}" loading="lazy" />`;
+    return `<img src="${dataUrl}" alt="صورة ${safeName}" loading="lazy" decoding="async" width="78" height="78" />`;
   }
   return `<span>${studentInitials(rawName)}</span>`;
 }
@@ -845,11 +845,11 @@ function saveTeacherData(options = {}) {
     localStorage.setItem(accountDataKey(currentTeacher.id), JSON.stringify(state));
   } catch {
     if (!options.skipPublicCache) savePublicStateCache(state);
-    scheduleRemoteSave();
+    if (!options.skipRemoteSchedule) scheduleRemoteSave();
     return false;
   }
   if (!options.skipPublicCache) savePublicStateCache(state);
-  scheduleRemoteSave();
+  if (!options.skipRemoteSchedule) scheduleRemoteSave();
   return true;
 }
 
@@ -927,20 +927,20 @@ async function loadStateFromRemote(userId) {
 
 let remoteSaveQueue = Promise.resolve();
 
-function saveStateToRemote(userId, payloadState, deletedSharedIds = []) {
+function saveStateToRemote(userId, payloadState, deletedSharedIds = [], options = {}) {
   if (!userId || !payloadState) return false;
-  const save = remoteSaveQueue.then(() => postStateToRemote(userId, payloadState, deletedSharedIds));
+  const save = remoteSaveQueue.then(() => postStateToRemote(userId, payloadState, deletedSharedIds, options));
   remoteSaveQueue = save.catch(() => false);
   return save;
 }
 
-async function postStateToRemote(userId, payloadState, deletedSharedIds) {
+async function postStateToRemote(userId, payloadState, deletedSharedIds, options = {}) {
   try {
     const endpoint = RUNTIME_ORIGIN || DEPLOY_FALLBACK_ORIGIN;
     const response = await fetch(`${endpoint}${MOTIVATION_API_SAVE}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, state: payloadState, deletedSharedIds })
+      body: JSON.stringify({ userId, state: payloadState, deletedSharedIds, preserveMedia: !!options.preserveMedia })
     });
     if (!response.ok) throw new Error(`http_${response.status}`);
     return true;
@@ -964,15 +964,29 @@ function scheduleRemoteSave() {
   }, 80);
 }
 
-async function flushRemoteSaveNow(deletedSharedIds = []) {
+function createRemoteSnapshot(options = {}) {
+  const snapshot = copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state);
+  if (!options.preserveMedia) return snapshot;
+  (snapshot.classes || []).forEach((cls) => {
+    (cls.students || []).forEach((student) => {
+      delete student.photoDataUrl;
+    });
+    (cls.giftStore || []).forEach((gift) => {
+      delete gift.imageDataUrl;
+    });
+  });
+  return snapshot;
+}
+
+async function flushRemoteSaveNow(deletedSharedIds = [], options = {}) {
   if (!currentTeacher || !currentTeacher.userId) return true;
   if (remoteSaveTimer) {
     clearTimeout(remoteSaveTimer);
     remoteSaveTimer = null;
   }
   pendingRemoteSave = false;
-  const snapshot = copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state);
-  return saveStateToRemote(String(currentTeacher.userId), snapshot, deletedSharedIds);
+  const snapshot = createRemoteSnapshot(options);
+  return saveStateToRemote(String(currentTeacher.userId), snapshot, deletedSharedIds, options);
 }
 
 function readUnifiedSession() {
@@ -3263,9 +3277,10 @@ async function updateStudentPoints(studentId, reasonKey) {
       triggerCelebration("⭐ إنجاز جديد", `${student.name} تجاوز 100 نقطة!`);
     }
   }
-  const savedLocally = saveTeacherData({ skipPublicCache: true });
+  const savedLocally = saveTeacherData({ skipPublicCache: true, skipRemoteSchedule: true });
+  const remoteSavePromise = flushRemoteSaveNow([], { preserveMedia: true });
   renderAfterPointsChange();
-  const savedRemotely = await flushRemoteSaveNow();
+  const savedRemotely = await remoteSavePromise;
   if (!savedLocally && !savedRemotely) {
     showAuthMessage("تعذر حفظ النقاط. تحقق من الاتصال ثم أعد المحاولة.", true);
   } else if (!savedRemotely) {
@@ -4807,7 +4822,8 @@ document.getElementById("add-bonus-points").addEventListener("click", async () =
     if (!ok) return;
   }
   applyPointsChange(student, delta, reasonLabel);
-  const savedLocally = saveTeacherData({ skipPublicCache: true });
+  const savedLocally = saveTeacherData({ skipPublicCache: true, skipRemoteSchedule: true });
+  const remoteSavePromise = flushRemoteSaveNow([], { preserveMedia: true });
   renderAfterPointsChange();
   if (delta > 0) {
     playEventSound("winner");
@@ -4822,7 +4838,7 @@ document.getElementById("add-bonus-points").addEventListener("click", async () =
   }
   pointsEl.value = String(pointsAmount);
   reasonEl.value = "";
-  const savedRemotely = await flushRemoteSaveNow();
+  const savedRemotely = await remoteSavePromise;
   if (!savedLocally && !savedRemotely) {
     document.getElementById("bonus-points-status").textContent = "تعذر حفظ النقاط.";
     showAuthMessage("تعذر حفظ النقاط. تحقق من الاتصال ثم أعد المحاولة.", true);
@@ -5022,11 +5038,12 @@ document.getElementById("student-actions-list").addEventListener("click", async 
 
   history.splice(actionIndex, 1);
   student.points = Math.max(MIN_STUDENT_POINTS, Number(student.points || 0) - delta);
-  const savedLocally = saveTeacherData({ skipPublicCache: true });
+  const savedLocally = saveTeacherData({ skipPublicCache: true, skipRemoteSchedule: true });
+  const remoteSavePromise = flushRemoteSaveNow([], { preserveMedia: true });
   renderAfterPointsChange();
   const status = document.getElementById("student-actions-status");
   status.textContent = "تم حذف الإجراء. جاري المزامنة...";
-  const savedRemotely = await flushRemoteSaveNow();
+  const savedRemotely = await remoteSavePromise;
   if (!savedLocally && !savedRemotely) {
     status.textContent = "تعذر حفظ حذف الإجراء. تحقق من الاتصال ثم أعد المحاولة.";
     showAuthMessage(status.textContent, true);

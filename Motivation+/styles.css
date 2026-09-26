@@ -4573,3 +4573,39 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
     height: 38mm;
   }
 }
+
+/* Fixed thumbnail sizes prevent uploaded media from using its original dimensions. */
+#students-table .student-photo-badge {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  max-width: 48px !important;
+  flex: 0 0 48px !important;
+}
+
+#students-table .student-photo-badge img,
+#student-panel .profile-photo img,
+#parent-panel .profile-photo img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+}
+
+#student-panel .profile-photo,
+#parent-panel .profile-photo {
+  width: 72px !important;
+  height: 72px !important;
+  min-width: 72px !important;
+  max-width: 72px !important;
+}
+
+#gift-store-list .gift-settings-item img,
+.reward-store-list .gift-store-image {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  max-width: 56px !important;
+  object-fit: cover !important;
+}
