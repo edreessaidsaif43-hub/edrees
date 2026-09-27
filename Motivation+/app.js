@@ -73,6 +73,26 @@ const reasons = {
 const LEVEL_STEP_POINTS = 50;
 const MIN_STUDENT_POINTS = -20;
 
+function renderSortedReasonOptions() {
+  const entries = Object.entries(reasons);
+  const byPointsThenLabel = ([, a], [, b]) => {
+    const pointsDifference = Number(b.delta || 0) - Number(a.delta || 0);
+    return pointsDifference || String(a.label || "").localeCompare(String(b.label || ""), "ar");
+  };
+  const renderOptions = (items) => items
+    .sort(byPointsThenLabel)
+    .map(([key, reason]) => {
+      const delta = Number(reason.delta || 0);
+      const displayedPoints = delta > 0 ? `+${delta}` : String(delta);
+      return `<option value="${key}">${reason.label} (${displayedPoints})</option>`;
+    })
+    .join("");
+  const positive = entries.filter(([, reason]) => Number(reason.delta || 0) > 0);
+  const negative = entries.filter(([, reason]) => Number(reason.delta || 0) < 0);
+  return `<optgroup label="السلوكيات الإيجابية">${renderOptions(positive)}</optgroup>`
+    + `<optgroup label="السلوكيات السلبية">${renderOptions(negative)}</optgroup>`;
+}
+
 function uid() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
@@ -2038,44 +2058,7 @@ function renderStudentsTable() {
             ${teamOptions(s.team || "")}
           </select>
           <select id="reason-${s.id}">
-            <option value="participation">مشاركة ممتازة (+5)</option>
-            <option value="quiz_excellence">تفوق في اختبار قصير (+5)</option>
-            <option value="class_leadership">قيادة ونشاط داخل الصف (+4)</option>
-            <option value="creativity">فكرة إبداعية مميزة (+4)</option>
-            <option value="homework_done">حل الواجب (+3)</option>
-            <option value="teamwork">تعاون ممتاز مع الزملاء (+3)</option>
-            <option value="positive_behavior">سلوك إيجابي (+2)</option>
-            <option value="attendance_on_time">انضباط بالحضور والوقت (+2)</option>
-            <option value="helping_others">مساعدة زملائه (+2)</option>
-            <option value="neatness">ترتيب ونظافة الدفتر (+2)</option>
-            <option value="answer_initiative">المبادرة بالإجابة (+2)</option>
-            <option value="excellent_question">طرح سؤال مميز (+2)</option>
-            <option value="academic_improvement">تحسين المستوى الدراسي (+3)</option>
-            <option value="early_task_completion">إنجاز المهمة قبل الوقت (+2)</option>
-            <option value="protecting_class_property">المحافظة على ممتلكات الصف (+2)</option>
-            <option value="encouraging_classmates">تشجيع الزملاء (+2)</option>
-            <option value="taking_responsibility">تحمل المسؤولية (+3)</option>
-            <option value="presenting_to_class">عرض العمل أمام الصف (+3)</option>
-            <option value="calm_during_work">الالتزام بالهدوء أثناء العمل (+2)</option>
-            <option value="school_activity">المشاركة في نشاط مدرسي (+4)</option>
-            <option value="extra_distinguished_work">إحضار عمل إضافي مميز (+4)</option>
-            <option value="full_mark">الحصول على الدرجة الكاملة (+5)</option>
-            <option value="late_arrival">تأخر عن الحصة (-1)</option>
-            <option value="disruption">إزعاج (-2)</option>
-            <option value="unprepared_tools">عدم إحضار الأدوات (-2)</option>
-            <option value="homework_missing">عدم حل الواجب (-3)</option>
-            <option value="disrespect">عدم الالتزام بالتعليمات (-3)</option>
-            <option value="speaking_without_permission">التحدث دون استئذان (-1)</option>
-            <option value="incomplete_class_task">عدم إكمال المهمة الصفية (-2)</option>
-            <option value="forgotten_book_or_notebook">نسيان الكتاب أو الدفتر (-2)</option>
-            <option value="interrupting_others">مقاطعة المعلم أو الزملاء (-2)</option>
-            <option value="tampering_with_class_property">العبث بممتلكات الصف (-3)</option>
-            <option value="poor_group_cooperation">عدم التعاون مع المجموعة (-2)</option>
-            <option value="repeated_lateness">تكرار التأخر عن الحصة (-2)</option>
-            <option value="cheating_or_copying">الغش أو نقل الإجابة (-4)</option>
-            <option value="bullying">التنمر أو الإساءة للزملاء (-5)</option>
-            <option value="leaving_without_permission">مغادرة المكان دون استئذان (-3)</option>
-            <option value="ignoring_repeated_warning">تجاهل التنبيه المتكرر (-3)</option>
+            ${renderSortedReasonOptions()}
           </select>
           <button class="btn secondary" onclick="applySelectedReason('${s.id}')">تطبيق السبب</button>
           ${isManager
