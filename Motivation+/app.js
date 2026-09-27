@@ -41,11 +41,34 @@ const reasons = {
   attendance_on_time: { label: "انضباط بالحضور والوقت", delta: 2 },
   helping_others: { label: "مساعدة زملائه", delta: 2 },
   neatness: { label: "ترتيب ونظافة الدفتر", delta: 2 },
+  answer_initiative: { label: "المبادرة بالإجابة", delta: 2 },
+  excellent_question: { label: "طرح سؤال مميز", delta: 2 },
+  academic_improvement: { label: "تحسين المستوى الدراسي", delta: 3 },
+  early_task_completion: { label: "إنجاز المهمة قبل الوقت", delta: 2 },
+  protecting_class_property: { label: "المحافظة على ممتلكات الصف", delta: 2 },
+  encouraging_classmates: { label: "تشجيع الزملاء", delta: 2 },
+  taking_responsibility: { label: "تحمل المسؤولية", delta: 3 },
+  presenting_to_class: { label: "عرض العمل أمام الصف", delta: 3 },
+  calm_during_work: { label: "الالتزام بالهدوء أثناء العمل", delta: 2 },
+  school_activity: { label: "المشاركة في نشاط مدرسي", delta: 4 },
+  extra_distinguished_work: { label: "إحضار عمل إضافي مميز", delta: 4 },
+  full_mark: { label: "الحصول على الدرجة الكاملة", delta: 5 },
   late_arrival: { label: "تأخر عن الحصة", delta: -1 },
   disruption: { label: "إزعاج", delta: -2 },
   unprepared_tools: { label: "عدم إحضار الأدوات", delta: -2 },
   homework_missing: { label: "عدم حل الواجب", delta: -3 },
-  disrespect: { label: "عدم الالتزام بالتعليمات", delta: -3 }
+  disrespect: { label: "عدم الالتزام بالتعليمات", delta: -3 },
+  speaking_without_permission: { label: "التحدث دون استئذان", delta: -1 },
+  incomplete_class_task: { label: "عدم إكمال المهمة الصفية", delta: -2 },
+  forgotten_book_or_notebook: { label: "نسيان الكتاب أو الدفتر", delta: -2 },
+  interrupting_others: { label: "مقاطعة المعلم أو الزملاء", delta: -2 },
+  tampering_with_class_property: { label: "العبث بممتلكات الصف", delta: -3 },
+  poor_group_cooperation: { label: "عدم التعاون مع المجموعة", delta: -2 },
+  repeated_lateness: { label: "تكرار التأخر عن الحصة", delta: -2 },
+  cheating_or_copying: { label: "الغش أو نقل الإجابة", delta: -4 },
+  bullying: { label: "التنمر أو الإساءة للزملاء", delta: -5 },
+  leaving_without_permission: { label: "مغادرة المكان دون استئذان", delta: -3 },
+  ignoring_repeated_warning: { label: "تجاهل التنبيه المتكرر", delta: -3 }
 };
 const LEVEL_STEP_POINTS = 50;
 const MIN_STUDENT_POINTS = -20;
@@ -1989,8 +2012,7 @@ function renderStudentsTable() {
   const filteredStudents = rankStudents(cls).filter((s) => {
     if (!searchTerm) return true;
     const name = normalizeName(s && s.name ? s.name : "").toLowerCase();
-    const code = normalizeName(s && s.code ? s.code : "").toLowerCase();
-    return name.includes(searchTerm) || code.includes(searchTerm);
+    return name.includes(searchTerm);
   });
 
   if (!filteredStudents.length) {
@@ -2006,9 +2028,7 @@ function renderStudentsTable() {
         <div id="photo-${s.id}" class="student-photo-badge">${renderPhotoCellContent(s.name, "")}</div>
       </td>
       <td>${s.name}<span class="level-chip">${lvl.emoji} ${lvl.name}</span>${s.team ? `<span class="team-chip">${s.team}</span>` : ""}</td>
-      <td><span class="code-chip">${s.code}</span></td>
       <td>${s.points || 0}</td>
-      <td><img src="https://api.qrserver.com/v1/create-qr-code/?size=65x65&data=${encodeURIComponent(s.code)}" alt="QR" loading="lazy" decoding="async" width="65" height="65"/></td>
       <td>
         <div class="action-buttons">
           <input id="photo-input-${s.id}" class="student-photo-input" type="file" accept="image/*" onchange="handleStudentPhotoUpload('${s.id}', event)" />
@@ -2028,11 +2048,34 @@ function renderStudentsTable() {
             <option value="attendance_on_time">انضباط بالحضور والوقت (+2)</option>
             <option value="helping_others">مساعدة زملائه (+2)</option>
             <option value="neatness">ترتيب ونظافة الدفتر (+2)</option>
+            <option value="answer_initiative">المبادرة بالإجابة (+2)</option>
+            <option value="excellent_question">طرح سؤال مميز (+2)</option>
+            <option value="academic_improvement">تحسين المستوى الدراسي (+3)</option>
+            <option value="early_task_completion">إنجاز المهمة قبل الوقت (+2)</option>
+            <option value="protecting_class_property">المحافظة على ممتلكات الصف (+2)</option>
+            <option value="encouraging_classmates">تشجيع الزملاء (+2)</option>
+            <option value="taking_responsibility">تحمل المسؤولية (+3)</option>
+            <option value="presenting_to_class">عرض العمل أمام الصف (+3)</option>
+            <option value="calm_during_work">الالتزام بالهدوء أثناء العمل (+2)</option>
+            <option value="school_activity">المشاركة في نشاط مدرسي (+4)</option>
+            <option value="extra_distinguished_work">إحضار عمل إضافي مميز (+4)</option>
+            <option value="full_mark">الحصول على الدرجة الكاملة (+5)</option>
             <option value="late_arrival">تأخر عن الحصة (-1)</option>
             <option value="disruption">إزعاج (-2)</option>
             <option value="unprepared_tools">عدم إحضار الأدوات (-2)</option>
             <option value="homework_missing">عدم حل الواجب (-3)</option>
             <option value="disrespect">عدم الالتزام بالتعليمات (-3)</option>
+            <option value="speaking_without_permission">التحدث دون استئذان (-1)</option>
+            <option value="incomplete_class_task">عدم إكمال المهمة الصفية (-2)</option>
+            <option value="forgotten_book_or_notebook">نسيان الكتاب أو الدفتر (-2)</option>
+            <option value="interrupting_others">مقاطعة المعلم أو الزملاء (-2)</option>
+            <option value="tampering_with_class_property">العبث بممتلكات الصف (-3)</option>
+            <option value="poor_group_cooperation">عدم التعاون مع المجموعة (-2)</option>
+            <option value="repeated_lateness">تكرار التأخر عن الحصة (-2)</option>
+            <option value="cheating_or_copying">الغش أو نقل الإجابة (-4)</option>
+            <option value="bullying">التنمر أو الإساءة للزملاء (-5)</option>
+            <option value="leaving_without_permission">مغادرة المكان دون استئذان (-3)</option>
+            <option value="ignoring_repeated_warning">تجاهل التنبيه المتكرر (-3)</option>
           </select>
           <button class="btn secondary" onclick="applySelectedReason('${s.id}')">تطبيق السبب</button>
           ${isManager
@@ -2046,7 +2089,7 @@ function renderStudentsTable() {
 
   wrap.innerHTML = `
     <table>
-      <thead><tr><th>الصورة</th><th>الطالب</th><th>الكود</th><th>النقاط</th><th>QR</th><th>إجراء سريع</th></tr></thead>
+      <thead><tr><th>الصورة</th><th>الطالب</th><th>النقاط</th><th>إجراء سريع</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
   `;

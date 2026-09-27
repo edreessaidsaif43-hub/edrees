@@ -486,7 +486,7 @@ pre {
 }
 .leaderboard { min-height: 450px; }
 #students-table { overflow-x: auto; }
-#students-table table { min-width: 860px; }
+#students-table table { min-width: 680px; }
 .wheel-wrap {
   position: relative;
   width: 220px;
