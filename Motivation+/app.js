@@ -310,23 +310,116 @@ function copyStudentPhotosBetweenStates(targetState, sourceState) {
   return targetState;
 }
 
+const STUDENT_PHOTO_DB_VERSION = 1;
+let studentPhotoDbPromise = null;
+
+function openStudentPhotoDb() {
+  if (!window.indexedDB) return Promise.resolve(null);
+  if (studentPhotoDbPromise) return studentPhotoDbPromise;
+  studentPhotoDbPromise = new Promise((resolve) => {
+    const request = window.indexedDB.open(STUDENT_PHOTO_DB, STUDENT_PHOTO_DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STUDENT_PHOTO_STORE)) {
+        db.createObjectStore(STUDENT_PHOTO_STORE, { keyPath: "key" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+    request.onblocked = () => resolve(null);
+  });
+  return studentPhotoDbPromise;
+}
+
+function studentPhotoStorageKey(cls, student) {
+  if (!cls || !student) return "";
+  const teacherKey = normalizeName(currentTeacher && (currentTeacher.id || currentTeacher.userId) || "public");
+  const classKey = normalizeName(cls.sharedId || cls.id || "class");
+  const studentKey = normalizeName(student.code || student.id || "student");
+  return [teacherKey, classKey, studentKey].join("::");
+}
+
+async function writeStudentPhotoCache(cls, student, dataUrl) {
+  const key = studentPhotoStorageKey(cls, student);
+  if (!key) return false;
+  try {
+    const db = await openStudentPhotoDb();
+    if (!db) return false;
+    return await new Promise((resolve) => {
+      const tx = db.transaction(STUDENT_PHOTO_STORE, "readwrite");
+      tx.objectStore(STUDENT_PHOTO_STORE).put({ key, dataUrl: String(dataUrl || ""), savedAt: Date.now() });
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    });
+  } catch {
+    return false;
+  }
+}
+
+async function readStudentPhotoCache(cls, student) {
+  const key = studentPhotoStorageKey(cls, student);
+  if (!key) return "";
+  try {
+    const db = await openStudentPhotoDb();
+    if (!db) return "";
+    return await new Promise((resolve) => {
+      const tx = db.transaction(STUDENT_PHOTO_STORE, "readonly");
+      const request = tx.objectStore(STUDENT_PHOTO_STORE).get(key);
+      request.onsuccess = () => resolve(String(request.result && request.result.dataUrl || ""));
+      request.onerror = () => resolve("");
+    });
+  } catch {
+    return "";
+  }
+}
+
+async function deleteStudentPhotoCache(cls, student) {
+  const key = studentPhotoStorageKey(cls, student);
+  if (!key) return false;
+  try {
+    const db = await openStudentPhotoDb();
+    if (!db) return false;
+    return await new Promise((resolve) => {
+      const tx = db.transaction(STUDENT_PHOTO_STORE, "readwrite");
+      tx.objectStore(STUDENT_PHOTO_STORE).delete(key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    });
+  } catch {
+    return false;
+  }
+}
+
 
 async function setStudentPhotoDataUrl(cls, studentId, dataUrl) {
   const student = findStudentInClass(cls, studentId);
   if (!student) return;
   student.photoDataUrl = String(dataUrl || "");
   student.photoDeletedAt = dataUrl ? 0 : Date.now();
+  if (dataUrl) await writeStudentPhotoCache(cls, student, dataUrl);
+  else await deleteStudentPhotoCache(cls, student);
 }
 
 async function getStudentPhotoDataUrl(cls, studentId) {
   const student = findStudentInClass(cls, studentId);
   if (!student) return "";
-  return String(student.photoDataUrl || "");
+  const statePhoto = String(student.photoDataUrl || "");
+  if (statePhoto) {
+    writeStudentPhotoCache(cls, student, statePhoto);
+    return statePhoto;
+  }
+  if (Number(student.photoDeletedAt || 0) > 0) return "";
+  const cachedPhoto = await readStudentPhotoCache(cls, student);
+  if (cachedPhoto) student.photoDataUrl = cachedPhoto;
+  return cachedPhoto;
 }
 
 async function removeStudentPhotoDataUrl(cls, studentId) {
   const student = findStudentInClass(cls, studentId);
   if (!student) return;
+  await deleteStudentPhotoCache(cls, student);
   student.photoDataUrl = "";
   student.photoDeletedAt = Date.now();
 }
@@ -334,6 +427,7 @@ async function removeStudentPhotoDataUrl(cls, studentId) {
 async function removeAllClassStudentPhotos(cls) {
   if (!cls || !Array.isArray(cls.students) || !cls.students.length) return;
   const deletedAt = Date.now();
+  await Promise.all((cls.students || []).map((s) => deleteStudentPhotoCache(cls, s)));
   (cls.students || []).forEach((s) => {
     s.photoDataUrl = "";
     s.photoDeletedAt = deletedAt;
