@@ -328,6 +328,15 @@ function normalizeSubjectName(value) {
     .trim();
   const compact = normalized.replace(/\s+/g, '');
   if (
+    compact.includes('انجليزي') ||
+    compact.includes('الانجليزي') ||
+    compact.includes('اللغهالانجليزيه') ||
+    compact.includes('لغهانجليزيه') ||
+    compact.toLowerCase().includes('english')
+  ) {
+    return 'english';
+  }
+  if (
     compact.includes('التربيهالبدنيهوالصحيه') ||
     compact.includes('تربيهبدنيهصحيه') ||
     compact.includes('الرياضهالمدرسيه') ||
