@@ -360,6 +360,23 @@ th, td {
   font-size: .8rem;
   font-weight: 800;
 }
+
+.student-name-cell .student-name-line {
+  font-weight: 800;
+}
+
+.student-name-cell .student-meta-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.student-name-cell .student-meta-line .level-chip,
+.student-name-cell .student-meta-line .team-chip {
+  margin-inline-start: 0;
+}
 .reward-store-list {
   margin-top: 8px;
   display: grid;

@@ -63,6 +63,7 @@ const reasons = {
   forgotten_book_or_notebook: { label: "نسيان الكتاب أو الدفتر", delta: -2 },
   interrupting_others: { label: "مقاطعة المعلم أو الزملاء", delta: -2 },
   tampering_with_class_property: { label: "العبث بممتلكات الصف", delta: -3 },
+  eating_in_class: { label: "الأكل في الصف", delta: -3 },
   poor_group_cooperation: { label: "عدم التعاون مع المجموعة", delta: -2 },
   repeated_lateness: { label: "تكرار التأخر عن الحصة", delta: -2 },
   cheating_or_copying: { label: "الغش أو نقل الإجابة", delta: -4 },
@@ -2047,7 +2048,13 @@ function renderStudentsTable() {
       <td>
         <div id="photo-${s.id}" class="student-photo-badge">${renderPhotoCellContent(s.name, "")}</div>
       </td>
-      <td>${s.name}<span class="level-chip">${lvl.emoji} ${lvl.name}</span>${s.team ? `<span class="team-chip">${s.team}</span>` : ""}</td>
+      <td class="student-name-cell">
+        <div class="student-name-line">${s.name}</div>
+        <div class="student-meta-line">
+          <span class="level-chip">${lvl.emoji} ${lvl.name}</span>
+          ${s.team ? `<span class="team-chip">${s.team}</span>` : ""}
+        </div>
+      </td>
       <td>${s.points || 0}</td>
       <td>
         <div class="action-buttons">
