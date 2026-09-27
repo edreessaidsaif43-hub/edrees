@@ -1272,6 +1272,11 @@ let wheelBusy = false;
 let wheelTicker = null;
 let wheelTimers = [];
 let activeWheelEventId = "";
+let wheelHoldFrame = null;
+let wheelHoldStartedAt = 0;
+let wheelHoldLastAt = 0;
+let wheelHoldSpeed = 0;
+let wheelHoldActive = false;
 let luckyBusy = false;
 let luckyTicker = null;
 let luckyTimers = [];
@@ -3579,12 +3584,90 @@ function findStudentNameById(cls, studentId) {
 }
 
 function clearWheelPlayback() {
+  if (wheelHoldFrame) {
+    cancelAnimationFrame(wheelHoldFrame);
+    wheelHoldFrame = null;
+  }
   if (wheelTicker) {
     clearInterval(wheelTicker);
     wheelTicker = null;
   }
   wheelTimers.forEach((timer) => clearTimeout(timer));
   wheelTimers = [];
+}
+
+function beginWheelHold() {
+  if (!ensureAuthOrNotify()) return false;
+  const cls = ensureClassOrNotify();
+  if (!cls || wheelBusy || wheelHoldActive) return false;
+  const students = (cls.students || []).filter((student) => student && student.id && normalizeName(student.name));
+  const result = document.getElementById("wheel-result");
+  const center = document.getElementById("wheel-center-text");
+  const wheel = document.getElementById("student-wheel");
+  if (!students.length) {
+    if (result) result.textContent = "أضف طلابا أولا ثم ابدأ التدوير.";
+    if (center) center.textContent = "لا يوجد طلاب";
+    return false;
+  }
+  if (!wheel || !result || !center) return false;
+  enterFeatureFullscreen("feature-wheel");
+  clearWheelPlayback();
+  drawProfessionalWheelCanvas(cls.students || []);
+  wheelBusy = true;
+  wheelHoldActive = true;
+  wheelHoldStartedAt = performance.now();
+  wheelHoldLastAt = wheelHoldStartedAt;
+  wheelHoldSpeed = 160;
+  wheel.style.transition = "none";
+  result.textContent = "استمر بالضغط لتدوير العجلة، ثم ارفع إصبعك للاختيار.";
+  center.textContent = "اترك للاختيار";
+  playEventSound("spin");
+  pulseFeatureCardById("feature-wheel", "spin");
+
+  const animate = (now) => {
+    if (!wheelHoldActive) return;
+    const dt = Math.min(0.05, Math.max(0, (now - wheelHoldLastAt) / 1000));
+    const heldFor = Math.max(0, (now - wheelHoldStartedAt) / 1000);
+    wheelHoldSpeed = Math.min(900, 160 + heldFor * 380);
+    wheelRotation += wheelHoldSpeed * dt;
+    wheel.style.transform = "rotate(" + wheelRotation + "deg)";
+    wheelHoldLastAt = now;
+    wheelHoldFrame = requestAnimationFrame(animate);
+  };
+  wheelHoldFrame = requestAnimationFrame(animate);
+  return true;
+}
+
+function releaseWheelHold() {
+  if (!wheelHoldActive) return;
+  wheelHoldActive = false;
+  if (wheelHoldFrame) cancelAnimationFrame(wheelHoldFrame);
+  wheelHoldFrame = null;
+  wheelBusy = false;
+  const cls = getActiveClass();
+  const students = (cls && cls.students || []).filter((student) => student && student.id && normalizeName(student.name));
+  if (!students.length) return;
+  const winnerIndex = Math.floor(Math.random() * students.length);
+  const winner = students[winnerIndex];
+  const segment = 360 / students.length;
+  const winnerAngle = winnerIndex * segment + segment / 2;
+  const pointerAngle = 270;
+  const startRotation = wheelRotation;
+  const currentRotation = ((startRotation % 360) + 360) % 360;
+  const jitter = Math.random() * segment * 0.32 - segment * 0.16;
+  const targetRotation = ((pointerAngle - winnerAngle + jitter) % 360 + 360) % 360;
+  const deltaRotation = (targetRotation - currentRotation + 360) % 360;
+  const momentumRounds = Math.max(4, Math.min(9, Math.round(wheelHoldSpeed / 120)));
+  const duration = Math.max(2600, Math.min(4300, 2300 + wheelHoldSpeed * 2));
+  runSyncedWheelEvent({
+    id: syncedGameId("wheel-hold"),
+    type: "wheel",
+    startsAt: Date.now(),
+    endsAt: Date.now() + duration,
+    winnerStudentId: winner.id,
+    startRotation,
+    finalRotation: startRotation + momentumRounds * 360 + deltaRotation
+  });
 }
 
 function scheduleWheelTimer(fn, delay) {
@@ -4651,12 +4734,33 @@ document.getElementById("clear-teams").addEventListener("click", () => {
   renderAll();
 });
 
-document.getElementById("spin-wheel").addEventListener("click", () => {
-  startWheelSpin();
+const wheelPressTargets = [document.querySelector("#feature-wheel .wheel-wrap"), document.getElementById("spin-wheel")].filter(Boolean);
+wheelPressTargets.forEach((target) => {
+  target.addEventListener("pointerdown", (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    if (beginWheelHold() && target.setPointerCapture) target.setPointerCapture(event.pointerId);
+  });
+  target.addEventListener("pointerup", (event) => {
+    event.preventDefault();
+    releaseWheelHold();
+  });
+  target.addEventListener("pointercancel", releaseWheelHold);
+  target.addEventListener("lostpointercapture", releaseWheelHold);
+  target.addEventListener("click", (event) => event.preventDefault());
 });
 
-document.getElementById("wheel-center-text").addEventListener("click", () => {
-  startWheelSpin();
+document.getElementById("wheel-center-text").addEventListener("keydown", (event) => {
+  if ((event.key === " " || event.key === "Enter") && !event.repeat) {
+    event.preventDefault();
+    beginWheelHold();
+  }
+});
+document.getElementById("wheel-center-text").addEventListener("keyup", (event) => {
+  if (event.key === " " || event.key === "Enter") {
+    event.preventDefault();
+    releaseWheelHold();
+  }
 });
 
 

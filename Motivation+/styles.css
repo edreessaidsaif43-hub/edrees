@@ -491,6 +491,9 @@ pre {
   position: relative;
   width: 220px;
   margin: 8px auto 12px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .wheel-pointer {
   text-align: center;
@@ -523,6 +526,7 @@ pre {
   justify-content: center;
   text-align: center;
   padding: 8px;
+  touch-action: none;
 }
 #spin-wheel[disabled] {
   opacity: .7;
