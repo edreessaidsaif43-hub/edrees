@@ -387,7 +387,7 @@ function renderPhotoCellContent(studentName, dataUrl) {
   const rawName = String(studentName || "");
   const safeName = rawName.replace(/"/g, "&quot;");
   if (dataUrl) {
-    return `<img src="${dataUrl}" alt="صورة ${safeName}" loading="lazy" decoding="async" width="78" height="78" />`;
+    return `<img src="${dataUrl}" alt="صورة ${safeName}" decoding="async" width="78" height="78" />`;
   }
   return `<span>${studentInitials(rawName)}</span>`;
 }
@@ -2046,7 +2046,7 @@ function renderStudentsTable() {
     return `
     <tr>
       <td>
-        <div id="photo-${s.id}" class="student-photo-badge">${renderPhotoCellContent(s.name, "")}</div>
+        <div id="photo-${s.id}" class="student-photo-badge">${renderPhotoCellContent(s.name, s.photoDataUrl || "")}</div>
       </td>
       <td class="student-name-cell">
         <div class="student-name-line">${s.name}</div>
