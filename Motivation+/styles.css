@@ -277,6 +277,49 @@ th, td {
   font-size: .94rem;
 }
 .action-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+.bonus-student-picker {
+  margin: 12px 0;
+  border: 1px solid #dbe4ee;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+.bonus-student-picker-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  background: #f8fafc;
+  border-bottom: 1px solid #dbe4ee;
+}
+.bonus-student-picker-head .muted { margin-inline-end: auto; }
+.bonus-student-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.bonus-student-option {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #edf2f7;
+  cursor: pointer;
+}
+.bonus-student-option:hover { background: #f8fafc; }
+.bonus-student-option input { width: 18px; height: 18px; margin: 0; }
+.bonus-student-option span { min-width: 0; overflow-wrap: anywhere; font-weight: 700; }
+.bonus-student-option small { white-space: nowrap; color: #52616f; }
+
+@media (max-width: 600px) {
+  .bonus-student-options { grid-template-columns: 1fr; max-height: 300px; }
+  .bonus-student-picker-head .muted { width: 100%; margin-inline-end: 0; }
+}
 .student-photo-input { display: none; }
 .student-photo-badge,
 .profile-photo {
@@ -4629,4 +4672,15 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   min-width: 56px !important;
   max-width: 56px !important;
   object-fit: cover !important;
+}
+
+#feature-points .bonus-student-option input[type="checkbox"] {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  max-width: 18px !important;
+  max-height: 18px !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }

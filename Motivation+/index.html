@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20260927-student-meta-below-name-1" />
+  <link rel="stylesheet" href="./styles.css?v=20260928-multi-student-points-1" />
 <style id="copied-index-navbar-style">
   :root{--blue:#1a56c8;--blue2:#0f3d9e;--green:#1a8a3a;--ink:#0a1628;--ink3:#5a7a9a;--paper:#f7f9fc;--paper2:#eef2f8;--line:#d0dcea;--w:#fff}
   #nav{position:fixed;top:0;left:0;right:0;z-index:9999;height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(247,249,252,.95);border-bottom:1px solid var(--line);backdrop-filter:blur(12px);transition:box-shadow .3s;font-family:'Tajawal',sans-serif;box-sizing:border-box}
@@ -407,10 +407,18 @@
 
 
           <article id="feature-points" class="card section-11" data-teacher-panel="points">
-            <h2>تعديل نقاط الطالب (إضافة / خصم)</h2>
-            <p class="muted">اختر الطالب ونوع العملية، ثم أدخل عدد النقاط وسببها.</p>
+            <h2>تعديل نقاط الطلاب (إضافة / خصم)</h2>
+            <p class="muted">اختر طالبًا واحدًا أو عدة طلاب، ثم حدد العملية وعدد النقاط والسبب.</p>
+            <div class="bonus-student-picker">
+              <div class="bonus-student-picker-head">
+                <strong>اختر الطلاب</strong>
+                <span id="bonus-student-selection-count" class="muted">لم يتم تحديد طلاب</span>
+                <button id="bonus-select-all" class="btn secondary" type="button">تحديد الكل</button>
+                <button id="bonus-clear-selection" class="btn secondary" type="button">إلغاء التحديد</button>
+              </div>
+              <div id="bonus-student-select" class="bonus-student-options" role="group" aria-label="اختيار الطلاب"></div>
+            </div>
             <div class="field-row">
-              <select id="bonus-student-select"></select>
               <select id="bonus-operation" aria-label="نوع تعديل النقاط">
                 <option value="add">إضافة نقاط</option>
                 <option value="subtract">خصم نقاط</option>
@@ -637,7 +645,7 @@
       }
     })();
   </script>
-  <script src="./app.js?v=20260927-student-photo-store-2"></script>
+  <script src="./app.js?v=20260928-multi-student-points-1"></script>
 </body>
 </html>
 

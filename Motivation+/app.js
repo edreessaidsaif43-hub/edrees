@@ -4273,37 +4273,66 @@ function renderParentPanel(found) {
 }
 
 function renderDirectPointsCard() {
-  const select = document.getElementById("bonus-student-select");
+  const picker = document.getElementById("bonus-student-select");
   const status = document.getElementById("bonus-points-status");
-  if (!select || !status) return;
+  const selectAllButton = document.getElementById("bonus-select-all");
+  const clearButton = document.getElementById("bonus-clear-selection");
+  if (!picker || !status) return;
 
   if (!currentTeacher) {
-    select.innerHTML = "<option value=''>سجل الدخول أولاً</option>";
+    picker.innerHTML = "<p class='muted'>سجل الدخول أولاً.</p>";
+    if (selectAllButton) selectAllButton.disabled = true;
+    if (clearButton) clearButton.disabled = true;
     status.textContent = "ميزة تعديل النقاط المباشرة متاحة بعد تسجيل الدخول.";
+    updateBonusStudentSelectionCount();
     return;
   }
 
   const cls = getActiveClass();
   if (!cls) {
-    select.innerHTML = "<option value=''>لا يوجد صف نشط</option>";
+    picker.innerHTML = "<p class='muted'>لا يوجد صف نشط.</p>";
+    if (selectAllButton) selectAllButton.disabled = true;
+    if (clearButton) clearButton.disabled = true;
     status.textContent = "أنشئ صفًا أولاً لاستخدام هذه البطاقة.";
+    updateBonusStudentSelectionCount();
     return;
   }
 
   if (!Array.isArray(cls.students) || !cls.students.length) {
-    select.innerHTML = "<option value=''>لا يوجد طلاب</option>";
+    picker.innerHTML = "<p class='muted'>لا يوجد طلاب.</p>";
+    if (selectAllButton) selectAllButton.disabled = true;
+    if (clearButton) clearButton.disabled = true;
     status.textContent = "أضف طلابًا أولاً ثم عدّل النقاط لهم.";
+    updateBonusStudentSelectionCount();
     return;
   }
 
-  const currentValue = normalizeName(select.value);
+  const currentValues = new Set(Array.from(picker.querySelectorAll("input[type='checkbox']:checked")).map((input) => input.value));
   const ranked = rankStudents(cls);
-  select.innerHTML = "<option value=''>اختر الطالب</option>" + ranked.map((s) => {
-    const selected = currentValue === s.id ? "selected" : "";
-    return `<option value="${s.id}" ${selected}>${s.name} (${Number(s.points || 0)} نقطة)</option>`;
+  picker.innerHTML = ranked.map((s) => {
+    const checked = currentValues.has(s.id) ? "checked" : "";
+    return `<label class="bonus-student-option">
+      <input type="checkbox" value="${s.id}" ${checked} />
+      <span>${s.name}</span>
+      <small>${Number(s.points || 0)} نقطة</small>
+    </label>`;
   }).join("");
+  picker.querySelectorAll("input[type='checkbox']").forEach((input) => {
+    input.addEventListener("change", updateBonusStudentSelectionCount);
+  });
+  if (selectAllButton) selectAllButton.disabled = false;
+  if (clearButton) clearButton.disabled = false;
+  updateBonusStudentSelectionCount();
 
   status.textContent = "اختر إضافة أو خصم، ثم اكتب السبب الإجباري.";
+}
+
+function updateBonusStudentSelectionCount() {
+  const picker = document.getElementById("bonus-student-select");
+  const countLabel = document.getElementById("bonus-student-selection-count");
+  if (!picker || !countLabel) return;
+  const count = picker.querySelectorAll("input[type='checkbox']:checked").length;
+  countLabel.textContent = count ? `تم تحديد ${count} طالب` : "لم يتم تحديد طلاب";
 }
 
 let activeTeacherPanelName = "students";
@@ -5011,32 +5040,49 @@ document.getElementById("reset-mini-challenge").addEventListener("click", () => 
 // Student / parent portals
 
 
+document.getElementById("bonus-select-all").addEventListener("click", () => {
+  document.querySelectorAll("#bonus-student-select input[type='checkbox']").forEach((input) => {
+    input.checked = true;
+  });
+  updateBonusStudentSelectionCount();
+});
+
+document.getElementById("bonus-clear-selection").addEventListener("click", () => {
+  document.querySelectorAll("#bonus-student-select input[type='checkbox']").forEach((input) => {
+    input.checked = false;
+  });
+  updateBonusStudentSelectionCount();
+});
+
 document.getElementById("add-bonus-points").addEventListener("click", async () => {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
   if (!cls) return;
 
-  const select = document.getElementById("bonus-student-select");
+  const picker = document.getElementById("bonus-student-select");
   const operationEl = document.getElementById("bonus-operation");
   const pointsEl = document.getElementById("bonus-points");
   const reasonEl = document.getElementById("bonus-reason");
   const status = document.getElementById("bonus-points-status");
-  if (!select || !operationEl || !pointsEl || !reasonEl || !status) return;
+  if (!picker || !operationEl || !pointsEl || !reasonEl || !status) return;
 
-  const studentId = normalizeName(select.value);
+  const selectedIds = Array.from(picker.querySelectorAll("input[type='checkbox']:checked"))
+    .map((input) => normalizeName(input.value))
+    .filter(Boolean);
   const pointsAmount = Math.abs(Number(pointsEl.value || 0));
   if (!Number.isFinite(pointsAmount) || pointsAmount <= 0) {
     status.textContent = "أدخل عدد نقاط صحيحًا أكبر من صفر.";
     return;
   }
-  if (!studentId) {
-    status.textContent = "اختر الطالب أولاً.";
+  if (!selectedIds.length) {
+    status.textContent = "اختر طالبًا واحدًا على الأقل.";
     return;
   }
 
-  const student = (cls.students || []).find((s) => s.id === studentId);
-  if (!student) {
-    status.textContent = "تعذر العثور على الطالب المختار.";
+  const selectedIdSet = new Set(selectedIds);
+  const selectedStudents = (cls.students || []).filter((student) => selectedIdSet.has(student.id));
+  if (!selectedStudents.length) {
+    status.textContent = "تعذر العثور على الطلاب المحددين.";
     return;
   }
 
@@ -5049,22 +5095,22 @@ document.getElementById("add-bonus-points").addEventListener("click", async () =
   const delta = operationEl.value === "subtract" ? -pointsAmount : pointsAmount;
   const reasonLabel = customReason;
   if (delta < 0) {
-    const ok = window.confirm(`سيتم خصم ${Math.abs(delta)} نقطة من الطالب ${student.name}. هل تريد المتابعة؟`);
+    const ok = window.confirm(`سيتم خصم ${Math.abs(delta)} نقطة من ${selectedStudents.length} طالب. هل تريد المتابعة؟`);
     if (!ok) return;
   }
-  applyPointsChange(student, delta, reasonLabel);
+  selectedStudents.forEach((student) => applyPointsChange(student, delta, reasonLabel));
   const savedLocally = saveTeacherData({ skipPublicCache: true, skipRemoteSchedule: true });
   const remoteSavePromise = flushRemoteSaveNow([], { preserveMedia: true });
   renderAfterPointsChange();
   if (delta > 0) {
     playEventSound("winner");
-    triggerCelebration("⭐ إضافة نقاط مباشرة", `${student.name} حصل على ${Math.abs(delta)} نقطة`);
+    triggerCelebration("⭐ إضافة نقاط مباشرة", `حصل ${selectedStudents.length} طالب على ${Math.abs(delta)} نقطة`);
     document.getElementById("bonus-points-status").textContent = savedLocally
-      ? `تمت إضافة ${Math.abs(delta)} نقطة للطالب ${student.name}. جاري المزامنة...`
+      ? `تمت إضافة ${Math.abs(delta)} نقطة إلى ${selectedStudents.length} طالب. جاري المزامنة...`
       : "جاري حفظ النقاط على الخادم...";
   } else {
     document.getElementById("bonus-points-status").textContent = savedLocally
-      ? `تم خصم ${Math.abs(delta)} نقطة من الطالب ${student.name}. جاري المزامنة...`
+      ? `تم خصم ${Math.abs(delta)} نقطة من ${selectedStudents.length} طالب. جاري المزامنة...`
       : "جاري حفظ النقاط على الخادم...";
   }
   pointsEl.value = String(pointsAmount);
@@ -5078,8 +5124,8 @@ document.getElementById("add-bonus-points").addEventListener("click", async () =
     showAuthMessage("حُفظت النقاط على هذا الجهاز فقط. تعذرت المزامنة مع الخادم.", true);
   } else {
     document.getElementById("bonus-points-status").textContent = delta > 0
-      ? `تمت إضافة ${Math.abs(delta)} نقطة للطالب ${student.name} وحفظها.`
-      : `تم خصم ${Math.abs(delta)} نقطة من الطالب ${student.name} وحفظها.`;
+      ? `تمت إضافة ${Math.abs(delta)} نقطة إلى ${selectedStudents.length} طالب وحفظها.`
+      : `تم خصم ${Math.abs(delta)} نقطة من ${selectedStudents.length} طالب وحفظها.`;
   }
 });
 document.getElementById("student-login").addEventListener("click", async () => {
