@@ -2244,6 +2244,51 @@ main {
   }
 }
 
+#parent-panel .parent-point-entry {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid;
+  border-radius: 8px;
+}
+
+#parent-panel .parent-point-positive {
+  color: #166534;
+  background: #ecfdf5;
+  border-color: #86efac;
+}
+
+#parent-panel .parent-point-negative {
+  color: #991b1b;
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+#parent-panel .parent-point-face {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+#parent-panel .parent-point-details { min-width: 0; }
+#parent-panel .parent-point-entry small { color: inherit !important; opacity: 0.78; }
+
+@media (max-width: 520px) {
+  #parent-panel .parent-point-entry {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  #parent-panel .parent-point-entry small {
+    grid-column: 2;
+  }
+}
+
 /* Mobile bottom navigation: match the provided phone mockup options exactly. */
 @media (max-width: 760px) {
   .teacher-side-nav {

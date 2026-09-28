@@ -4249,8 +4249,11 @@ function renderParentPanel(found) {
     ? `<div class="reward-store-list">
         ${pointsHistory.map((entry) => {
           const delta = Number(entry.delta || 0);
-          return `<div class="reward-store-item">
-            <span><strong>${delta > 0 ? "+" : ""}${delta} نقطة</strong> — ${escapeReportMarkup(entry.reason || "بدون سبب")}</span>
+          const pointType = delta > 0 ? "positive" : "negative";
+          const pointFace = delta > 0 ? "😊" : "😢";
+          return `<div class="reward-store-item parent-point-entry parent-point-${pointType}">
+            <span class="parent-point-face" aria-hidden="true">${pointFace}</span>
+            <span class="parent-point-details"><strong>${delta > 0 ? "+" : ""}${delta} نقطة</strong> — ${escapeReportMarkup(entry.reason || "بدون سبب")}</span>
             <small class="muted">${formatMessageDateTime(entry.at)}</small>
           </div>`;
         }).join("")}
