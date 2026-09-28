@@ -71,7 +71,61 @@ const reasons = {
   leaving_without_permission: { label: "مغادرة المكان دون استئذان", delta: -3 },
   ignoring_repeated_warning: { label: "تجاهل التنبيه المتكرر", delta: -3 }
 };
-const LEVEL_STEP_POINTS = 50;
+const LEVEL_STEP_POINTS = 10;
+const MAX_LEVEL_POINTS = 500;
+const STUDENT_RANK_NAMES = [
+  "بداية الرحلة",
+  "النجم الواعد",
+  "المجتهد",
+  "المتألق",
+  "المبادر",
+  "المثابر",
+  "المبدع",
+  "المتفوق",
+  "نجم الصف",
+  "القدوة",
+  "البطل البرونزي",
+  "الفارس البرونزي",
+  "النجم البرونزي",
+  "القائد البرونزي",
+  "السفير البرونزي",
+  "البطل الفضي",
+  "الفارس الفضي",
+  "النجم الفضي",
+  "القائد الفضي",
+  "السفير الفضي",
+  "البطل الذهبي",
+  "الفارس الذهبي",
+  "النجم الذهبي",
+  "القائد الذهبي",
+  "السفير الذهبي",
+  "بطل التميز",
+  "فارس التميز",
+  "نجم التميز",
+  "قائد التميز",
+  "سفير التميز",
+  "بطل الإبداع",
+  "فارس الإبداع",
+  "نجم الإبداع",
+  "قائد الإبداع",
+  "سفير الإبداع",
+  "بطل الإنجاز",
+  "فارس الإنجاز",
+  "نجم الإنجاز",
+  "قائد الإنجاز",
+  "سفير الإنجاز",
+  "بطل القمة",
+  "فارس القمة",
+  "نجم القمة",
+  "قائد القمة",
+  "سفير القمة",
+  "بطل النخبة",
+  "فارس النخبة",
+  "نجم النخبة",
+  "قائد النخبة",
+  "سفير النخبة",
+  "أسطورة التحفيز"
+];
 const MIN_STUDENT_POINTS = -20;
 
 function renderSortedReasonOptions() {
@@ -199,19 +253,20 @@ function normalizeMiniChallenge(raw) {
 }
 
 function getLevelIndex(points) {
-  return Math.max(0, Math.floor(Number(points || 0) / LEVEL_STEP_POINTS));
+  const numericPoints = Number(points || 0);
+  const safePoints = Math.max(0, Math.min(MAX_LEVEL_POINTS, Number.isFinite(numericPoints) ? numericPoints : 0));
+  return Math.floor(safePoints / LEVEL_STEP_POINTS);
 }
 
 function getStudentLevel(points) {
   const idx = getLevelIndex(points);
-  const levelNumber = idx + 1;
-  if (idx <= 0) {
-    return { name: "مبتدئ", emoji: "🌱", levelNumber };
-  }
-  if (idx === 1) {
-    return { name: "متقدم", emoji: "🚀", levelNumber };
-  }
-  return { name: "قائد", emoji: "👑", levelNumber };
+  return {
+    name: STUDENT_RANK_NAMES[idx] || STUDENT_RANK_NAMES[STUDENT_RANK_NAMES.length - 1],
+    emoji: idx > 0 ? "🛡️⭐" : "🛡️",
+    levelNumber: idx,
+    pointsRequired: idx * LEVEL_STEP_POINTS,
+    maxed: idx >= 50
+  };
 }
 
 function studentInitials(name) {
@@ -1896,7 +1951,9 @@ function rankStudents(cls) {
 function studentBadges(student) {
   const b = [];
   const lvl = getStudentLevel(student.points || 0);
-  b.push(`المستوى ${lvl.levelNumber}: ${lvl.name} ${lvl.emoji}`);
+  b.push(lvl.levelNumber > 0
+    ? `الدرع ${lvl.levelNumber} من 50: ${lvl.name} ${lvl.emoji}`
+    : `بداية الرحلة: الدرع الأول عند 10 نقاط ${lvl.emoji}`);
   if ((student.points || 0) >= 150) b.push("الطالب المثالي 👑");
   if ((student.points || 0) >= 80) b.push("نجم الأسبوع ⭐");
   const hwCount = (student.history || []).filter((h) => h.reason === reasons.homework_done.label).length;
@@ -2145,7 +2202,10 @@ function renderStudentsTable() {
       <td class="student-name-cell">
         <div class="student-name-line">${s.name}</div>
         <div class="student-meta-line">
-          <span class="level-chip">${lvl.emoji} ${lvl.name}</span>
+          <span class="level-chip student-rank-chip" title="${lvl.levelNumber > 0 ? `الدرع ${lvl.levelNumber} من 50 - ${lvl.pointsRequired} نقطة` : "الدرع الأول عند 10 نقاط"}">
+            <span class="rank-shield" aria-hidden="true">${lvl.emoji}</span>
+            <span class="rank-name">${lvl.name}</span>
+          </span>
           ${s.team ? `<span class="team-chip">${s.team}</span>` : ""}
         </div>
       </td>
@@ -4163,7 +4223,7 @@ function renderStudentPanel(found) {
     <p>الطالب: <strong>${student.name}</strong></p>
     <p>الصف: <strong>${cls.name}</strong></p>
     <p>النقاط الحالية: <strong>${student.points || 0}</strong></p>
-    <p>المستوى: <strong>${level.name} ${level.emoji}</strong> (كل 50 نقطة = مستوى جديد)</p>
+    <p>الرتبة: <strong>${level.name} ${level.emoji}</strong> (درع جديد كل 10 نقاط حتى 500)</p>
     <p>ترتيبك في الصف: <strong>#${rank || "-"}</strong></p>
     <div class="badges">${badges.length ? badges.map((b) => `<span class="badge">${b}</span>`).join("") : "لا توجد إنجازات بعد."}</div>
     <h3>متجر الهدايا</h3>
@@ -4265,7 +4325,7 @@ function renderParentPanel(found) {
     <p>الطالب: <strong>${student.name}</strong></p>
     <p>الصف: <strong>${cls.name}</strong></p>
     <p>النقاط: <strong>${points}</strong></p>
-    <p>المستوى: <strong>${level.name} ${level.emoji}</strong></p>
+    <p>الرتبة: <strong>${level.name} ${level.emoji}</strong> — ${level.levelNumber > 0 ? `الدرع ${level.levelNumber} من 50` : "الدرع الأول عند 10 نقاط"}</p>
     <p>السلوك العام: <strong>${points >= 70 ? "ممتاز" : points >= 30 ? "جيد" : "يحتاج متابعة"}</strong></p>
     <h3>تفاصيل النقاط وأسبابها</h3>
     ${pointsHistoryHtml}

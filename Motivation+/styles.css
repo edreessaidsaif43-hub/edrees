@@ -433,6 +433,21 @@ th, td {
 .student-name-cell .student-meta-line .team-chip {
   margin-inline-start: 0;
 }
+.student-rank-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+}
+.student-rank-chip .rank-shield {
+  flex: 0 0 auto;
+  font-size: 1rem;
+  line-height: 1;
+}
+.student-rank-chip .rank-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .reward-store-list {
   margin-top: 8px;
   display: grid;
