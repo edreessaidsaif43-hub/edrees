@@ -4277,12 +4277,16 @@ function renderDirectPointsCard() {
   const status = document.getElementById("bonus-points-status");
   const selectAllButton = document.getElementById("bonus-select-all");
   const clearButton = document.getElementById("bonus-clear-selection");
+  const nameFilter = document.getElementById("bonus-student-filter");
+  const teamFilter = document.getElementById("bonus-team-filter");
   if (!picker || !status) return;
 
   if (!currentTeacher) {
     picker.innerHTML = "<p class='muted'>سجل الدخول أولاً.</p>";
     if (selectAllButton) selectAllButton.disabled = true;
     if (clearButton) clearButton.disabled = true;
+    if (nameFilter) nameFilter.disabled = true;
+    if (teamFilter) teamFilter.disabled = true;
     status.textContent = "ميزة تعديل النقاط المباشرة متاحة بعد تسجيل الدخول.";
     updateBonusStudentSelectionCount();
     return;
@@ -4293,6 +4297,8 @@ function renderDirectPointsCard() {
     picker.innerHTML = "<p class='muted'>لا يوجد صف نشط.</p>";
     if (selectAllButton) selectAllButton.disabled = true;
     if (clearButton) clearButton.disabled = true;
+    if (nameFilter) nameFilter.disabled = true;
+    if (teamFilter) teamFilter.disabled = true;
     status.textContent = "أنشئ صفًا أولاً لاستخدام هذه البطاقة.";
     updateBonusStudentSelectionCount();
     return;
@@ -4302,14 +4308,19 @@ function renderDirectPointsCard() {
     picker.innerHTML = "<p class='muted'>لا يوجد طلاب.</p>";
     if (selectAllButton) selectAllButton.disabled = true;
     if (clearButton) clearButton.disabled = true;
+    if (nameFilter) nameFilter.disabled = true;
+    if (teamFilter) teamFilter.disabled = true;
     status.textContent = "أضف طلابًا أولاً ثم عدّل النقاط لهم.";
     updateBonusStudentSelectionCount();
     return;
   }
 
   const currentValues = new Set(Array.from(picker.querySelectorAll("input[type='checkbox']:checked")).map((input) => input.value));
-  const ranked = rankStudents(cls);
-  picker.innerHTML = ranked.map((s) => {
+  const alphabeticStudents = [...cls.students].sort((a, b) => normalizeName(a.name).localeCompare(normalizeName(b.name), "ar", {
+    sensitivity: "base",
+    numeric: true
+  }));
+  picker.innerHTML = alphabeticStudents.map((s) => {
     const checked = currentValues.has(s.id) ? "checked" : "";
     return `<label class="bonus-student-option">
       <input type="checkbox" value="${s.id}" ${checked} />
@@ -4322,7 +4333,17 @@ function renderDirectPointsCard() {
   });
   if (selectAllButton) selectAllButton.disabled = false;
   if (clearButton) clearButton.disabled = false;
+  if (nameFilter) nameFilter.disabled = false;
+  if (teamFilter) {
+    const currentTeam = normalizeName(teamFilter.value);
+    const teams = Array.from(new Set(cls.students.map((student) => normalizeName(student.team)).filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, "ar", { sensitivity: "base", numeric: true }));
+    teamFilter.innerHTML = `<option value="">جميع الفرق</option>` + teams
+      .map((team) => `<option value="${team}" ${currentTeam === team ? "selected" : ""}>${team}</option>`)
+      .join("");
+  }
   updateBonusStudentSelectionCount();
+  filterBonusStudentOptions();
 
   status.textContent = "اختر إضافة أو خصم، ثم اكتب السبب الإجباري.";
 }
@@ -4333,6 +4354,29 @@ function updateBonusStudentSelectionCount() {
   if (!picker || !countLabel) return;
   const count = picker.querySelectorAll("input[type='checkbox']:checked").length;
   countLabel.textContent = count ? `تم تحديد ${count} طالب` : "لم يتم تحديد طلاب";
+}
+
+function filterBonusStudentOptions() {
+  const picker = document.getElementById("bonus-student-select");
+  const nameFilter = document.getElementById("bonus-student-filter");
+  const teamFilter = document.getElementById("bonus-team-filter");
+  const emptyMessage = document.getElementById("bonus-filter-empty");
+  const cls = getActiveClass();
+  if (!picker || !cls) return;
+  const nameQuery = normalizeName(nameFilter ? nameFilter.value : "").toLocaleLowerCase("ar");
+  const selectedTeam = normalizeName(teamFilter ? teamFilter.value : "");
+  const studentsById = new Map((cls.students || []).map((student) => [student.id, student]));
+  let visibleCount = 0;
+  picker.querySelectorAll(".bonus-student-option").forEach((label) => {
+    const input = label.querySelector("input[type='checkbox']");
+    const student = input ? studentsById.get(input.value) : null;
+    const studentName = normalizeName(student && student.name).toLocaleLowerCase("ar");
+    const studentTeam = normalizeName(student && student.team);
+    const visible = !!student && (!nameQuery || studentName.includes(nameQuery)) && (!selectedTeam || studentTeam === selectedTeam);
+    label.hidden = !visible;
+    if (visible) visibleCount += 1;
+  });
+  if (emptyMessage) emptyMessage.hidden = visibleCount > 0;
 }
 
 let activeTeacherPanelName = "students";
@@ -5041,11 +5085,15 @@ document.getElementById("reset-mini-challenge").addEventListener("click", () => 
 
 
 document.getElementById("bonus-select-all").addEventListener("click", () => {
-  document.querySelectorAll("#bonus-student-select input[type='checkbox']").forEach((input) => {
-    input.checked = true;
+  document.querySelectorAll("#bonus-student-select .bonus-student-option").forEach((label) => {
+    const input = label.querySelector("input[type='checkbox']");
+    if (input && !label.hidden) input.checked = true;
   });
   updateBonusStudentSelectionCount();
 });
+
+document.getElementById("bonus-student-filter").addEventListener("input", filterBonusStudentOptions);
+document.getElementById("bonus-team-filter").addEventListener("change", filterBonusStudentOptions);
 
 document.getElementById("bonus-clear-selection").addEventListener("click", () => {
   document.querySelectorAll("#bonus-student-select input[type='checkbox']").forEach((input) => {

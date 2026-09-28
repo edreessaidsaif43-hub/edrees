@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20260928-multi-student-points-1" />
+  <link rel="stylesheet" href="./styles.css?v=20260928-firefox-topbar-1" />
 <style id="copied-index-navbar-style">
   :root{--blue:#1a56c8;--blue2:#0f3d9e;--green:#1a8a3a;--ink:#0a1628;--ink3:#5a7a9a;--paper:#f7f9fc;--paper2:#eef2f8;--line:#d0dcea;--w:#fff}
   #nav{position:fixed;top:0;left:0;right:0;z-index:9999;height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(247,249,252,.95);border-bottom:1px solid var(--line);backdrop-filter:blur(12px);transition:box-shadow .3s;font-family:'Tajawal',sans-serif;box-sizing:border-box}
@@ -150,11 +150,13 @@
       <p>منصة تحفيز ذكية للمعلم والطالب وولي الأمر</p>
     </div>
     <div class="topbar-right">
-      <div id="session-info" class="session-info">غير مسجل</div>
-      <select id="top-class-selector" class="top-class-selector" style="display:none" aria-label="اختيار الصف الحالي"></select>
-      <button id="logout-btn" class="btn secondary" style="display:none">تسجيل خروج</button>
-      <button id="sync-now-btn" class="btn secondary" style="display:none">مزامنة الآن</button>
-      <button id="edit-profile-btn" class="btn secondary" style="display:none">تعديل الملف الشخصي</button>
+      <div class="desktop-session-tools">
+        <div id="session-info" class="session-info">غير مسجل</div>
+        <select id="top-class-selector" class="top-class-selector" style="display:none" aria-label="اختيار الصف الحالي"></select>
+        <button id="logout-btn" class="btn secondary" style="display:none">تسجيل خروج</button>
+        <button id="sync-now-btn" class="btn secondary" style="display:none">مزامنة الآن</button>
+        <button id="edit-profile-btn" class="btn secondary" style="display:none">تعديل الملف الشخصي</button>
+      </div>
       <nav class="tabs">
         <button class="tab active" data-tab="teacher">المعلم</button>
         <button class="tab" data-tab="student">الطالب</button>
@@ -413,10 +415,17 @@
               <div class="bonus-student-picker-head">
                 <strong>اختر الطلاب</strong>
                 <span id="bonus-student-selection-count" class="muted">لم يتم تحديد طلاب</span>
-                <button id="bonus-select-all" class="btn secondary" type="button">تحديد الكل</button>
+                <button id="bonus-select-all" class="btn secondary" type="button">تحديد نتائج الفلتر</button>
                 <button id="bonus-clear-selection" class="btn secondary" type="button">إلغاء التحديد</button>
               </div>
+              <div class="bonus-student-filters">
+                <input id="bonus-student-filter" type="search" placeholder="بحث باسم الطالب" aria-label="بحث باسم الطالب" />
+                <select id="bonus-team-filter" aria-label="تصفية الطلاب حسب الفريق">
+                  <option value="">جميع الفرق</option>
+                </select>
+              </div>
               <div id="bonus-student-select" class="bonus-student-options" role="group" aria-label="اختيار الطلاب"></div>
+              <p id="bonus-filter-empty" class="muted bonus-filter-empty" hidden>لا يوجد طلاب مطابقون للفلتر.</p>
             </div>
             <div class="field-row">
               <select id="bonus-operation" aria-label="نوع تعديل النقاط">
@@ -645,7 +654,7 @@
       }
     })();
   </script>
-  <script src="./app.js?v=20260928-multi-student-points-1"></script>
+  <script src="./app.js?v=20260928-points-alpha-filter-1"></script>
 </body>
 </html>
 
