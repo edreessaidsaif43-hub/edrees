@@ -436,6 +436,7 @@ th, td {
 .student-rank-chip {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 5px;
   max-width: 100%;
 }
@@ -446,6 +447,20 @@ th, td {
 }
 .student-rank-chip .rank-name {
   min-width: 0;
+  overflow-wrap: anywhere;
+}
+.student-rank-chip .rank-stars {
+  display: block;
+  flex: 0 0 100%;
+  max-width: 190px;
+  font-size: 0.6rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.portal-rank-stars {
+  display: inline;
+  font-size: 0.72em;
+  line-height: 1.2;
   overflow-wrap: anywhere;
 }
 .reward-store-list {

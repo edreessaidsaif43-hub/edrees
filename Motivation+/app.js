@@ -262,7 +262,9 @@ function getStudentLevel(points) {
   const idx = getLevelIndex(points);
   return {
     name: STUDENT_RANK_NAMES[idx] || STUDENT_RANK_NAMES[STUDENT_RANK_NAMES.length - 1],
-    emoji: idx > 0 ? "🛡️⭐" : "🛡️",
+    emoji: "🛡️",
+    stars: "⭐".repeat(idx),
+    starCount: idx,
     levelNumber: idx,
     pointsRequired: idx * LEVEL_STEP_POINTS,
     maxed: idx >= 50
@@ -1952,7 +1954,7 @@ function studentBadges(student) {
   const b = [];
   const lvl = getStudentLevel(student.points || 0);
   b.push(lvl.levelNumber > 0
-    ? `الدرع ${lvl.levelNumber} من 50: ${lvl.name} ${lvl.emoji}`
+    ? `الدرع ${lvl.levelNumber} من 50: ${lvl.name} ${lvl.emoji} (${lvl.starCount} نجمة)`
     : `بداية الرحلة: الدرع الأول عند 10 نقاط ${lvl.emoji}`);
   if ((student.points || 0) >= 150) b.push("الطالب المثالي 👑");
   if ((student.points || 0) >= 80) b.push("نجم الأسبوع ⭐");
@@ -2205,6 +2207,7 @@ function renderStudentsTable() {
           <span class="level-chip student-rank-chip" title="${lvl.levelNumber > 0 ? `الدرع ${lvl.levelNumber} من 50 - ${lvl.pointsRequired} نقطة` : "الدرع الأول عند 10 نقاط"}">
             <span class="rank-shield" aria-hidden="true">${lvl.emoji}</span>
             <span class="rank-name">${lvl.name}</span>
+            ${lvl.starCount > 0 ? `<span class="rank-stars" aria-label="${lvl.starCount} نجمة">${lvl.stars}</span>` : ""}
           </span>
           ${s.team ? `<span class="team-chip">${s.team}</span>` : ""}
         </div>
@@ -4223,7 +4226,7 @@ function renderStudentPanel(found) {
     <p>الطالب: <strong>${student.name}</strong></p>
     <p>الصف: <strong>${cls.name}</strong></p>
     <p>النقاط الحالية: <strong>${student.points || 0}</strong></p>
-    <p>الرتبة: <strong>${level.name} ${level.emoji}</strong> (درع جديد كل 10 نقاط حتى 500)</p>
+    <p>الرتبة: <strong>${level.name} ${level.emoji} ${level.starCount > 0 ? `<span class="portal-rank-stars" aria-label="${level.starCount} نجمة">${level.stars}</span>` : ""}</strong> (نجمة جديدة كل 10 نقاط حتى 500)</p>
     <p>ترتيبك في الصف: <strong>#${rank || "-"}</strong></p>
     <div class="badges">${badges.length ? badges.map((b) => `<span class="badge">${b}</span>`).join("") : "لا توجد إنجازات بعد."}</div>
     <h3>متجر الهدايا</h3>
@@ -4325,7 +4328,7 @@ function renderParentPanel(found) {
     <p>الطالب: <strong>${student.name}</strong></p>
     <p>الصف: <strong>${cls.name}</strong></p>
     <p>النقاط: <strong>${points}</strong></p>
-    <p>الرتبة: <strong>${level.name} ${level.emoji}</strong> — ${level.levelNumber > 0 ? `الدرع ${level.levelNumber} من 50` : "الدرع الأول عند 10 نقاط"}</p>
+    <p>الرتبة: <strong>${level.name} ${level.emoji} ${level.starCount > 0 ? `<span class="portal-rank-stars" aria-label="${level.starCount} نجمة">${level.stars}</span>` : ""}</strong> — ${level.levelNumber > 0 ? `الدرع ${level.levelNumber} من 50` : "الدرع الأول عند 10 نقاط"}</p>
     <p>السلوك العام: <strong>${points >= 70 ? "ممتاز" : points >= 30 ? "جيد" : "يحتاج متابعة"}</strong></p>
     <h3>تفاصيل النقاط وأسبابها</h3>
     ${pointsHistoryHtml}
