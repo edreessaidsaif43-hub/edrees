@@ -3579,9 +3579,10 @@ body.feature-fullscreen #feature-wheel.fullscreen-feature > #wheel-result {
   margin: 18px auto 20px;
   display: grid;
   place-items: center;
-  border-radius: 28px;
-  background: radial-gradient(circle at 50% 18%, rgba(251, 191, 36, 0.20), transparent 28%), linear-gradient(145deg, #0f172a, #1e293b 58%, #78350f);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  border-radius: 32px;
+  background: radial-gradient(circle at 50% 18%, rgba(103, 232, 249, 0.20), transparent 28%), linear-gradient(145deg, #082f49, #0f172a 58%, #7c2d12);
+  box-shadow: 0 24px 60px rgba(8, 47, 73, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.16);
   overflow: visible;
 }
 
@@ -3589,7 +3590,7 @@ body.feature-fullscreen #feature-wheel.fullscreen-feature > #wheel-result {
   width: min(230px, 58vw);
   height: min(410px, 50vh);
   min-height: 300px;
-  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35)) drop-shadow(0 0 12px rgba(103, 232, 249, 0.12));
   overflow: visible;
 }
 
