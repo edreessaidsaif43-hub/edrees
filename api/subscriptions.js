@@ -347,6 +347,9 @@ function normalizeSubjectName(value) {
   if (
     compact.includes('حاسوب') ||
     compact.includes('الحاسوب') ||
+    compact.includes('تقنيهالمعلومات') ||
+    compact.includes('تقنيهمعلومات') ||
+    compact.includes('تقانةالمعلومات') ||
     compact.includes('عالميالرقمي') ||
     compact.includes('عالميرقمي')
   ) {
