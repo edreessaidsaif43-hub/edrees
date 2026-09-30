@@ -1483,6 +1483,9 @@ let countdownTotalSeconds = 300;
 let countdownRunning = false;
 let countdownInputsDirty = false;
 let countdownMode = "hourglass";
+let countdownAlertedSeconds = new Set();
+let activeCountdownEventId = "";
+let sharedAudioContext = null;
 let activeFullscreenFeature = "";
 let celebrationHideTimer = null;
 let miniChallengeTicker = null;
@@ -1813,9 +1816,8 @@ function updateSessionUI() {
 }
 
 function playCheer() {
-  const AudioContext = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContext) return;
-  const ctx = new AudioContext();
+  const ctx = getSharedAudioContext();
+  if (!ctx) return;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = "triangle";
@@ -1829,11 +1831,17 @@ function playCheer() {
   osc.stop(ctx.currentTime + 0.26);
 }
 
+function getSharedAudioContext() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return null;
+  if (!sharedAudioContext) sharedAudioContext = new AudioContext();
+  if (sharedAudioContext.state === "suspended") sharedAudioContext.resume().catch(() => {});
+  return sharedAudioContext;
+}
 
 function playEventSound(type = "success") {
-  const AudioContext = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContext) return;
-  const ctx = new AudioContext();
+  const ctx = getSharedAudioContext();
+  if (!ctx) return;
   const gain = ctx.createGain();
   gain.gain.value = 0.0001;
   gain.connect(ctx.destination);
@@ -1867,6 +1875,11 @@ function playEventSound(type = "success") {
     playTone(660, 0, 0.16, "triangle", 0.11);
     playTone(880, 0.14, 0.18, "triangle", 0.12);
     playTone(990, 0.30, 0.20, "triangle", 0.1);
+    return;
+  }
+  if (type === "warning") {
+    playTone(880, 0, 0.09, "square", 0.08);
+    playTone(660, 0.12, 0.12, "triangle", 0.09);
     return;
   }
 
@@ -3148,20 +3161,54 @@ function updateHourglassTimer() {
   }
 }
 
+function announceCountdownWarning() {
+  if (!countdownRunning) return;
+  const remaining = Math.max(0, Number(countdownRemainingSeconds || 0));
+  const warningSeconds = new Set([10, 5, 3, 2, 1]);
+  if (!warningSeconds.has(remaining) || countdownAlertedSeconds.has(remaining)) return;
+  countdownAlertedSeconds.add(remaining);
+  playEventSound("warning");
+  pulseFeatureCardById("feature-countdown", remaining <= 3 ? "winner" : "start");
+}
+
 function renderCountdown() {
   const display = document.getElementById("countdown-display");
   const status = document.getElementById("countdown-status");
   if (!display || !status) return;
+  const card = document.getElementById("feature-countdown");
+  const progressFill = document.getElementById("countdown-progress-fill");
+  const progressLabel = document.getElementById("countdown-progress-label");
+  const phaseLabel = document.getElementById("countdown-phase-label");
   setCountdownMode(countdownMode);
   display.textContent = formatSeconds(countdownRemainingSeconds);
   display.classList.toggle("done", countdownRemainingSeconds === 0);
+  const total = Math.max(1, Number(countdownTotalSeconds || getCountdownInputSeconds() || 1));
+  const remaining = Math.max(0, Number(countdownRemainingSeconds || 0));
+  const progress = Math.round(Math.max(0, Math.min(1, 1 - (remaining / total))) * 100);
+  if (progressFill) progressFill.style.width = `${progress}%`;
+  if (progressLabel) progressLabel.textContent = `${progress}%`;
+  if (card) {
+    card.classList.toggle("countdown-warning", countdownRunning && remaining <= 10 && remaining > 3);
+    card.classList.toggle("countdown-critical", countdownRunning && remaining <= 3 && remaining > 0);
+    card.classList.toggle("countdown-complete", remaining === 0);
+  }
   updateHourglassTimer();
+  announceCountdownWarning();
 
-  if (countdownRemainingSeconds === 0) {
+  if (remaining === 0) {
+    if (phaseLabel) phaseLabel.textContent = "انتهى الوقت";
     status.textContent = "انتهى الوقت.";
+  } else if (countdownRunning && remaining <= 3) {
+    if (phaseLabel) phaseLabel.textContent = `العد التنازلي الأخير: ${remaining}`;
+    status.textContent = "اقترب انتهاء الوقت...";
+  } else if (countdownRunning && remaining <= 10) {
+    if (phaseLabel) phaseLabel.textContent = "اقتربت النهاية";
+    status.textContent = "استعد، بقي وقت قصير.";
   } else if (countdownRunning) {
+    if (phaseLabel) phaseLabel.textContent = "المؤقت يعمل الآن";
     status.textContent = "المؤقت يعمل...";
   } else {
+    if (phaseLabel) phaseLabel.textContent = remaining > 0 ? "جاهز للبدء" : "انتهى الوقت";
     status.textContent = "المؤقت متوقف.";
   }
 }
@@ -3203,10 +3250,12 @@ function startCountdown() {
     countdownRemainingSeconds = getCountdownInputSeconds();
     countdownTotalSeconds = Math.max(1, countdownRemainingSeconds);
     countdownInputsDirty = false;
+    countdownAlertedSeconds = new Set();
   }
   if (countdownRemainingSeconds <= 0) {
     countdownRemainingSeconds = getCountdownInputSeconds();
     countdownTotalSeconds = Math.max(1, countdownRemainingSeconds);
+    countdownAlertedSeconds = new Set();
   }
   if (countdownRemainingSeconds <= 0) {
     const status = document.getElementById("countdown-status");
@@ -3254,6 +3303,7 @@ function resetCountdown() {
   countdownRemainingSeconds = getCountdownInputSeconds();
   countdownTotalSeconds = Math.max(1, countdownRemainingSeconds);
   countdownInputsDirty = false;
+  countdownAlertedSeconds = new Set();
   renderCountdown();
   renderDirectPointsCard();
   const status = document.getElementById("countdown-status");
@@ -4054,6 +4104,10 @@ function runSyncedLuckyEvent(event) {
 }
 function syncCountdownFromLiveGame(event) {
   if (!event || !event.id) return false;
+  if (activeCountdownEventId !== event.id) {
+    activeCountdownEventId = event.id;
+    countdownAlertedSeconds = new Set();
+  }
   if (event.status === "paused" || event.status === "idle") {
     if (syncedCountdownTicker) {
       clearInterval(syncedCountdownTicker);
@@ -4066,6 +4120,10 @@ function syncCountdownFromLiveGame(event) {
   }
   if (event.status !== "running") return false;
   enterFeatureFullscreen("feature-countdown");
+  const syncedTotalSeconds = Number(event.durationSeconds || event.totalSeconds || event.total || 0);
+  if (Number.isFinite(syncedTotalSeconds) && syncedTotalSeconds > 0) {
+    countdownTotalSeconds = Math.max(1, Math.floor(syncedTotalSeconds));
+  }
   const endsAt = Number(event.endsAt || 0);
   const now = Date.now();
   countdownRunning = now < endsAt;
