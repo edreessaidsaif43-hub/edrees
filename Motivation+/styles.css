@@ -5173,6 +5173,50 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   }
 }
 
+/* Keep the countdown controls reachable when its feature is full screen. */
+body.feature-fullscreen #feature-countdown.fullscreen-feature {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  justify-content: flex-start !important;
+  padding-bottom: 34px !important;
+}
+
+body.feature-fullscreen #feature-countdown.fullscreen-feature .hourglass-stage {
+  width: min(280px, 80vw) !important;
+  height: min(390px, 52vh) !important;
+  min-height: 280px !important;
+  margin: 2px auto 10px !important;
+  flex: 0 0 auto !important;
+}
+
+body.feature-fullscreen #feature-countdown.fullscreen-feature .hourglass-svg {
+  width: min(210px, 72vw) !important;
+  height: min(350px, 48vh) !important;
+  min-height: 250px !important;
+}
+
+body.feature-fullscreen #feature-countdown.fullscreen-feature > .field-row {
+  flex: 0 0 auto !important;
+  margin-bottom: 8px !important;
+}
+
+@media (max-width: 760px) {
+  body.feature-fullscreen #feature-countdown.fullscreen-feature .hourglass-stage {
+    width: min(270px, 82vw) !important;
+    height: min(330px, 48vh) !important;
+    min-height: 260px !important;
+  }
+
+  body.feature-fullscreen #feature-countdown.fullscreen-feature .hourglass-svg {
+    width: min(190px, 70vw) !important;
+    height: min(295px, 43vh) !important;
+    min-height: 230px !important;
+  }
+}
+
 @media (min-width: 761px) and (max-width: 1100px) {
   html body { padding-top: 182px !important; }
 
