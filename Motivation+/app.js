@@ -272,9 +272,9 @@ function getStudentLevel(points) {
 }
 
 function studentInitials(name) {
-  const parts = normalizeName(name).split(" ").filter(Boolean);
-  if (!parts.length) return "؟";
-  return parts.slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+  const normalizedName = normalizeName(name);
+  if (!normalizedName) return "؟";
+  return Array.from(normalizedName)[0].toUpperCase();
 }
 
 function findStudentInClass(cls, studentId) {
@@ -2183,7 +2183,15 @@ function renderStudentsTable() {
     return [...base, ...options].join("");
   };
 
-  const filteredStudents = rankStudents(cls).filter((s) => {
+  const rankedStudents = rankStudents(cls);
+  const topStudentPositions = new Map(
+    rankedStudents.slice(0, 3).map((student, index) => [student.id, index + 1])
+  );
+  const bottomStudentIds = new Set(
+    rankedStudents.slice(-3).map((student) => student.id)
+  );
+
+  const filteredStudents = rankedStudents.filter((s) => {
     if (!searchTerm) return true;
     const name = normalizeName(s && s.name ? s.name : "").toLowerCase();
     return name.includes(searchTerm);
@@ -2196,10 +2204,17 @@ function renderStudentsTable() {
 
   const rows = filteredStudents.map((s) => {
     const lvl = getStudentLevel(s.points || 0);
+    const topPosition = topStudentPositions.get(s.id) || 0;
+    const isBottomStudent = bottomStudentIds.has(s.id);
+    const photoStandingClass = `${topPosition ? ` student-photo-top student-photo-top-${topPosition}` : ""}${isBottomStudent ? " student-photo-bottom" : ""}`;
+    const photoStandingTitle = [
+      topPosition ? `المركز ${topPosition} في الصف` : "",
+      isBottomStudent ? "ضمن أقل ثلاثة طلاب نقاطاً" : ""
+    ].filter(Boolean).join(" - ");
     return `
     <tr>
       <td>
-        <div id="photo-${s.id}" class="student-photo-badge">${renderPhotoCellContent(s.name, s.photoDataUrl || "")}</div>
+        <div id="photo-${s.id}" class="student-photo-badge${photoStandingClass}"${photoStandingTitle ? ` title="${photoStandingTitle}"` : ""}>${renderPhotoCellContent(s.name, s.photoDataUrl || "")}</div>
       </td>
       <td class="student-name-cell">
         <div class="student-name-line">${s.name}</div>

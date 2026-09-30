@@ -4735,6 +4735,53 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   flex: 0 0 48px !important;
 }
 
+#students-table .student-photo-badge.student-photo-top,
+#students-table .student-photo-badge.student-photo-bottom {
+  border-width: 3px;
+}
+
+#students-table .student-photo-badge.student-photo-top-1 {
+  border-color: #eab308;
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.28);
+}
+
+#students-table .student-photo-badge.student-photo-top-2 {
+  border-color: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.25);
+}
+
+#students-table .student-photo-badge.student-photo-top-3 {
+  border-color: #b45309;
+  box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.22);
+}
+
+#students-table .student-photo-badge.student-photo-bottom {
+  border-color: #dc2626;
+  border-style: dashed;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.16);
+}
+
+#students-table .student-photo-badge.student-photo-top.student-photo-bottom {
+  border-style: solid;
+  outline: 2px dashed #dc2626;
+  outline-offset: 2px;
+}
+
+#students-table .student-photo-badge.student-photo-top-1.student-photo-bottom {
+  border-color: #eab308;
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.28);
+}
+
+#students-table .student-photo-badge.student-photo-top-2.student-photo-bottom {
+  border-color: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.25);
+}
+
+#students-table .student-photo-badge.student-photo-top-3.student-photo-bottom {
+  border-color: #b45309;
+  box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.22);
+}
+
 #students-table .student-photo-badge img,
 #student-panel .profile-photo img,
 #parent-panel .profile-photo img {
