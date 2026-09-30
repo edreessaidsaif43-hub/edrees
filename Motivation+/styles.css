@@ -4737,7 +4737,49 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 
 #students-table .student-photo-badge.student-photo-top,
 #students-table .student-photo-badge.student-photo-bottom {
+  position: relative;
+  overflow: visible;
   border-width: 3px;
+}
+
+#students-table .student-photo-badge.student-photo-top img,
+#students-table .student-photo-badge.student-photo-bottom img {
+  border-radius: 50%;
+}
+
+#students-table .student-photo-badge.student-photo-top::before {
+  content: "👑";
+  position: absolute;
+  z-index: 3;
+  top: -17px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.35));
+  pointer-events: none;
+}
+
+#students-table .student-photo-badge.student-photo-bottom::after {
+  content: "↓";
+  position: absolute;
+  z-index: 3;
+  right: -7px;
+  bottom: -7px;
+  width: 19px;
+  height: 19px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #dc2626;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(127, 29, 29, 0.35);
+  pointer-events: none;
 }
 
 #students-table .student-photo-badge.student-photo-top-1 {
