@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20261001-team-ranking-points-1" />
+  <link rel="stylesheet" href="./styles.css?v=20261001-challenges-redesign-1" />
 <style id="copied-index-navbar-style">
   :root{--blue:#1a56c8;--blue2:#0f3d9e;--green:#1a8a3a;--ink:#0a1628;--ink3:#5a7a9a;--paper:#f7f9fc;--paper2:#eef2f8;--line:#d0dcea;--w:#fff}
   #nav{position:fixed;top:0;left:0;right:0;z-index:9999;height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(247,249,252,.95);border-bottom:1px solid var(--line);backdrop-filter:blur(12px);transition:box-shadow .3s;font-family:'Tajawal',sans-serif;box-sizing:border-box}
@@ -269,41 +269,83 @@
           </article>
 
           <article id="challenge-panel" class="card section-5" data-teacher-panel="challenges">
-            <h2>التحدي الأسبوعي</h2>
-            <div class="field-row">
-              <input id="challenge-title" placeholder="مثال: أفضل سلوك هذا الأسبوع" />
-              <input id="challenge-start-date" type="date" />
-              <input id="challenge-end-date" type="date" />
-              <input id="challenge-bonus-points" type="number" min="1" placeholder="نقاط إضافية للفائز" />
-              <button id="save-challenge" class="btn">حفظ التحدي</button>
+            <div class="challenge-heading">
+              <span class="challenge-heading-icon" aria-hidden="true">🏆</span>
+              <div>
+                <h2>التحدي الأسبوعي</h2>
+                <p>حدد هدفاً واضحاً للفصل وكافئ الطالب الفائز بنقاط إضافية.</p>
+              </div>
             </div>
-            <div class="field-row">
-              <select id="challenge-winner-student"></select>
-              <button id="announce-winner" class="btn secondary">إعلان الفائز (يدوي)</button>
-              <button id="reopen-challenge" class="btn danger">إعادة فتح التحدي</button>
+            <div class="challenge-setup-grid">
+              <label class="challenge-field-wide">
+                <span>عنوان التحدي</span>
+                <input id="challenge-title" placeholder="مثال: أفضل سلوك هذا الأسبوع" />
+              </label>
+              <label>
+                <span>تاريخ البداية</span>
+                <input id="challenge-start-date" type="date" />
+              </label>
+              <label>
+                <span>تاريخ النهاية</span>
+                <input id="challenge-end-date" type="date" />
+              </label>
+              <label>
+                <span>مكافأة الفائز</span>
+                <input id="challenge-bonus-points" type="number" min="1" placeholder="نقاط" />
+              </label>
+              <button id="save-challenge" class="btn challenge-save-btn">حفظ التحدي</button>
             </div>
-            <p id="challenge-view" class="muted"></p>
+            <div class="challenge-winner-panel">
+              <label>
+                <span>اختيار الفائز</span>
+                <select id="challenge-winner-student"></select>
+              </label>
+              <div class="challenge-actions">
+                <button id="announce-winner" class="btn secondary">إعلان الفائز (يدوي)</button>
+                <button id="reopen-challenge" class="btn danger">إعادة فتح التحدي</button>
+              </div>
+            </div>
+            <div id="challenge-view" class="challenge-status-card muted" role="status" aria-live="polite"></div>
           </article>
           <article id="mini-challenge-panel" class="card section-6" data-teacher-panel="challenges">
-            <h2>تحدي مصغر (5 دقائق)</h2>
-            <div class="field-row">
-              <input id="mini-challenge-title" placeholder="عنوان التحدي المصغر (مثال: أسرع حل)" />
-              <input id="mini-challenge-bonus" type="number" min="1" value="10" placeholder="نقاط الفائز" />
-              <select id="mini-challenge-duration">
-                <option value="180">3 دقائق</option>
-                <option value="300" selected>5 دقائق</option>
-                <option value="420">7 دقائق</option>
-                <option value="600">10 دقائق</option>
-              </select>
-              <select id="mini-challenge-winner"></select>
+            <div class="mini-challenge-heading">
+              <span class="mini-challenge-heading-icon" aria-hidden="true">⚡</span>
+              <div>
+                <h2>تحدي مصغر</h2>
+                <p>نشاط سريع داخل الحصة لاختيار فائز خلال دقائق.</p>
+              </div>
             </div>
-            <div class="field-row">
+            <div class="mini-challenge-setup-grid">
+              <label class="mini-field-wide">
+                <span>عنوان التحدي</span>
+                <input id="mini-challenge-title" placeholder="مثال: أسرع حل" />
+              </label>
+              <label>
+                <span>نقاط الفائز</span>
+                <input id="mini-challenge-bonus" type="number" min="1" value="10" placeholder="نقاط" />
+              </label>
+              <label>
+                <span>المدة</span>
+                <select id="mini-challenge-duration">
+                  <option value="180">3 دقائق</option>
+                  <option value="300" selected>5 دقائق</option>
+                  <option value="420">7 دقائق</option>
+                  <option value="600">10 دقائق</option>
+                </select>
+              </label>
+              <label>
+                <span>الفائز</span>
+                <select id="mini-challenge-winner"></select>
+              </label>
+            </div>
+            <div class="mini-challenge-actions">
               <button id="start-mini-challenge" class="btn">بدء تحدي 5 دقائق</button>
               <button id="toggle-mini-challenge" class="btn secondary">إيقاف مؤقت</button>
               <button id="pick-mini-winner" class="btn secondary">اختيار فائز فوري</button>
               <button id="reset-mini-challenge" class="btn danger">إنهاء/إعادة ضبط</button>
             </div>
-            <div id="mini-challenge-progress" class="mini-progress">
+            <div class="mini-progress-heading"><span>تقدم التحدي</span><span aria-hidden="true">⏱️</span></div>
+            <div id="mini-challenge-progress" class="mini-progress mini-progress-enhanced">
               <div id="mini-challenge-progress-fill" class="mini-progress-fill"></div>
             </div>
             <div id="mini-challenge-meta" class="mini-meta muted"></div>
@@ -701,7 +743,7 @@
       }
     })();
   </script>
-  <script src="./app.js?v=20261001-team-ranking-points-1"></script>
+  <script src="./app.js?v=20261001-challenges-redesign-1"></script>
 </body>
 </html>
 
