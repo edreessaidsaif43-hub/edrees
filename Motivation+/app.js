@@ -2855,6 +2855,23 @@ function setMiniStatusText(text, isError = false) {
   status.style.color = isError ? "#b91c1c" : "";
 }
 
+function updateMiniChallengeProgress(progress, timeText = "لم يبدأ التحدي بعد", state = "idle") {
+  const panel = document.getElementById("mini-challenge-panel");
+  const track = document.getElementById("mini-challenge-progress");
+  const fill = document.getElementById("mini-challenge-progress-fill");
+  const label = document.getElementById("mini-challenge-progress-label");
+  const time = document.getElementById("mini-challenge-progress-time");
+  const safeProgress = Math.max(0, Math.min(100, Math.round(Number(progress) || 0)));
+  if (fill) fill.style.width = `${safeProgress}%`;
+  if (label) label.textContent = `${safeProgress}%`;
+  if (time) time.textContent = timeText;
+  if (panel) panel.dataset.progressState = state;
+  if (track) {
+    track.dataset.state = state;
+    track.setAttribute("aria-valuenow", String(safeProgress));
+  }
+}
+
 function renderMiniChallenge() {
   const titleInput = document.getElementById("mini-challenge-title");
   const bonusInput = document.getElementById("mini-challenge-bonus");
@@ -2873,7 +2890,7 @@ function renderMiniChallenge() {
     winnerInput.innerHTML = "<option value=''>سجل الدخول أولاً</option>";
     status.textContent = "سجل الدخول أولاً.";
     meta.textContent = "";
-    progressFill.style.width = "0%";
+    updateMiniChallengeProgress(0);
     startBtn.disabled = true;
     toggleBtn.disabled = true;
     pickBtn.disabled = true;
@@ -2886,7 +2903,7 @@ function renderMiniChallenge() {
     winnerInput.innerHTML = "<option value=''>لا يوجد صف نشط</option>";
     status.textContent = "لا يوجد صف نشط.";
     meta.textContent = "";
-    progressFill.style.width = "0%";
+    updateMiniChallengeProgress(0);
     startBtn.disabled = true;
     toggleBtn.disabled = true;
     pickBtn.disabled = true;
@@ -2911,7 +2928,7 @@ function renderMiniChallenge() {
     winnerInput.innerHTML = "<option value=''>لا يوجد طلاب</option>";
     status.textContent = "أضف طلابًا أولاً لاستخدام التحدي المصغر.";
     meta.textContent = "";
-    progressFill.style.width = "0%";
+    updateMiniChallengeProgress(0);
     startBtn.disabled = true;
     toggleBtn.disabled = true;
     pickBtn.disabled = true;
@@ -2928,7 +2945,11 @@ function renderMiniChallenge() {
   const remaining = getMiniRemainingSeconds(mini);
   const donePart = mini.active ? Math.max(0, total - remaining) : 0;
   const progress = mini.active ? Math.round((donePart / total) * 100) : 0;
-  progressFill.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+  const progressState = mini.active ? (mini.paused ? "paused" : "running") : (winner ? "complete" : "idle");
+  const progressTimeText = mini.active
+    ? `${mini.paused ? "متوقف مؤقتاً" : "متبقٍ"} ${formatSeconds(remaining)}`
+    : winner ? "اكتمل التحدي" : "لم يبدأ التحدي بعد";
+  updateMiniChallengeProgress(progress, progressTimeText, progressState);
 
   const winner = cls.students.find((s) => s.id === mini.winnerStudentId);
   meta.textContent = `المشاركون: ${cls.students.length} | نقاط الفائز: ${mini.bonusPoints}`;

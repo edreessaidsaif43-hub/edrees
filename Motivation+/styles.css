@@ -693,8 +693,40 @@ th, td {
   font-weight: 900;
 }
 
+.mini-progress-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.mini-progress-heading strong {
+  color: #0e7490;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-progress-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #94a3b8;
+  box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.15);
+}
+
+.mini-progress-readout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 1.4em;
+  margin-bottom: 6px;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .mini-progress-enhanced {
-  height: 12px;
+  position: relative;
+  height: 18px;
   margin-top: 0;
   border: 1px solid #bae6fd;
   background: #e0f2fe;
@@ -702,7 +734,57 @@ th, td {
 }
 
 .mini-progress-enhanced .mini-progress-fill {
+  position: relative;
+  min-width: 0;
   background: linear-gradient(90deg, #0891b2, #22c55e);
+  transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1), background 0.25s ease;
+}
+
+.mini-progress-enhanced .mini-progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, 0.45) 48%, transparent 60%);
+  background-size: 220% 100%;
+  animation: mini-progress-shimmer 2.4s linear infinite;
+}
+
+#mini-challenge-progress[data-state="running"] .mini-progress-fill {
+  background: linear-gradient(90deg, #0891b2, #22c55e);
+}
+
+#mini-challenge-progress[data-state="paused"] .mini-progress-fill {
+  background: #f59e0b;
+}
+
+#mini-challenge-progress[data-state="complete"] .mini-progress-fill {
+  background: #16a34a;
+}
+
+#mini-challenge-panel[data-progress-state="running"] .mini-progress-dot {
+  background: #16a34a;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.16);
+  animation: mini-progress-dot-pulse 1.1s ease-in-out infinite;
+}
+
+#mini-challenge-panel[data-progress-state="paused"] .mini-progress-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.16);
+}
+
+#mini-challenge-panel[data-progress-state="complete"] .mini-progress-dot {
+  background: #16a34a;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.16);
+}
+
+@keyframes mini-progress-shimmer {
+  from { background-position: 180% 0; }
+  to { background-position: -40% 0; }
+}
+
+@keyframes mini-progress-dot-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
 }
 
 .mini-challenge-live {
