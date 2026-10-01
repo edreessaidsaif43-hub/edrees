@@ -2408,18 +2408,29 @@ function renderLiveBoard() {
 
 function renderTeams() {
   const box = document.getElementById("teams-view");
+  const teamSelect = document.getElementById("team-points-team");
   const cls = getActiveClass();
 
   if (!currentTeacher) {
     box.innerHTML = "سجل الدخول لعرض الفرق.";
+    if (teamSelect) teamSelect.innerHTML = "<option value=''>سجل الدخول أولاً</option>";
     return;
   }
   if (!cls) {
     box.innerHTML = "لا يوجد صف نشط.";
+    if (teamSelect) teamSelect.innerHTML = "<option value=''>لا يوجد صف نشط</option>";
     return;
   }
 
   renderTeamSettings();
+  const teamNames = normalizeTeamsList(cls.teams, 3);
+  if (teamSelect) {
+    const previousTeam = teamSelect.value;
+    teamSelect.innerHTML = `<option value="">اختر الفريق</option>${teamNames
+      .map((team) => `<option value="${escapeReportMarkup(team)}">${escapeReportMarkup(team)}</option>`)
+      .join("")}`;
+    if (teamNames.includes(previousTeam)) teamSelect.value = previousTeam;
+  }
 
   const grouped = {};
   cls.students.forEach((s) => {
@@ -2431,8 +2442,91 @@ function renderTeams() {
 
   const entries = Object.entries(grouped).sort((a, b) => b[1].points - a[1].points);
   box.innerHTML = entries.length
-    ? entries.map(([team, info]) => `${team}: ${info.count} طلاب | ${info.points} نقطة`).join("<br>")
+    ? `<div class="team-ranking-grid">${entries.map(([team, info], index) => {
+      const rank = index + 1;
+      const medal = ["🥇", "🥈", "🥉"][index] || "";
+      const topClass = index < 3 ? ` team-rank-top team-rank-${rank}` : "";
+      return `<article class="team-ranking-card${topClass}">
+        <div class="team-ranking-head">
+          <span class="team-ranking-position">${medal || `#${rank}`}</span>
+          <span class="team-ranking-label">${index < 3 ? `المركز ${rank}` : `الترتيب ${rank}`}</span>
+        </div>
+        <h3>${escapeReportMarkup(team)}</h3>
+        <div class="team-ranking-stats"><strong>${info.points}</strong><span>نقطة</span></div>
+        <div class="team-ranking-members">${info.count} ${info.count === 1 ? "طالب" : "طلاب"}</div>
+      </article>`;
+    }).join("")}</div>`
     : "لا يوجد توزيع فرق بعد.";
+}
+
+async function applyTeamPointsChange() {
+  if (!ensureAuthOrNotify()) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+
+  const teamEl = document.getElementById("team-points-team");
+  const operationEl = document.getElementById("team-points-operation");
+  const amountEl = document.getElementById("team-points-amount");
+  const reasonEl = document.getElementById("team-points-reason");
+  const status = document.getElementById("team-points-status");
+  if (!teamEl || !operationEl || !amountEl || !reasonEl || !status) return;
+
+  const teamName = normalizeName(teamEl.value);
+  const rawAmount = Math.abs(Number(amountEl.value || 0));
+  const amount = Math.floor(rawAmount);
+  const reason = normalizeName(reasonEl.value);
+  const members = (cls.students || []).filter((student) => normalizeName(student.team).toLowerCase() === teamName.toLowerCase());
+
+  if (!teamName) {
+    status.textContent = "اختر الفريق أولاً.";
+    teamEl.focus();
+    return;
+  }
+  if (!Number.isFinite(rawAmount) || amount <= 0 || amount > 50) {
+    status.textContent = "أدخل عدداً صحيحاً من 1 إلى 50.";
+    amountEl.focus();
+    return;
+  }
+  if (!reason) {
+    status.textContent = "سبب العملية إجباري لفهم نقاط الفريق.";
+    reasonEl.focus();
+    return;
+  }
+  if (!members.length) {
+    status.textContent = "لا يوجد طلاب مسجلون في هذا الفريق.";
+    return;
+  }
+
+  const delta = operationEl.value === "subtract" ? -amount : amount;
+  if (delta < 0) {
+    const ok = window.confirm(`سيتم خصم ${Math.abs(delta)} نقطة من كل عضو في ${teamName} وعددهم ${members.length}. هل تريد المتابعة؟`);
+    if (!ok) return;
+  }
+
+  const reasonLabel = `نقاط جماعية - ${teamName}: ${reason}`;
+  members.forEach((student) => applyPointsChange(student, delta, reasonLabel, { celebrateLevel: false }));
+  const savedLocally = saveTeacherData({ skipPublicCache: true, skipRemoteSchedule: true });
+  const remoteSavePromise = flushRemoteSaveNow([], { preserveMedia: true });
+  renderAfterPointsChange();
+  status.textContent = savedLocally ? "تم التحديث محلياً، جاري المزامنة..." : "جاري حفظ نقاط الفريق...";
+  if (delta > 0) {
+    playEventSound("winner");
+    triggerCelebration("⭐ نقاط جماعية", `تمت إضافة ${amount} نقطة لكل عضو في ${teamName}`);
+  }
+  reasonEl.value = "";
+
+  const savedRemotely = await remoteSavePromise;
+  if (!savedLocally && !savedRemotely) {
+    status.textContent = "تعذر حفظ نقاط الفريق.";
+    showAuthMessage("تعذر حفظ نقاط الفريق. تحقق من الاتصال ثم أعد المحاولة.", true);
+  } else if (!savedRemotely) {
+    status.textContent = "حُفظت نقاط الفريق على هذا الجهاز فقط.";
+    showAuthMessage("حُفظت نقاط الفريق محلياً وتعذرت المزامنة.", true);
+  } else {
+    status.textContent = delta > 0
+      ? `تمت إضافة ${amount} نقطة لكل عضو في ${teamName} وحفظها.`
+      : `تم خصم ${amount} نقطة من كل عضو في ${teamName} وحفظها.`;
+  }
 }
 
 function renderTeamSettings() {
@@ -5071,6 +5165,10 @@ document.getElementById("clear-teams").addEventListener("click", () => {
   clearTeams();
   saveTeacherData();
   renderAll();
+});
+
+document.getElementById("apply-team-points").addEventListener("click", () => {
+  applyTeamPointsChange();
 });
 
 const wheelPressTargets = [document.querySelector("#feature-wheel .wheel-wrap"), document.getElementById("spin-wheel")].filter(Boolean);

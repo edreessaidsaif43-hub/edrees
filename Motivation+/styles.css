@@ -524,6 +524,182 @@ th, td {
   border-radius: 10px;
   margin-bottom: 6px;
 }
+
+.team-points-panel {
+  margin: 18px 0 16px;
+  padding: 16px 0 4px;
+  border-top: 1px solid #dbeafe;
+}
+
+.team-points-panel h3 {
+  margin: 0 0 4px;
+  color: #0f3d56;
+  font-size: 1.08rem;
+}
+
+.team-points-panel > .muted {
+  margin: 0 0 12px;
+}
+
+.team-points-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.team-points-grid label {
+  display: grid;
+  gap: 5px;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.team-points-grid label span {
+  min-height: 1.2em;
+}
+
+.team-points-grid select,
+.team-points-grid input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  padding: 8px 10px;
+}
+
+.team-points-grid input:focus,
+.team-points-grid select:focus {
+  outline: 3px solid rgba(14, 165, 164, 0.15);
+  border-color: #0f766e;
+}
+
+.team-points-reason-field {
+  grid-column: span 3;
+}
+
+#apply-team-points {
+  min-height: 42px;
+}
+
+#team-points-status {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+}
+
+.team-ranking-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.team-ranking-card {
+  position: relative;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #dbe4ee;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.team-ranking-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.10);
+}
+
+.team-ranking-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.team-ranking-position {
+  display: inline-grid;
+  place-items: center;
+  min-width: 32px;
+  min-height: 28px;
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.team-ranking-label {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.team-ranking-card h3 {
+  min-height: 1.5em;
+  margin: 0 0 10px;
+  color: #0f172a;
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+}
+
+.team-ranking-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: #0f766e;
+}
+
+.team-ranking-stats strong {
+  font-size: 1.6rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.team-ranking-stats span,
+.team-ranking-members {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.team-ranking-members {
+  margin-top: 8px;
+}
+
+.team-ranking-card.team-rank-1 {
+  border: 2px solid #eab308;
+  background: #fffbeb;
+  box-shadow: 0 12px 26px rgba(234, 179, 8, 0.16);
+}
+
+.team-ranking-card.team-rank-2 {
+  border: 2px solid #94a3b8;
+  background: #f8fafc;
+  box-shadow: 0 12px 26px rgba(100, 116, 139, 0.14);
+}
+
+.team-ranking-card.team-rank-3 {
+  border: 2px solid #b45309;
+  background: #fff7ed;
+  box-shadow: 0 12px 26px rgba(180, 83, 9, 0.14);
+}
+
+@media (max-width: 700px) {
+  .team-points-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .team-points-reason-field {
+    grid-column: span 2;
+  }
+
+  .team-ranking-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .live-class-head {
   background: #eff6ff;
   border: 1px solid #bfdbfe;
