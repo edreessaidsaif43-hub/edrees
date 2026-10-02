@@ -2945,13 +2945,13 @@ function renderMiniChallenge() {
   const remaining = getMiniRemainingSeconds(mini);
   const donePart = mini.active ? Math.max(0, total - remaining) : 0;
   const progress = mini.active ? Math.round((donePart / total) * 100) : 0;
+  const winner = cls.students.find((s) => s.id === mini.winnerStudentId);
   const progressState = mini.active ? (mini.paused ? "paused" : "running") : (winner ? "complete" : "idle");
   const progressTimeText = mini.active
     ? `${mini.paused ? "متوقف مؤقتاً" : "متبقٍ"} ${formatSeconds(remaining)}`
     : winner ? "اكتمل التحدي" : "لم يبدأ التحدي بعد";
   updateMiniChallengeProgress(progress, progressTimeText, progressState);
 
-  const winner = cls.students.find((s) => s.id === mini.winnerStudentId);
   meta.textContent = `المشاركون: ${cls.students.length} | نقاط الفائز: ${mini.bonusPoints}`;
 
   if (mini.active) {
