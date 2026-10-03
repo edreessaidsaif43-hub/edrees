@@ -2542,6 +2542,13 @@ async function uploadFileToBlob(file) {
   };
 }
 
+async function resolveLessonPreparationFromLibrary(lessonId) {
+  return apiRequest('/api/preparation-library/resolve', {
+    params: { lessonId },
+    timeoutMs: 12000
+  });
+}
+
 async function uploadLessonFile(path, meta, file) {
   const uploaded = await uploadFileToBlob(file);
 
@@ -3023,6 +3030,17 @@ async function generateLesson() {
     return;
   }
 
+  try {
+    const library = await resolveLessonPreparationFromLibrary(lesson.id);
+    if (library?.useLibrary && library.result) {
+      lastResult = normalizeAiResult(library.result, lesson);
+      showResults(lastResult, lesson);
+      showToast('تم جلب التحضير من مكتبة الدرس لتقليل استخدام الذكاء الاصطناعي.');
+      return;
+    }
+  } catch (libraryError) {
+    console.warn('Preparation library lookup failed; continuing with generation.', libraryError);
+  }
   let lessonAttachments = await ensureLessonAttachmentsLoaded(lesson);
   let attachment = lessonAttachments[0];
   if (!attachment) { showError('لا يوجد مرفق مرتبط بهذا الدرس. يرجى التواصل مع الإدارة.'); return; }
@@ -3087,7 +3105,7 @@ async function generateLesson() {
         }
         const prompt = buildLessonPrompt(lesson, combinedAttachment);
         setGenerationProgressStage('request');
-        result = await callGemini(prompt, settings);
+        result = await callGemini(prompt, settings, lesson.id);
         result = await ensureLongProcedures(result, lesson, combinedAttachment, settings);
         setGenerationProgressStage('response');
             } catch (aiErr) {
@@ -3565,8 +3583,8 @@ async function callGeminiWithPdf(prompt, settings, attachment, attachmentList = 
   return callGeminiBackend(prompt, { ...settings, model: LESSON_GENERATION_MODEL }, { attachmentId: ids[0], attachmentIds: ids, includeAttachmentText: true });
 }
 
-async function callGemini(prompt, settings) {
-  return callGeminiBackend(prompt, settings);
+async function callGemini(prompt, settings, lessonId = null) {
+  return callGeminiBackend(prompt, settings, { lessonId });
 }
 
 async function callGeminiBackend(prompt, settings, extra = {}) {
@@ -3580,7 +3598,8 @@ async function callGeminiBackend(prompt, settings, extra = {}) {
       maxOutputTokens: 16000,
       attachmentId: extra.attachmentId || null,
       attachmentIds: Array.isArray(extra.attachmentIds) ? extra.attachmentIds : [],
-      includeAttachmentText: !!extra.includeAttachmentText
+      includeAttachmentText: !!extra.includeAttachmentText,
+      lessonId: extra.lessonId || null
     })
   });
   return parseAiJson(data.text || '');
