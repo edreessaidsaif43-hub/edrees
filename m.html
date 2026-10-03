@@ -799,9 +799,9 @@
     const LOCAL_USERS_BACKUP_KEY = 'lesson_platform_users_backup_v1';
     const DEFAULT_RECOVERED_PASSWORD = 'Temp@123456';
     const RECOVERED_EMAIL_DOMAIN = '@recovered.local';
-    const CONTENT_CACHE_KEY = 'lesson_platform_content_cache_v1';
+    const CONTENT_CACHE_KEY = 'lesson_platform_content_cache_v2';
     const STORAGE_CACHE_KEY = 'lesson_platform_storage_cache_v1';
-    const API_GET_CACHE_PREFIX = 'lesson_platform_api_get_cache_v1_';
+    const API_GET_CACHE_PREFIX = 'lesson_platform_api_get_cache_v2_';
     const API_GET_DEFAULT_MAX_AGE_MS = 12000;
     const USER_NOTIFICATION_STATE_PREFIX = 'lesson_platform_notify_state_v1_';
     const DEFAULT_PROFILE_IMAGE_MALE = 'default-profile-man.png';
@@ -3255,7 +3255,8 @@
           }
         }
 
-        const data = await apiGet('getGames', 14000, { useCache: true, maxAgeMs: 45000, staleWhileRevalidate: true });
+        // Always reconcile the fast local preview with the latest server data.
+        const data = await apiGet('getGames', 25000, { useCache: false });
 
         if (data.success && Array.isArray(data.data)) {
           applyLoadedContentData(data.data, { persistCache: true, resetPages: !renderedFromLocalCache });
@@ -4424,6 +4425,11 @@
     }
 
     async function initApp() {
+      try {
+        localStorage.removeItem('lesson_platform_content_cache_v1');
+        localStorage.removeItem('lesson_platform_api_get_cache_v1_getGames');
+        localStorage.removeItem('lesson_platform_api_get_cache_v1_getAllGames');
+      } catch (e) {}
       for (const filter of ['grade', 'subject', 'semester']) {
         document.getElementById(`filter-${filter}-videos`).innerHTML =
           document.getElementById(`filter-${filter}-games`).innerHTML;
