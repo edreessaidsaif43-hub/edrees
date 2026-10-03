@@ -133,6 +133,24 @@ async function ensureSchema() {
         CREATE INDEX IF NOT EXISTS idx_ai_lessons_created_at
         ON ai_lessons (created_at DESC, id DESC);
       `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS ai_preparation_library (
+          id BIGSERIAL PRIMARY KEY,
+          lesson_id BIGINT NOT NULL REFERENCES ai_lessons(id) ON DELETE CASCADE,
+          source_hash TEXT NOT NULL DEFAULT '',
+          slot SMALLINT NOT NULL CHECK (slot BETWEEN 1 AND 10),
+          result JSONB NOT NULL DEFAULT '{}'::jsonb,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS idx_ai_preparation_library_lesson
+        ON ai_preparation_library (lesson_id, source_hash, created_at DESC, id DESC);
+      `;
+      await sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_preparation_library_slot
+        ON ai_preparation_library (lesson_id, source_hash, slot);
+      `;
     })();
   }
   await schemaPromise;
@@ -1634,9 +1652,95 @@ async function extractFullAttachmentTextWithGemini(attachment, target = {}) {
   return normalizeExtractedText(parts.join("\n\n"));
 }
 
+const PREPARATION_LIBRARY_LIMIT = 10;
+
+async function getLessonSourceHash(lessonId) {
+  const rows = await sql`
+    SELECT md5(concat_ws('|',
+      COALESCE(grade, ''), COALESCE(subject, ''), COALESCE(semester, ''),
+      COALESCE(unit, ''), COALESCE(title, ''), COALESCE(lesson_text, ''),
+      COALESCE(attachment_id::text, ''), COALESCE(attachment_ids::text, '')
+    )) AS source_hash
+    FROM ai_lessons
+    WHERE id = ${lessonId}
+    LIMIT 1;
+  `;
+  return String(rows?.[0]?.source_hash || '');
+}
+
+function cleanPreparationResult(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const result = {};
+  for (const key of LESSON_RESULT_KEYS) result[key] = cleanDbText(value[key], 60000);
+  const populated = LESSON_RESULT_KEYS.filter((key) => result[key]).length;
+  return populated >= 5 ? result : null;
+}
+
+async function resolvePreparationLibrary(req, res) {
+  if (!(await dbReady(res))) return;
+  const lessonId = Number(req.query?.lessonId || 0);
+  if (!lessonId) return fail(res, 400, 'معرّف الدرس غير صحيح.', 'invalid_lesson');
+  const sourceHash = await getLessonSourceHash(lessonId);
+  if (!sourceHash) return fail(res, 404, 'لم يتم العثور على الدرس.', 'not_found');
+  const rows = await sql`
+    SELECT result
+    FROM ai_preparation_library
+    WHERE lesson_id = ${lessonId} AND source_hash = ${sourceHash}
+    ORDER BY created_at DESC, id DESC
+    LIMIT ${PREPARATION_LIBRARY_LIMIT};
+  `;
+  const count = rows?.length || 0;
+  const cached = count >= PREPARATION_LIBRARY_LIMIT ? cleanPreparationResult(rows[0]?.result) : null;
+  return send(res, 200, {
+    useLibrary: !!cached,
+    result: cached,
+    count,
+    limit: PREPARATION_LIBRARY_LIMIT,
+    remaining: Math.max(0, PREPARATION_LIBRARY_LIMIT - count)
+  });
+}
+
+async function storePreparationLibraryResult(lessonId, value) {
+  const result = cleanPreparationResult(value);
+  if (!lessonId || !result) return { saved: false, count: 0 };
+  const sourceHash = await getLessonSourceHash(lessonId);
+  if (!sourceHash) return { saved: false, count: 0 };
+  await sql`DELETE FROM ai_preparation_library WHERE lesson_id = ${lessonId} AND source_hash <> ${sourceHash};`;
+  const inserted = await sql`
+    INSERT INTO ai_preparation_library (lesson_id, source_hash, slot, result)
+    SELECT ${lessonId}, ${sourceHash}, available_slot, ${JSON.stringify(result)}::jsonb
+    FROM generate_series(1, ${PREPARATION_LIBRARY_LIMIT}) AS available_slot
+    WHERE NOT EXISTS (
+      SELECT 1 FROM ai_preparation_library
+      WHERE lesson_id = ${lessonId}
+        AND source_hash = ${sourceHash}
+        AND slot = available_slot
+    )
+    ORDER BY available_slot
+    LIMIT 1
+    ON CONFLICT (lesson_id, source_hash, slot) DO NOTHING
+    RETURNING id;
+  `;
+  const countRows = await sql`
+    SELECT COUNT(*)::int AS count FROM ai_preparation_library
+    WHERE lesson_id = ${lessonId} AND source_hash = ${sourceHash};
+  `;
+  return { saved: !!inserted?.length, count: Number(countRows?.[0]?.count || 0) };
+}
 async function generateGemini(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readJsonBody(req);
+  const lessonId = Number(body.lessonId || 0);
+  if (lessonId > 0) {
+    const sourceHash = await getLessonSourceHash(lessonId);
+    if (sourceHash) {
+      const cachedRows = await sql`SELECT result FROM ai_preparation_library WHERE lesson_id = ${lessonId} AND source_hash = ${sourceHash} ORDER BY created_at DESC, id DESC LIMIT ${PREPARATION_LIBRARY_LIMIT};`;
+      if ((cachedRows?.length || 0) >= PREPARATION_LIBRARY_LIMIT) {
+        const cached = cleanPreparationResult(cachedRows[0]?.result);
+        if (cached) return send(res, 200, { text: JSON.stringify(cached), fromLibrary: true });
+      }
+    }
+  }
   const apiKey = getOpenRouterApiKey();
   const requestedModel = String(body.model || process.env.OPENROUTER_MODEL || OPENROUTER_DEFAULT_MODEL).trim();
   const model = requestedModel.includes("/") ? requestedModel : OPENROUTER_DEFAULT_MODEL;
@@ -1679,7 +1783,11 @@ async function generateGemini(req, res) {
       timeoutMs: 65000
     });
     if (!text.trim()) return fail(res, 500, "لم ترجع خدمة OpenRouter نتيجة صالحة.", "empty_openrouter_response");
-    send(res, 200, { text });
+    if (lessonId > 0) {
+      const parsedResult = parseJsonObject(text);
+      if (parsedResult) await storePreparationLibraryResult(lessonId, parsedResult);
+    }
+    send(res, 200, { text, fromLibrary: false });
   } catch (error) {
     return fail(res, error?.statusCode || 500, error?.message || "تعذر الاتصال بخدمة OpenRouter.", "openrouter_failed");
   }
@@ -2217,6 +2325,7 @@ export default async function handler(req, res) {
     if (req.method === "POST" && path === "/api/lessons/single") return await saveSingle(req, res);
     if (req.method === "POST" && path === "/api/lessons/multi") return await saveMulti(req, res);
     if (req.method === "POST" && path === "/api/gemini/generate") return await generateGemini(req, res);
+    if (req.method === "GET" && path === "/api/preparation-library/resolve") return await resolvePreparationLibrary(req, res);
     if (req.method === "POST" && path === "/api/attachments/extract-text") return await refreshAttachmentText(req, res);
     if (req.method === "POST" && path === "/api/attachments/preview-text") return await previewUploadText(req, res);
     if (req.method === "POST" && path === "/api/attachments/preview-existing-text") return await previewAttachmentText(req, res);
