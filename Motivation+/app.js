@@ -2240,7 +2240,9 @@ function renderStudentsTable() {
           ${s.team ? `<span class="team-chip">${s.team}</span>` : ""}
         </div>
       </td>
-      <td>${s.points || 0}</td>
+      <td id="points-cell-${s.id}" class="student-points-cell">
+        <span class="student-points-value">${s.points || 0}</span>
+      </td>
       <td>
         <div class="action-buttons">
           <input id="photo-input-${s.id}" class="student-photo-input" type="file" accept="image/*" onchange="handleStudentPhotoUpload('${s.id}', event)" />
@@ -3619,6 +3621,33 @@ function applyPointsChange(student, delta, reasonLabel, opts = {}) {
   return { beforePoints, afterPoints: nextPoints, appliedDelta, leveledUp };
 }
 
+function showStudentPointsEffect(studentId, appliedDelta) {
+  const cell = document.getElementById(`points-cell-${studentId}`);
+  if (!cell || !appliedDelta) return;
+
+  const row = cell.closest("tr");
+  const positive = appliedDelta > 0;
+  const cellClass = positive ? "points-added" : "points-deducted";
+  const effect = document.createElement("span");
+  effect.className = `student-point-effect ${positive ? "is-add" : "is-deduct"}`;
+  effect.textContent = `${positive ? "+" : ""}${appliedDelta}`;
+  effect.setAttribute("aria-label", `${positive ? "إضافة" : "خصم"} ${Math.abs(appliedDelta)} نقطة`);
+
+  cell.classList.remove("points-added", "points-deducted");
+  if (row) row.classList.remove("student-points-row-added", "student-points-row-deducted");
+  void cell.offsetWidth;
+  cell.classList.add(cellClass);
+  if (row) row.classList.add(positive ? "student-points-row-added" : "student-points-row-deducted");
+  cell.appendChild(effect);
+
+  if (navigator.vibrate) navigator.vibrate(positive ? [18, 28, 18] : [45]);
+  window.setTimeout(() => {
+    cell.classList.remove("points-added", "points-deducted");
+    if (row) row.classList.remove("student-points-row-added", "student-points-row-deducted");
+    effect.remove();
+  }, 1100);
+}
+
 function addWinnerPointsById(cls, studentId, delta, reasonLabel, opts = {}) {
   if (!cls || !studentId) return { ok: false, reason: "missing" };
   const idx = (cls.students || []).findIndex((s) => s.id === studentId);
@@ -3643,7 +3672,7 @@ async function updateStudentPoints(studentId, reasonKey) {
     if (!ok) return;
   }
   const before = Number(student.points || 0);
-  applyPointsChange(student, r.delta, r.label);
+  const pointsChange = applyPointsChange(student, r.delta, r.label);
 
   if (r.delta > 0) {
     playCheer();
@@ -3651,10 +3680,13 @@ async function updateStudentPoints(studentId, reasonKey) {
     if (after >= 100 && before < 100) {
       triggerCelebration("⭐ إنجاز جديد", `${student.name} تجاوز 100 نقطة!`);
     }
+  } else if (r.delta < 0) {
+    playEventSound("warning");
   }
   const savedLocally = saveTeacherData({ skipPublicCache: true, skipRemoteSchedule: true });
   const remoteSavePromise = flushRemoteSaveNow([], { preserveMedia: true });
   renderAfterPointsChange();
+  showStudentPointsEffect(studentId, pointsChange.appliedDelta);
   const savedRemotely = await remoteSavePromise;
   if (!savedLocally && !savedRemotely) {
     showAuthMessage("تعذر حفظ النقاط. تحقق من الاتصال ثم أعد المحاولة.", true);

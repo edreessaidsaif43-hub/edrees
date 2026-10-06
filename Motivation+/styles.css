@@ -1425,6 +1425,73 @@ body.feature-fullscreen .feature-fullscreen-backdrop {
   100% { transform: scale(1); filter: brightness(1); }
 }
 
+/* Immediate feedback for quick point changes in the student list. */
+.student-points-cell {
+  position: relative;
+  min-width: 82px;
+  overflow: visible;
+  font-variant-numeric: tabular-nums;
+}
+.student-points-value {
+  display: inline-block;
+  min-width: 2.2em;
+  font-weight: 800;
+}
+.student-points-cell.points-added .student-points-value {
+  color: #047857;
+  animation: student-points-add .8s ease;
+}
+.student-points-cell.points-deducted .student-points-value {
+  color: #b91c1c;
+  animation: student-points-deduct .8s ease;
+}
+.student-points-row-added td {
+  background: rgba(220, 252, 231, .72) !important;
+}
+.student-points-row-deducted td {
+  background: rgba(254, 226, 226, .72) !important;
+}
+.student-point-effect {
+  position: absolute;
+  inset-inline-start: 50%;
+  top: 50%;
+  z-index: 2;
+  pointer-events: none;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: .82rem;
+  font-weight: 900;
+  line-height: 1.1;
+  transform: translate(-50%, -50%);
+  animation: student-point-float 1.05s ease-out forwards;
+}
+.student-point-effect.is-add {
+  color: #047857;
+  background: #dcfce7;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, .24);
+}
+.student-point-effect.is-deduct {
+  color: #b91c1c;
+  background: #fee2e2;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, .22);
+}
+@keyframes student-points-add {
+  0% { transform: scale(1); }
+  42% { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
+@keyframes student-points-deduct {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+@keyframes student-point-float {
+  0% { opacity: 0; transform: translate(-50%, -20% ) scale(.76); }
+  18% { opacity: 1; transform: translate(-50%, -90%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -190%) scale(.92); }
+}
+
 .section-11 { background: #f5f3ff; }
 
 
