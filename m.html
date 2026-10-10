@@ -1049,6 +1049,7 @@
 
       const stats = {};
       approvedGames.forEach(game => {
+        game.teacher_name = findTeacherAccount(game)?.full_name || game.teacher_name;
         const key = getTeacherKey(game);
         if (!key) return;
         if (!stats[key]) {
@@ -1070,6 +1071,7 @@
     }
 
     function rerenderVisibleContent() {
+      rebuildContentIndexes();
       if (!document.getElementById('section-browse')?.classList.contains('hidden')) renderGames();
       if (!document.getElementById('section-images')?.classList.contains('hidden')) renderImages();
       if (!document.getElementById('section-tests')?.classList.contains('hidden')) renderTests();
@@ -2533,7 +2535,37 @@
     function getTeacherKey(gameOrName) {
       if (!gameOrName) return '';
       if (typeof gameOrName === 'string') return normalizeTeacherName(gameOrName);
+      const owner = findTeacherAccount(gameOrName);
+      const userId = String(gameOrName.teacher_user_id || gameOrName.teacherUserId || owner?.user_id || '').trim();
+      if (userId) return 'account:' + userId;
+      const email = normalizeEmail(gameOrName.teacher_email || gameOrName.teacher_username || owner?.email || '');
+      if (email) return 'email:' + email;
       return gameOrName.teacher_key || normalizeTeacherName(gameOrName.teacher_name || '');
+    }
+
+    function findTeacherAccount(item) {
+      const users = usersIndex.list || [];
+      const userId = String(item.teacher_user_id || item.teacherUserId || '').trim();
+      if (userId) return users.find(user => String(user.user_id || '').trim() === userId) || null;
+      const email = normalizeEmail(item.teacher_email || item.teacher_username || '');
+      return email ? users.find(user => normalizeEmail(user.email) === email) || null : null;
+    }
+
+    async function syncTeacherSubmissionIdentity(previousUser, updatedUser) {
+      const response = await apiGet('getAllGames', 25000, { useCache: false });
+      if (!response?.success || !Array.isArray(response.data)) throw new Error('identity_load_failed');
+      const owned = response.data.filter(item => isSubmissionOwnedByUser(item, previousUser));
+      for (const item of owned) {
+        const result = await apiPost({
+          action: 'updateGame', gameId: item.id,
+          teacher_user_id: updatedUser.user_id || '',
+          teacher_email: updatedUser.email,
+          teacher_name: updatedUser.full_name,
+          teacher_key: normalizeTeacherName(updatedUser.full_name)
+        });
+        if (!result?.success) throw new Error('identity_update_failed');
+      }
+      await loadDataFromVercelDatabase({ preferCache: false });
     }
 
     function findUserForTeacher(teacherName, teacherEmail) {
@@ -2710,6 +2742,7 @@
       const currentKey = getCurrentStarSeasonKey();
       const seasonKeys = new Set([currentKey]);
       approvedGames.forEach(item => {
+        item.teacher_name = findTeacherAccount(item)?.full_name || item.teacher_name;
         const key = getSubmissionSeasonKey(item.created_at);
         if (key) seasonKeys.add(key);
       });
@@ -2730,6 +2763,7 @@
 
       const stats = {};
       approvedGames.forEach(item => {
+        item.teacher_name = findTeacherAccount(item)?.full_name || item.teacher_name;
         if (getSubmissionSeasonKey(item.created_at) !== selectedStarSeasonKey) return;
         const key = getTeacherKey(item);
         if (!key) return;
@@ -4085,8 +4119,15 @@
         }
         setCurrentUser(updatedUser);
 
-        if (normalizeEmail(oldEmail) !== normalizeEmail(email)) {
+        if (normalizeEmail(oldEmail) !== normalizeEmail(email) || currentUser.full_name !== fullName) {
           migrateUserReferences(oldEmail, email, fullName);
+          try {
+            await syncTeacherSubmissionIdentity(currentUser, updatedUser);
+          } catch (error) {
+            console.error(error);
+            showToast('تم حفظ الحساب. تعذر تحديث بعض المشاركات؛ أعد حفظ الحساب للمحاولة مرة أخرى.', 'error');
+          }
+          rebuildContentIndexes();
         }
 
         applyLanguagePreference(language);
