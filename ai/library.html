@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مكتبة التحضيرات | التحضير الذكي</title>
+<style>
+:root{font-family:Tahoma,Arial,sans-serif;color:#202830;background:#f5f7f8;letter-spacing:0}*{box-sizing:border-box}body{margin:0}header{background:#fff;border-bottom:1px solid #d8dfe3;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}h1{font-size:22px;margin:0}a{color:#1864aa;text-decoration:none}nav{display:flex;gap:18px;flex-wrap:wrap}main{max-width:1250px;margin:auto;padding:24px}button,input,select,textarea{font:inherit}button,a{touch-action:manipulation}button{cursor:pointer;border:1px solid #c6d0d7;border-radius:6px;background:#fff;color:#263440;padding:10px 14px}button:disabled{opacity:.5;cursor:default}button.primary{background:#126ca1;color:#fff;border-color:#126ca1}.danger{color:#b12737}input,select,textarea{border:1px solid #c6d0d7;border-radius:5px;padding:10px;background:#fff;min-width:0;color:#202830}input:focus,select:focus,textarea:focus{outline:2px solid #17829a;outline-offset:1px}label{display:grid;gap:8px;font-size:14px}.login{max-width:390px;margin:60px auto;display:grid;gap:20px}.toolbar{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:14px;align-items:end;margin-bottom:20px}.summary,.pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0}.table-wrap{overflow:auto;border-top:1px solid #d9e1e5}table{border-collapse:collapse;width:100%;background:#fff;font-size:14px}th,td{padding:14px 12px;border-bottom:1px solid #dfe5e8;text-align:right;vertical-align:top}th{background:#edf2f4;white-space:nowrap}td.actions{white-space:nowrap}td.actions button{padding:7px 10px}.meta{color:#63717d;font-size:12px;margin-top:7px}.status{min-height:24px;color:#a02b38;line-height:1.7}.empty{text-align:center;padding:40px;color:#63717d}[hidden]{display:none!important}dialog{width:min(900px,94vw);max-height:90vh;border:1px solid #c6d0d7;border-radius:8px;padding:0;color:#202830}dialog::backdrop{background:rgba(20,30,35,.45)}.dialog-head,.dialog-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid #dfe5e8}.dialog-foot{border-top:1px solid #dfe5e8;border-bottom:0;position:sticky;bottom:0;background:#fff}.dialog-body{padding:20px 22px;display:grid;gap:20px}h2{font-size:19px;margin:0}.section-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9;margin:0}.field textarea{width:100%;min-height:130px;resize:vertical;line-height:1.8}.field h3{font-size:15px;color:#146b80;margin:0 0 10px}.detail-meta{padding:0 22px;color:#63717d;line-height:1.8}#delete-dialog{max-width:440px;padding:24px}#delete-dialog p{line-height:1.8}#delete-dialog .actions{display:flex;gap:12px;justify-content:flex-end}@media(max-width:700px){main{padding:16px}header{padding:16px}.toolbar{grid-template-columns:1fr 1fr}.toolbar label:first-child{grid-column:1/-1}.toolbar button{width:100%}h1{font-size:20px}th,td{padding:12px 9px}.summary{align-items:flex-start}.dialog-head,.dialog-foot,.dialog-body{padding:16px}.pagination{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+<header><h1>مكتبة التحضيرات</h1><nav><a href="index.html">التحضير بالذكاء الاصطناعي</a><a href="admin.html">إدارة الدروس</a></nav></header>
+<main>
+<form id="login" class="login"><h2>دخول الإدارة</h2><label>كلمة مرور الإدارة<input id="password" type="password" autocomplete="current-password" required></label><button class="primary" id="login-button">دخول</button><p id="login-error" class="status" role="alert"></p></form>
+<section id="library" hidden>
+<form id="filters" class="toolbar"><label>البحث<input id="search" type="search" placeholder="الدرس أو الوحدة"></label><label>الصف<select id="grade"><option value="">جميع الصفوف</option></select></label><label>المادة<select id="subject"><option value="">جميع المواد</option></select></label><button class="primary">بحث</button></form>
+<div class="summary"><span id="total"></span><button id="logout">خروج</button></div><p id="status" class="status" role="status" aria-live="polite"></p>
+<div class="table-wrap"><table><thead><tr><th>الدرس</th><th>الصف</th><th>المادة</th><th>النسخة</th><th>تاريخ الحفظ</th><th>الإجراءات</th></tr></thead><tbody id="rows"></tbody></table></div>
+<div class="pagination"><button id="previous">السابق</button><span id="page-label"></span><button id="next">التالي</button></div>
+</section>
+</main>
+<dialog id="detail" aria-labelledby="detail-title"><div class="dialog-head"><h2 id="detail-title"></h2><button id="close" aria-label="إغلاق">إغلاق</button></div><p class="detail-meta" id="detail-meta"></p><div class="dialog-body" id="fields"></div><div class="dialog-foot"><span id="detail-status" class="status" role="status"></span><button id="save" class="primary" hidden>حفظ التعديلات</button><button id="edit" class="primary">تعديل</button></div></dialog>
+<dialog id="delete-dialog" aria-labelledby="delete-title"><h2 id="delete-title">حذف التحضير؟</h2><p id="delete-text"></p><p id="delete-status" class="status" role="alert"></p><div class="actions"><button id="cancel-delete">إلغاء</button><button id="confirm-delete" class="danger">حذف التحضير</button></div></dialog>
+<script>
+const fields = {objectives:'الأهداف',intro:'التهيئة',concepts:'المفاهيم',procedures:'إجراءات التدريس',formativeAssessment:'التقويم التكويني',closingAssessment:'التقويم الختامي',parentNotes:'ملاحظات ولي الأمر',homework1:'الواجب الأول',homework2:'الواجب الثاني',classroomGames:'الألعاب الصفية',citizenship:'المواطنة',motivation:'التحفيز',attendance:'الحضور',boardPlan:'خطة السبورة'};
+const el = id => document.getElementById(id);
+let password = '', page = 1, active = null, editing = false, pendingDelete = null, sequence = 0;
+async function request(path, options = {}, params = {}) {
+  const url = new URL('/api/ai', location.origin); url.searchParams.set('path',path);
+  Object.entries(params).forEach(([key,value]) => url.searchParams.set(key,value));
+  const response = await fetch(url,{...options,headers:{'Content-Type':'application/json','x-admin-password':password,...options.headers}});
+  const data = await response.json();
+  if (!response.ok) {const error = new Error(response.status === 401 ? 'كلمة مرور الإدارة غير صحيحة أو انتهت الجلسة.' : response.status === 500 && data.error === 'admin_not_configured' ? 'كلمة مرور الإدارة غير مضبوطة في الخادم.' : data.message || 'تعذر تنفيذ الطلب.'); throw error;}
+  return data;
+}
+function options(id, values, label) {
+  const select = el(id), selected = select.value; select.replaceChildren(new Option(label,''));
+  [...new Set(values)].filter(Boolean).sort((a,b)=>a.localeCompare(b,'ar')).forEach(value=>select.add(new Option(value,value)));select.value=selected;
+}
+async function load() {
+  const current = ++sequence;el('status').textContent='جارٍ تحميل المكتبة…';
+  try {
+    const data = await request('/api/preparation-library',{}, {q:el('search').value.trim(),grade:el('grade').value,subject:el('subject').value,page});
+    if(current!==sequence)return;
+    if(page>1&&!data.items.length){page--;return load();}
+    options('grade',data.filters.map(item=>item.grade),'جميع الصفوف');options('subject',data.filters.map(item=>item.subject),'جميع المواد');
+    el('rows').replaceChildren();
+    for(const item of data.items){const row=document.createElement('tr');
+      for(const value of [item.title,item.grade,item.subject,item.slot,new Date(item.created_at).toLocaleDateString('ar-OM')]){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}
+      const meta=document.createElement('div');meta.className='meta';meta.textContent=[item.unit,item.semester].filter(Boolean).join(' · ');row.firstChild.append(meta);
+      const actions=document.createElement('td');actions.className='actions';
+      for(const [label,callback] of [['قراءة',()=>open(item,false)],['تعديل',()=>open(item,true)],['حذف',()=>askDelete(item)]]){const button=document.createElement('button');button.textContent=label;if(label==='حذف')button.className='danger';button.onclick=callback;actions.append(button,' ');}
+      row.append(actions);el('rows').append(row);
+    }
+    if(!data.items.length){const row=document.createElement('tr');const cell=document.createElement('td');cell.colSpan=6;cell.className='empty';cell.textContent='لا توجد تحضيرات مطابقة.';row.append(cell);el('rows').append(row);}
+    el('total').textContent=data.total+' تحضير';el('page-label').textContent='صفحة '+page+' من '+Math.max(1,Math.ceil(data.total/25));el('previous').disabled=page<=1;el('next').disabled=page*25>=data.total;el('status').textContent='';
+  }catch(error){if(current===sequence)el('status').textContent=error.message;throw error;}
+}
+function renderDetail(editMode){editing=editMode;el('fields').replaceChildren();el('save').hidden=!editing;el('edit').hidden=editing;
+  Object.entries(fields).forEach(([key,label])=>{const section=document.createElement('div');section.className='field';const heading=document.createElement('h3');heading.textContent=label;section.append(heading);
+    if(editing){const input=document.createElement('textarea');input.id='field-'+key;input.setAttribute('aria-label',label);input.value=active.result[key]||'';section.append(input);}else{const paragraph=document.createElement('p');paragraph.className='section-text';paragraph.dir='auto';paragraph.textContent=active.result[key]||'—';section.append(paragraph);}el('fields').append(section);});
+}
+async function open(item,editMode){el('status').textContent='جارٍ فتح التحضير…';try{active=(await request('/api/preparation-library/'+item.id)).item;el('detail-title').textContent=active.title;el('detail-meta').textContent=[active.grade,active.subject,active.unit,'النسخة '+active.slot].filter(Boolean).join(' · ');el('detail-status').textContent='';renderDetail(editMode);el('detail').showModal();el('status').textContent='';}catch(error){el('status').textContent=error.message;}}
+function closeDetail(){if(editing&&Object.keys(fields).some(key=>el('field-'+key).value!==(active.result[key]||''))&&!confirm('تجاهل التعديلات غير المحفوظة؟'))return;el('detail').close();}
+el('close').onclick=closeDetail;el('detail').addEventListener('cancel',event=>{event.preventDefault();closeDetail();});el('edit').onclick=()=>renderDetail(true);
+el('save').onclick=async()=>{const result={};Object.keys(fields).forEach(key=>result[key]=el('field-'+key).value);el('save').disabled=true;el('detail-status').textContent='جارٍ الحفظ…';try{await request('/api/preparation-library/'+active.id,{method:'PUT',body:JSON.stringify({result})});active.result=result;renderDetail(false);el('detail-status').textContent='تم حفظ التعديلات.';}catch(error){el('detail-status').textContent=error.message;}finally{el('save').disabled=false;}};
+function askDelete(item){pendingDelete=item;el('delete-text').textContent=item.title+'، النسخة '+item.slot;el('delete-status').textContent='';el('delete-dialog').showModal();}
+el('cancel-delete').onclick=()=>el('delete-dialog').close();el('confirm-delete').onclick=async()=>{el('confirm-delete').disabled=true;try{await request('/api/preparation-library/'+pendingDelete.id,{method:'DELETE'});el('delete-dialog').close();await load();}catch(error){el('delete-status').textContent=error.message;}finally{el('confirm-delete').disabled=false;}};
+el('login').onsubmit=async event=>{event.preventDefault();password=el('password').value;el('login-button').disabled=true;el('login-error').textContent='';try{await load();el('login').hidden=true;el('library').hidden=false;el('password').value='';}catch(error){el('login-error').textContent=error.message;password='';}finally{el('login-button').disabled=false;}};
+el('logout').onclick=()=>{password='';active=null;sequence++;el('rows').replaceChildren();el('library').hidden=true;el('login').hidden=false;el('password').focus();};
+el('filters').onsubmit=event=>{event.preventDefault();page=1;load().catch(()=>{});};['grade','subject'].forEach(id=>el(id).onchange=()=>{page=1;load().catch(()=>{});});el('previous').onclick=()=>{page--;load().catch(()=>{});};el('next').onclick=()=>{page++;load().catch(()=>{});};
+</script>
+</body></html>

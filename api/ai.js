@@ -1,3 +1,4 @@
+import { requireAdmin } from "../enjazy/server_api/_lib/admin-auth.js";
 import { neon } from "@neondatabase/serverless";
 import { put } from "@vercel/blob";
 import { createRequire } from "node:module";
@@ -138,7 +139,7 @@ async function ensureSchema() {
           id BIGSERIAL PRIMARY KEY,
           lesson_id BIGINT NOT NULL REFERENCES ai_lessons(id) ON DELETE CASCADE,
           source_hash TEXT NOT NULL DEFAULT '',
-          slot SMALLINT NOT NULL CHECK (slot BETWEEN 1 AND 10),
+          slot SMALLINT NOT NULL CHECK (slot BETWEEN 1 AND 5),
           result JSONB NOT NULL DEFAULT '{}'::jsonb,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
@@ -1652,7 +1653,7 @@ async function extractFullAttachmentTextWithGemini(attachment, target = {}) {
   return normalizeExtractedText(parts.join("\n\n"));
 }
 
-const PREPARATION_LIBRARY_LIMIT = 10;
+const PREPARATION_LIBRARY_LIMIT = 5;
 
 async function getLessonSourceHash(lessonId) {
   const rows = await sql`
@@ -1675,6 +1676,45 @@ function cleanPreparationResult(value) {
   const populated = LESSON_RESULT_KEYS.filter((key) => result[key]).length;
   return populated >= 5 ? result : null;
 }
+
+async function managePreparationLibrary(req, res, id = null) {
+  const auth = requireAdmin(req);
+  if (!auth.ok) return send(res, auth.status, { error: auth.error, message: auth.message });
+  if (!(await dbReady(res))) return;
+  res.setHeader('Cache-Control', 'no-store');
+  if (id !== null) {
+    if (req.method === 'PUT') {
+      const body = await readJsonBody(req);
+      const result = cleanPreparationResult(body.result);
+      if (!result) return fail(res, 400, 'يجب تعبئة خمسة أقسام على الأقل.', 'invalid_result');
+      const rows = await sql`UPDATE ai_preparation_library SET result = ${JSON.stringify(result)}::jsonb WHERE id = ${id} RETURNING id;`;
+      if (!rows?.length) return fail(res, 404, 'التحضير غير موجود.', 'not_found');
+      return send(res, 200, { ok: true });
+    }
+    if (req.method === 'DELETE') {
+      const rows = await sql`DELETE FROM ai_preparation_library WHERE id = ${id} RETURNING id;`;
+      if (!rows?.length) return fail(res, 404, 'التحضير غير موجود.', 'not_found');
+      return send(res, 200, { ok: true });
+    }
+    if (req.method === 'GET') {
+      const rows = await sql`SELECT p.id, p.result, p.slot, p.created_at, l.title, l.grade, l.subject, l.unit, l.semester FROM ai_preparation_library p JOIN ai_lessons l ON l.id = p.lesson_id WHERE p.id = ${id};`;
+      if (!rows?.length) return fail(res, 404, 'التحضير غير موجود.', 'not_found');
+      return send(res, 200, { item: rows[0] });
+    }
+    return fail(res, 405, 'طريقة الطلب غير مدعومة.', 'method_not_allowed');
+  }
+  if (req.method !== 'GET') return fail(res, 405, 'طريقة الطلب غير مدعومة.', 'method_not_allowed');
+  const query = cleanDbText(req.query?.q || '', 200);
+  const grade = cleanDbText(req.query?.grade || '', 200);
+  const subject = cleanDbText(req.query?.subject || '', 200);
+  const page = Math.max(1, Math.floor(Number(req.query?.page) || 1));
+  const offset = (page - 1) * 25;
+  const filters = await sql`SELECT DISTINCT l.grade, l.subject FROM ai_preparation_library p JOIN ai_lessons l ON l.id = p.lesson_id ORDER BY l.grade, l.subject;`;
+  const counts = await sql`SELECT COUNT(*)::int AS total FROM ai_preparation_library p JOIN ai_lessons l ON l.id = p.lesson_id WHERE (${grade} = '' OR l.grade = ${grade}) AND (${subject} = '' OR l.subject = ${subject}) AND (${query} = '' OR strpos(lower(concat_ws(' ', l.title, l.unit, l.grade, l.subject)), lower(${query})) > 0);`;
+  const items = await sql`SELECT p.id, p.lesson_id, p.slot, p.created_at, l.title, l.grade, l.subject, l.unit, l.semester FROM ai_preparation_library p JOIN ai_lessons l ON l.id = p.lesson_id WHERE (${grade} = '' OR l.grade = ${grade}) AND (${subject} = '' OR l.subject = ${subject}) AND (${query} = '' OR strpos(lower(concat_ws(' ', l.title, l.unit, l.grade, l.subject)), lower(${query})) > 0) ORDER BY p.created_at DESC, p.id DESC LIMIT 25 OFFSET ${offset};`;
+  return send(res, 200, { items, filters, total: Number(counts?.[0]?.total || 0), page, pageSize: 25 });
+}
+
 
 async function resolvePreparationLibrary(req, res) {
   if (!(await dbReady(res))) return;
@@ -2325,6 +2365,9 @@ export default async function handler(req, res) {
     if (req.method === "POST" && path === "/api/lessons/single") return await saveSingle(req, res);
     if (req.method === "POST" && path === "/api/lessons/multi") return await saveMulti(req, res);
     if (req.method === "POST" && path === "/api/gemini/generate") return await generateGemini(req, res);
+    if (path === "/api/preparation-library") return await managePreparationLibrary(req, res);
+    const libraryMatch = path.match(/^\/api\/preparation-library\/(\d+)$/);
+    if (libraryMatch) return await managePreparationLibrary(req, res, Number(libraryMatch[1]));
     if (req.method === "GET" && path === "/api/preparation-library/resolve") return await resolvePreparationLibrary(req, res);
     if (req.method === "POST" && path === "/api/attachments/extract-text") return await refreshAttachmentText(req, res);
     if (req.method === "POST" && path === "/api/attachments/preview-text") return await previewUploadText(req, res);
