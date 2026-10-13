@@ -2997,17 +2997,20 @@ async function finishMiniChallengeWithWinner(cls, winner, reasonText) {
   return true;
 }
 
-let miniChallengeIntroAudio = null;
 function playMiniChallengeIntro() {
-  if (!miniChallengeIntroAudio) {
-    miniChallengeIntroAudio = new Audio(encodeURI("./Conan-2026-10-13-18-46-يا-أبطال-.-هل-أنتم-مستعدون-.-حان-وقت-الحماس-.-حا.mp3"));
-    miniChallengeIntroAudio.preload = "none";
-  }
-  miniChallengeIntroAudio.pause();
-  miniChallengeIntroAudio.currentTime = 0;
-  miniChallengeIntroAudio.play().catch(() => {
-    playEventSound("start");
-    showAuthMessage("بدأ التحدي، لكن تعذر تشغيل المقطع الصوتي. تحقق من توفر ملف الصوت على الموقع.", true);
+  const audio = document.getElementById("mini-challenge-intro-audio");
+  if (!audio) return;
+  audio.pause();
+  audio.currentTime = 0;
+  audio.muted = false;
+  audio.volume = 1;
+  audio.play().then(() => {
+    audio.hidden = true;
+  }).catch((error) => {
+    audio.hidden = false;
+    setMiniStatusText(error.name === "NotAllowedError"
+      ? "بدأ التحدي. اضغط تشغيل في مشغل الصوت أدناه."
+      : "بدأ التحدي، لكن تعذر تحميل الصوت. تأكد من رفع mini-challenge-intro.mp3 إلى مجلد الصفحة.", true);
   });
 }
 
@@ -3038,9 +3041,9 @@ function startMiniChallenge() {
   mini.winnerStudentId = "";
   mini.winnerAnnouncedAt = "";
 
+  playMiniChallengeIntro();
   saveTeacherData();
   renderAll();
-  playMiniChallengeIntro();
   pulseFeatureCardById("mini-challenge-progress", "start");
   triggerCelebration("⚡ بدأ التحدي المصغر", `${mini.title} بدأ الآن`, 2200, false);
   showAuthMessage("تم بدء التحدي المصغر.");
