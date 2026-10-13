@@ -1898,7 +1898,7 @@ function pulseFeatureCardById(featureId, mode = "start") {
   card.classList.add(cls);
   setTimeout(() => card.classList.remove(cls), mode === "winner" ? 1400 : 900);
 }
-function triggerCelebration(title, message, duration = 2200) {
+function triggerCelebration(title, message, duration = 2200, withSound = true) {
   const overlay = document.getElementById("celebration-overlay");
   const titleEl = document.getElementById("celebration-title");
   const msgEl = document.getElementById("celebration-message");
@@ -1921,7 +1921,7 @@ function triggerCelebration(title, message, duration = 2200) {
   }
 
   overlay.classList.add("show");
-  playCheer();
+  if (withSound) playCheer();
   if (celebrationHideTimer) clearTimeout(celebrationHideTimer);
   celebrationHideTimer = setTimeout(() => {
     overlay.classList.remove("show");
@@ -2997,6 +2997,20 @@ async function finishMiniChallengeWithWinner(cls, winner, reasonText) {
   return true;
 }
 
+let miniChallengeIntroAudio = null;
+function playMiniChallengeIntro() {
+  if (!miniChallengeIntroAudio) {
+    miniChallengeIntroAudio = new Audio(encodeURI("./Conan-2026-10-13-18-46-يا-أبطال-.-هل-أنتم-مستعدون-.-حان-وقت-الحماس-.-حا.mp3"));
+    miniChallengeIntroAudio.preload = "none";
+  }
+  miniChallengeIntroAudio.pause();
+  miniChallengeIntroAudio.currentTime = 0;
+  miniChallengeIntroAudio.play().catch(() => {
+    playEventSound("start");
+    showAuthMessage("بدأ التحدي، لكن تعذر تشغيل المقطع الصوتي. تحقق من توفر ملف الصوت على الموقع.", true);
+  });
+}
+
 function startMiniChallenge() {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
@@ -3026,9 +3040,9 @@ function startMiniChallenge() {
 
   saveTeacherData();
   renderAll();
-  playEventSound("start");
+  playMiniChallengeIntro();
   pulseFeatureCardById("mini-challenge-progress", "start");
-  triggerCelebration("⚡ بدأ التحدي المصغر", `${mini.title} بدأ الآن`);
+  triggerCelebration("⚡ بدأ التحدي المصغر", `${mini.title} بدأ الآن`, 2200, false);
   showAuthMessage("تم بدء التحدي المصغر.");
 }
 
