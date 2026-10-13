@@ -1817,6 +1817,25 @@ function updateSessionUI() {
   }
 }
 
+let activePointsAudio = null;
+const pointsAudioClips = {};
+function playPointsAudio(delta) {
+  if (!delta) return;
+  const clip = delta > 0 ? "1" : "2";
+  if (activePointsAudio) activePointsAudio.pause();
+  const intro = document.getElementById("mini-challenge-intro-audio");
+  if (intro) intro.pause();
+  const audio = pointsAudioClips[clip] || (pointsAudioClips[clip] = new Audio(`./${clip}.mp3`));
+  activePointsAudio = audio;
+  audio.currentTime = 0;
+  audio.muted = false;
+  audio.volume = 1;
+  audio.play().catch((error) => {
+    if (error.name === "AbortError") return;
+    showAuthMessage(`تعذر تشغيل الصوت ${clip}. تأكد من رفع ${clip}.mp3 إلى مجلد الصفحة.`, true);
+  });
+}
+
 function playCheer() {
   const ctx = getSharedAudioContext();
   if (!ctx) return;
@@ -2508,14 +2527,14 @@ async function applyTeamPointsChange() {
   }
 
   const reasonLabel = `نقاط جماعية - ${teamName}: ${reason}`;
-  members.forEach((student) => applyPointsChange(student, delta, reasonLabel, { celebrateLevel: false }));
+  const appliedTotal = members.reduce((sum, student) => sum + applyPointsChange(student, delta, reasonLabel, { celebrateLevel: false }).appliedDelta, 0);
+  playPointsAudio(appliedTotal);
   const savedLocally = saveTeacherData({ skipPublicCache: true, skipRemoteSchedule: true });
   const remoteSavePromise = flushRemoteSaveNow([], { preserveMedia: true });
   renderAfterPointsChange();
   status.textContent = savedLocally ? "تم التحديث محلياً، جاري المزامنة..." : "جاري حفظ نقاط الفريق...";
   if (delta > 0) {
-    playEventSound("winner");
-    triggerCelebration("⭐ نقاط جماعية", `تمت إضافة ${amount} نقطة لكل عضو في ${teamName}`);
+    triggerCelebration("⭐ نقاط جماعية", `تمت إضافة ${amount} نقطة لكل عضو في ${teamName}`, 2200, false);
   }
   reasonEl.value = "";
 
@@ -3635,7 +3654,7 @@ function applyPointsChange(student, delta, reasonLabel, opts = {}) {
   const leveledUp = afterLevelIndex > beforeLevelIndex;
   if (leveledUp && opts.celebrateLevel !== false) {
     const lvl = getStudentLevel(nextPoints);
-    triggerCelebration("🏅 ترقية مستوى", `${student.name} وصل إلى مستوى ${lvl.name} ${lvl.emoji}`);
+    triggerCelebration("🏅 ترقية مستوى", `${student.name} وصل إلى مستوى ${lvl.name} ${lvl.emoji}`, 2200, opts.celebrationSound !== false);
   }
   return { beforePoints, afterPoints: nextPoints, appliedDelta, leveledUp };
 }
@@ -3691,16 +3710,14 @@ async function updateStudentPoints(studentId, reasonKey) {
     if (!ok) return;
   }
   const before = Number(student.points || 0);
-  const pointsChange = applyPointsChange(student, r.delta, r.label);
+  const pointsChange = applyPointsChange(student, r.delta, r.label, { celebrationSound: false });
+  playPointsAudio(pointsChange.appliedDelta);
 
   if (r.delta > 0) {
-    playCheer();
     const after = Number(student.points || 0);
     if (after >= 100 && before < 100) {
-      triggerCelebration("⭐ إنجاز جديد", `${student.name} تجاوز 100 نقطة!`);
+      triggerCelebration("⭐ إنجاز جديد", `${student.name} تجاوز 100 نقطة!`, 2200, false);
     }
-  } else if (r.delta < 0) {
-    playEventSound("warning");
   }
   const savedLocally = saveTeacherData({ skipPublicCache: true, skipRemoteSchedule: true });
   const remoteSavePromise = flushRemoteSaveNow([], { preserveMedia: true });
@@ -5584,13 +5601,13 @@ document.getElementById("add-bonus-points").addEventListener("click", async () =
     const ok = window.confirm(`سيتم خصم ${Math.abs(delta)} نقطة من ${selectedStudents.length} طالب. هل تريد المتابعة؟`);
     if (!ok) return;
   }
-  selectedStudents.forEach((student) => applyPointsChange(student, delta, reasonLabel));
+  const appliedTotal = selectedStudents.reduce((sum, student) => sum + applyPointsChange(student, delta, reasonLabel, { celebrationSound: false }).appliedDelta, 0);
+  playPointsAudio(appliedTotal);
   const savedLocally = saveTeacherData({ skipPublicCache: true, skipRemoteSchedule: true });
   const remoteSavePromise = flushRemoteSaveNow([], { preserveMedia: true });
   renderAfterPointsChange();
   if (delta > 0) {
-    playEventSound("winner");
-    triggerCelebration("⭐ إضافة نقاط مباشرة", `حصل ${selectedStudents.length} طالب على ${Math.abs(delta)} نقطة`);
+    triggerCelebration("⭐ إضافة نقاط مباشرة", `حصل ${selectedStudents.length} طالب على ${Math.abs(delta)} نقطة`, 2200, false);
     document.getElementById("bonus-points-status").textContent = savedLocally
       ? `تمت إضافة ${Math.abs(delta)} نقطة إلى ${selectedStudents.length} طالب. جاري المزامنة...`
       : "جاري حفظ النقاط على الخادم...";
