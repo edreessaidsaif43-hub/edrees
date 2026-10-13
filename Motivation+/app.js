@@ -3395,6 +3395,23 @@ function syncCountdownFromInputs() {
   }
 }
 
+let countdownStartAudio = null;
+function playCountdownStartAudio() {
+  if (!countdownStartAudio) countdownStartAudio = new Audio("./3.mp3");
+  if (activePointsAudio) activePointsAudio.pause();
+  const intro = document.getElementById("mini-challenge-intro-audio");
+  if (intro) intro.pause();
+  countdownStartAudio.pause();
+  countdownStartAudio.currentTime = 0;
+  countdownStartAudio.muted = false;
+  countdownStartAudio.volume = 1;
+  countdownStartAudio.play().catch((error) => {
+    if (error.name === "AbortError") return;
+    const status = document.getElementById("countdown-status");
+    if (status) status.textContent = "المؤقت يعمل، لكن تعذر تشغيل الصوت. تأكد من وجود 3.mp3 في مجلد الصفحة.";
+  });
+}
+
 function startCountdown() {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
@@ -3418,9 +3435,9 @@ function startCountdown() {
     return;
   }
 
+  playCountdownStartAudio();
   enterFeatureFullscreen("feature-countdown");
   countdownRunning = true;
-  playEventSound("start");
   pulseFeatureCardById("feature-countdown", "start");
   renderCountdown();
   if (countdownInterval) clearInterval(countdownInterval);
@@ -3431,6 +3448,7 @@ function startCountdown() {
     if (!countdownRunning) {
       clearInterval(countdownInterval);
       countdownInterval = null;
+      if (countdownStartAudio) countdownStartAudio.pause();
       playCheer();
       playEventSound("winner");
       pulseFeatureCardById("feature-countdown", "winner");
@@ -3439,6 +3457,7 @@ function startCountdown() {
 }
 
 function pauseCountdown() {
+  if (countdownStartAudio) countdownStartAudio.pause();
   if (countdownInterval) {
     clearInterval(countdownInterval);
     countdownInterval = null;
@@ -3450,6 +3469,7 @@ function pauseCountdown() {
 }
 
 function resetCountdown() {
+  if (countdownStartAudio) countdownStartAudio.pause();
   if (countdownInterval) {
     clearInterval(countdownInterval);
     countdownInterval = null;
