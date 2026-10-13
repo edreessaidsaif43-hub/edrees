@@ -374,7 +374,6 @@
             </div>
             <div id="mini-challenge-meta" class="mini-meta muted"></div>
             <p id="mini-challenge-status" class="muted">لا يوجد تحدي مصغر نشط.</p>
-            <audio id="mini-challenge-intro-audio" src="./mini-challenge-intro.mp3" preload="none" controls hidden aria-label="مقطع بدء التحدي" style="width:100%;max-width:360px"></audio>
           </article>
 
           <article id="teams-panel" class="card section-5" data-teacher-panel="teams">
@@ -768,7 +767,11 @@
       }
     })();
   </script>
-    <script src="./app.js?v=20261013-timer-audio-1"></script>
+    <div id="action-audio-fallback" hidden style="position:fixed;bottom:100px;left:12px;right:12px;max-width:360px;margin:auto;z-index:10000;background:#fff;padding:12px;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 4px 20px #0002">
+      <p id="action-audio-status" role="status" style="margin:0 0 8px"></p>
+      <audio id="action-audio-player" controls preload="none" playsinline webkit-playsinline aria-label="صوت العملية" style="width:100%"></audio>
+    </div>
+    <script src="./app.js?v=20261013-mobile-audio-2"></script>
 </body>
 </html>
 

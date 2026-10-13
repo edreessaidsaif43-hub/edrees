@@ -1817,23 +1817,53 @@ function updateSessionUI() {
   }
 }
 
-let activePointsAudio = null;
-const pointsAudioClips = {};
-function playPointsAudio(delta) {
-  if (!delta) return;
-  const clip = delta > 0 ? "1" : "2";
-  if (activePointsAudio) activePointsAudio.pause();
-  const intro = document.getElementById("mini-challenge-intro-audio");
-  if (intro) intro.pause();
-  const audio = pointsAudioClips[clip] || (pointsAudioClips[clip] = new Audio(`./${clip}.mp3`));
-  activePointsAudio = audio;
-  audio.currentTime = 0;
+let actionAudioRequest = 0;
+function playActionAudio(file) {
+  const audio = document.getElementById("action-audio-player");
+  const fallback = document.getElementById("action-audio-fallback");
+  const status = document.getElementById("action-audio-status");
+  if (!audio || !fallback || !status) return null;
+  const request = ++actionAudioRequest;
+  audio.pause();
+  if (audio.dataset.file !== file) {
+    audio.dataset.file = file;
+    audio.src = new URL(file, document.baseURI).href;
+    audio.load();
+  } else if (audio.readyState >= 1) {
+    audio.currentTime = 0;
+  }
   audio.muted = false;
   audio.volume = 1;
-  audio.play().catch((error) => {
-    if (error.name === "AbortError") return;
-    showAuthMessage(`تعذر تشغيل الصوت ${clip}. تأكد من رفع ${clip}.mp3 إلى مجلد الصفحة.`, true);
-  });
+  fallback.hidden = true;
+  // Keep play synchronous with the button gesture for mobile media permissions.
+  try {
+    const playing = audio.play();
+    if (playing) playing.catch((error) => {
+      if (request !== actionAudioRequest || error.name === "AbortError") return;
+      status.textContent = error.name === "NotAllowedError"
+        ? "اضغط تشغيل لسماع المقطع الصوتي."
+        : `تعذر تحميل المقطع ${file}. تحقق من رفعه إلى الموقع.`;
+      fallback.hidden = false;
+    });
+  } catch {
+    status.textContent = "اضغط تشغيل لسماع المقطع الصوتي.";
+    fallback.hidden = false;
+  }
+  return audio;
+}
+
+function stopActionAudio(file) {
+  const audio = document.getElementById("action-audio-player");
+  if (audio && audio.dataset.file === file) {
+    ++actionAudioRequest;
+    audio.pause();
+    document.getElementById("action-audio-fallback").hidden = true;
+  }
+}
+
+function playPointsAudio(delta) {
+  if (!delta) return;
+  playActionAudio(delta > 0 ? "1.mp3" : "2.mp3");
 }
 
 function playCheer() {
@@ -3017,20 +3047,7 @@ async function finishMiniChallengeWithWinner(cls, winner, reasonText) {
 }
 
 function playMiniChallengeIntro() {
-  const audio = document.getElementById("mini-challenge-intro-audio");
-  if (!audio) return;
-  audio.pause();
-  audio.currentTime = 0;
-  audio.muted = false;
-  audio.volume = 1;
-  audio.play().then(() => {
-    audio.hidden = true;
-  }).catch((error) => {
-    audio.hidden = false;
-    setMiniStatusText(error.name === "NotAllowedError"
-      ? "بدأ التحدي. اضغط تشغيل في مشغل الصوت أدناه."
-      : "بدأ التحدي، لكن تعذر تحميل الصوت. تأكد من رفع mini-challenge-intro.mp3 إلى مجلد الصفحة.", true);
-  });
+  playActionAudio("mini-challenge-intro.mp3");
 }
 
 function startMiniChallenge() {
@@ -3395,21 +3412,8 @@ function syncCountdownFromInputs() {
   }
 }
 
-let countdownStartAudio = null;
 function playCountdownStartAudio() {
-  if (!countdownStartAudio) countdownStartAudio = new Audio("./3.mp3");
-  if (activePointsAudio) activePointsAudio.pause();
-  const intro = document.getElementById("mini-challenge-intro-audio");
-  if (intro) intro.pause();
-  countdownStartAudio.pause();
-  countdownStartAudio.currentTime = 0;
-  countdownStartAudio.muted = false;
-  countdownStartAudio.volume = 1;
-  countdownStartAudio.play().catch((error) => {
-    if (error.name === "AbortError") return;
-    const status = document.getElementById("countdown-status");
-    if (status) status.textContent = "المؤقت يعمل، لكن تعذر تشغيل الصوت. تأكد من وجود 3.mp3 في مجلد الصفحة.";
-  });
+  playActionAudio("3.mp3");
 }
 
 function startCountdown() {
@@ -3448,7 +3452,7 @@ function startCountdown() {
     if (!countdownRunning) {
       clearInterval(countdownInterval);
       countdownInterval = null;
-      if (countdownStartAudio) countdownStartAudio.pause();
+      stopActionAudio("3.mp3");
       playCheer();
       playEventSound("winner");
       pulseFeatureCardById("feature-countdown", "winner");
@@ -3457,7 +3461,7 @@ function startCountdown() {
 }
 
 function pauseCountdown() {
-  if (countdownStartAudio) countdownStartAudio.pause();
+  stopActionAudio("3.mp3");
   if (countdownInterval) {
     clearInterval(countdownInterval);
     countdownInterval = null;
@@ -3469,7 +3473,7 @@ function pauseCountdown() {
 }
 
 function resetCountdown() {
-  if (countdownStartAudio) countdownStartAudio.pause();
+  stopActionAudio("3.mp3");
   if (countdownInterval) {
     clearInterval(countdownInterval);
     countdownInterval = null;
