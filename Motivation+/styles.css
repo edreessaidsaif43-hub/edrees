@@ -4735,6 +4735,9 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   .teacher-side-link.side-class::after { content: "الصف" !important; }
   .teacher-side-link.side-add-students::before { content: "🎓" !important; }
   .teacher-side-link.side-add-students::after { content: "الطلبة" !important; }
+  .teacher-side-link.side-grades { order: 9 !important; }
+  .teacher-side-link.side-grades::before { content: "📝" !important; }
+  .teacher-side-link.side-grades::after { content: "الدرجات" !important; }
   .teacher-side-link.side-rewards::before { content: "🎁" !important; }
   .teacher-side-link.side-rewards::after { content: "مكافآت" !important; }
   .teacher-side-link.side-gifts::before { content: "🎀" !important; }

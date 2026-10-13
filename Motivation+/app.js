@@ -4829,6 +4829,7 @@ function setupTeacherSidePanels() {
     "#feature-wheel": "random",
     "#feature-countdown": "timer",
     "#class-management": "setup",
+    "#grades-settings": "grades",
     "#student-name": "addStudents",
     "#gift-panel": "gifts",
     "#reports-panel": "reports"
@@ -4850,6 +4851,7 @@ function setupTeacherSidePanels() {
 function getTeacherPanelTargets() {
   return {
     setup: [document.getElementById("class-management")],
+    grades: [document.getElementById("grades-settings")],
     addStudents: [document.getElementById("student-name")?.closest("article")],
     gifts: [document.getElementById("gift-panel")],
     points: [document.getElementById("feature-points")],
@@ -4880,7 +4882,7 @@ function keepTeacherPanelPosition() {
   });
 }
 function showTeacherPanel(panelName, activeLink = null) {
-  const validPanels = new Set(["setup", "addStudents", "gifts", "points", "students", "teams", "challenges", "random", "timer", "reports"]);
+  const validPanels = new Set(["setup", "addStudents", "grades", "gifts", "points", "students", "teams", "challenges", "random", "timer", "reports"]);
   const normalized = validPanels.has(panelName) ? panelName : "students";
   activeTeacherPanelName = normalized;
   const teacherApp = document.getElementById("teacher-app");
