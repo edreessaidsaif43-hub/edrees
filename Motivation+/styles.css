@@ -333,6 +333,20 @@ th, td {
   .bonus-student-options { grid-template-columns: 1fr; max-height: 300px; }
   .bonus-student-picker-head .muted { width: 100%; margin-inline-end: 0; }
 }
+.grade-entry-table { width: 100%; table-layout: fixed; }
+.grade-entry-table th:first-child { width: 65%; }
+.grade-entry-table td { overflow-wrap: anywhere; }
+.grade-entry-table input { width: 100%; max-width: 140px; min-width: 0; box-sizing: border-box; }
+#grade-students-list { overflow-x: auto; }
+#grade-branch-form input, #grade-branch-select { min-width: 0; max-width: 100%; }
+.parent-academic-grades { display: grid; gap: 8px; }
+.parent-grade-entry { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 8px; background: #e0f2fe; border: 1px solid #7dd3fc; color: #075985; }
+.parent-grade-entry strong { min-width: 0; overflow-wrap: anywhere; }
+.parent-grade-entry span { flex-shrink: 0; direction: ltr; font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) {
+  #grade-branch-form { display: grid; grid-template-columns: 1fr; }
+  #grade-branch-form input, #grade-branch-form button { width: 100%; box-sizing: border-box; }
+}
 .student-photo-input { display: none; }
 .student-photo-badge,
 .profile-photo {

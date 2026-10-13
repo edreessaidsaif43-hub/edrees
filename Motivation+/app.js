@@ -612,6 +612,7 @@ function createDefaultClass(name = "صفي الأول", subject = "") {
     ownerTeacherId: "",
     teacherIds: [],
     students: [],
+    gradeBranches: [],
     rewards: [
       { points: 50, name: "نجمة" },
       { points: 100, name: "شهادة" },
@@ -649,6 +650,7 @@ function normalizeClass(cls) {
     ownerTeacherId: normalizeName(cls && cls.ownerTeacherId ? cls.ownerTeacherId : ""),
     teacherIds: Array.isArray(cls && cls.teacherIds) ? Array.from(new Set(cls.teacherIds.map((x) => normalizeName(String(x))).filter(Boolean))) : [],
     students: Array.isArray(cls && cls.students) ? cls.students : [],
+    gradeBranches: normalizeGradeBranches(cls && cls.gradeBranches),
     rewards: Array.isArray(cls && cls.rewards) ? cls.rewards : base.rewards,
     giftStore: Array.isArray(cls && cls.giftStore) && cls.giftStore.length ? cls.giftStore.map(normalizeGift) : base.giftStore.map(normalizeGift),
     challenge: normalizeChallenge(cls && cls.challenge ? cls.challenge : base.challenge),
@@ -4504,6 +4506,119 @@ function formatMessageDateTime(iso) {
   });
 }
 
+function normalizeGradeBranches(branches) {
+  if (!Array.isArray(branches)) return [];
+  return branches.filter((branch) => branch && branch.id && normalizeName(branch.name))
+    .map((branch) => {
+      const max = Number(branch.max);
+      const maximum = Number.isFinite(max) && max > 0 ? max : 20;
+      const scores = {};
+      Object.entries(branch.scores || {}).forEach(([studentId, score]) => {
+        if (score === null || score === "" || typeof score === "boolean") return;
+        const value = Number(score);
+        if (Number.isFinite(value) && value >= 0 && value <= maximum) scores[studentId] = value;
+      });
+      return { id: String(branch.id), name: normalizeName(branch.name), max: maximum, scores };
+    });
+}
+
+function renderGradesSettings() {
+  const select = document.getElementById("grade-branch-select");
+  const list = document.getElementById("grade-students-list");
+  if (!select || !list) return;
+  const cls = currentTeacher ? getActiveClass() : null;
+  const previous = select.value;
+  const branches = cls ? normalizeGradeBranches(cls.gradeBranches) : [];
+  if (cls) cls.gradeBranches = branches;
+  select.replaceChildren();
+  branches.forEach((branch) => {
+    const option = document.createElement("option");
+    option.value = branch.id;
+    option.textContent = `${branch.name} (${branch.max})`;
+    select.appendChild(option);
+  });
+  if (branches.some((branch) => branch.id === previous)) select.value = previous;
+  select.disabled = !branches.length;
+  document.getElementById("delete-grade-branch").disabled = !branches.length;
+  document.getElementById("grade-branch-form").querySelectorAll("input, button").forEach((el) => { el.disabled = !cls; });
+  const branch = branches.find((item) => item.id === select.value);
+  if (!cls || !branch) {
+    list.innerHTML = `<p class="muted">${cls ? "لا توجد فروع مسجلة." : "اختر صفًا بعد تسجيل الدخول."}</p>`;
+    return;
+  }
+  const students = [...cls.students].sort((a, b) => String(a.name).localeCompare(String(b.name), "ar"));
+  list.innerHTML = students.length ? `<table class="grade-entry-table"><thead><tr><th>الطالب</th><th>الدرجة / ${branch.max}</th></tr></thead><tbody>${students.map((student) => {
+    const score = branch.scores[student.id];
+    return `<tr><td>${escapeReportMarkup(student.name)}</td><td><input type="number" inputmode="decimal" min="0" max="${branch.max}" step="any" data-grade-student="${escapeReportMarkup(student.id)}" value="${score === undefined ? "" : score}" aria-label="درجة ${escapeReportMarkup(student.name)}" /></td></tr>`;
+  }).join("")}</tbody></table>` : "<p class='muted'>لا يوجد طلاب في هذا الصف.</p>";
+}
+
+let gradeSaveRevision = 0;
+async function persistGrades() {
+  const revision = ++gradeSaveRevision;
+  const status = document.getElementById("grade-save-status");
+  const local = saveTeacherData({ skipRemoteSchedule: true });
+  status.textContent = local ? "تم الحفظ على الجهاز. جاري المزامنة..." : "جاري الحفظ...";
+  try {
+    const remote = await flushRemoteSaveNow([], { preserveMedia: true });
+    if (revision !== gradeSaveRevision) return;
+    status.textContent = remote ? "تم حفظ الدرجات ومزامنتها." : local ? "تم الحفظ على الجهاز. تعذرت المزامنة؛ ستتم إعادة المحاولة." : "تعذر حفظ الدرجات.";
+    if (!remote) scheduleRemoteSave();
+  } catch {
+    if (revision === gradeSaveRevision) status.textContent = local ? "تم الحفظ على الجهاز. تعذرت المزامنة؛ ستتم إعادة المحاولة." : "تعذر حفظ الدرجات.";
+    scheduleRemoteSave();
+  }
+}
+
+document.getElementById("grade-branch-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!ensureAuthOrNotify()) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+  const nameInput = document.getElementById("grade-branch-name");
+  const name = normalizeName(nameInput.value);
+  const max = Number(document.getElementById("grade-branch-max").value);
+  if (!name || !Number.isFinite(max) || max < 1 || max > 10000) return;
+  cls.gradeBranches = normalizeGradeBranches(cls.gradeBranches);
+  if (cls.gradeBranches.some((branch) => branch.name === name)) {
+    document.getElementById("grade-save-status").textContent = "هذا الفرع موجود بالفعل.";
+    return;
+  }
+  const branch = { id: `GB-${uid()}${uid()}`, name, max, scores: {} };
+  cls.gradeBranches.push(branch);
+  nameInput.value = "";
+  renderGradesSettings();
+  document.getElementById("grade-branch-select").value = branch.id;
+  renderGradesSettings();
+  persistGrades();
+});
+document.getElementById("grade-branch-select").addEventListener("change", renderGradesSettings);
+document.getElementById("grade-students-list").addEventListener("change", (event) => {
+  const input = event.target.closest("input[data-grade-student]");
+  if (!input || !ensureAuthOrNotify()) return;
+  const cls = getActiveClass();
+  const branch = cls && (cls.gradeBranches || []).find((item) => item.id === document.getElementById("grade-branch-select").value);
+  if (!branch || !cls.students.some((student) => student.id === input.dataset.gradeStudent)) return;
+  if (!input.checkValidity()) {
+    input.reportValidity();
+    document.getElementById("grade-save-status").textContent = `أدخل درجة بين 0 و${branch.max}.`;
+    return;
+  }
+  if (input.value === "") delete branch.scores[input.dataset.gradeStudent];
+  else branch.scores[input.dataset.gradeStudent] = Number(input.value);
+  persistGrades();
+});
+document.getElementById("delete-grade-branch").addEventListener("click", () => {
+  if (!ensureAuthOrNotify()) return;
+  const cls = getActiveClass();
+  const id = document.getElementById("grade-branch-select").value;
+  const branch = cls && (cls.gradeBranches || []).find((item) => item.id === id);
+  if (!branch || !window.confirm(`حذف فرع ${branch.name} وجميع درجاته؟`)) return;
+  cls.gradeBranches = cls.gradeBranches.filter((item) => item.id !== id);
+  renderGradesSettings();
+  persistGrades();
+});
+
 function renderParentPanel(found) {
   const panel = document.getElementById("parent-panel");
   if (!found) {
@@ -4515,9 +4630,20 @@ function renderParentPanel(found) {
   const messages = getParentMessageEntries(cls, student.code);
   const points = Number(student.points || 0);
   const level = getStudentLevel(points);
+  const academicGrades = normalizeGradeBranches(cls.gradeBranches).filter((branch) => Object.prototype.hasOwnProperty.call(branch.scores, student.id));
+  const gradesHtml = academicGrades.length
+    ? `<div class="parent-academic-grades">${academicGrades.map((branch) => `<div class="parent-grade-entry"><strong>${escapeReportMarkup(branch.name)}</strong><span><b>${branch.scores[student.id]}</b> / ${branch.max}</span></div>`).join("")}</div>`
+    : "<p class='muted'>لا توجد درجات مسجلة بعد.</p>";
   const pointsHistory = (Array.isArray(student.history) ? student.history : [])
     .filter((entry) => Number(entry.delta || 0) !== 0)
     .reverse();
+  const positivePoints = pointsHistory.reduce((sum, entry) => sum + Math.max(0, Number(entry.delta) || 0), 0);
+  const negativePoints = pointsHistory.reduce((sum, entry) => sum + Math.max(0, -(Number(entry.delta) || 0)), 0);
+  const recordedPoints = positivePoints + negativePoints;
+  const positiveRatio = recordedPoints ? positivePoints / recordedPoints : 0;
+  const behaviorLabel = !recordedPoints
+    ? "لا توجد بيانات كافية"
+    : positiveRatio >= 0.8 ? "ممتاز" : positiveRatio >= 0.5 ? "جيد" : "يحتاج متابعة";
   const messagesHtml = messages.length
     ? `<div class="reward-store-list">
         ${[...messages].reverse().map((m) => `
@@ -4549,7 +4675,9 @@ function renderParentPanel(found) {
     <p>الصف: <strong>${cls.name}</strong></p>
     <p>النقاط: <strong>${points}</strong></p>
     <p>الرتبة: <strong>${level.name} ${level.emoji} ${level.starCount > 0 ? `<span class="portal-rank-stars" aria-label="${level.starCount} نجمة">${level.stars}</span>` : ""}</strong> — ${level.levelNumber > 0 ? `الدرع ${level.levelNumber} من 50` : "الدرع الأول عند 10 نقاط"}</p>
-    <p>السلوك العام: <strong>${points >= 70 ? "ممتاز" : points >= 30 ? "جيد" : "يحتاج متابعة"}</strong></p>
+    <p>السلوك العام: <strong>${behaviorLabel}</strong></p>
+    <h3>الدرجات الدراسية</h3>
+    ${gradesHtml}
     <h3>تفاصيل النقاط وأسبابها</h3>
     ${pointsHistoryHtml}
     <h3>رسائل المعلم</h3>
@@ -4786,6 +4914,7 @@ function renderAll() {
   refreshClassesFromShared();
   updateSessionUI();
   renderClassSelector();
+  renderGradesSettings();
   renderStudentAccessControls();
   renderStudentsTable();
   renderRewards();
