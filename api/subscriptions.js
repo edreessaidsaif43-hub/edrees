@@ -27,6 +27,11 @@ function sqlClient() {
 
 const sql = sqlClient();
 let schemaPromise = null;
+let accountStopSchemaPromise = null;
+async function ensureAccountStopSchema() {
+  if (!accountStopSchemaPromise) accountStopSchemaPromise = sql`ALTER TABLE teacher_subscriptions ADD COLUMN IF NOT EXISTS account_stopped BOOLEAN NOT NULL DEFAULT FALSE;`.catch(error => { accountStopSchemaPromise = null; throw error; });
+  await accountStopSchemaPromise;
+}
 
 function send(res, status, payload) { res.status(status).json(payload); }
 function fail(res, status, message, error = "request_failed") { send(res, status, { error, message }); }
@@ -149,6 +154,7 @@ async function dbReady(res, ensure = true) {
     return false;
   }
   if (ensure) await ensureSchema();
+  await ensureAccountStopSchema();
   return true;
 }
 
@@ -558,7 +564,7 @@ function rowToSubscription(row) {
   const grades = subscriptionGrades(row);
   const subjects = subscriptionSubjects(row);
   const motivation = isMotivationSubscription(row, subjects);
-  const status = motivation && row.status === "pending" ? "active" : row.status;
+  const status = row.account_stopped ? "stopped" : motivation && row.status === "pending" ? "active" : row.status;
   const normalizedSubjects = motivation
     ? subjects.map((item) => item.status === "pending" ? { ...item, status: "active" } : item)
     : subjects;
@@ -569,6 +575,7 @@ function rowToSubscription(row) {
     grades,
     subjects: normalizedSubjects,
     status,
+    accountStopped: !!row.account_stopped,
     receiptUrl: safeReceiptUrl(row.receipt_url),
     receiptFileName: row.receipt_file_name,
     receiptFileType: row.receipt_file_type,
@@ -592,6 +599,7 @@ async function getStatus(req, res) {
       CASE WHEN pg_column_size(s.grades) <= 1048576 THEN s.grades ELSE '[]'::jsonb END AS grades,
       CASE WHEN pg_column_size(s.subjects) <= 1048576 THEN s.subjects ELSE '[]'::jsonb END AS subjects,
       s.status,
+      s.account_stopped,
       CASE WHEN LEFT(s.receipt_url, 5) = 'data:' THEN '' ELSE LEFT(s.receipt_url, 4097) END AS receipt_url,
       LEFT(s.receipt_file_name, 180) AS receipt_file_name,
       LEFT(s.receipt_file_type, 80) AS receipt_file_type,
@@ -605,6 +613,8 @@ async function getStatus(req, res) {
     ORDER BY s.updated_at DESC, s.id DESC;
   `;
   const subscriptions = (rows || []).map(rowToSubscription);
+  const accountStopped = subscriptions.some(item => item.accountStopped);
+  if (accountStopped) return send(res, 200, { activeGrades: [], activeSubjects: [], pending: [], subscriptions: subscriptions.map(item => ({ ...item, status: "stopped" })), accountStopped: true, paymentNumber: PAYMENT_NUMBER });
   const allSubjects = subscriptions
     .filter((s) => s.status === "active")
     .flatMap((s) => subscriptionSubjects(s));
@@ -641,6 +651,7 @@ async function requestSubscription(req, res) {
       CASE WHEN pg_column_size(grades) <= 1048576 THEN grades ELSE '[]'::jsonb END AS grades,
       CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END AS subjects,
       status,
+      account_stopped,
       CASE WHEN LEFT(receipt_url, 5) = 'data:' THEN '' ELSE LEFT(receipt_url, 4097) END AS receipt_url,
       LEFT(receipt_file_name, 180) AS receipt_file_name,
       LEFT(receipt_file_type, 80) AS receipt_file_type,
@@ -653,6 +664,8 @@ async function requestSubscription(req, res) {
     LIMIT 1;
   `;
   const existing = existingRows?.[0] || {};
+  const blockedRows = await sql`SELECT id FROM teacher_subscriptions WHERE user_id = ${userId} AND account_stopped = TRUE LIMIT 1;`;
+  if (blockedRows?.length) return fail(res, 403, "الحساب موقوف بالكامل من الإدارة. رفع إيصال جديد لا يعيد تفعيله؛ تواصل مع الإدارة.", "account_stopped");
   const existingHistory = subscriptionHistory(existing);
   const existingGrades = subscriptionGrades(existing);
   const existingSubjects = subscriptionSubjects(existing);
@@ -710,6 +723,7 @@ async function requestSubscription(req, res) {
       receipt_history = EXCLUDED.receipt_history,
       admin_note = '',
       updated_at = NOW()
+    WHERE teacher_subscriptions.account_stopped = FALSE
     RETURNING
       id,
       user_id,
@@ -717,6 +731,7 @@ async function requestSubscription(req, res) {
       CASE WHEN pg_column_size(grades) <= 1048576 THEN grades ELSE '[]'::jsonb END AS grades,
       CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END AS subjects,
       status,
+      account_stopped,
       CASE WHEN LEFT(receipt_url, 5) = 'data:' THEN '' ELSE LEFT(receipt_url, 4097) END AS receipt_url,
       LEFT(receipt_file_name, 180) AS receipt_file_name,
       LEFT(receipt_file_type, 80) AS receipt_file_type,
@@ -724,6 +739,7 @@ async function requestSubscription(req, res) {
       created_at,
       updated_at;
   `;
+  if (!rows?.length) return fail(res, 403, "الحساب موقوف بالكامل من الإدارة.", "account_stopped");
   send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), amountOmr, message: (requestStatus === "pending" ? "تم إرسال الإيصال للمراجعة. المبلغ المطلوب: " : "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. المبلغ المطلوب: ") + amountOmr + " ريال عماني. ينتهي الاشتراك في " + expiryDate + "." });
 }
 
@@ -744,6 +760,7 @@ async function adminList(req, res) {
       LEFT(s.user_id, 160) AS user_id,
       LEFT(s.grade, 300) AS grade,
       s.status,
+      s.account_stopped,
       CASE WHEN LEFT(s.receipt_url, 5) = 'data:' THEN '' ELSE LEFT(s.receipt_url, 4097) END AS receipt_url,
       LEFT(s.receipt_file_name, 180) AS receipt_file_name,
       LEFT(s.receipt_file_type, 80) AS receipt_file_type,
@@ -773,7 +790,8 @@ async function adminList(req, res) {
     grade: row.grade,
     grades: row.grade ? [row.grade] : [],
     subjects: [],
-    status: row.status,
+    status: row.account_stopped ? "stopped" : row.status,
+    accountStopped: !!row.account_stopped,
     receiptUrl: safeReceiptUrl(row.receipt_url),
     receiptFileName: row.receipt_file_name,
     receiptFileType: row.receipt_file_type,
@@ -826,6 +844,7 @@ async function adminActiveList(req, res) {
         s.user_id,
         s.grade,
         s.status,
+      s.account_stopped,
         s.receipt_url,
         s.receipt_file_name,
         s.receipt_file_type,
@@ -920,6 +939,7 @@ async function adminActiveList(req, res) {
       COALESCE(active_labels.active_subjects, '[]'::jsonb) AS active_subjects,
       COALESCE(active_receipts.receipts, '[]'::jsonb) AS receipts,
       latest_rows.status,
+      latest_rows.account_stopped,
       CASE WHEN LEFT(latest_rows.receipt_url, 5) = 'data:' THEN '' ELSE LEFT(latest_rows.receipt_url, 4097) END AS receipt_url,
       LEFT(latest_rows.receipt_file_name, 180) AS receipt_file_name,
       LEFT(latest_rows.receipt_file_type, 80) AS receipt_file_type,
@@ -945,7 +965,8 @@ async function adminActiveList(req, res) {
     grade: row.active_items || '',
     grades: row.active_items ? [row.active_items] : [],
     subjects: [],
-    status: row.status,
+    status: row.account_stopped ? "stopped" : row.status,
+    accountStopped: !!row.account_stopped,
     receiptUrl: safeReceiptUrl(row.receipt_url),
     receiptFileName: row.receipt_file_name,
     receiptFileType: row.receipt_file_type,
@@ -971,6 +992,18 @@ async function adminActiveList(req, res) {
     hasMore: (rows || []).length > limit,
     paymentNumber: PAYMENT_NUMBER,
   });
+}
+
+async function adminBlockUser(req, res) {
+  const auth = requireAdmin(req);
+  if (!auth.ok) return send(res, auth.status, { error: auth.error, message: auth.message });
+  if (!(await dbReady(res, false))) return;
+  const body = await readJsonBody(req);
+  const userId = String(body.userId || '').trim();
+  if (!userId) return fail(res, 400, 'بيانات المستخدم غير صحيحة.', 'invalid_payload');
+  const rows = await sql`UPDATE teacher_subscriptions SET account_stopped = TRUE, status = 'stopped', subjects = COALESCE((SELECT jsonb_agg(item.value || jsonb_build_object('status', 'stopped')) FROM jsonb_array_elements(subjects) item(value)), '[]'::jsonb), admin_note = 'تم إيقاف الحساب بالكامل من الإدارة', updated_at = NOW() WHERE user_id = ${userId} RETURNING id;`;
+  if (!rows?.length) return fail(res, 404, 'المستخدم غير موجود.', 'not_found');
+  return send(res, 200, { ok: true, accountStopped: true });
 }
 
 async function adminStopUser(req, res) {
@@ -1025,6 +1058,7 @@ async function adminUpdateUserSelection(req, res) {
       updated_at = NOW()
     WHERE user_id = ${userId}
       AND status = 'active'
+      AND account_stopped = FALSE
     RETURNING id;
   `;
   if (!rows?.length) return fail(res, 404, "لا يوجد اشتراك مفعل لهذا المستخدم.", "not_found");
@@ -1050,11 +1084,13 @@ async function adminUpdate(req, res) {
     LIMIT 1;
   `;
   if (!existingRows?.[0]) return fail(res, 404, "طلب الاشتراك غير موجود.", "not_found");
+  const unblockAccount = body.unblockAccount === true && status === "active";
   const updatedSubjects = subscriptionSubjects(existingRows[0]).map((item) => ({ ...item, status }));
   const rows = await sql`
     UPDATE teacher_subscriptions
-    SET status = ${status}, subjects = ${JSON.stringify(updatedSubjects)}::jsonb, admin_note = ${note}, updated_at = NOW()
+    SET account_stopped = CASE WHEN ${unblockAccount} THEN FALSE ELSE account_stopped END, status = ${status}, subjects = ${JSON.stringify(updatedSubjects)}::jsonb, admin_note = ${note}, updated_at = NOW()
     WHERE id = ${id}
+      AND (account_stopped = FALSE OR ${unblockAccount})
     RETURNING
       id,
       user_id,
@@ -1062,6 +1098,7 @@ async function adminUpdate(req, res) {
       CASE WHEN pg_column_size(grades) <= 1048576 THEN grades ELSE '[]'::jsonb END AS grades,
       CASE WHEN pg_column_size(subjects) <= 1048576 THEN subjects ELSE '[]'::jsonb END AS subjects,
       status,
+      account_stopped,
       CASE WHEN LEFT(receipt_url, 5) = 'data:' THEN '' ELSE LEFT(receipt_url, 4097) END AS receipt_url,
       LEFT(receipt_file_name, 180) AS receipt_file_name,
       LEFT(receipt_file_type, 80) AS receipt_file_type,
@@ -1069,6 +1106,7 @@ async function adminUpdate(req, res) {
       created_at,
       updated_at;
   `;
+  if (!rows?.length) return fail(res, 403, "الحساب موقوف بالكامل. يجب رفع الإيقاف صراحة من صفحة المستخدمين.", "account_stopped");
   send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]) });
 }
 
@@ -1079,6 +1117,7 @@ export default async function handler(req, res) {
     if (req.method === "POST" && action === "request") return await requestSubscription(req, res);
     if (req.method === "GET" && action === "admin_list") return await adminList(req, res);
     if (req.method === "GET" && action === "admin_active_list") return await adminActiveList(req, res);
+    if (req.method === "POST" && action === "admin_block_user") return await adminBlockUser(req, res);
     if (req.method === "POST" && action === "admin_stop_user") return await adminStopUser(req, res);
     if (req.method === "POST" && action === "admin_update_user_selection") return await adminUpdateUserSelection(req, res);
     if (req.method === "POST" && action === "admin_update") return await adminUpdate(req, res);
