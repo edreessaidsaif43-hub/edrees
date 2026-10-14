@@ -212,7 +212,8 @@ document.getElementById('list')?.addEventListener('click', async event => {
   button.disabled = true;
   try {
     if(action === 'save-selection') await saveUserSelection(userId, id);
-    if(action === 'activate') await activateUserSubscription(id);
+    if(action === 'activate') await activateUserSubscription(id, button.dataset.blocked === 'true');
+    if(action === 'block') await blockUserAccount(userId);
     if(action === 'stop') await stopUserSubscription(userId, id);
   } catch (error) {
     alert(error?.message || 'تعذر تنفيذ العملية، يرجى المحاولة مرة أخرى.');
@@ -274,10 +275,10 @@ async function loadUsers(page = usersPage){
       const p = item.profile || {};
       return '<tr>' +
         '<td data-label="المستخدم"><div class="name">' + esc(p.name || item.userId) + '</div><div class="meta">ID: ' + esc(item.userId) + '<br>التواصل: ' + esc(p.contact || '') + '</div></td>' +
-        '<td data-label="الصف / المادة المفعلة"><span class="status ' + esc(item.status) + '">' + esc(statusLabel(item.status)) + '</span>' + activeItemsCell(item) + '<textarea id="selection-' + item.id + '" placeholder="مثال: الصف الخامس - الرياضيات">' + esc(editableItemsValue(item)) + '</textarea><div class="edit-actions"><button type="button" class="btn-muted" data-action="save-selection" data-user-id="' + esc(item.userId) + '" data-sub-id="' + esc(item.id) + '">حفظ الصف والمواد</button></div></td>' +
+        '<td data-label="الصف / المادة المفعلة"><span class="status ' + esc(item.status) + '">' + esc(item.accountStopped ? 'موقوف بالكامل' : statusLabel(item.status)) + '</span>' + activeItemsCell(item) + '<textarea id="selection-' + item.id + '" placeholder="مثال: الصف الخامس - الرياضيات">' + esc(editableItemsValue(item)) + '</textarea><div class="edit-actions"><button type="button" class="btn-muted" data-action="save-selection" data-user-id="' + esc(item.userId) + '" data-sub-id="' + esc(item.id) + '">حفظ الصف والمواد</button></div></td>' +
         '<td data-label="الإيصال">' + receiptCell(item) + '</td>' +
         '<td data-label="آخر تحديث"><div class="meta">' + esc(formatDate(item.updatedAt)) + '</div></td>' +
-        '<td data-label="الإجراء"><div class="user-actions"><button type="button" class="btn-ok" data-action="activate" data-sub-id="' + esc(item.id) + '">تفعيل</button><button type="button" class="btn-danger" data-action="stop" data-user-id="' + esc(item.userId) + '" data-sub-id="' + esc(item.id) + '">إيقاف الحساب</button></div></td>' +
+        '<td data-label="الإجراء"><div class="user-actions"><button type="button" class="btn-ok" data-action="activate" data-blocked="' + !!item.accountStopped + '" data-sub-id="' + esc(item.id) + '">تفعيل</button><button type="button" class="btn-danger" data-action="stop" data-user-id="' + esc(item.userId) + '" data-sub-id="' + esc(item.id) + '">إيقاف الحساب</button><button type="button" class="btn-danger" data-action="block" data-user-id="' + esc(item.userId) + '" ' + (item.accountStopped ? 'disabled' : '') + '>إيقاف كامل</button></div></td>' +
       '</tr>';
     }).join('') + '</tbody></table></div>';
     const pager = renderPager(usersPage, items.length, !!data.hasMore);
@@ -307,12 +308,20 @@ async function stopUserSubscription(userId, id){
   await loadUsers(usersPage);
 }
 
-async function activateUserSubscription(id){
-  if(!confirm('هل تريد تفعيل اشتراك هذا المستخدم؟')) return;
+async function blockUserAccount(userId) {
+  if(!confirm('هل تريد إيقاف الحساب بالكامل؟ لن يعاد تفعيله برفع إيصال جديد، ويمكن رفع الإيقاف من الإدارة فقط.')) return;
+  const res = await fetch(api('/api/subscriptions?action=admin_block_user'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword }, body: JSON.stringify({ userId }) });
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.message || 'تعذر إيقاف الحساب بالكامل.');
+  await loadUsers(usersPage);
+}
+
+async function activateUserSubscription(id, blocked = false){
+  if(!confirm(blocked ? 'الحساب موقوف بالكامل. هل تريد رفع الإيقاف وإعادة تفعيل الاشتراك؟' : 'هل تريد تفعيل اشتراك هذا المستخدم؟')) return;
   const res = await fetch(api('/api/subscriptions?action=admin_update'), {
     method:'POST',
     headers:{ 'Content-Type':'application/json', 'x-admin-password': adminPassword },
-    body: JSON.stringify({ id, status: 'active', note: 'تم تفعيل الاشتراك من صفحة متابعة المستخدمين المشتركين' })
+    body: JSON.stringify({ id, status: 'active', unblockAccount: blocked, note: 'تم تفعيل الاشتراك من صفحة متابعة المستخدمين المشتركين' })
   });
   const data = await res.json().catch(() => ({}));
   if(!res.ok){ alert(data.message || 'تعذر تفعيل الاشتراك.'); return; }
