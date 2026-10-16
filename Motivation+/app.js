@@ -2075,70 +2075,52 @@ const professionalWheelColors = [
 function drawProfessionalWheelCanvas(students) {
   const canvas = document.getElementById("wheel-canvas");
   if (!canvas || !canvas.getContext) return;
+  if (canvas.width !== 760) { canvas.width = 760; canvas.height = 760; }
   const ctx = canvas.getContext("2d");
-  const size = canvas.width || 380;
-  const cx = size / 2;
-  const cy = size / 2;
-  const radius = size * 0.462;
+  const size = canvas.width, cx = size / 2, cy = size / 2, k = size / 380;
+  const R = size * 0.49, Rf = size * 0.425;
+  const palette = [["#1d3557","#f1e9d8"],["#e9b44c","#2b1d0e"],["#e76f51","#fff7ec"],["#2a9d8f","#fff7ec"],["#f1e9d8","#2b1d0e"],["#7b4b94","#fff7ec"]];
   ctx.clearRect(0, 0, size, size);
   const list = Array.isArray(students) ? students.filter((s) => s && s.id && normalizeName(s.name)) : [];
-  if (!list.length) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = "#1f2937";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.18)";
-    ctx.lineWidth = 4;
-    ctx.stroke();
-    return;
+  const n = list.length;
+  const rim = ctx.createLinearGradient(0, 0, size, size);
+  rim.addColorStop(0, "#8a5a3b"); rim.addColorStop(0.5, "#5b3a29"); rim.addColorStop(1, "#3d2619");
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fillStyle = rim; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, Rf + 3 * k, 0, Math.PI * 2); ctx.fillStyle = "#f1e9d8"; ctx.fill();
+  if (n) {
+    const slice = (Math.PI * 2) / n;
+    list.forEach((student, i) => {
+      let ci = i % palette.length;
+      if (i === n - 1 && n > 1 && ci === 0) ci = 3;
+      const a0 = i * slice, mid = a0 + slice / 2;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, Rf, a0, a0 + slice); ctx.closePath();
+      ctx.fillStyle = palette[ci][0]; ctx.fill();
+      const label = buildWheelShortName(student.name, i, n);
+      let fs = (n <= 4 ? 20 : n <= 8 ? 17 : n <= 14 ? 14 : n <= 24 ? 11 : 9) * k;
+      ctx.save();
+      ctx.translate(cx, cy); ctx.rotate(mid);
+      ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillStyle = palette[ci][1];
+      ctx.font = "800 " + fs + "px Tajawal, Cairo, sans-serif";
+      while (ctx.measureText(label).width > Rf * 0.66 && fs > 8 * k) { fs -= k; ctx.font = "800 " + fs + "px Tajawal, Cairo, sans-serif"; }
+      ctx.fillText(label, Rf - 14 * k, 0);
+      ctx.restore();
+    });
+    ctx.strokeStyle = "rgba(241,233,216,0.9)"; ctx.lineWidth = 2 * k;
+    for (let i = 0; i < n; i += 1) {
+      const a = i * slice;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * Rf, cy + Math.sin(a) * Rf); ctx.stroke();
+    }
   }
-  const slice = (Math.PI * 2) / list.length;
-  list.forEach((student, index) => {
-    const start = index * slice;
-    const end = start + slice;
-    const colors = getProfessionalWheelColor(index, list.length);
-    const grad = ctx.createRadialGradient(cx, cy, radius * 0.1, cx, cy, radius);
-    grad.addColorStop(0, colors[1]);
-    grad.addColorStop(1, colors[0]);
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, radius, start, end);
-    ctx.closePath();
-    ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.strokeStyle = "#0f1117";
-    ctx.lineWidth = Math.max(1.5, size * 0.005);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius * 0.82, start, end);
-    ctx.strokeStyle = "rgba(255,255,255,0.24)";
-    ctx.lineWidth = Math.max(1, size * 0.004);
-    ctx.stroke();
-    const mid = start + slice / 2;
-    const textRadius = radius * (list.length > 18 ? 0.67 : 0.62);
-    const tx = cx + Math.cos(mid) * textRadius;
-    const ty = cy + Math.sin(mid) * textRadius;
-    const label = buildWheelShortName(student.name, index, list.length);
-    const fontSize = list.length <= 4 ? 17 : list.length <= 8 ? 14 : list.length <= 14 ? 12 : 10;
-    ctx.save();
-    ctx.translate(tx, ty);
-    ctx.rotate(mid + Math.PI);
-    ctx.font = "900 " + fontSize + "px Tajawal, Cairo, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#ffffff";
-    ctx.shadowColor = "rgba(0,0,0,0.55)";
-    ctx.shadowBlur = 5;
-    ctx.fillText(label, 0, 0);
-    ctx.restore();
-  });
-  ctx.beginPath();
-  ctx.arc(cx, cy, size * 0.095, 0, Math.PI * 2);
-  ctx.fillStyle = "#0f1117";
-  ctx.fill();
-  ctx.strokeStyle = "rgba(108,99,255,0.68)";
-  ctx.lineWidth = size * 0.008;
-  ctx.stroke();
+  const pegN = n || 12, pr = (R + Rf) / 2;
+  for (let i = 0; i < pegN; i += 1) {
+    const a = (i * Math.PI * 2) / pegN, px = cx + Math.cos(a) * pr, py = cy + Math.sin(a) * pr;
+    const g = ctx.createRadialGradient(px - 2 * k, py - 2 * k, 0.5 * k, px, py, 6 * k);
+    g.addColorStop(0, "#fff0b8"); g.addColorStop(1, "#b8862b");
+    ctx.beginPath(); ctx.arc(px, py, 5.5 * k, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
+  }
+  const hub = ctx.createRadialGradient(cx - 8 * k, cy - 8 * k, 2 * k, cx, cy, size * 0.105);
+  hub.addColorStop(0, "#ffe9a3"); hub.addColorStop(1, "#a97a20");
+  ctx.beginPath(); ctx.arc(cx, cy, size * 0.105, 0, Math.PI * 2); ctx.fillStyle = hub; ctx.fill();
 }
 function renderProfessionalWheelLabels(wheel, center, students) {
   if (!wheel || !center) return;
@@ -3266,12 +3248,12 @@ function renderLuckyGame(forceRender = false) {
   if (!luckyShowAllCards && luckyStudents.length > 5) {
     const preview = luckyStudents.slice(0, 5);
     grid.innerHTML = [
-      ...preview.map((student, index) => `<div class="lucky-card" data-student-id="${student.id}" data-student-name="${student.name.replace(/"/g, "&quot;")}">${luckyBusy ? `🎁 ${index + 1}` : student.name}</div>`),
+      ...preview.map((student, index) => `<div class="lucky-card" data-student-id="${student.id}" data-student-name="${student.name.replace(/"/g, "&quot;")}"><span class="tag">${luckyBusy ? index + 1 : student.name}</span></div>`),
       `<div class="lucky-card lucky-more" data-student-id="">آخرون...</div>`
     ].join("");
   } else {
     grid.innerHTML = luckyStudents
-      .map((student, index) => `<div class="lucky-card" data-student-id="${student.id}" data-student-name="${student.name.replace(/"/g, "&quot;")}">${luckyBusy ? `🎁 ${index + 1}` : student.name}</div>`)
+      .map((student, index) => `<div class="lucky-card" data-student-id="${student.id}" data-student-name="${student.name.replace(/"/g, "&quot;")}"><span class="tag">${luckyBusy ? index + 1 : student.name}</span></div>`)
       .join("");
   }
 
@@ -4264,7 +4246,7 @@ function runSyncedLuckyEvent(event) {
   result.textContent = now < startsAt ? "استعد... سيبدأ صندوق الحظ الآن" : "جاري اختيار الطالب...";
   const hideCardNames = () => {
     cards.forEach((card, index) => {
-      card.textContent = "🎁 " + (index + 1);
+      card.innerHTML = '<span class="tag">' + (index + 1) + "</span>";
       card.classList.remove("active", "winner");
     });
   };
@@ -4284,7 +4266,7 @@ function runSyncedLuckyEvent(event) {
     clearLuckyPlayback();
     cards.forEach((card) => card.classList.remove("active", "winner"));
     if (winnerCard) {
-      winnerCard.textContent = winnerName;
+      winnerCard.textContent = ""; const winTag = document.createElement("span"); winTag.className = "tag"; winTag.textContent = winnerName; winnerCard.appendChild(winTag);
       winnerCard.classList.add("winner");
     }
     luckyBusy = false;
@@ -6117,3 +6099,32 @@ window.addEventListener("storage", (event) => {
 
 
 
+
+
+/* Prize-wheel flapper: flicks each time a peg passes the pointer. */
+(function () {
+  const wheel = document.getElementById("student-wheel");
+  const ptr = document.querySelector("#feature-wheel .wheel-pointer");
+  if (!wheel || !ptr) return;
+  let last = null, timer = 0;
+  function loop() {
+    if (typeof wheelBusy !== "undefined" && wheelBusy) {
+      const m = (getComputedStyle(wheel).transform || "").match(/matrix\(([^)]+)\)/);
+      if (m) {
+        const p = m[1].split(",").map(Number);
+        const th = (Math.atan2(p[1], p[0]) * 180) / Math.PI;
+        const cls = getActiveClass();
+        const n = Math.max(1, ((cls && cls.students) || []).filter((x) => x && x.id && normalizeName(x.name)).length);
+        const pos = Math.floor((-90 - th) / (360 / n));
+        if (last !== null && pos !== last) {
+          ptr.style.setProperty("--flick", "-26deg");
+          clearTimeout(timer);
+          timer = setTimeout(() => ptr.style.setProperty("--flick", "0deg"), 70);
+        }
+        last = pos;
+      }
+    } else last = null;
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
