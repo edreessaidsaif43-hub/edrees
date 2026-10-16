@@ -1891,6 +1891,7 @@ function getSharedAudioContext() {
 }
 
 function playEventSound(type = "success") {
+  if (window.GameFX && GameFX.handle(type)) return;
   const ctx = getSharedAudioContext();
   if (!ctx) return;
   const gain = ctx.createGain();
@@ -4258,6 +4259,7 @@ function runSyncedLuckyEvent(event) {
     if (luckyTicker) clearInterval(luckyTicker);
     luckyTicker = setInterval(() => {
       cards.forEach((card) => card.classList.remove("active"));
+      if (window.GameFX) GameFX.rattle();
       const activeIndex = Math.floor(Math.random() * Math.max(1, cards.length));
       if (cards[activeIndex]) cards[activeIndex].classList.add("active");
     }, 95);
@@ -6117,6 +6119,7 @@ window.addEventListener("storage", (event) => {
         const n = Math.max(1, ((cls && cls.students) || []).filter((x) => x && x.id && normalizeName(x.name)).length);
         const pos = Math.floor((-90 - th) / (360 / n));
         if (last !== null && pos !== last) {
+          if (window.GameFX) GameFX.tick();
           ptr.style.setProperty("--flick", "-26deg");
           clearTimeout(timer);
           timer = setTimeout(() => ptr.style.setProperty("--flick", "0deg"), 70);
@@ -6127,4 +6130,63 @@ window.addEventListener("storage", (event) => {
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
+})();
+
+
+/* Game sound effects (synthesized, no audio files) + 3D wheel gloss + mute toggle. */
+window.GameFX = {
+  on: (() => { try { return localStorage.getItem("gamefx-off") !== "1"; } catch (e) { return true; } })(),
+  lastTick: 0,
+  ctx() { return this.on ? getSharedAudioContext() : null; },
+  tone(f, at, d, type, peak, f2) {
+    const c = this.ctx(); if (!c) return;
+    const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + at;
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + d + 0.03);
+  },
+  noise(d, peak, f1, f2, at) {
+    const c = this.ctx(); if (!c) return;
+    const n = Math.floor(c.sampleRate * d), buf = c.createBuffer(1, n, c.sampleRate), data = buf.getChannelData(0);
+    for (let i = 0; i < n; i += 1) data[i] = Math.random() * 2 - 1;
+    const src = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain(), t = c.currentTime + (at || 0);
+    src.buffer = buf; bp.type = "bandpass"; bp.Q.value = 1.2;
+    bp.frequency.setValueAtTime(f1, t); bp.frequency.exponentialRampToValueAtTime(f2, t + d);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + d * 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    src.connect(bp); bp.connect(g); g.connect(c.destination); src.start(t);
+  },
+  tick() {
+    const now = performance.now(); if (now - this.lastTick < 28) return; this.lastTick = now;
+    this.noise(0.035, 0.22, 2600, 1800, 0); this.tone(1100, 0, 0.04, "triangle", 0.05, 700);
+  },
+  whoosh() { this.noise(1.1, 0.25, 250, 2200, 0); },
+  rattle() { this.noise(0.08, 0.2, 500, 900, 0); this.tone(160 + Math.random() * 60, 0, 0.07, "square", 0.04, 110); },
+  fanfare() {
+    [523, 659, 784, 1047].forEach((f, i) => this.tone(f, i * 0.11, 0.35, "triangle", 0.14));
+    this.tone(1568, 0.5, 0.6, "sine", 0.1); this.noise(0.5, 0.12, 4000, 9000, 0.45);
+    [0.62, 0.72, 0.84].forEach((t, i) => this.tone(2093 + i * 300, t, 0.15, "sine", 0.05));
+  },
+  handle(type) {
+    if (type === "spin") { this.whoosh(); return true; }
+    if (type === "winner") { this.fanfare(); return true; }
+    return false;
+  }
+};
+(function () {
+  const wrap = document.querySelector("#feature-wheel .wheel-wrap");
+  if (wrap && !wrap.querySelector(".wheel-gloss")) {
+    const g = document.createElement("div"); g.className = "wheel-gloss"; g.setAttribute("aria-hidden", "true"); wrap.appendChild(g);
+  }
+  document.querySelectorAll("#feature-wheel .field-row, #feature-lucky .field-row").forEach((row) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "btn secondary fx-toggle";
+    const paint = () => { b.textContent = GameFX.on ? "🔊 الصوت: يعمل" : "🔇 الصوت: مكتوم"; };
+    b.addEventListener("click", () => {
+      GameFX.on = !GameFX.on;
+      try { localStorage.setItem("gamefx-off", GameFX.on ? "0" : "1"); } catch (e) {}
+      document.querySelectorAll(".fx-toggle").forEach((x) => x.dispatchEvent(new Event("fxpaint")));
+      if (GameFX.on) GameFX.tick();
+    });
+    b.addEventListener("fxpaint", paint); paint(); row.appendChild(b);
+  });
 })();
