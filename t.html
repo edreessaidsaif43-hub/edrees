@@ -1838,6 +1838,7 @@ function getCachedCsv() {
           ${createContentBlock('تقويم ختامي', contents[5], '✅')}
           ${createContentBlock('ملاحظات', contents[6], '👨‍👧')}
           ${createContentBlock('مرفقات', contents[7], '📎')}
+          ${createContentBlock('الواجبات', contents[8], '📝')}
         </div>
 
         <div style="display:grid;gap:8px;text-align:center;padding:10px;background:#f8fafc;border-radius:10px;">
@@ -1896,6 +1897,9 @@ ${d["11"] || ''}
 
 ملاحظات ولي الأمر:
 ${d["12"] || ''}
+
+الواجبات:
+${d["14"] || ''}
 ----`;
       return text;
     }
