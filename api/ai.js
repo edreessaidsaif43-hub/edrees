@@ -1657,7 +1657,7 @@ const PREPARATION_LIBRARY_LIMIT = 5;
 
 async function getLessonSourceHash(lessonId) {
   const rows = await sql`
-    SELECT md5(concat_ws('|',
+    SELECT md5(concat_ws('|', 'five-homeworks-v1',
       COALESCE(grade, ''), COALESCE(subject, ''), COALESCE(semester, ''),
       COALESCE(unit, ''), COALESCE(title, ''), COALESCE(lesson_text, ''),
       COALESCE(attachment_id::text, ''), COALESCE(attachment_ids::text, '')
