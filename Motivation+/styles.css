@@ -6063,3 +6063,13 @@ body #feature-lucky .lucky-card.winner .tag { transform: translateY(-16px) trans
 body #feature-lucky .lucky-grid .lucky-card.lucky-more,
 body #feature-lucky .lucky-grid .lucky-card:not([data-student-id]) { transform: none; background: transparent !important; filter: none; }
 .fx-toggle { white-space: nowrap; }
+
+/* ===== Wider spacing between boxes + hold button ===== */
+body #feature-lucky .lucky-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+  gap: 64px 72px !important;
+  padding: 48px 30px 26px !important;
+  justify-items: center;
+}
+body #feature-lucky .lucky-grid .lucky-card { width: 100%; max-width: 124px; }
+#start-lucky-game { touch-action: none; user-select: none; -webkit-user-select: none; min-height: 52px; font-weight: 800; }
