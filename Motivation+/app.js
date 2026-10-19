@@ -1891,7 +1891,6 @@ function getSharedAudioContext() {
 }
 
 function playEventSound(type = "success") {
-  if (window.GameFX && GameFX.handle(type)) return;
   const ctx = getSharedAudioContext();
   if (!ctx) return;
   const gain = ctx.createGain();
@@ -2076,52 +2075,70 @@ const professionalWheelColors = [
 function drawProfessionalWheelCanvas(students) {
   const canvas = document.getElementById("wheel-canvas");
   if (!canvas || !canvas.getContext) return;
-  if (canvas.width !== 760) { canvas.width = 760; canvas.height = 760; }
   const ctx = canvas.getContext("2d");
-  const size = canvas.width, cx = size / 2, cy = size / 2, k = size / 380;
-  const R = size * 0.49, Rf = size * 0.425;
-  const palette = [["#1d3557","#f1e9d8"],["#e9b44c","#2b1d0e"],["#e76f51","#fff7ec"],["#2a9d8f","#fff7ec"],["#f1e9d8","#2b1d0e"],["#7b4b94","#fff7ec"]];
+  const size = canvas.width || 380;
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = size * 0.462;
   ctx.clearRect(0, 0, size, size);
   const list = Array.isArray(students) ? students.filter((s) => s && s.id && normalizeName(s.name)) : [];
-  const n = list.length;
-  const rim = ctx.createLinearGradient(0, 0, size, size);
-  rim.addColorStop(0, "#8a5a3b"); rim.addColorStop(0.5, "#5b3a29"); rim.addColorStop(1, "#3d2619");
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fillStyle = rim; ctx.fill();
-  ctx.beginPath(); ctx.arc(cx, cy, Rf + 3 * k, 0, Math.PI * 2); ctx.fillStyle = "#f1e9d8"; ctx.fill();
-  if (n) {
-    const slice = (Math.PI * 2) / n;
-    list.forEach((student, i) => {
-      let ci = i % palette.length;
-      if (i === n - 1 && n > 1 && ci === 0) ci = 3;
-      const a0 = i * slice, mid = a0 + slice / 2;
-      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, Rf, a0, a0 + slice); ctx.closePath();
-      ctx.fillStyle = palette[ci][0]; ctx.fill();
-      const label = buildWheelShortName(student.name, i, n);
-      let fs = (n <= 4 ? 20 : n <= 8 ? 17 : n <= 14 ? 14 : n <= 24 ? 11 : 9) * k;
-      ctx.save();
-      ctx.translate(cx, cy); ctx.rotate(mid);
-      ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillStyle = palette[ci][1];
-      ctx.font = "800 " + fs + "px Tajawal, Cairo, sans-serif";
-      while (ctx.measureText(label).width > Rf * 0.66 && fs > 8 * k) { fs -= k; ctx.font = "800 " + fs + "px Tajawal, Cairo, sans-serif"; }
-      ctx.fillText(label, Rf - 14 * k, 0);
-      ctx.restore();
-    });
-    ctx.strokeStyle = "rgba(241,233,216,0.9)"; ctx.lineWidth = 2 * k;
-    for (let i = 0; i < n; i += 1) {
-      const a = i * slice;
-      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * Rf, cy + Math.sin(a) * Rf); ctx.stroke();
-    }
+  if (!list.length) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#1f2937";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    return;
   }
-  const pegN = n || 12, pr = (R + Rf) / 2;
-  for (let i = 0; i < pegN; i += 1) {
-    const a = (i * Math.PI * 2) / pegN, px = cx + Math.cos(a) * pr, py = cy + Math.sin(a) * pr;
-    const g = ctx.createRadialGradient(px - 2 * k, py - 2 * k, 0.5 * k, px, py, 6 * k);
-    g.addColorStop(0, "#fff0b8"); g.addColorStop(1, "#b8862b");
-    ctx.beginPath(); ctx.arc(px, py, 5.5 * k, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
-  }
-  const hub = ctx.createRadialGradient(cx - 8 * k, cy - 8 * k, 2 * k, cx, cy, size * 0.105);
-  hub.addColorStop(0, "#ffe9a3"); hub.addColorStop(1, "#a97a20");
-  ctx.beginPath(); ctx.arc(cx, cy, size * 0.105, 0, Math.PI * 2); ctx.fillStyle = hub; ctx.fill();
+  const slice = (Math.PI * 2) / list.length;
+  list.forEach((student, index) => {
+    const start = index * slice;
+    const end = start + slice;
+    const colors = getProfessionalWheelColor(index, list.length);
+    const grad = ctx.createRadialGradient(cx, cy, radius * 0.1, cx, cy, radius);
+    grad.addColorStop(0, colors[1]);
+    grad.addColorStop(1, colors[0]);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, start, end);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = "#0f1117";
+    ctx.lineWidth = Math.max(1.5, size * 0.005);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 0.82, start, end);
+    ctx.strokeStyle = "rgba(255,255,255,0.24)";
+    ctx.lineWidth = Math.max(1, size * 0.004);
+    ctx.stroke();
+    const mid = start + slice / 2;
+    const textRadius = radius * (list.length > 18 ? 0.67 : 0.62);
+    const tx = cx + Math.cos(mid) * textRadius;
+    const ty = cy + Math.sin(mid) * textRadius;
+    const label = buildWheelShortName(student.name, index, list.length);
+    const fontSize = list.length <= 4 ? 17 : list.length <= 8 ? 14 : list.length <= 14 ? 12 : 10;
+    ctx.save();
+    ctx.translate(tx, ty);
+    ctx.rotate(mid + Math.PI);
+    ctx.font = "900 " + fontSize + "px Tajawal, Cairo, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#ffffff";
+    ctx.shadowColor = "rgba(0,0,0,0.55)";
+    ctx.shadowBlur = 5;
+    ctx.fillText(label, 0, 0);
+    ctx.restore();
+  });
+  ctx.beginPath();
+  ctx.arc(cx, cy, size * 0.095, 0, Math.PI * 2);
+  ctx.fillStyle = "#0f1117";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(108,99,255,0.68)";
+  ctx.lineWidth = size * 0.008;
+  ctx.stroke();
 }
 function renderProfessionalWheelLabels(wheel, center, students) {
   if (!wheel || !center) return;
@@ -3249,12 +3266,12 @@ function renderLuckyGame(forceRender = false) {
   if (!luckyShowAllCards && luckyStudents.length > 5) {
     const preview = luckyStudents.slice(0, 5);
     grid.innerHTML = [
-      ...preview.map((student, index) => `<div class="lucky-card" data-student-id="${student.id}" data-student-name="${student.name.replace(/"/g, "&quot;")}"><span class="tag">${luckyBusy ? index + 1 : student.name}</span></div>`),
+      ...preview.map((student, index) => `<div class="lucky-card" data-student-id="${student.id}" data-student-name="${student.name.replace(/"/g, "&quot;")}">${luckyBusy ? `🎁 ${index + 1}` : student.name}</div>`),
       `<div class="lucky-card lucky-more" data-student-id="">آخرون...</div>`
     ].join("");
   } else {
     grid.innerHTML = luckyStudents
-      .map((student, index) => `<div class="lucky-card" data-student-id="${student.id}" data-student-name="${student.name.replace(/"/g, "&quot;")}"><span class="tag">${luckyBusy ? index + 1 : student.name}</span></div>`)
+      .map((student, index) => `<div class="lucky-card" data-student-id="${student.id}" data-student-name="${student.name.replace(/"/g, "&quot;")}">${luckyBusy ? `🎁 ${index + 1}` : student.name}</div>`)
       .join("");
   }
 
@@ -4247,7 +4264,7 @@ function runSyncedLuckyEvent(event) {
   result.textContent = now < startsAt ? "استعد... سيبدأ صندوق الحظ الآن" : "جاري اختيار الطالب...";
   const hideCardNames = () => {
     cards.forEach((card, index) => {
-      card.innerHTML = '<span class="tag">' + (index + 1) + "</span>";
+      card.textContent = "🎁 " + (index + 1);
       card.classList.remove("active", "winner");
     });
   };
@@ -4259,7 +4276,6 @@ function runSyncedLuckyEvent(event) {
     if (luckyTicker) clearInterval(luckyTicker);
     luckyTicker = setInterval(() => {
       cards.forEach((card) => card.classList.remove("active"));
-      if (window.GameFX) GameFX.rattle();
       const activeIndex = Math.floor(Math.random() * Math.max(1, cards.length));
       if (cards[activeIndex]) cards[activeIndex].classList.add("active");
     }, 95);
@@ -4268,7 +4284,7 @@ function runSyncedLuckyEvent(event) {
     clearLuckyPlayback();
     cards.forEach((card) => card.classList.remove("active", "winner"));
     if (winnerCard) {
-      winnerCard.textContent = ""; const winTag = document.createElement("span"); winTag.className = "tag"; winTag.textContent = winnerName; winnerCard.appendChild(winTag);
+      winnerCard.textContent = winnerName;
       winnerCard.classList.add("winner");
     }
     luckyBusy = false;
@@ -6101,92 +6117,3 @@ window.addEventListener("storage", (event) => {
 
 
 
-
-
-/* Prize-wheel flapper: flicks each time a peg passes the pointer. */
-(function () {
-  const wheel = document.getElementById("student-wheel");
-  const ptr = document.querySelector("#feature-wheel .wheel-pointer");
-  if (!wheel || !ptr) return;
-  let last = null, timer = 0;
-  function loop() {
-    if (typeof wheelBusy !== "undefined" && wheelBusy) {
-      const m = (getComputedStyle(wheel).transform || "").match(/matrix\(([^)]+)\)/);
-      if (m) {
-        const p = m[1].split(",").map(Number);
-        const th = (Math.atan2(p[1], p[0]) * 180) / Math.PI;
-        const cls = getActiveClass();
-        const n = Math.max(1, ((cls && cls.students) || []).filter((x) => x && x.id && normalizeName(x.name)).length);
-        const pos = Math.floor((-90 - th) / (360 / n));
-        if (last !== null && pos !== last) {
-          if (window.GameFX) GameFX.tick();
-          ptr.style.setProperty("--flick", "-26deg");
-          clearTimeout(timer);
-          timer = setTimeout(() => ptr.style.setProperty("--flick", "0deg"), 70);
-        }
-        last = pos;
-      }
-    } else last = null;
-    requestAnimationFrame(loop);
-  }
-  requestAnimationFrame(loop);
-})();
-
-
-/* Game sound effects (synthesized, no audio files) + 3D wheel gloss + mute toggle. */
-window.GameFX = {
-  on: (() => { try { return localStorage.getItem("gamefx-off") !== "1"; } catch (e) { return true; } })(),
-  lastTick: 0,
-  ctx() { return this.on ? getSharedAudioContext() : null; },
-  tone(f, at, d, type, peak, f2) {
-    const c = this.ctx(); if (!c) return;
-    const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + at;
-    o.type = type; o.frequency.setValueAtTime(f, t);
-    if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
-    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + d + 0.03);
-  },
-  noise(d, peak, f1, f2, at) {
-    const c = this.ctx(); if (!c) return;
-    const n = Math.floor(c.sampleRate * d), buf = c.createBuffer(1, n, c.sampleRate), data = buf.getChannelData(0);
-    for (let i = 0; i < n; i += 1) data[i] = Math.random() * 2 - 1;
-    const src = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain(), t = c.currentTime + (at || 0);
-    src.buffer = buf; bp.type = "bandpass"; bp.Q.value = 1.2;
-    bp.frequency.setValueAtTime(f1, t); bp.frequency.exponentialRampToValueAtTime(f2, t + d);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + d * 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
-    src.connect(bp); bp.connect(g); g.connect(c.destination); src.start(t);
-  },
-  tick() {
-    const now = performance.now(); if (now - this.lastTick < 28) return; this.lastTick = now;
-    this.noise(0.035, 0.22, 2600, 1800, 0); this.tone(1100, 0, 0.04, "triangle", 0.05, 700);
-  },
-  whoosh() { this.noise(1.1, 0.25, 250, 2200, 0); },
-  rattle() { this.noise(0.08, 0.2, 500, 900, 0); this.tone(160 + Math.random() * 60, 0, 0.07, "square", 0.04, 110); },
-  fanfare() {
-    [523, 659, 784, 1047].forEach((f, i) => this.tone(f, i * 0.11, 0.35, "triangle", 0.14));
-    this.tone(1568, 0.5, 0.6, "sine", 0.1); this.noise(0.5, 0.12, 4000, 9000, 0.45);
-    [0.62, 0.72, 0.84].forEach((t, i) => this.tone(2093 + i * 300, t, 0.15, "sine", 0.05));
-  },
-  handle(type) {
-    if (type === "spin") { this.whoosh(); return true; }
-    if (type === "winner") { this.fanfare(); return true; }
-    return false;
-  }
-};
-(function () {
-  const wrap = document.querySelector("#feature-wheel .wheel-wrap");
-  if (wrap && !wrap.querySelector(".wheel-gloss")) {
-    const g = document.createElement("div"); g.className = "wheel-gloss"; g.setAttribute("aria-hidden", "true"); wrap.appendChild(g);
-  }
-  document.querySelectorAll("#feature-wheel .field-row, #feature-lucky .field-row").forEach((row) => {
-    const b = document.createElement("button"); b.type = "button"; b.className = "btn secondary fx-toggle";
-    const paint = () => { b.textContent = GameFX.on ? "🔊 الصوت: يعمل" : "🔇 الصوت: مكتوم"; };
-    b.addEventListener("click", () => {
-      GameFX.on = !GameFX.on;
-      try { localStorage.setItem("gamefx-off", GameFX.on ? "0" : "1"); } catch (e) {}
-      document.querySelectorAll(".fx-toggle").forEach((x) => x.dispatchEvent(new Event("fxpaint")));
-      if (GameFX.on) GameFX.tick();
-    });
-    b.addEventListener("fxpaint", paint); paint(); row.appendChild(b);
-  });
-})();
