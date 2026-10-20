@@ -1458,7 +1458,7 @@ const SUBSCRIPTION_STATUS_CACHE_KEY = 'aiSubscriptionStatusCache';
 const SUBSCRIPTION_STATUS_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const SUBSCRIPTION_CATALOG_CACHE_KEY = 'aiSubscriptionSubjectCatalogCacheV1';
 const SUBSCRIPTION_CATALOG_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
-const TEACHER_LESSON_CACHE_KEY = 'aiTeacherLessonDataCacheV3';
+const TEACHER_LESSON_CACHE_KEY = 'aiTeacherLessonDataCacheV4';
 const TEACHER_LESSON_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
 
 function subscriptionApiUrl(path) {
@@ -1677,7 +1677,8 @@ function applyCachedSubscriptionStatus() {
 }
 
 function normalizeSubscriptionSubject(value) {
-  const normalized = String(value || '')
+  const normalized = String(value || '').toLowerCase()
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
     .replace(/أ/g, 'ا')
     .replace(/إ/g, 'ا')
     .replace(/آ/g, 'ا')
@@ -1780,6 +1781,7 @@ function getActiveSubscriptionSubjects() {
   const seen = new Set();
   const out = [];
   [...direct, ...fromSubscriptions].forEach((item) => {
+    if (item?.status && item.status !== 'active') return;
     const grade = displaySubscriptionGrade(item?.grade || '');
     const subject = String(item?.subject || '').trim();
     const expiresAt = item?.expiresAt || item?.expires_at || '';
@@ -2645,10 +2647,20 @@ function lessonLoadParamsBySubscribedGrades() {
 }
 
 async function fetchTeacherLessonDataFromSubscription() {
-  const data = await apiRequest('/api/lessons', { params: lessonLoadParamsFromSubscription() });
-  if (Array.isArray(data?.lessons) && data.lessons.length) return data;
-  if (!getActiveSubscriptionSubjects().length) return data;
-  return await apiRequest('/api/lessons', { params: lessonLoadParamsBySubscribedGrades() });
+  if (!hasConfirmedLessonAccess()) return { lessons: [], attachments: [] };
+  // Exact database filters can omit aliases and alternate semester rows.
+  const data = await apiRequest('/api/lessons', {
+    params: { includeText: '0', includeAttachments: '0', activeOnly: '1', limit: '50000' }
+  });
+  const permitted = (Array.isArray(data?.lessons) ? data.lessons : [])
+    .filter(lesson => isSubjectSubscribed(lesson.grade, lesson.subject))
+    .map(lesson => ({ ...lesson,
+      grade: String(lesson.grade || '').trim(),
+      subject: String(lesson.subject || '').trim(),
+      semester: String(lesson.semester || '').trim(),
+      unit: String(lesson.unit || '').trim()
+    }));
+  return { ...data, lessons: permitted, attachments: [] };
 }
 
 function hasConfirmedLessonAccess() {
@@ -2792,9 +2804,7 @@ function availableTeacherLessons() {
   if (activeSubjects.length) {
     const subjectKeys = new Set(activeSubjects.map(item => subscriptionSubjectKey(item.grade, item.subject)));
     const subjectMatches = all.filter(lesson => subjectKeys.has(subscriptionSubjectKey(lesson.grade, lesson.subject)));
-    if (subjectMatches.length) return subjectMatches;
-    const activeSubjectGradeKeys = new Set(uniqueSubscriptionGrades(activeSubjects.map(item => item.grade)).map(normalizeSubscriptionGrade));
-    return all.filter(lesson => activeSubjectGradeKeys.has(normalizeSubscriptionGrade(lesson.grade)));
+    return subjectMatches;
   }
   const activeGradeKeys = new Set(uniqueSubscriptionGrades(subscriptionState.activeGrades || []).map(normalizeSubscriptionGrade));
   if (!activeGradeKeys.size) return [];
@@ -2818,20 +2828,17 @@ function teacherGradeOptionsFromSubscriptions(items = []) {
 }
 
 function teacherSubjectOptionsFromSubscriptions(grade = '', items = []) {
-  const lessonSubjects = uniqueValues(items, 'subject');
-  if (lessonSubjects.length) return lessonSubjects;
-  const activeSubjects = getActiveSubscriptionSubjects()
+  const subscribed = getActiveSubscriptionSubjects()
     .filter(item => !grade || isSameSubscriptionGrade(item.grade, grade))
     .map(item => item.subject);
-  if (activeSubjects.length) return uniqueList(activeSubjects);
-  if (grade && isGradeSubscribed(grade) && Array.isArray(D) && D.length) {
-    return uniqueList(D
-      .filter(row => isSameSubscriptionGrade(row["1"], grade))
-      .map(row => row["2"])
-      .filter(Boolean))
-      .sort();
-  }
-  return [];
+  const subjects = subscribed.length ? subscribed : uniqueValues(items, 'subject');
+  const seen = new Set();
+  return subjects.filter(subject => {
+    const key = normalizeSubscriptionSubject(subject);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function applySubscriptionToGrades() {
