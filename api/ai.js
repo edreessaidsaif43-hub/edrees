@@ -613,6 +613,9 @@ function parseQueryIds(value) {
 
 async function listData(req, res) {
   if (!(await dbReady(res, false))) return;
+  res.setHeader("Cache-Control", "no-store");
+  const lessonIdsJson = JSON.stringify(parseQueryIds(req?.query?.lessonIds));
+  const pickerOnly = String(req?.query?.pickerOnly || "0") === "1";
   const includeText = String(req?.query?.includeText || "0") === "1";
   const includeLessons = String(req?.query?.includeLessons || "1") !== "0";
   const includeAttachments = String(req?.query?.includeAttachments || "1") !== "0";
@@ -713,6 +716,22 @@ async function listData(req, res) {
       attachments: []
     });
   }
+  if (pickerOnly) {
+    const rows = await sql`
+      SELECT id, grade, subject, semester, unit, title, attachment_id, attachment_ids, status, created_at
+      FROM ai_lessons
+      WHERE (${activeOnly} = false OR status = 'active')
+        AND (${gradeFiltersJson}::jsonb = '[]'::jsonb OR grade IN (SELECT jsonb_array_elements_text(${gradeFiltersJson}::jsonb)))
+        AND (${subjectFiltersJson}::jsonb = '[]'::jsonb OR subject IN (SELECT jsonb_array_elements_text(${subjectFiltersJson}::jsonb)))
+        AND (${lessonIdsJson}::jsonb = '[]'::jsonb OR id IN (SELECT jsonb_array_elements_text(${lessonIdsJson}::jsonb)::bigint))
+      ORDER BY created_at DESC, id DESC
+      LIMIT ${listLimit};
+    `;
+    return send(res, 200, {
+      lessons: rows.map(row => ({ ...lessonRow(row), lessonDetailsPending: true })),
+      attachments: []
+    });
+  }
   const lessons = includeLessons ? await sql`
     SELECT
       id,
@@ -737,6 +756,7 @@ async function listData(req, res) {
     WHERE (${activeOnly} = false OR status = 'active')
       AND (${gradeFiltersJson}::jsonb = '[]'::jsonb OR grade IN (SELECT jsonb_array_elements_text(${gradeFiltersJson}::jsonb)))
       AND (${subjectFiltersJson}::jsonb = '[]'::jsonb OR subject IN (SELECT jsonb_array_elements_text(${subjectFiltersJson}::jsonb)))
+      AND (${lessonIdsJson}::jsonb = '[]'::jsonb OR id IN (SELECT jsonb_array_elements_text(${lessonIdsJson}::jsonb)::bigint))
     ORDER BY created_at DESC, id DESC
     LIMIT ${listLimit};
   ` : [];

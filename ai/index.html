@@ -1458,7 +1458,7 @@ const SUBSCRIPTION_STATUS_CACHE_KEY = 'aiSubscriptionStatusCache';
 const SUBSCRIPTION_STATUS_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const SUBSCRIPTION_CATALOG_CACHE_KEY = 'aiSubscriptionSubjectCatalogCacheV1';
 const SUBSCRIPTION_CATALOG_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
-const TEACHER_LESSON_CACHE_KEY = 'aiTeacherLessonDataCacheV5';
+const TEACHER_LESSON_CACHE_KEY = 'aiTeacherLessonDataCacheV6';
 const TEACHER_LESSON_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
 
 function subscriptionApiUrl(path) {
@@ -2682,7 +2682,7 @@ async function fetchTeacherLessonDataFromSubscription() {
   // Exact database filters can omit aliases and alternate semester rows.
   const data = await apiRequest('/api/lessons', {
     cache: 'no-store', timeoutMs: 60000,
-    params: { includeText: '0', includeAttachments: '0', activeOnly: '1', limit: '50000' }
+    params: { pickerOnly: '1', includeText: '0', includeAttachments: '0', activeOnly: '1', limit: '50000' }
   });
   const permitted = (Array.isArray(data?.lessons) ? data.lessons : [])
     .filter(lesson => isSubjectSubscribed(lesson.grade, lesson.subject))
@@ -3043,6 +3043,19 @@ async function retryLessonGenerationFromExtractedText(lesson, lessonAttachments,
   });
 });
 
+async function ensureSelectedLessonDetails(lesson) {
+  if (!lesson?.lessonDetailsPending) return lesson;
+  const data = await apiRequest('/api/lessons', {
+    cache: 'no-store', timeoutMs: 60000,
+    params: { lessonIds: String(lesson.id), includeText: '0', includeAttachments: '0', activeOnly: '1', limit: '1' }
+  });
+  const fresh = (data?.lessons || []).find(item => String(item.id) === String(lesson.id));
+  if (!fresh) throw new Error('لم يتم العثور على بيانات الدرس المختار. أعد تحميل قائمة الدروس.');
+  if (!isSubjectSubscribed(fresh.grade, fresh.subject)) throw new Error('هذه المادة غير مشمولة في اشتراكك.');
+  Object.assign(lesson, fresh, { lessonDetailsPending: false });
+  return lesson;
+}
+
 async function generateLesson() {
   const currentUser = requireUnifiedAuth('سجّل الدخول أولًا لتوليد التحضير');
   if (!currentUser) return;
@@ -3079,6 +3092,12 @@ async function generateLesson() {
     }
   } catch (libraryError) {
     console.warn('Preparation library lookup failed; continuing with generation.', libraryError);
+  }
+  try {
+    await ensureSelectedLessonDetails(lesson);
+  } catch (error) {
+    showError(error?.message || 'تعذر تحميل بيانات الدرس. حاول مجددًا.');
+    return;
   }
   let lessonAttachments = await ensureLessonAttachmentsLoaded(lesson);
   let attachment = lessonAttachments[0];
