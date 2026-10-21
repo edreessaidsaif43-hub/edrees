@@ -1458,7 +1458,7 @@ const SUBSCRIPTION_STATUS_CACHE_KEY = 'aiSubscriptionStatusCache';
 const SUBSCRIPTION_STATUS_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const SUBSCRIPTION_CATALOG_CACHE_KEY = 'aiSubscriptionSubjectCatalogCacheV1';
 const SUBSCRIPTION_CATALOG_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
-const TEACHER_LESSON_CACHE_KEY = 'aiTeacherLessonDataCacheV4';
+const TEACHER_LESSON_CACHE_KEY = 'aiTeacherLessonDataCacheV5';
 const TEACHER_LESSON_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
 
 function subscriptionApiUrl(path) {
@@ -1520,18 +1520,15 @@ function uniqueSubscriptionGrades(values) {
 }
 
 function normalizeSubscriptionGrade(value) {
-  return String(value || '')
-    .replace(/\bgrade\b/gi, '')
-    .replace(/الصف/g, '')
-    .replace(/صف/g, '')
-    .replace(/أ/g, 'ا')
-    .replace(/إ/g, 'ا')
-    .replace(/آ/g, 'ا')
-    .replace(/ى/g, 'ي')
-    .replace(/ة/g, 'ه')
-    .replace(/[،,؛;|/\\_\-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const normalized = String(value || '').toLowerCase()
+    .replace(/[\u064B-\u065F\u0670\u0640\u200B-\u200F\uFEFF]/g, '')
+    .replace(/\bgrade\b/gi, '').replace(/الصف|صف/g, '')
+    .replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
+    .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+    .replace(/[،,؛;|/\\_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const definition = subscriptionGradeDefinitions().find(item =>
+    item.key === normalized || item.aliases.includes(normalized));
+  return definition ? definition.key : normalized;
 }
 
 function isGradeSubscribed(grade) {
@@ -1717,7 +1714,12 @@ function normalizeSubscriptionSubject(value) {
     compact.includes('الحاسوب') ||
     compact.includes('تقنيهالمعلومات') ||
     compact.includes('تقنيهمعلومات') ||
-    compact.includes('تقانةالمعلومات') ||
+    compact.includes('تقانهالمعلومات') ||
+    compact.includes('تقانهمعلومات') ||
+    compact.includes('حاسب') ||
+    compact.includes('كمبيوتر') ||
+    compact.includes('تكنولوجياالمعلومات') ||
+    compact.includes('computer') ||
     compact.includes('عالميالرقمي') ||
     compact.includes('عالميرقمي')
   ) {
@@ -2445,15 +2447,44 @@ function failLessonDataProgress(message = 'تعذر تحميل الصفوف وا
   setLessonDataProgress(100, 'لم يكتمل تحميل بيانات الدرس', message);
 }
 
-function refreshTeacherFiltersWithProgress(changedId, title, note) {
+const teacherMissingDataRetries = new Map();
+async function refreshTeacherFiltersWithProgress(changedId, title, note) {
   const token = startLessonDataProgress(title, note);
   setLessonDataProgress(45, title, note);
-  setTimeout(() => {
+  populateTeacherFilters(changedId);
+  const grade = document.getElementById('t-grade')?.value || '';
+  const subject = document.getElementById('t-subject')?.value || '';
+  const matches = () => availableTeacherLessons().filter(lesson =>
+    isSameSubscriptionGrade(lesson.grade, grade) && isSameSubscriptionSubject(lesson.subject, subject));
+  const hasSemesters = () => matches().some(lesson => String(lesson.semester || '').trim());
+  if (grade && subject && !hasSemesters()) {
+    const key = subscriptionSubjectKey(grade, subject);
+    if (Date.now() - (teacherMissingDataRetries.get(key) || 0) >= 60000) {
+      teacherMissingDataRetries.set(key, Date.now());
+      setLessonDataProgress(60, 'جاري تحديث فصول المادة...', 'يتم التحقق من أحدث بيانات الدروس.');
+      try {
+        const fresh = await fetchTeacherLessonDataFromSubscription();
+        if (token !== lessonDataProgressToken) return;
+        lessons = fresh.lessons;
+        attachments = fresh.attachments || [];
+        resetTeacherOptionsCache();
+        populateTeacherFilters();
+        cacheTeacherLessonData();
+      } catch (error) {
+        if (token === lessonDataProgressToken) failLessonDataProgress(error?.message || 'تعذر تحميل الفصول. أعد اختيار المادة للمحاولة مجددًا.');
+        teacherMissingDataRetries.delete(key);
+        return;
+      }
+    }
     if (token !== lessonDataProgressToken) return;
-    setLessonDataProgress(75, 'جاري تجهيز القوائم...', 'يتم ترتيب الخيارات حسب الصف والمادة والوحدة.');
-    populateTeacherFilters(changedId);
-    finishLessonDataProgress('تم تحديث القوائم', 'اختر الخيار التالي لإكمال بيانات الدرس.');
-  }, 60);
+    if (!hasSemesters()) {
+      failLessonDataProgress(matches().length
+        ? 'الفصل الدراسي غير محدد في بيانات دروس هذه المادة. يرجى التواصل مع الإدارة.'
+        : 'لا توجد دروس مفعلة مطابقة لهذا الصف والمادة. يرجى التواصل مع الإدارة للتحقق من بيانات المادة.');
+      return;
+    }
+  }
+  if (token === lessonDataProgressToken) finishLessonDataProgress('تم تحديث القوائم', 'اختر الخيار التالي لإكمال بيانات الدرس.');
 }
 
 function uniqueSubjectValues(values = []) {
@@ -2650,6 +2681,7 @@ async function fetchTeacherLessonDataFromSubscription() {
   if (!hasConfirmedLessonAccess()) return { lessons: [], attachments: [] };
   // Exact database filters can omit aliases and alternate semester rows.
   const data = await apiRequest('/api/lessons', {
+    cache: 'no-store', timeoutMs: 60000,
     params: { includeText: '0', includeAttachments: '0', activeOnly: '1', limit: '50000' }
   });
   const permitted = (Array.isArray(data?.lessons) ? data.lessons : [])
