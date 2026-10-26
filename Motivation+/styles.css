@@ -5455,7 +5455,8 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .student-report-print-page {
   display: block;
   width: 194mm;
-  height: auto;
+  height: 280mm;
+  overflow: hidden;
   box-sizing: border-box;
   break-after: page;
   page-break-after: always;
@@ -5477,8 +5478,20 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .student-report-print-card header { border-bottom: 1px solid #cbd5e1; padding-bottom: 2mm; margin-bottom: 2mm; break-inside: avoid; }
 .student-report-print-card h2 { font-size: 20px; margin: 0 0 1mm; color: #17202a; }
 .student-report-print-card p { font-size: 13px; margin: 0; }
-.student-report-print-card.parent-portal-content { font-size: 16px; line-height: 1.6; padding: 6mm; border-color: #e6edf3; border-radius: 8px; }
-.student-report-print-card.parent-portal-content p { font-size: inherit; margin: 1em 0; }
+.student-report-print-card.parent-portal-content { width: 194mm; transform-origin: top right; font-size: 12px; line-height: 1.35; padding: 3mm; border-color: #e6edf3; border-radius: 8px; }
+.student-report-print-card.parent-portal-content p { font-size: inherit; margin: 3px 0; }
+.student-report-print-card.parent-portal-content h3 { margin: 7px 0 4px; font-size: 14px; }
+.student-report-print-card.parent-portal-content .reward-store-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.student-report-print-card.parent-portal-content .reward-store-list > * { margin: 0; min-width: 0; }
+.student-report-print-card.parent-portal-content .reward-store-item { padding: 4px 6px; gap: 5px; }
+.student-report-print-card.parent-portal-content .reward-store-item span { font-size: 12px; }
+.student-report-print-card.parent-portal-content .parent-point-entry { grid-template-columns: 22px minmax(0, 1fr); }
+.student-report-print-card.parent-portal-content .parent-point-entry small { grid-column: 2; font-size: 9px; }
+.student-report-print-card.parent-portal-content .parent-point-face { width: 22px; height: 22px; font-size: 18px; }
+.student-report-print-card.parent-portal-content .parent-academic-grades { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.student-report-print-card.parent-portal-content .parent-grade-entry { padding: 5px 8px; }
+.student-report-print-card.parent-portal-content .report-parent-access { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-top: 5px; }
+.student-report-print-card.parent-portal-content .report-profile-qr { width: 18mm; height: 18mm; }
 .parent-portal-content h3 { break-after: avoid; }
 .parent-portal-content .reward-store-item { overflow-wrap: anywhere; white-space: pre-wrap; }
 .parent-portal-content .reward-store-list { display: block; }

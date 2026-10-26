@@ -5937,6 +5937,16 @@ function getStudentReportCardSections(cls, student) {
   ];
 }
 
+function fitStudentReportsToPage(root) {
+  root.querySelectorAll(".student-report-print-page").forEach((page) => {
+    const card = page.querySelector(".student-report-print-card");
+    card.style.transform = "none";
+    const height = Math.max(card.scrollHeight, card.getBoundingClientRect().height);
+    const scale = Math.min(1, (page.clientHeight - 2) / Math.max(1, height));
+    card.style.transform = `scale(${scale})`;
+  });
+}
+
 async function printStudentReportCards(allStudents = false) {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();
@@ -5954,10 +5964,12 @@ async function printStudentReportCards(allStudents = false) {
   root.id = "student-report-print-root";
   root.dir = "rtl";
   document.body.appendChild(root);
+  const fitForPrint = () => fitStudentReportsToPage(root);
   const cleanup = () => {
     document.body.classList.remove("printing-student-reports");
     root.remove();
     window.removeEventListener("afterprint", cleanup);
+    window.removeEventListener("beforeprint", fitForPrint);
   };
   try {
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
@@ -5996,8 +6008,10 @@ async function printStudentReportCards(allStudents = false) {
       if (img.complete) finish();
     })));
     document.body.classList.add("printing-student-reports");
+    fitForPrint();
+    window.addEventListener("beforeprint", fitForPrint);
     window.addEventListener("afterprint", cleanup);
-    status.textContent = `تم تجهيز التقارير الكاملة لـ ${students.length} طالب.`;
+    status.textContent = `تم تجهيز ${students.length} تقرير، صفحة واحدة لكل طالب.`;
     window.print();
   } catch {
     cleanup();
