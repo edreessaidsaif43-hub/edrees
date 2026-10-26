@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="./styles.css?v=20261026-single-page-report-5" />
+    <link rel="stylesheet" href="./styles.css?v=20261026-claw-machine-1" />
 <style id="copied-index-navbar-style">
   :root{--blue:#1a56c8;--blue2:#0f3d9e;--green:#1a8a3a;--ink:#0a1628;--ink3:#5a7a9a;--paper:#f7f9fc;--paper2:#eef2f8;--line:#d0dcea;--w:#fff}
   #nav{position:fixed;top:0;left:0;right:0;z-index:9999;height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(247,249,252,.95);border-bottom:1px solid var(--line);backdrop-filter:blur(12px);transition:box-shadow .3s;font-family:'Tajawal',sans-serif;box-sizing:border-box}
@@ -466,7 +466,7 @@
                 <path d="M671 100v-46m-18 6h36m-18-18v37" stroke="#663f24" stroke-width="4" stroke-linecap="round"/><text x="671" y="31" text-anchor="middle" font-size="22" fill="#49341f">N</text>
               </svg>
               <div class="treasure-route-line" aria-hidden="true"></div>
-              <div id="treasure-pirate" class="treasure-pirate" aria-hidden="true">🏴‍☠️</div>
+              <div id="treasure-pirate" class="treasure-pirate" aria-hidden="true"><svg class="treasure-pirate-art" viewBox="0 0 100 116" role="presentation"><ellipse cx="52" cy="109" rx="29" ry="5" fill="#57442d" opacity=".28"/><path d="M22 106l5-29q3-13 17-15h20q15 3 18 18l5 26H65l-5-20-5 20H38l-4-20-3 20z" fill="#8a4b2b" stroke="#512f22" stroke-width="3"/><path d="M29 82h43M34 91h41" stroke="#f3e3bd" stroke-width="6"/><path d="M44 76h17l5 13H39z" fill="#bd4433" stroke="#762d27" stroke-width="2"/><circle cx="52" cy="43" r="25" fill="#e9b879" stroke="#6c432b" stroke-width="3"/><path d="M28 39q2-28 26-29 24 2 27 29l-9-4-6 6-8-7-8 6-8-7-8 6z" fill="#f0d2a1" stroke="#754628" stroke-width="3"/><path d="M26 33q2-25 26-25t27 25H26z" fill="#253b46" stroke="#172b35" stroke-width="3"/><path d="M19 34q31-9 64 0l-3 8q-29-7-58 0z" fill="#8e352d" stroke="#642821" stroke-width="3"/><path d="M31 43q10-7 20 0l-2 12H32z" fill="#202a2e"/><path d="M34 45h12" stroke="#f7e5c2" stroke-width="2.5"/><circle cx="62" cy="47" r="2.6" fill="#39271e"/><path d="M57 58q7 5 13-1" fill="none" stroke="#713d2b" stroke-width="2.5"/><path d="M30 47l-9 3-5 10 13-4z" fill="#c94835" stroke="#793126" stroke-width="2"/><path d="M82 73l10-37q1-4 4-3t2 5L88 79z" fill="#d9e2df" stroke="#596a6b" stroke-width="2"/><path d="M82 73l8 3-4 7-8-3z" fill="#be8a39" stroke="#795c2e" stroke-width="2"/></svg></div>
               <div id="treasure-dig-site" class="treasure-dig-site" aria-hidden="true"><span class="treasure-chest">🧰</span><span class="treasure-dust">✦</span></div>
               <div id="treasure-reveal" class="treasure-reveal" aria-live="polite" aria-atomic="true"><span class="treasure-chest-open">🪙</span><strong id="treasure-winner-name"></strong></div>
               <div class="treasure-map-compass" aria-hidden="true">N<br>✥</div>
@@ -477,6 +477,44 @@
               <button class="btn danger exit-fullscreen" data-feature-exit>خروج من العرض الكامل</button>
             </div>
             <p id="treasure-hunt-status" class="muted" role="status" aria-live="polite">ابدأ الرحلة ليكشف الكنز اسم طالب عشوائي من الصف.</p>
+          </article>
+
+          <article id="feature-claw-machine" class="card feature-card section-9 claw-machine-feature" data-teacher-panel="random">
+            <h2>🕹️ آلة التقاط الكرات</h2>
+            <div id="claw-machine-scene" class="claw-machine-scene" data-stage="ready" role="img" aria-label="آلة تلتقط كرة تحمل اسم طالب">
+              <div class="claw-machine-top"><span>PRIZE PICKER</span><i></i></div>
+              <div class="claw-machine-cabinet">
+                <div class="claw-machine-rail"><span class="claw-machine-claw" aria-hidden="true"><i></i><b></b><em></em></span></div>
+                <div id="claw-machine-balls" class="claw-machine-balls"></div>
+              </div>
+              <div class="claw-machine-controls-art" aria-hidden="true"><span></span><i>●</i><b>DROP</b></div>
+              <div id="claw-machine-reveal" class="claw-machine-reveal" aria-live="polite" aria-atomic="true"><span>🏆</span><strong id="claw-machine-winner-name"></strong></div>
+            </div>
+            <div class="field-row claw-machine-controls">
+              <button id="start-claw-machine" type="button" class="btn">حرّك المخلب</button>
+              <button id="reset-claw-machine" type="button" class="btn secondary" disabled>إعادة المحاولة</button>
+              <button class="btn danger exit-fullscreen" data-feature-exit>خروج من العرض الكامل</button>
+            </div>
+            <p id="claw-machine-status" class="muted" role="status" aria-live="polite">حرّك المخلب لالتقاط كرة وكشف اسم الطالب.</p>
+          </article>
+
+          <article id="feature-fishing" class="card feature-card section-9 fishing-feature" data-teacher-panel="random">
+            <h2>🐟 صيد الأسماء</h2>
+            <div id="fishing-scene" class="fishing-scene" data-stage="ready" role="img" aria-label="حوض أسماك تحمل أسماء الطلاب">
+              <div class="fishing-sunlight" aria-hidden="true"></div>
+              <div class="fishing-hook" aria-hidden="true"><i></i><b></b><em></em></div>
+              <div class="fishing-waterline" aria-hidden="true"></div>
+              <div id="fishing-school" class="fishing-school"></div>
+              <div class="fishing-plants" aria-hidden="true"><span>♣</span><span>♣</span><span>♣</span></div>
+              <div class="fishing-reveal" aria-live="polite" aria-atomic="true"><span>🐟</span><strong id="fishing-winner-name"></strong></div>
+              <div class="fishing-bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+            </div>
+            <div class="field-row fishing-controls">
+              <button id="start-fishing" type="button" class="btn">ألقِ السنارة</button>
+              <button id="reset-fishing" type="button" class="btn secondary" disabled>إعادة المحاولة</button>
+              <button class="btn danger exit-fullscreen" data-feature-exit>خروج من العرض الكامل</button>
+            </div>
+            <p id="fishing-status" class="muted" role="status" aria-live="polite">ألقِ السنارة لالتقاط سمكة واكتشاف اسم الطالب.</p>
           </article>
 
           <article id="feature-countdown" class="card feature-card section-10" data-teacher-panel="timer">
@@ -816,7 +854,7 @@
       <p id="action-audio-status" role="status" style="margin:0 0 8px"></p>
       <audio id="action-audio-player" controls preload="none" playsinline webkit-playsinline aria-label="صوت العملية" style="width:100%"></audio>
     </div>
-    <script src="./app.js?v=20261026-treasure-map-1"></script>
+    <script src="./app.js?v=20261026-claw-machine-1"></script>
 </body>
 </html>
 

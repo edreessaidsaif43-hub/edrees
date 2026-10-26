@@ -1979,7 +1979,7 @@ function triggerCelebration(title, message, duration = 2200, withSound = true) {
 }
 
 function enterFeatureFullscreen(featureId) {
-  if (["feature-wheel", "feature-lucky", "feature-countdown", "feature-treasure-map"].includes(featureId)) {
+  if (["feature-wheel", "feature-lucky", "feature-countdown", "feature-treasure-map", "feature-claw-machine", "feature-fishing"].includes(featureId)) {
     try { showTeacherPanel(featureId === "feature-countdown" ? "timer" : "random"); } catch {}
   }
   const feature = document.getElementById(featureId);
@@ -4933,7 +4933,9 @@ function getTeacherPanelTargets() {
     random: [
       document.getElementById("feature-wheel"),
       document.getElementById("feature-lucky"),
-      document.getElementById("feature-treasure-map")
+      document.getElementById("feature-treasure-map"),
+      document.getElementById("feature-claw-machine"),
+      document.getElementById("feature-fishing")
     ],
     timer: [document.getElementById("feature-countdown")],
     reports: [document.getElementById("reports-panel")]
@@ -5519,6 +5521,161 @@ function startTreasureHunt() {
 
 document.getElementById("start-treasure-hunt").addEventListener("click", startTreasureHunt);
 document.getElementById("reset-treasure-hunt").addEventListener("click", resetTreasureHunt);
+
+let clawMachineBusy = false;
+let clawMachineTimers = [];
+function resetClawMachine() {
+  clawMachineTimers.forEach((timer) => clearTimeout(timer));
+  clawMachineTimers = [];
+  clawMachineBusy = false;
+  const scene = document.getElementById("claw-machine-scene");
+  if (!scene) return;
+  scene.dataset.stage = "ready";
+  scene.style.setProperty("--claw-x", "50%");
+  document.getElementById("start-claw-machine").disabled = false;
+  document.getElementById("reset-claw-machine").disabled = true;
+  document.getElementById("claw-machine-winner-name").textContent = "";
+  document.getElementById("claw-machine-status").textContent = "حرّك المخلب لالتقاط كرة وكشف اسم الطالب.";
+}
+
+function startClawMachine() {
+  if (!ensureAuthOrNotify() || clawMachineBusy) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+  const students = (cls.students || []).filter((student) => student && student.id && normalizeName(student.name));
+  if (!students.length) {
+    document.getElementById("claw-machine-status").textContent = "أضف طلابًا إلى الصف أولًا.";
+    return;
+  }
+  const scene = document.getElementById("claw-machine-scene");
+  const balls = document.getElementById("claw-machine-balls");
+  const winnerIndex = Math.floor(Math.random() * students.length);
+  const winner = students[winnerIndex];
+  const visibleStudents = students.slice(0, 24);
+  if (!visibleStudents.some((student) => student.id === winner.id)) visibleStudents[visibleStudents.length - 1] = winner;
+  const palette = ["#f05d5e", "#4ea8de", "#f4a62a", "#55b879", "#a678d1", "#ed6ca8", "#26a69a", "#e8793d"];
+  const shuffled = [...visibleStudents];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swap]] = [shuffled[swap], shuffled[index]];
+  }
+  const winnerBallIndex = shuffled.findIndex((student) => student.id === winner.id);
+  balls.innerHTML = shuffled.map((student, index) => `<span class="claw-machine-ball${student.id === winner.id ? " is-prize" : ""}" data-student-id="${escapeReportMarkup(student.id)}" style="--ball-color:${palette[index % palette.length]};--ball-delay:${(index % 5) * -0.3}s">${escapeReportMarkup(student.name)}</span>`).join("");
+  const targetBall = balls.children[winnerBallIndex];
+  const ballCenter = balls.clientWidth ? (targetBall.offsetLeft + targetBall.offsetWidth / 2) / balls.clientWidth : 0.5;
+  const x = 5 + ballCenter * 90;
+  scene.style.setProperty("--claw-x", `${Math.max(6, Math.min(94, x))}%`);
+  scene.dataset.stage = "moving";
+  clawMachineBusy = true;
+  document.getElementById("start-claw-machine").disabled = true;
+  document.getElementById("reset-claw-machine").disabled = true;
+  document.getElementById("claw-machine-status").textContent = "المخلب يتحرك لاختيار كرة...";
+  enterFeatureFullscreen("feature-claw-machine");
+  playEventSound("spin");
+  pulseFeatureCardById("feature-claw-machine", "spin");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const travel = reducedMotion ? 250 : 1550;
+  clawMachineTimers.push(setTimeout(() => {
+    scene.dataset.stage = "grabbing";
+    document.getElementById("claw-machine-status").textContent = "تم التقاط الكرة!";
+  }, travel));
+  clawMachineTimers.push(setTimeout(() => {
+    scene.dataset.stage = "revealed";
+    targetBall.classList.add("is-captured");
+    document.getElementById("claw-machine-winner-name").textContent = winner.name;
+    document.getElementById("claw-machine-status").textContent = `الكرة المختارة تحمل اسم: ${winner.name}`;
+    clawMachineBusy = false;
+    document.getElementById("reset-claw-machine").disabled = false;
+    playEventSound("winner");
+    pulseFeatureCardById("feature-claw-machine", "winner");
+    triggerCelebration("🎉 كرة الحظ", `تم اختيار ${winner.name}`);
+  }, travel + (reducedMotion ? 250 : 1050)));
+}
+
+document.getElementById("start-claw-machine").addEventListener("click", startClawMachine);
+document.getElementById("reset-claw-machine").addEventListener("click", resetClawMachine);
+
+let fishingGameBusy = false;
+let fishingGameTimers = [];
+function resetFishingGame() {
+  fishingGameTimers.forEach((timer) => clearTimeout(timer));
+  fishingGameTimers = [];
+  fishingGameBusy = false;
+  const scene = document.getElementById("fishing-scene");
+  if (!scene) return;
+  scene.dataset.stage = "ready";
+  scene.style.setProperty("--hook-x", "50%");
+  scene.style.setProperty("--hook-drop", "0px");
+  document.getElementById("start-fishing").disabled = false;
+  document.getElementById("reset-fishing").disabled = true;
+  document.getElementById("fishing-winner-name").textContent = "";
+  document.getElementById("fishing-status").textContent = "ألقِ السنارة لالتقاط سمكة واكتشاف اسم الطالب.";
+  renderFishingSchool();
+}
+
+function renderFishingSchool(prizeStudent = null) {
+  const school = document.getElementById("fishing-school");
+  if (!school) return;
+  const cls = currentTeacher ? getActiveClass() : null;
+  const students = (cls && Array.isArray(cls.students) ? cls.students : [])
+    .filter((student) => student && student.id && normalizeName(student.name));
+  const visible = students.slice(0, 24);
+  if (prizeStudent && !visible.some((student) => student.id === prizeStudent.id)) visible[visible.length - 1] = prizeStudent;
+  const colors = ["#f27954", "#f2b544", "#5aaec2", "#8b78c8", "#e36e94", "#70ad76"];
+  school.innerHTML = visible.map((student, index) => `<div class="fishing-fish" data-fish-student="${escapeReportMarkup(student.id)}" style="--fish-color:${colors[index % colors.length]};--fish-delay:${(index % 7) * -.4}s;--fish-duration:${3.2 + (index % 5) * .35}s"><svg viewBox="0 0 58 38" aria-hidden="true"><path class="fish-tail" d="M12 19 2 8v22z"/><ellipse cx="29" cy="19" rx="19" ry="13"/><path class="fish-fin" d="m24 7 8-6 7 7M24 31l8 6 7-7"/><circle cx="42" cy="16" r="1.8" fill="#fff"/><circle cx="42" cy="16" r=".8" fill="#263238"/></svg><span>${escapeReportMarkup(student.name)}</span></div>`).join("");
+}
+
+function startFishingGame() {
+  if (!ensureAuthOrNotify() || fishingGameBusy) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+  const students = (cls.students || []).filter((student) => student && student.id && normalizeName(student.name));
+  if (!students.length) {
+    document.getElementById("fishing-status").textContent = "أضف طلابًا إلى الصف أولًا.";
+    return;
+  }
+  renderFishingSchool();
+  const school = document.getElementById("fishing-school");
+  const scene = document.getElementById("fishing-scene");
+  const winner = students[Math.floor(Math.random() * students.length)];
+  enterFeatureFullscreen("feature-fishing");
+  renderFishingSchool(winner);
+  let winnerFish = Array.from(school.children).find((fish) => fish.dataset.fishStudent === winner.id);
+  if (!winnerFish) {
+    winnerFish = Array.from(school.children).at(-1);
+  }
+  const fishRect = winnerFish.getBoundingClientRect();
+  const sceneRect = scene.getBoundingClientRect();
+  scene.style.setProperty("--hook-x", `${Math.max(7, Math.min(93, ((fishRect.left + fishRect.width / 2 - sceneRect.left) / sceneRect.width) * 100))}%`);
+  scene.style.setProperty("--hook-drop", `${Math.max(0, fishRect.top + fishRect.height / 2 - sceneRect.top - 42)}px`);
+  scene.dataset.stage = "casting";
+  fishingGameBusy = true;
+  document.getElementById("start-fishing").disabled = true;
+  document.getElementById("reset-fishing").disabled = true;
+  document.getElementById("fishing-status").textContent = "السنارة تنزل إلى الحوض...";
+  playEventSound("spin");
+  pulseFeatureCardById("feature-fishing", "spin");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const dropTime = reducedMotion ? 220 : 1350;
+  fishingGameTimers.push(setTimeout(() => {
+    scene.dataset.stage = "hooked";
+    document.getElementById("fishing-status").textContent = "علقت سمكة بالسنارة! جارٍ سحبها...";
+  }, dropTime));
+  fishingGameTimers.push(setTimeout(() => {
+    scene.dataset.stage = "revealed";
+    winnerFish.classList.add("is-caught");
+    document.getElementById("fishing-winner-name").textContent = winner.name;
+    document.getElementById("fishing-status").textContent = `اصطدت السمكة التي تحمل اسم: ${winner.name}`;
+    fishingGameBusy = false;
+    document.getElementById("reset-fishing").disabled = false;
+    playEventSound("winner");
+    pulseFeatureCardById("feature-fishing", "winner");
+    triggerCelebration("🐟 صيد موفق", `تم اختيار ${winner.name}`);
+  }, dropTime + (reducedMotion ? 300 : 1050)));
+}
+
+document.getElementById("start-fishing").addEventListener("click", startFishingGame);
+document.getElementById("reset-fishing").addEventListener("click", resetFishingGame);
 
 document.getElementById("start-lucky-game").addEventListener("click", () => {
   startLuckyGame();
