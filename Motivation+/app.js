@@ -3572,11 +3572,12 @@ function renderReportsPanelControls() {
   const reportSelect = document.getElementById("report-student-select");
   const messageSelect = document.getElementById("parent-message-student");
   const printSelect = document.getElementById("print-code-student");
+  const printReportSelect = document.getElementById("print-report-student-select");
   const actionsSelect = document.getElementById("actions-student-select");
-  if (!reportSelect || !messageSelect || !printSelect || !actionsSelect) return;
+  if (!reportSelect || !messageSelect || !printSelect || !actionsSelect || !printReportSelect) return;
   const cls = currentTeacher ? getActiveClass() : null;
   const students = Array.isArray(cls && cls.students) ? cls.students : [];
-  [reportSelect, messageSelect, printSelect, actionsSelect].forEach((select) => {
+  [reportSelect, messageSelect, printSelect, actionsSelect, printReportSelect].forEach((select) => {
     const currentValue = select.value;
     select.innerHTML = "<option value=''>اختر الطالب</option>" + students.map((student) =>
       `<option value="${student.id}">${student.name} (${Number(student.points || 0)} نقطة)</option>`
@@ -4922,7 +4923,7 @@ function getTeacherPanelTargets() {
     grades: [document.getElementById("grades-settings")],
     addStudents: [document.getElementById("student-name")?.closest("article")],
     gifts: [document.getElementById("gift-panel")],
-    points: [document.getElementById("feature-points")],
+    points: [document.getElementById("feature-points"), document.getElementById("student-actions-panel")],
     students: [document.getElementById("students-table")?.closest("article")],
     teams: [document.getElementById("teams-panel")],
     challenges: [
@@ -5952,7 +5953,7 @@ async function printStudentReportCards(allStudents = false) {
   const cls = ensureClassOrNotify();
   if (!cls || document.getElementById("student-report-print-root")) return;
   const status = document.getElementById("student-report-print-status");
-  const selected = document.getElementById("report-student-select").value;
+  const selected = document.getElementById("print-report-student-select").value;
   const students = [...cls.students].filter((student) => allStudents || student.id === selected)
     .sort((a, b) => String(a.name).localeCompare(String(b.name), "ar"));
   if (!students.length) {

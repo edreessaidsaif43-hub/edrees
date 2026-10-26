@@ -552,6 +552,16 @@
             <p id="bonus-points-status" class="muted">اختر إضافة أو خصم، ثم اكتب السبب. الحد الأدنى لنقاط الطالب هو -20.</p>
           </article>
 
+          <article id="student-actions-panel" class="card student-actions-card" data-teacher-panel="points" hidden>
+            <h2>تعديل الإجراءات</h2>
+            <div class="field-row">
+              <select id="actions-student-select"></select>
+            </div>
+            <p class="muted">يمكن حذف إجراء نقاط نُفذ للطالب، وسيُعكس أثره على الرصيد.</p>
+            <div id="student-actions-list" class="student-actions-list"></div>
+            <p id="student-actions-status" class="muted"></p>
+          </article>
+
         </div>
 
         <article class="card wide teacher-panel-active" data-teacher-panel="students">
@@ -586,14 +596,21 @@
               <button id="generate-student-report" class="btn">تقرير الطالب</button>
               <button id="generate-report" class="btn secondary">تقرير الصف</button>
             </div>
-            <button id="print-report" class="btn secondary">طباعة PDF</button>
-            <div class="field-row">
-              <button id="print-selected-student-cards" class="btn secondary" type="button">طباعة بطاقة الطالب المختار</button>
-              <button id="print-class-student-cards" class="btn secondary" type="button">طباعة بطاقات جميع الطلاب</button>
-            </div>
-            <p id="student-report-print-status" class="muted" role="status"></p>
+            <button id="print-report" class="btn secondary" type="button">طباعة التقرير النصي PDF</button>
             <button id="share-whatsapp" class="btn secondary">مشاركة WhatsApp</button>
             <pre id="report-output"></pre>
+          </article>
+
+          <article id="student-reports-print-section" class="card">
+            <h2>طباعة تقارير الطالب والصف</h2>
+            <div class="field-row">
+              <select id="print-report-student-select" aria-label="الطالب المطلوب طباعة تقريره"></select>
+            </div>
+            <div class="field-row">
+              <button id="print-selected-student-cards" class="btn secondary" type="button">طباعة تقرير الطالب</button>
+              <button id="print-class-student-cards" class="btn secondary" type="button">طباعة تقارير الصف</button>
+            </div>
+            <p id="student-report-print-status" class="muted" role="status"></p>
           </article>
 
           <article class="card print-codes-card">
@@ -608,15 +625,6 @@
             <div id="student-codes-print-area" class="student-codes-print-area"></div>
           </article>
 
-          <article class="card student-actions-card">
-            <h2>تعديل الإجراءات</h2>
-            <div class="field-row">
-              <select id="actions-student-select"></select>
-            </div>
-            <p class="muted">يمكن حذف إجراء نقاط نُفذ للطالب، وسيُعكس أثره على الرصيد.</p>
-            <div id="student-actions-list" class="student-actions-list"></div>
-            <p id="student-actions-status" class="muted"></p>
-          </article>
         </div>
       </div>
     </section>
@@ -776,7 +784,7 @@
       <p id="action-audio-status" role="status" style="margin:0 0 8px"></p>
       <audio id="action-audio-player" controls preload="none" playsinline webkit-playsinline aria-label="صوت العملية" style="width:100%"></audio>
     </div>
-    <script src="./app.js?v=20261026-single-page-report-5"></script>
+    <script src="./app.js?v=20261026-actions-in-points-7"></script>
 </body>
 </html>
 
