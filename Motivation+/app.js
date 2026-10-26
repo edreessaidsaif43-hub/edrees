@@ -1979,7 +1979,7 @@ function triggerCelebration(title, message, duration = 2200, withSound = true) {
 }
 
 function enterFeatureFullscreen(featureId) {
-  if (["feature-wheel", "feature-lucky", "feature-countdown", "feature-treasure-map", "feature-claw-machine", "feature-fishing", "feature-name-train", "feature-spotlight"].includes(featureId)) {
+  if (["feature-wheel", "feature-lucky", "feature-countdown", "feature-treasure-map", "feature-claw-machine", "feature-fishing", "feature-name-train", "feature-spotlight", "feature-parachutes"].includes(featureId)) {
     try { showTeacherPanel(featureId === "feature-countdown" ? "timer" : "random"); } catch {}
   }
   const feature = document.getElementById(featureId);
@@ -4937,7 +4937,8 @@ function getTeacherPanelTargets() {
       document.getElementById("feature-claw-machine"),
       document.getElementById("feature-fishing"),
       document.getElementById("feature-name-train"),
-      document.getElementById("feature-spotlight")
+      document.getElementById("feature-spotlight"),
+      document.getElementById("feature-parachutes")
     ],
     timer: [document.getElementById("feature-countdown")],
     reports: [document.getElementById("reports-panel")]
@@ -5476,7 +5477,10 @@ function playArcadeGameSound(name) {
     "train-horn": [[392, 0, .35, "sawtooth"], [294, .28, .48, "sawtooth"]],
     "train-reveal": [[523, 0, .16, "triangle"], [659, .13, .2, "sine"], [880, .28, .32, "sine"]],
     "spotlight-sweep": [[740, 0, .09, "sine"], [880, .07, .12, "triangle"]],
-    "spotlight-stop": [[440, 0, .2, "triangle"], [587, .15, .22, "sine"], [784, .32, .3, "triangle"]]
+    "spotlight-stop": [[440, 0, .2, "triangle"], [587, .15, .22, "sine"], [784, .32, .3, "triangle"]],
+    "parachute-wind": [[660, 0, .22, "sine"], [740, .2, .24, "triangle"], [587, .4, .26, "sine"]],
+    "parachute-land": [[330, 0, .12, "triangle"], [494, .12, .16, "sine"], [659, .27, .22, "triangle"]],
+    "parachute-reveal": [[523, 0, .16, "triangle"], [659, .13, .2, "sine"], [880, .28, .3, "triangle"]]
   };
   (sounds[name] || []).forEach(([frequency, delay, duration, wave]) => {
     const oscillator = ctx.createOscillator();
@@ -5937,6 +5941,81 @@ function startSpotlight() {
 
 document.getElementById("start-spotlight").addEventListener("click", startSpotlight);
 document.getElementById("reset-spotlight").addEventListener("click", resetSpotlight);
+
+let parachutesBusy = false;
+let parachutesTimers = [];
+function resetParachutes() {
+  parachutesTimers.forEach((timer) => clearTimeout(timer));
+  parachutesTimers = [];
+  parachutesBusy = false;
+  const scene = document.getElementById("parachute-scene");
+  if (!scene) return;
+  scene.dataset.stage = "ready";
+  document.getElementById("start-parachutes").disabled = false;
+  document.getElementById("reset-parachutes").disabled = true;
+  document.getElementById("parachute-winner-name").textContent = "";
+  document.getElementById("parachute-status").textContent = "تهبط المظلات، ثم تصل المظلة المختارة إلى منصة مضيئة.";
+  document.getElementById("parachute-students").innerHTML = "";
+}
+
+function startParachutes() {
+  if (!ensureAuthOrNotify() || parachutesBusy) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+  const students = (cls.students || []).filter((student) => student && student.id && normalizeName(student.name));
+  if (!students.length) {
+    document.getElementById("parachute-status").textContent = "أضف طلابًا إلى الصف أولًا.";
+    return;
+  }
+  const winner = students[Math.floor(Math.random() * students.length)];
+  const visibleStudents = students.slice(0, 20);
+  if (!visibleStudents.some((student) => student.id === winner.id)) visibleStudents[visibleStudents.length - 1] = winner;
+  const palette = ["#ed675f", "#4f9ed1", "#f0ad45", "#62aa75", "#a579cb", "#e477a4", "#25a69a", "#df8745"];
+  const container = document.getElementById("parachute-students");
+  container.innerHTML = visibleStudents.map((student, index) => `<div class="parachute-student" data-student-id="${escapeReportMarkup(student.id)}" style="--parachute-color:${palette[index % palette.length]};--fall-order:${index % 8}"><svg class="parachute-art" viewBox="0 0 110 92" aria-hidden="true"><path class="parachute-canopy" d="M8 42Q12 6 55 5q43 1 47 37-12-10-24 0-11-10-23 0-12-10-23 0-12-10-24 0Z"/><path class="parachute-rope" d="m8 42 37 27m65-27L65 69m-10-27v27"/><ellipse class="parachute-pod" cx="55" cy="74" rx="13" ry="10"/><circle class="parachute-face" cx="55" cy="72" r="3"/></svg><span class="parachute-name">${escapeReportMarkup(student.name)}</span></div>`).join("");
+  enterFeatureFullscreen("feature-parachutes");
+  const scene = document.getElementById("parachute-scene");
+  const winnerCard = Array.from(container.children).find((card) => card.dataset.studentId === winner.id) || container.lastElementChild;
+  const sceneRect = scene.getBoundingClientRect();
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const fallTime = reducedMotion ? 450 : 2450;
+  const landTime = reducedMotion ? 360 : 1050;
+  scene.dataset.stage = "falling";
+  parachutesBusy = true;
+  document.getElementById("start-parachutes").disabled = true;
+  document.getElementById("reset-parachutes").disabled = true;
+  document.getElementById("parachute-status").textContent = "المظلات تفتح في السماء... من سيصل إلى المنصة؟";
+  playArcadeGameSound("parachute-wind");
+  pulseFeatureCardById("feature-parachutes", "spin");
+  parachutesTimers.push(setTimeout(() => {
+    scene.dataset.stage = "landing";
+    document.getElementById("parachute-status").textContent = "مظلة واحدة تقترب من منصة الاختيار المضيئة...";
+    const rect = winnerCard.getBoundingClientRect();
+    winnerCard.style.setProperty("--landing-from-x", `${rect.left - sceneRect.left}px`);
+    winnerCard.style.setProperty("--landing-from-y", `${rect.top - sceneRect.top}px`);
+    winnerCard.classList.add("is-landing");
+    void winnerCard.offsetWidth;
+    requestAnimationFrame(() => winnerCard.classList.add("is-landed"));
+    playArcadeGameSound("parachute-land");
+  }, fallTime));
+  parachutesTimers.push(setTimeout(() => {
+    scene.dataset.stage = "landed";
+    document.getElementById("parachute-status").textContent = "وصلت المظلة إلى المنصة... والاسم هو!";
+  }, fallTime + landTime));
+  parachutesTimers.push(setTimeout(() => {
+    scene.dataset.stage = "revealed";
+    document.getElementById("parachute-winner-name").textContent = winner.name;
+    document.getElementById("parachute-status").textContent = `هبطت المظلة على المنصة، والطالب المختار هو: ${winner.name}`;
+    parachutesBusy = false;
+    document.getElementById("reset-parachutes").disabled = false;
+    playArcadeGameSound("parachute-reveal");
+    pulseFeatureCardById("feature-parachutes", "winner");
+    triggerCelebration("🪂 هبوط موفق", `المظلة اختارت ${winner.name}`, 2200, false);
+  }, fallTime + landTime + (reducedMotion ? 250 : 700)));
+}
+
+document.getElementById("start-parachutes").addEventListener("click", startParachutes);
+document.getElementById("reset-parachutes").addEventListener("click", resetParachutes);
 
 document.getElementById("start-lucky-game").addEventListener("click", () => {
   startLuckyGame();

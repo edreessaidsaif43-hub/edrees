@@ -5746,6 +5746,43 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 @media(max-width:720px) { .spotlight-student-cards { grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; padding-inline:9%; }.spotlight-student-card { min-height:74px; } }
 @media(max-width:430px) { .spotlight-scene,.spotlight-student-cards { min-height:360px; }.spotlight-student-cards { grid-template-columns:repeat(3,minmax(0,1fr)); padding:42px 10% 28px; }.spotlight-feature.fullscreen-feature .spotlight-scene,.spotlight-feature.fullscreen-feature .spotlight-student-cards { min-height:390px; }.spotlight-student-card { min-height:72px; } }
 @media(prefers-reduced-motion:reduce) { .spotlight-stage-lights i { animation:none!important; }.spotlight-beam,.spotlight-student-card,.spotlight-reveal { transition-duration:.01ms!important; } }
+
+.parachute-feature { overflow:hidden; }
+.parachute-scene { position:relative; width:100%; min-height:430px; overflow:hidden; isolation:isolate; border:3px solid #477b8b; border-radius:18px; background:linear-gradient(180deg,#72c9ec 0,#b2e4f2 58%,#d9f0dc 59%,#82c69b 100%); box-shadow:inset 0 0 0 3px rgba(255,255,255,.45),0 10px 25px rgba(31,68,71,.19); }
+.parachute-scene::before { content:""; position:absolute; z-index:0; inset:58% 0 0; background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(43,135,91,.2)),repeating-linear-gradient(165deg,transparent 0 30px,rgba(255,255,255,.08) 31px 33px); }
+.parachute-clouds { position:absolute; z-index:0; inset:10px 6% auto; display:flex; justify-content:space-between; color:rgba(255,255,255,.85); font-size:46px; }
+.parachute-clouds span { animation:parachute-cloud-drift 7s ease-in-out infinite alternate; }
+.parachute-clouds span+span { animation-delay:-3s; }
+.parachute-students { position:relative; z-index:2; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); align-content:start; justify-items:center; gap:6px 2px; min-height:366px; padding:44px 5% 100px; box-sizing:border-box; }
+.parachute-student { position:relative; display:flex; flex-direction:column; align-items:center; width:100%; min-width:0; height:104px; opacity:.95; transform:translateY(0); }
+.parachute-art { width:clamp(61px,9vw,88px); height:76px; overflow:visible; filter:drop-shadow(0 4px 3px rgba(32,70,85,.25)); }
+.parachute-art .parachute-canopy { fill:var(--parachute-color,#e45f5c); stroke:rgba(255,255,255,.95); stroke-width:3; }
+.parachute-art .parachute-rope { fill:none; stroke:#fff9dc; stroke-width:2.4; stroke-linecap:round; }
+.parachute-art .parachute-pod { fill:#fff4c7; stroke:#9c6335; stroke-width:2.5; }
+.parachute-art .parachute-face { fill:#65452f; }
+.parachute-name { max-width:96%; margin-top:-4px; overflow:hidden; padding:3px 8px; border:1px solid rgba(255,255,255,.88); border-radius:999px; color:#15394b; background:rgba(255,255,255,.94); box-shadow:0 2px 5px rgba(20,57,69,.2); text-overflow:ellipsis; white-space:nowrap; font-size:clamp(9px,1.2vw,12px); font-weight:900; }
+.parachute-platform { position:absolute; z-index:1; left:50%; bottom:15px; display:flex; align-items:center; justify-content:center; gap:10px; min-width:190px; height:34px; padding:0 18px; border:3px solid #586b70; border-radius:12px 12px 6px 6px; color:#fff8d4; background:linear-gradient(180deg,#587d83,#304e59); box-shadow:0 7px 0 #5c6b62,0 0 0 7px rgba(255,255,255,.17); transform:translateX(-50%); font-size:12px; font-weight:900; }
+.parachute-platform i { width:12px; height:12px; border-radius:50%; background:#a9ddff; box-shadow:0 0 10px 4px rgba(133,218,255,.65); }
+.parachute-scene[data-stage="falling"] .parachute-student { animation:parachute-arrive 1.35s cubic-bezier(.2,.65,.3,1) both; animation-delay:calc(var(--fall-order,0) * .12s); }
+.parachute-scene[data-stage="landing"] .parachute-student:not(.is-landing) { opacity:.35; filter:saturate(.65); transition:opacity .55s ease; }
+.parachute-scene[data-stage="landing"] .parachute-platform,.parachute-scene[data-stage="revealed"] .parachute-platform { border-color:#fff1a8; box-shadow:0 7px 0 #5c6b62,0 0 18px 10px rgba(255,229,119,.75); transition:box-shadow .35s ease; }
+.parachute-student.is-landing { position:absolute; z-index:4; width:138px; height:114px; margin:0; left:var(--landing-from-x); top:var(--landing-from-y); transform:none; transition:left 1.05s cubic-bezier(.2,.72,.2,1),top 1.05s cubic-bezier(.2,.72,.2,1),filter .4s ease; }
+.parachute-student.is-landing .parachute-art { width:98px; height:84px; }
+.parachute-student.is-landing .parachute-name { font-size:13px; }
+.parachute-student.is-landed { left:calc(50% - 69px); top:calc(100% - 142px); filter:drop-shadow(0 0 16px #fff19a); }
+.parachute-scene[data-stage="landed"] .parachute-student.is-landed,.parachute-scene[data-stage="revealed"] .parachute-student.is-landed { animation:parachute-touchdown .4s ease-out; }
+.parachute-reveal { position:absolute; z-index:6; left:50%; top:37%; display:flex; align-items:center; gap:10px; max-width:84%; padding:12px 18px; border:3px solid #bc8b3d; border-radius:16px; color:#463318; background:#fff4c7; box-shadow:0 12px 30px rgba(20,43,51,.42); opacity:0; transform:translate(-50%,25px) scale(.65); transition:opacity .35s ease,transform .5s cubic-bezier(.18,.8,.25,1.25); pointer-events:none; }
+.parachute-reveal span { font-size:28px; }.parachute-reveal strong { font-size:clamp(18px,4vw,27px); overflow-wrap:anywhere; }
+.parachute-scene[data-stage="revealed"] .parachute-reveal { opacity:1; transform:translate(-50%,-50%) scale(1); }
+.parachute-controls { flex-wrap:wrap; }
+.parachute-feature.fullscreen-feature .parachute-scene { min-height:min(57vh,500px); }
+.parachute-feature.fullscreen-feature .parachute-students { min-height:min(57vh,500px); }
+@keyframes parachute-arrive { 0% { opacity:0; transform:translateY(-190px) rotate(-7deg); } 68% { opacity:1; transform:translateY(8px) rotate(2deg); } 100% { opacity:.95; transform:translateY(0) rotate(0); } }
+@keyframes parachute-touchdown { 45% { transform:translateY(-10px) scale(1.08); } 100% { transform:none; } }
+@keyframes parachute-cloud-drift { to { translate:22px -4px; } }
+@media(max-width:720px) { .parachute-students { grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px 1px; padding-inline:4%; }.parachute-scene { min-height:420px; } }
+@media(max-width:430px) { .parachute-students { grid-template-columns:repeat(3,minmax(0,1fr)); padding:42px 3% 92px; }.parachute-scene,.parachute-feature.fullscreen-feature .parachute-scene,.parachute-feature.fullscreen-feature .parachute-students { min-height:410px; }.parachute-platform { min-width:165px; }.parachute-student.is-landed { top:calc(100% - 140px); } }
+@media(prefers-reduced-motion:reduce) { .parachute-clouds span,.parachute-scene[data-stage="falling"] .parachute-student,.parachute-scene[data-stage="landed"] .parachute-student.is-landed,.parachute-scene[data-stage="revealed"] .parachute-student.is-landed { animation:none!important; }.parachute-student,.parachute-reveal { transition-duration:.01ms!important; } }
 @media(prefers-reduced-motion:reduce) { .fishing-fish,.fishing-fish svg .fish-tail,.fishing-hook,.fishing-hook::before,.fishing-hook i,.fishing-reveal,.fishing-bubbles i,.fishing-scene[data-stage="casting"] .fishing-waterline { animation:none!important; transition-duration:.01ms!important; } }
 @media (prefers-reduced-motion: reduce) {
   .treasure-pirate, .treasure-dig-site, .treasure-reveal { transition-duration: .01ms !important; }

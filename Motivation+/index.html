@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="./styles.css?v=20261026-arcade-spotlight-5" />
+    <link rel="stylesheet" href="./styles.css?v=20261027-arcade-parachutes-6" />
 <style id="copied-index-navbar-style">
   :root{--blue:#1a56c8;--blue2:#0f3d9e;--green:#1a8a3a;--ink:#0a1628;--ink3:#5a7a9a;--paper:#f7f9fc;--paper2:#eef2f8;--line:#d0dcea;--w:#fff}
   #nav{position:fixed;top:0;left:0;right:0;z-index:9999;height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(247,249,252,.95);border-bottom:1px solid var(--line);backdrop-filter:blur(12px);transition:box-shadow .3s;font-family:'Tajawal',sans-serif;box-sizing:border-box}
@@ -550,6 +550,22 @@
             <p id="spotlight-status" class="muted" role="status" aria-live="polite">يتحرك الضوء بين بطاقات الطلاب ليكشف الاسم المختار.</p>
           </article>
 
+          <article id="feature-parachutes" class="card feature-card section-9 parachute-feature" data-teacher-panel="random">
+            <h2>🪂 هبوط المظلات</h2>
+            <div id="parachute-scene" class="parachute-scene" data-stage="ready" role="img" aria-label="مظلات تحمل أسماء الطلاب وتهبط إلى منصة الاختيار">
+              <div class="parachute-clouds" aria-hidden="true"><span>☁</span><span>☁</span><span>☁</span></div>
+              <div id="parachute-students" class="parachute-students"></div>
+              <div class="parachute-platform"><i></i><b>منصة الاختيار</b><i></i></div>
+              <div class="parachute-reveal" aria-live="polite" aria-atomic="true"><span>🏅</span><strong id="parachute-winner-name"></strong></div>
+            </div>
+            <div class="field-row parachute-controls">
+              <button id="start-parachutes" type="button" class="btn">أطلق المظلات</button>
+              <button id="reset-parachutes" type="button" class="btn secondary" disabled>إعادة المحاولة</button>
+              <button class="btn danger exit-fullscreen" data-feature-exit>خروج من العرض الكامل</button>
+            </div>
+            <p id="parachute-status" class="muted" role="status" aria-live="polite">تهبط المظلات، ثم تصل المظلة المختارة إلى منصة مضيئة.</p>
+          </article>
+
           <article id="feature-countdown" class="card feature-card section-10" data-teacher-panel="timer">
             <h2>التوقيت التنازلي</h2>
             <p class="muted">هذا المؤقت للوقت فقط ولا يضيف أو يخصم أي نقاط.</p>
@@ -887,7 +903,7 @@
       <p id="action-audio-status" role="status" style="margin:0 0 8px"></p>
       <audio id="action-audio-player" controls preload="none" playsinline webkit-playsinline aria-label="صوت العملية" style="width:100%"></audio>
     </div>
-    <script src="./app.js?v=20261026-arcade-spotlight-5"></script>
+    <script src="./app.js?v=20261027-arcade-parachutes-6"></script>
 </body>
 </html>
 
