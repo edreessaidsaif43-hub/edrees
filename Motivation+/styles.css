@@ -2837,7 +2837,7 @@ main {
   }
 }
 
-#parent-panel .parent-point-entry {
+:is(#parent-panel, .parent-portal-content) .parent-point-entry {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) auto;
   align-items: center;
@@ -2847,19 +2847,19 @@ main {
   border-radius: 8px;
 }
 
-#parent-panel .parent-point-positive {
+:is(#parent-panel, .parent-portal-content) .parent-point-positive {
   color: #166534;
   background: #ecfdf5;
   border-color: #86efac;
 }
 
-#parent-panel .parent-point-negative {
+:is(#parent-panel, .parent-portal-content) .parent-point-negative {
   color: #991b1b;
   background: #fef2f2;
   border-color: #fca5a5;
 }
 
-#parent-panel .parent-point-face {
+:is(#parent-panel, .parent-portal-content) .parent-point-face {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2869,15 +2869,15 @@ main {
   line-height: 1;
 }
 
-#parent-panel .parent-point-details { min-width: 0; }
-#parent-panel .parent-point-entry small { color: inherit !important; opacity: 0.78; }
+:is(#parent-panel, .parent-portal-content) .parent-point-details { min-width: 0; }
+:is(#parent-panel, .parent-portal-content) .parent-point-entry small { color: inherit !important; opacity: 0.78; }
 
 @media (max-width: 520px) {
-  #parent-panel .parent-point-entry {
+  :is(#parent-panel, .parent-portal-content) .parent-point-entry {
     grid-template-columns: 34px minmax(0, 1fr);
   }
 
-  #parent-panel .parent-point-entry small {
+  :is(#parent-panel, .parent-portal-content) .parent-point-entry small {
     grid-column: 2;
   }
 }
@@ -5447,7 +5447,7 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   left: -10000px;
   top: 0;
   width: 194mm;
-  font-family: Tahoma, Arial, sans-serif;
+  font-family: inherit;
   color: #17202a;
   background: white;
   letter-spacing: 0;
@@ -5477,6 +5477,14 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .student-report-print-card header { border-bottom: 1px solid #cbd5e1; padding-bottom: 2mm; margin-bottom: 2mm; break-inside: avoid; }
 .student-report-print-card h2 { font-size: 20px; margin: 0 0 1mm; color: #17202a; }
 .student-report-print-card p { font-size: 13px; margin: 0; }
+.student-report-print-card.parent-portal-content { font-size: 16px; line-height: 1.6; padding: 6mm; border-color: #e6edf3; border-radius: 8px; }
+.student-report-print-card.parent-portal-content p { font-size: inherit; margin: 1em 0; }
+.parent-portal-content h3 { break-after: avoid; }
+.parent-portal-content .reward-store-item { overflow-wrap: anywhere; white-space: pre-wrap; }
+.parent-portal-content .reward-store-list { display: block; }
+.parent-portal-content .reward-store-list > * + * { margin-top: 6px; }
+.parent-portal-content .parent-grade-entry { break-inside: avoid; }
+.report-parent-access { margin-top: 6mm; padding-top: 4mm; border-top: 1px solid #e6edf3; break-inside: avoid; }
 .student-report-card-content h3 { font-size: 15px; margin: 4mm 0 2mm; break-after: avoid; }
 .student-report-card-content { min-height: 0; }
 .report-profile-heading { display: flex; align-items: center; gap: 2mm; }
@@ -5655,7 +5663,7 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 
 #students-table .student-photo-badge img,
 #student-panel .profile-photo img,
-#parent-panel .profile-photo img {
+:is(#parent-panel, .parent-portal-content) .profile-photo img {
   width: 100% !important;
   height: 100% !important;
   max-width: 100% !important;
@@ -5664,7 +5672,7 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 }
 
 #student-panel .profile-photo,
-#parent-panel .profile-photo {
+:is(#parent-panel, .parent-portal-content) .profile-photo {
   width: 72px !important;
   height: 72px !important;
   min-width: 72px !important;

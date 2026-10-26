@@ -4693,6 +4693,11 @@ function renderParentPanel(found) {
     return;
   }
 
+  panel.innerHTML = buildParentPortalMarkup(found, "", "parent-panel-photo");
+  hydrateProfilePhotoByElementId("parent-panel-photo", found.cls, found.student);
+}
+
+function buildParentPortalMarkup(found, photo = "", photoId = "") {
   const { student, cls } = found;
   const messages = getParentMessageEntries(cls, student.code);
   const points = Number(student.points || 0);
@@ -4709,7 +4714,7 @@ function renderParentPanel(found) {
     ? `<div class="reward-store-list">
         ${[...messages].reverse().map((m) => `
           <div class="reward-store-item">
-            <span>${m.text}</span>
+            <span>${escapeReportMarkup(m.text)}</span>
             <small class="muted">${formatMessageDateTime(m.at)}</small>
           </div>
         `).join("")}
@@ -4730,10 +4735,13 @@ function renderParentPanel(found) {
       </div>`
     : "<p class='muted'>لا توجد عمليات نقاط مسجلة.</p>";
 
-  panel.innerHTML = `
-    <div id="parent-panel-photo" class="profile-photo">${renderPhotoCellContent(student.name, "")}</div>
-    <p>الطالب: <strong>${student.name}</strong></p>
-    <p>الصف: <strong>${cls.name}</strong></p>
+  return `
+    <div ${photoId ? `id="${photoId}"` : ""} class="profile-photo">${renderPhotoCellContent(student.name, photo)}</div>
+    <p>الطالب: <strong>${escapeReportMarkup(student.name)}</strong></p>
+    <p>الصف: <strong>${escapeReportMarkup(cls.name)}</strong></p>
+    <p>كود المتابعة: <strong dir="ltr">${escapeReportMarkup(student.code)}</strong></p>
+    ${cls.subject ? `<p>المادة: <strong>${escapeReportMarkup(cls.subject)}</strong></p>` : ""}
+    <p>الفريق: <strong>${escapeReportMarkup(student.team || "بدون فريق")}</strong></p>
     <p>النقاط: <strong>${points}</strong></p>
     <p>الرتبة: <strong>${level.name} ${level.emoji} ${level.starCount > 0 ? `<span class="portal-rank-stars" aria-label="${level.starCount} نجمة">${level.stars}</span>` : ""}</strong> — ${level.levelNumber > 0 ? `الدرع ${level.levelNumber} من 50` : "الدرع الأول عند 10 نقاط"}</p>
     <p>السلوك العام: <strong>${behaviorLabel}</strong></p>
@@ -4744,7 +4752,6 @@ function renderParentPanel(found) {
     <h3>رسائل المعلم</h3>
     ${messagesHtml}
   `;
-  hydrateProfilePhotoByElementId("parent-panel-photo", cls, student);
 }
 
 function renderDirectPointsCard() {
@@ -5959,53 +5966,27 @@ async function printStudentReportCards(allStudents = false) {
       try { photos.set(student.id, await getStudentPhotoDataUrl(cls, student.id)); }
       catch { photos.set(student.id, ""); }
     }));
-    const standings = new Map(rankStudents(cls).map((student, index) => [student.id, index + 1]));
-    const date = new Date().toLocaleDateString("ar-EG");
     students.forEach((student) => {
         const page = document.createElement("section");
         page.className = "student-report-print-page";
         root.appendChild(page);
         const card = document.createElement("article");
-        card.className = "student-report-print-card";
-        const level = getStudentLevel(Number(student.points || 0));
-        const behavior = getStudentBehaviorSummary(student);
+        card.className = "student-report-print-card parent-portal-content";
+        card.dataset.studentName = student.name;
         const code = normalizeName(student.code).toUpperCase();
         const parentUrl = `${RUNTIME_ORIGIN || DEPLOY_FALLBACK_ORIGIN}/Motivation+/?parentCode=${encodeURIComponent(code)}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(parentUrl)}`;
         const photo = photos.get(student.id);
-        card.innerHTML = `<header>
-          <div class="report-profile-heading">
-            <div class="report-profile-photo">${photo ? `<img src="${escapeReportMarkup(photo)}" alt="صورة الطالب" />` : `<span>${escapeReportMarkup(studentInitials(student.name))}</span>`}</div>
-            <div class="report-profile-identity"><h2>${escapeReportMarkup(student.name)}</h2><p>${escapeReportMarkup(cls.name)}${cls.subject ? ` | ${escapeReportMarkup(cls.subject)}` : ""}</p><p>الفريق: ${escapeReportMarkup(student.team || "بدون فريق")} | الترتيب: ${standings.get(student.id)} / ${cls.students.length}</p></div>
-            ${code ? `<img class="report-profile-qr" src="${qrUrl}" alt="QR المتابعة" />` : ""}
-          </div>
-          <p class="report-profile-code">كود المتابعة: <b dir="ltr">${escapeReportMarkup(code || "غير مسجل")}</b></p>
-          <div class="report-profile-rank"><span>${escapeReportMarkup(level.emoji)} ${escapeReportMarkup(level.name)}</span><span class="report-profile-stars">${escapeReportMarkup(level.stars || "")}</span></div>
-          <p>${level.levelNumber > 0 ? `الدرع ${level.levelNumber} من 50 | ${level.starCount} نجمة` : "الدرع الأول عند 10 نقاط"}</p>
-          <p><strong>النقاط: ${Number(student.points || 0)}</strong> | السلوك العام: ${behavior.label}</p>
-          <p><span class="report-positive-total">المضافة: +${behavior.positive}</span> | <span class="report-negative-total">المخصومة: ${behavior.negative ? "−" : ""}${behavior.negative}</span> | ${date}</p>
-        </header><div class="student-report-card-content"></div>`;
+        card.innerHTML = buildParentPortalMarkup({ student, cls }, photo) +
+          (code ? `<div class="report-parent-access"><img class="report-profile-qr" src="${qrUrl}" alt="QR المتابعة" /><p>متابعة الطالب في بوابة ولي الأمر</p></div>` : "");
         page.appendChild(card);
-        const content = card.querySelector(".student-report-card-content");
-      getStudentReportCardSections(cls, student).forEach((section) => {
-        const heading = document.createElement("h3");
-        heading.textContent = section.title;
-        content.appendChild(heading);
-        const entries = section.entries.length ? section.entries : ["لا توجد بيانات مسجلة."];
-        entries.forEach((entry) => {
-          const block = document.createElement("div");
-          block.className = `student-report-card-entry report-${section.kind}`;
-          block.textContent = String(entry);
-          content.appendChild(block);
-        });
-      });
     });
     await Promise.all(Array.from(root.querySelectorAll("img")).map((img) => new Promise((resolve) => {
       const finish = () => {
         clearTimeout(timeout);
         img.onload = img.onerror = null;
         if (!img.naturalWidth) {
-          if (img.closest(".report-profile-photo")) img.replaceWith(document.createTextNode(studentInitials(img.closest("article").querySelector("h2").textContent)));
+          if (img.closest(".profile-photo")) img.replaceWith(document.createTextNode(studentInitials(img.closest("article").dataset.studentName)));
           else img.remove();
         }
         resolve();
