@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="./styles.css?v=20261026-arcade-suspense-3" />
+    <link rel="stylesheet" href="./styles.css?v=20261026-arcade-spotlight-5" />
 <style id="copied-index-navbar-style">
   :root{--blue:#1a56c8;--blue2:#0f3d9e;--green:#1a8a3a;--ink:#0a1628;--ink3:#5a7a9a;--paper:#f7f9fc;--paper2:#eef2f8;--line:#d0dcea;--w:#fff}
   #nav{position:fixed;top:0;left:0;right:0;z-index:9999;height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(247,249,252,.95);border-bottom:1px solid var(--line);backdrop-filter:blur(12px);transition:box-shadow .3s;font-family:'Tajawal',sans-serif;box-sizing:border-box}
@@ -517,6 +517,39 @@
             <p id="fishing-status" class="muted" role="status" aria-live="polite">ألقِ السنارة لالتقاط سمكة واكتشاف اسم الطالب.</p>
           </article>
 
+          <article id="feature-name-train" class="card feature-card section-9 name-train-feature" data-teacher-panel="random">
+            <h2>🚂 قطار الأسماء</h2>
+            <div id="name-train-scene" class="name-train-scene" data-stage="ready" role="img" aria-label="قطار عرباته تحمل أسماء الطلاب">
+              <div class="name-train-sky" aria-hidden="true"><span>☁</span><span>☁</span></div>
+              <div class="name-train-platform" aria-hidden="true">محطة الاختيار</div>
+              <div id="name-train" class="name-train" aria-hidden="true"><span class="name-train-engine"><b>🚂</b><i></i></span><div id="name-train-cars" class="name-train-cars"></div></div>
+              <div class="name-train-reveal" aria-live="polite" aria-atomic="true"><span>🎟️</span><strong id="name-train-winner-name"></strong></div>
+            </div>
+            <div class="field-row name-train-controls">
+              <button id="start-name-train" type="button" class="btn">أطلق القطار</button>
+              <button id="reset-name-train" type="button" class="btn secondary" disabled>إعادة المحاولة</button>
+              <button class="btn danger exit-fullscreen" data-feature-exit>خروج من العرض الكامل</button>
+            </div>
+            <p id="name-train-status" class="muted" role="status" aria-live="polite">مرور القطار يكشف اسم طالب عشوائي من الصف.</p>
+          </article>
+
+          <article id="feature-spotlight" class="card feature-card section-9 spotlight-feature" data-teacher-panel="random">
+            <h2>🔦 كشاف المسرح</h2>
+            <div id="spotlight-scene" class="spotlight-scene" data-stage="ready" role="img" aria-label="كشاف يبحث بين بطاقات الطلاب على المسرح">
+              <div class="spotlight-stage-lights" aria-hidden="true"><i></i><i></i><i></i></div>
+              <div id="spotlight-beam" class="spotlight-beam" aria-hidden="true"></div>
+              <div id="spotlight-student-cards" class="spotlight-student-cards"></div>
+              <div class="spotlight-curtain" aria-hidden="true"><span>★</span><span>★</span><span>★</span></div>
+              <div class="spotlight-reveal" aria-live="polite" aria-atomic="true"><span>🌟</span><strong id="spotlight-winner-name"></strong></div>
+            </div>
+            <div class="field-row spotlight-controls">
+              <button id="start-spotlight" type="button" class="btn">شغّل الكشاف</button>
+              <button id="reset-spotlight" type="button" class="btn secondary" disabled>إعادة المحاولة</button>
+              <button class="btn danger exit-fullscreen" data-feature-exit>خروج من العرض الكامل</button>
+            </div>
+            <p id="spotlight-status" class="muted" role="status" aria-live="polite">يتحرك الضوء بين بطاقات الطلاب ليكشف الاسم المختار.</p>
+          </article>
+
           <article id="feature-countdown" class="card feature-card section-10" data-teacher-panel="timer">
             <h2>التوقيت التنازلي</h2>
             <p class="muted">هذا المؤقت للوقت فقط ولا يضيف أو يخصم أي نقاط.</p>
@@ -854,7 +887,7 @@
       <p id="action-audio-status" role="status" style="margin:0 0 8px"></p>
       <audio id="action-audio-player" controls preload="none" playsinline webkit-playsinline aria-label="صوت العملية" style="width:100%"></audio>
     </div>
-    <script src="./app.js?v=20261026-arcade-suspense-3"></script>
+    <script src="./app.js?v=20261026-arcade-spotlight-5"></script>
 </body>
 </html>
 

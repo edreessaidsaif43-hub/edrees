@@ -1979,7 +1979,7 @@ function triggerCelebration(title, message, duration = 2200, withSound = true) {
 }
 
 function enterFeatureFullscreen(featureId) {
-  if (["feature-wheel", "feature-lucky", "feature-countdown", "feature-treasure-map", "feature-claw-machine", "feature-fishing"].includes(featureId)) {
+  if (["feature-wheel", "feature-lucky", "feature-countdown", "feature-treasure-map", "feature-claw-machine", "feature-fishing", "feature-name-train", "feature-spotlight"].includes(featureId)) {
     try { showTeacherPanel(featureId === "feature-countdown" ? "timer" : "random"); } catch {}
   }
   const feature = document.getElementById(featureId);
@@ -4935,7 +4935,9 @@ function getTeacherPanelTargets() {
       document.getElementById("feature-lucky"),
       document.getElementById("feature-treasure-map"),
       document.getElementById("feature-claw-machine"),
-      document.getElementById("feature-fishing")
+      document.getElementById("feature-fishing"),
+      document.getElementById("feature-name-train"),
+      document.getElementById("feature-spotlight")
     ],
     timer: [document.getElementById("feature-countdown")],
     reports: [document.getElementById("reports-panel")]
@@ -5469,7 +5471,12 @@ function playArcadeGameSound(name) {
     "claw-reveal": [[523, 0, .16, "sine"], [659, .12, .18, "triangle"], [784, .24, .27, "sine"]],
     "fish-cast": [[660, 0, .12, "sine"], [523, .1, .2, "triangle"]],
     "fish-hook": [[392, 0, .12, "triangle"], [587, .1, .18, "sine"]],
-    "fish-catch": [[523, 0, .15, "sine"], [784, .13, .18, "triangle"], [988, .27, .3, "sine"]]
+    "fish-catch": [[523, 0, .15, "sine"], [784, .13, .18, "triangle"], [988, .27, .3, "sine"]],
+    "train-roll": [[110, 0, .12, "triangle"], [165, .16, .12, "triangle"], [110, .32, .12, "triangle"], [165, .48, .12, "triangle"]],
+    "train-horn": [[392, 0, .35, "sawtooth"], [294, .28, .48, "sawtooth"]],
+    "train-reveal": [[523, 0, .16, "triangle"], [659, .13, .2, "sine"], [880, .28, .32, "sine"]],
+    "spotlight-sweep": [[740, 0, .09, "sine"], [880, .07, .12, "triangle"]],
+    "spotlight-stop": [[440, 0, .2, "triangle"], [587, .15, .22, "sine"], [784, .32, .3, "triangle"]]
   };
   (sounds[name] || []).forEach(([frequency, delay, duration, wave]) => {
     const oscillator = ctx.createOscillator();
@@ -5769,6 +5776,167 @@ function startFishingGame() {
 
 document.getElementById("start-fishing").addEventListener("click", startFishingGame);
 document.getElementById("reset-fishing").addEventListener("click", resetFishingGame);
+
+let nameTrainBusy = false;
+let nameTrainTimers = [];
+function resetNameTrain() {
+  nameTrainTimers.forEach((timer) => clearTimeout(timer));
+  nameTrainTimers = [];
+  nameTrainBusy = false;
+  const scene = document.getElementById("name-train-scene");
+  if (!scene) return;
+  scene.dataset.stage = "ready";
+  const train = document.getElementById("name-train");
+  train.style.transition = "none";
+  train.style.transform = "translateX(-120vw)";
+  document.getElementById("start-name-train").disabled = false;
+  document.getElementById("reset-name-train").disabled = true;
+  document.getElementById("name-train-winner-name").textContent = "";
+  document.getElementById("name-train-status").textContent = "مرور القطار يكشف اسم طالب عشوائي من الصف.";
+  document.getElementById("name-train-cars").innerHTML = "";
+}
+
+function startNameTrain() {
+  if (!ensureAuthOrNotify() || nameTrainBusy) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+  const students = (cls.students || []).filter((student) => student && student.id && normalizeName(student.name));
+  if (!students.length) {
+    document.getElementById("name-train-status").textContent = "أضف طلابًا إلى الصف أولًا.";
+    return;
+  }
+  const winner = students[Math.floor(Math.random() * students.length)];
+  const visibleStudents = students.slice(0, 12);
+  if (!visibleStudents.some((student) => student.id === winner.id)) visibleStudents[visibleStudents.length - 1] = winner;
+  for (let index = visibleStudents.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(Math.random() * (index + 1));
+    [visibleStudents[index], visibleStudents[swap]] = [visibleStudents[swap], visibleStudents[index]];
+  }
+  const winnerIndex = visibleStudents.findIndex((student) => student.id === winner.id);
+  const cars = document.getElementById("name-train-cars");
+  cars.innerHTML = visibleStudents.map((student, index) => `<span class="name-train-car${index === winnerIndex ? " is-selected" : ""}" data-student-id="${escapeReportMarkup(student.id)}"><i>${index + 1}</i><b>${escapeReportMarkup(student.name)}</b></span>`).join("");
+  enterFeatureFullscreen("feature-name-train");
+  const scene = document.getElementById("name-train-scene");
+  const train = document.getElementById("name-train");
+  const car = cars.children[winnerIndex];
+  const trainWidth = train.scrollWidth;
+  const stopX = scene.clientWidth / 2 - (train.offsetLeft + cars.offsetLeft + car.offsetLeft + car.offsetWidth / 2);
+  train.style.transition = "none";
+  train.style.transform = `translateX(${-trainWidth - 40}px)`;
+  void train.offsetWidth;
+  train.style.transition = "transform 5.6s cubic-bezier(.12,.72,.18,1)";
+  scene.dataset.stage = "rolling";
+  nameTrainBusy = true;
+  document.getElementById("start-name-train").disabled = true;
+  document.getElementById("reset-name-train").disabled = true;
+  document.getElementById("name-train-status").textContent = "القطار يقترب من المحطة... راقبوا العربات!";
+  playArcadeGameSound("train-roll");
+  pulseFeatureCardById("feature-name-train", "spin");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const travel = reducedMotion ? 900 : 5600;
+  requestAnimationFrame(() => { train.style.transform = `translateX(${stopX}px)`; });
+  nameTrainTimers.push(setTimeout(() => {
+    scene.dataset.stage = "stopped";
+    document.getElementById("name-train-status").textContent = "وصل القطار... أي عربة تحمل الاسم المختار؟";
+    playArcadeGameSound("train-horn");
+  }, travel));
+  nameTrainTimers.push(setTimeout(() => {
+    scene.dataset.stage = "revealed";
+    car.classList.add("is-open");
+    document.getElementById("name-train-winner-name").textContent = winner.name;
+    document.getElementById("name-train-status").textContent = `فُتحت العربة وكشفت اسم الطالب: ${winner.name}`;
+    nameTrainBusy = false;
+    document.getElementById("reset-name-train").disabled = false;
+    playArcadeGameSound("train-reveal");
+    pulseFeatureCardById("feature-name-train", "winner");
+    triggerCelebration("🚂 وصل قطار الأسماء", `القطار اختار ${winner.name}`, 2200, false);
+  }, travel + (reducedMotion ? 350 : 1250)));
+}
+
+document.getElementById("start-name-train").addEventListener("click", startNameTrain);
+document.getElementById("reset-name-train").addEventListener("click", resetNameTrain);
+
+let spotlightBusy = false;
+let spotlightTimers = [];
+function resetSpotlight() {
+  spotlightTimers.forEach((timer) => clearTimeout(timer));
+  spotlightTimers = [];
+  spotlightBusy = false;
+  const scene = document.getElementById("spotlight-scene");
+  if (!scene) return;
+  scene.dataset.stage = "ready";
+  scene.style.setProperty("--spot-x", "50%");
+  scene.style.setProperty("--spot-y", "50%");
+  document.getElementById("start-spotlight").disabled = false;
+  document.getElementById("reset-spotlight").disabled = true;
+  document.getElementById("spotlight-winner-name").textContent = "";
+  document.getElementById("spotlight-status").textContent = "يتحرك الضوء بين بطاقات الطلاب ليكشف الاسم المختار.";
+  document.getElementById("spotlight-student-cards").innerHTML = "";
+}
+
+function startSpotlight() {
+  if (!ensureAuthOrNotify() || spotlightBusy) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+  const students = (cls.students || []).filter((student) => student && student.id && normalizeName(student.name));
+  if (!students.length) {
+    document.getElementById("spotlight-status").textContent = "أضف طلابًا إلى الصف أولًا.";
+    return;
+  }
+  const winner = students[Math.floor(Math.random() * students.length)];
+  const visibleStudents = students.slice(0, 25);
+  if (!visibleStudents.some((student) => student.id === winner.id)) visibleStudents[visibleStudents.length - 1] = winner;
+  const cards = document.getElementById("spotlight-student-cards");
+  cards.innerHTML = visibleStudents.map((student, index) => `<div class="spotlight-student-card" data-student-id="${escapeReportMarkup(student.id)}"><i>${index + 1}</i><b>${escapeReportMarkup(student.name)}</b></div>`).join("");
+  const scene = document.getElementById("spotlight-scene");
+  enterFeatureFullscreen("feature-spotlight");
+  const sceneRect = scene.getBoundingClientRect();
+  const studentCards = Array.from(cards.children);
+  const winnerCard = studentCards.find((card) => card.dataset.studentId === winner.id) || studentCards[studentCards.length - 1];
+  const targets = [];
+  for (let index = 0; index < 5; index += 1) {
+    let target = studentCards[Math.floor(Math.random() * studentCards.length)];
+    if (studentCards.length > 1 && target === targets[index - 1]) target = studentCards[(studentCards.indexOf(target) + 1) % studentCards.length];
+    targets.push(target);
+  }
+  targets.push(winnerCard);
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const interval = reducedMotion ? 230 : 720;
+  scene.dataset.stage = "searching";
+  spotlightBusy = true;
+  document.getElementById("start-spotlight").disabled = true;
+  document.getElementById("reset-spotlight").disabled = true;
+  document.getElementById("spotlight-status").textContent = "الكشاف يبحث بين البطاقات... من سيختار؟";
+  pulseFeatureCardById("feature-spotlight", "spin");
+  targets.forEach((card, index) => {
+    spotlightTimers.push(setTimeout(() => {
+      studentCards.forEach((item) => item.classList.toggle("is-lit", item === card));
+      const rect = card.getBoundingClientRect();
+      scene.style.setProperty("--spot-x", `${rect.left + rect.width / 2 - sceneRect.left}px`);
+      scene.style.setProperty("--spot-y", `${rect.top + rect.height / 2 - sceneRect.top}px`);
+      if (index === targets.length - 2) document.getElementById("spotlight-status").textContent = "الضوء يقترب من اختياره الأخير...";
+      if (index < targets.length - 1) playArcadeGameSound("spotlight-sweep");
+    }, interval * index));
+  });
+  const revealDelay = interval * (targets.length - 1) + (reducedMotion ? 280 : 700);
+  spotlightTimers.push(setTimeout(() => {
+    scene.dataset.stage = "stopped";
+    document.getElementById("spotlight-status").textContent = "توقف الكشاف! البطاقة المختارة هي...";
+    playArcadeGameSound("spotlight-stop");
+  }, interval * (targets.length - 1)));
+  spotlightTimers.push(setTimeout(() => {
+    scene.dataset.stage = "revealed";
+    document.getElementById("spotlight-winner-name").textContent = winner.name;
+    document.getElementById("spotlight-status").textContent = `أضاء الكشاف بطاقة الطالب: ${winner.name}`;
+    spotlightBusy = false;
+    document.getElementById("reset-spotlight").disabled = false;
+    pulseFeatureCardById("feature-spotlight", "winner");
+    triggerCelebration("🔦 كشاف المسرح", `الضوء اختار ${winner.name}`, 2200, false);
+  }, revealDelay));
+}
+
+document.getElementById("start-spotlight").addEventListener("click", startSpotlight);
+document.getElementById("reset-spotlight").addEventListener("click", resetSpotlight);
 
 document.getElementById("start-lucky-game").addEventListener("click", () => {
   startLuckyGame();
