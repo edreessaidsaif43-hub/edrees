@@ -5553,10 +5553,11 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   width: clamp(48px, 8vw, 78px);
   height: clamp(58px, 9.5vw, 92px);
   filter: drop-shadow(0 4px 2px rgba(41, 34, 21, .32));
-  transition: left 2.8s cubic-bezier(.2,.65,.25,1), top 2.8s cubic-bezier(.2,.65,.25,1), transform .25s ease;
+  transition: left 1.6s cubic-bezier(.2,.65,.25,1), top 1.6s cubic-bezier(.2,.65,.25,1), transform .25s ease;
 }
 .treasure-pirate-art { display: block; width: 100%; height: 100%; overflow: visible; }
-.treasure-map-scene[data-stage="walking"] .treasure-pirate { left: var(--dig-x, 75%); top: var(--dig-y, 50%); transform: rotate(9deg) scale(1.12); animation: treasure-walk .36s ease-in-out infinite alternate; }
+.treasure-map-scene[data-stage="walking"] .treasure-pirate { left: var(--pirate-x, 13%); top: var(--pirate-y, 35%); transform: rotate(9deg) scale(1.12); animation: treasure-walk .36s ease-in-out infinite alternate; }
+.treasure-map-scene[data-stage="searching"] .treasure-pirate { left: var(--dig-x, 75%); top: var(--dig-y, 50%); transform: rotate(-8deg) scale(1.1); animation: treasure-look .65s ease-in-out infinite alternate; }
 .treasure-map-scene[data-stage="digging"] .treasure-pirate { left: var(--dig-x, 75%); top: var(--dig-y, 50%); transform: rotate(-18deg) translateY(4px); animation: treasure-dig .24s ease-in-out infinite alternate; }
 .treasure-dig-site { position: absolute; z-index: 3; left: var(--dig-x, 75%); top: var(--dig-y, 50%); width: 44px; height: 42px; display: grid; place-items: center; transform: translate(-50%, -20%) scale(.2); opacity: 0; transition: transform .35s ease, opacity .3s ease; }
 .treasure-dig-site::before { content: ""; position: absolute; inset: 14px 1px 1px; border-radius: 50%; background: #765235; box-shadow: inset 0 4px 0 rgba(48, 35, 24, .28); }
@@ -5570,10 +5571,12 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .treasure-reveal strong { font-size: clamp(16px, 3vw, 25px); overflow-wrap: anywhere; }
 .treasure-map-scene[data-stage="revealed"] .treasure-reveal { opacity: 1; transform: translate(-50%, -115%) scale(1) rotate(0); transition: opacity .3s ease, transform .48s cubic-bezier(.18,.8,.25,1.25); }
 .treasure-map-scene[data-stage="walking"] .treasure-dig-site { opacity:.6; transform:translate(-50%,-20%) scale(.78); animation:treasure-site-ping 1.2s ease-in-out infinite alternate; }
+.treasure-map-scene[data-stage="searching"] .treasure-dig-site { opacity:.9; transform:translate(-50%,-20%) scale(.94); animation:treasure-site-ping .42s ease-in-out infinite alternate; }
 .treasure-map-scene[data-stage="revealed"] .treasure-map-art { filter:saturate(1.12) brightness(1.03); transition:filter .4s ease; }
 .treasure-map-compass { position: absolute; right: 2%; bottom: 4%; width: 34px; height: 40px; display: grid; place-content: center; border-radius: 50%; color: #5d4324; background: rgba(255, 248, 220, .82); text-align: center; font-size: 10px; font-weight: 900; }
 .treasure-controls { flex-wrap: wrap; }
 @keyframes treasure-walk { to { translate: 0 -5px; } }
+@keyframes treasure-look { to { transform: rotate(9deg) translateY(-5px) scale(1.17); filter:drop-shadow(0 0 9px #fff2ac); } }
 @keyframes treasure-dig { to { transform: rotate(18deg) translateY(5px); } }
 @keyframes treasure-spark { 20% { opacity: .9; transform: translate(10px, -12px) scale(.8); } 100% { opacity: 0; transform: translate(-8px, -28px) scale(.3); } }
 @keyframes treasure-site-ping { to { filter:drop-shadow(0 0 10px #fff2ac); } }
@@ -5584,7 +5587,7 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .claw-machine-cabinet { position: relative; height: 320px; overflow: hidden; border: 7px solid #586a70; border-top-width: 4px; border-radius: 7px 7px 16px 16px; background: linear-gradient(180deg, rgba(232,250,242,.85) 0%, rgba(220,246,237,.65) 64%, rgba(143,203,185,.88) 100%); box-shadow: inset 0 0 24px rgba(35,72,67,.22); }
 .claw-machine-cabinet::before { content: ""; position: absolute; z-index: 3; inset: 0; pointer-events: none; background: linear-gradient(115deg, rgba(255,255,255,.3) 0 12%, transparent 13% 75%, rgba(255,255,255,.15) 76% 81%, transparent 82%); }
 .claw-machine-rail { position: absolute; z-index: 4; top: 9px; left: 5%; right: 5%; height: 7px; border-radius: 8px; background: #5a6565; box-shadow: 0 2px 2px rgba(0,0,0,.2); }
-.claw-machine-claw { position: absolute; left: var(--claw-x, 50%); top: 0; width: 42px; height: 40px; transform: translateX(-50%); transition: left 1.55s cubic-bezier(.35,.05,.3,1); }
+.claw-machine-claw { position: absolute; left: var(--claw-x, 50%); top: 0; width: 42px; height: 40px; transform: translateX(-50%); transition: left 1.05s cubic-bezier(.35,.05,.3,1); }
 .claw-machine-claw::before { content: ""; position: absolute; left: 19px; top: 0; width: 4px; height: var(--claw-drop, 116px); background: linear-gradient(90deg,#778588,#d7dfdc,#647476); transform: translateY(-2px); transition: height .7s ease; }
 .claw-machine-claw i { position: absolute; z-index: 2; left: 7px; top: calc(var(--claw-drop, 116px) - 2px); width: 28px; height: 18px; border: 4px solid #505b5e; border-top: 0; border-radius: 0 0 15px 15px; transition: top .7s ease, transform .25s ease; }
 .claw-machine-claw b, .claw-machine-claw em { position: absolute; z-index: 2; top: calc(var(--claw-drop, 116px) + 7px); width: 15px; height: 21px; border: 4px solid #505b5e; border-top: 0; transition: top .7s ease, transform .25s ease; }
@@ -5595,8 +5598,11 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .claw-machine-ball.is-prize { z-index: 1; }
 .claw-machine-ball.is-prize:not(.is-captured) { outline:3px solid rgba(255,246,181,.82); outline-offset:2px; animation:claw-prize-pulse .75s ease-in-out infinite alternate; }
 .claw-machine-scene[data-stage="moving"] .claw-machine-top i { animation:claw-lamp .3s steps(2,end) infinite; }
+.claw-machine-scene[data-stage="aligning"] .claw-machine-top i { animation:claw-lock .32s ease-in-out infinite alternate; }
+.claw-machine-scene[data-stage="aligning"] .claw-machine-claw { animation:claw-hover .22s ease-in-out infinite alternate; }
+.claw-machine-scene[data-stage="aligning"] .claw-machine-ball.is-prize { filter:brightness(1.32); }
 .claw-machine-scene[data-stage="grabbing"] .claw-machine-claw i { box-shadow:0 0 10px #ffe58d; }
-.claw-machine-scene[data-stage="moving"] .claw-machine-claw { --claw-drop: 116px; }
+.claw-machine-scene[data-stage="moving"] .claw-machine-claw,.claw-machine-scene[data-stage="aligning"] .claw-machine-claw { --claw-drop: 116px; }
 .claw-machine-scene[data-stage="grabbing"] .claw-machine-claw { --claw-drop: 236px; }
 .claw-machine-scene[data-stage="grabbing"] .claw-machine-claw i { transform: scaleX(.65); }
 .claw-machine-scene[data-stage="grabbing"] .claw-machine-claw b { transform: rotate(42deg); }
@@ -5618,6 +5624,8 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 @keyframes claw-ball-bob { to { translate: 0 -2px; } }
 @keyframes claw-prize-pulse { to { filter:brightness(1.2); transform:scale(1.07); } }
 @keyframes claw-lamp { 50% { background:#fff; box-shadow:0 0 18px #fff; } }
+@keyframes claw-lock { to { background:#7dffb1; box-shadow:0 0 20px #7dffb1; } }
+@keyframes claw-hover { to { translate:0 5px; } }
 @media(max-width:520px) {
   .claw-machine-scene { min-height: 440px; padding-inline: 4%; }
   .claw-machine-cabinet { height: 320px; }
@@ -5641,13 +5649,15 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .fishing-fish svg ellipse { fill:var(--fish-color,#f27954); stroke:rgba(255,255,255,.88); stroke-width:2; }
 .fishing-fish .fish-tail,.fishing-fish .fish-fin { fill:color-mix(in srgb,var(--fish-color,#f27954),#273f58 16%); stroke:rgba(255,255,255,.8); stroke-width:1.6; stroke-linejoin:round; }
 .fishing-fish span { position:absolute; left:50%; bottom:0; max-width:94%; overflow:hidden; padding:2px 6px; border:1px solid rgba(255,255,255,.68); border-radius:999px; color:#123c48; background:rgba(242,255,246,.91); box-shadow:0 2px 4px rgba(0,48,71,.16); text-align:center; text-overflow:ellipsis; white-space:nowrap; font-size:9px; line-height:1.2; font-weight:800; transform:translateX(-50%); }
-.fishing-hook { position:absolute; z-index:5; top:4%; left:var(--hook-x,50%); width:34px; height:40px; transform:translateX(-50%); transition:left 1.35s cubic-bezier(.3,.1,.3,1); }
+.fishing-hook { position:absolute; z-index:5; top:4%; left:var(--hook-x,50%); width:34px; height:40px; transform:translateX(-50%); transition:left .95s cubic-bezier(.3,.1,.3,1); }
 .fishing-hook::before { content:""; position:absolute; top:0; left:15px; width:3px; height:var(--hook-drop,0px); background:linear-gradient(90deg,#c5d2cb,#fff,#91a8a6); transition:height 1.05s cubic-bezier(.3,.1,.3,1); }
 .fishing-hook i { position:absolute; top:calc(var(--hook-drop,0px) - 2px); left:10px; width:14px; height:19px; border:3px solid #e8eee4; border-top-color:transparent; border-left-color:transparent; border-radius:0 0 12px 0; transform:rotate(15deg); filter:drop-shadow(1px 2px 1px #17586a); transition:top 1.05s cubic-bezier(.3,.1,.3,1); }
 .fishing-hook b { position:absolute; top:-15px; left:10px; width:14px; height:16px; border-radius:50% 50% 35% 35%; background:#d99a46; border:2px solid #9d642c; }
 .fishing-hook em { position:absolute; top:-22px; left:7px; width:20px; height:8px; border-radius:50%; background:#f3c978; border:2px solid #9d642c; }
 .fishing-scene[data-stage="casting"] .fishing-hook,.fishing-scene[data-stage="hooked"] .fishing-hook { --hook-drop:var(--target-depth,170px); }
 .fishing-scene[data-stage="casting"] .fishing-waterline { animation:fishing-ripple .65s ease-in-out infinite alternate; }
+.fishing-scene[data-stage="searching"] .fishing-hook { animation:hook-search .55s ease-in-out infinite alternate; }
+.fishing-scene[data-stage="searching"] .fishing-waterline { animation:fishing-ripple .48s ease-in-out infinite alternate; }
 .fishing-scene[data-stage="hooked"] .fishing-hook i { filter:drop-shadow(0 0 6px #fff2ad); }
 .fishing-scene[data-stage="revealed"] .fishing-hook { --hook-drop:20px; }
 .fishing-scene[data-stage="hooked"] .fishing-hook i { transform:rotate(-22deg) scale(1.15); }
@@ -5670,6 +5680,7 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 @keyframes fish-swim { to { translate:0 -3px; } }
 @keyframes fish-tail-wag { to { rotate:14deg; } }
 @keyframes fishing-ripple { to { transform:scaleX(.97); opacity:.7; } }
+@keyframes hook-search { to { translate:0 8px; } }
 @keyframes fish-bubble { 0% { opacity:0; transform:translateY(0) scale(.7); } 20% { opacity:.8; } 100% { opacity:0; transform:translateY(-100px) scale(1.1); } }
 @media(max-width:520px) { .fishing-scene { min-height:455px; } .fishing-school { inset:108px 12px 48px; grid-template-columns:repeat(4,minmax(0,1fr)); } .fishing-fish svg { width:min(55px,75%); height:30px; } .fishing-fish span { font-size:8px; padding-inline:4px; } }
 @media(prefers-reduced-motion:reduce) { .fishing-fish,.fishing-fish svg .fish-tail,.fishing-hook,.fishing-hook::before,.fishing-hook i,.fishing-reveal,.fishing-bubbles i,.fishing-scene[data-stage="casting"] .fishing-waterline { animation:none!important; transition-duration:.01ms!important; } }

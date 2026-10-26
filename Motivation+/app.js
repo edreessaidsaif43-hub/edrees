@@ -5518,6 +5518,8 @@ function resetTreasureHunt() {
   scene.dataset.stage = "ready";
   scene.style.setProperty("--dig-x", "75%");
   scene.style.setProperty("--dig-y", "50%");
+  scene.style.setProperty("--pirate-x", "13%");
+  scene.style.setProperty("--pirate-y", "35%");
   start.disabled = false;
   reset.disabled = true;
   document.getElementById("treasure-winner-name").textContent = "";
@@ -5540,6 +5542,8 @@ function startTreasureHunt() {
   const winner = students[Math.floor(Math.random() * students.length)];
   const x = 56 + Math.random() * 32;
   const y = 28 + Math.random() * 44;
+  scene.style.setProperty("--pirate-x", "13%");
+  scene.style.setProperty("--pirate-y", "35%");
   scene.style.setProperty("--dig-x", `${x}%`);
   scene.style.setProperty("--dig-y", `${y}%`);
   scene.dataset.stage = "walking";
@@ -5550,12 +5554,17 @@ function startTreasureHunt() {
   enterFeatureFullscreen("feature-treasure-map");
   playArcadeGameSound("treasure-journey");
   pulseFeatureCardById("feature-treasure-map", "spin");
-  const motion = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 450 : 2800;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const motion = reducedMotion ? 650 : 5200;
+  treasureHuntTimers.push(setTimeout(() => {
+    scene.dataset.stage = "searching";
+    status.textContent = "الخريطة تلمع... اقتربنا من مكان الكنز!";
+  }, motion));
   treasureHuntTimers.push(setTimeout(() => {
     scene.dataset.stage = "digging";
     playArcadeGameSound("treasure-dig");
     status.textContent = "وجدنا الموقع! جارٍ حفر الكنز...";
-  }, motion));
+  }, motion + (reducedMotion ? 180 : 950)));
   treasureHuntTimers.push(setTimeout(() => {
     scene.dataset.stage = "revealed";
     document.getElementById("treasure-winner-name").textContent = winner.name;
@@ -5565,7 +5574,7 @@ function startTreasureHunt() {
     playArcadeGameSound("treasure-reveal");
     pulseFeatureCardById("feature-treasure-map", "winner");
     triggerCelebration("🏴‍☠️ اكتشاف الكنز", `الكنز اختار ${winner.name}`, 2200, false);
-  }, motion + 1450));
+  }, motion + (reducedMotion ? 520 : 2550)));
 }
 
 document.getElementById("start-treasure-hunt").addEventListener("click", startTreasureHunt);
@@ -5612,8 +5621,12 @@ function startClawMachine() {
   balls.innerHTML = shuffled.map((student, index) => `<span class="claw-machine-ball${student.id === winner.id ? " is-prize" : ""}" data-student-id="${escapeReportMarkup(student.id)}" style="--ball-color:${palette[index % palette.length]};--ball-delay:${(index % 5) * -0.3}s">${escapeReportMarkup(student.name)}</span>`).join("");
   const targetBall = balls.children[winnerBallIndex];
   const ballCenter = balls.clientWidth ? (targetBall.offsetLeft + targetBall.offsetWidth / 2) / balls.clientWidth : 0.5;
-  const x = 5 + ballCenter * 90;
-  scene.style.setProperty("--claw-x", `${Math.max(6, Math.min(94, x))}%`);
+  const x = Math.max(6, Math.min(94, 5 + ballCenter * 90));
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const scanTime = reducedMotion ? 160 : 1150;
+  const alignTime = reducedMotion ? 140 : 950;
+  const grabTime = reducedMotion ? 180 : 900;
+  scene.style.setProperty("--claw-x", `${x > 50 ? 8 : 92}%`);
   scene.dataset.stage = "moving";
   clawMachineBusy = true;
   document.getElementById("start-claw-machine").disabled = true;
@@ -5622,13 +5635,21 @@ function startClawMachine() {
   enterFeatureFullscreen("feature-claw-machine");
   playArcadeGameSound("claw-move");
   pulseFeatureCardById("feature-claw-machine", "spin");
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const travel = reducedMotion ? 250 : 1550;
+  const travel = scanTime + alignTime;
+  clawMachineTimers.push(setTimeout(() => {
+    scene.style.setProperty("--claw-x", `${x}%`);
+    document.getElementById("claw-machine-status").textContent = "المخلب يمسح صف الكرات بحثًا عن كرة الحظ...";
+    playArcadeGameSound("claw-move");
+  }, scanTime));
+  clawMachineTimers.push(setTimeout(() => {
+    scene.dataset.stage = "aligning";
+    document.getElementById("claw-machine-status").textContent = "وجد كرة محتملة... المخلب يثبت موقعه!";
+  }, travel));
   clawMachineTimers.push(setTimeout(() => {
     scene.dataset.stage = "grabbing";
     playArcadeGameSound("claw-grab");
-    document.getElementById("claw-machine-status").textContent = "تم التقاط الكرة!";
-  }, travel));
+    document.getElementById("claw-machine-status").textContent = "المخلب ينزل ببطء... هل التقط الكرة؟";
+  }, travel + grabTime));
   clawMachineTimers.push(setTimeout(() => {
     scene.dataset.stage = "revealed";
     targetBall.classList.add("is-captured");
@@ -5639,7 +5660,7 @@ function startClawMachine() {
     playArcadeGameSound("claw-reveal");
     pulseFeatureCardById("feature-claw-machine", "winner");
     triggerCelebration("🎉 كرة الحظ", `تم اختيار ${winner.name}`, 2200, false);
-  }, travel + (reducedMotion ? 250 : 1050)));
+  }, travel + grabTime + (reducedMotion ? 220 : 1050)));
 }
 
 document.getElementById("start-claw-machine").addEventListener("click", startClawMachine);
@@ -5696,17 +5717,38 @@ function startFishingGame() {
   }
   const fishRect = winnerFish.getBoundingClientRect();
   const sceneRect = scene.getBoundingClientRect();
-  scene.style.setProperty("--hook-x", `${Math.max(7, Math.min(93, ((fishRect.left + fishRect.width / 2 - sceneRect.left) / sceneRect.width) * 100))}%`);
-  scene.style.setProperty("--hook-drop", `${Math.max(0, fishRect.top + fishRect.height / 2 - sceneRect.top - 42)}px`);
-  scene.dataset.stage = "casting";
+  const targetX = Math.max(7, Math.min(93, ((fishRect.left + fishRect.width / 2 - sceneRect.left) / sceneRect.width) * 100));
+  const targetDepth = Math.max(0, fishRect.top + fishRect.height / 2 - sceneRect.top - 42);
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const scanStep = reducedMotion ? 140 : 1050;
+  const descent = reducedMotion ? 180 : 1150;
+  const hookTime = reducedMotion ? 200 : 950;
+  scene.style.setProperty("--hook-x", "10%");
+  scene.style.setProperty("--target-depth", `${targetDepth}px`);
+  scene.dataset.stage = "searching";
   fishingGameBusy = true;
   document.getElementById("start-fishing").disabled = true;
   document.getElementById("reset-fishing").disabled = true;
-  document.getElementById("fishing-status").textContent = "السنارة تنزل إلى الحوض...";
+  document.getElementById("fishing-status").textContent = "الأسماك تتحرك... السنارة تبحث عن مكان مناسب.";
   playArcadeGameSound("fish-cast");
   pulseFeatureCardById("feature-fishing", "spin");
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const dropTime = reducedMotion ? 220 : 1350;
+  const scanTargets = [88, 16, targetX];
+  scanTargets.forEach((x, index) => {
+    fishingGameTimers.push(setTimeout(() => {
+      scene.style.setProperty("--hook-x", `${x}%`);
+      if (index === 0) document.getElementById("fishing-status").textContent = "السنارة تمسح سطح الماء... الأسماك تقترب!";
+      if (index === 1) document.getElementById("fishing-status").textContent = "ظهرت حركة قرب الطُعم...";
+      if (index === 2) {
+        scene.dataset.stage = "casting";
+        document.getElementById("fishing-status").textContent = "السنارة تهبط بهدوء نحو السمكة...";
+      }
+      if (index < 2) playArcadeGameSound("fish-cast");
+    }, scanStep * (index + 1)));
+  });
+  const dropTime = scanStep * scanTargets.length + descent;
+  fishingGameTimers.push(setTimeout(() => {
+    scene.style.setProperty("--hook-drop", `${targetDepth}px`);
+  }, scanStep * scanTargets.length));
   fishingGameTimers.push(setTimeout(() => {
     scene.dataset.stage = "hooked";
     playArcadeGameSound("fish-hook");
@@ -5722,7 +5764,7 @@ function startFishingGame() {
     playArcadeGameSound("fish-catch");
     pulseFeatureCardById("feature-fishing", "winner");
     triggerCelebration("🐟 صيد موفق", `تم اختيار ${winner.name}`, 2200, false);
-  }, dropTime + (reducedMotion ? 300 : 1050)));
+  }, dropTime + hookTime + (reducedMotion ? 220 : 1250)));
 }
 
 document.getElementById("start-fishing").addEventListener("click", startFishingGame);
