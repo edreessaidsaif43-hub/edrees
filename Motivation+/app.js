@@ -4677,6 +4677,15 @@ document.getElementById("delete-grade-branch").addEventListener("click", () => {
   persistGrades();
 });
 
+function getStudentBehaviorSummary(student) {
+  const history = Array.isArray(student.history) ? student.history : [];
+  const positive = history.reduce((sum, entry) => sum + Math.max(0, Number(entry.delta) || 0), 0);
+  const negative = history.reduce((sum, entry) => sum + Math.max(0, -(Number(entry.delta) || 0)), 0);
+  const total = positive + negative;
+  const ratio = total ? positive / total : 0;
+  return { positive, negative, label: !total ? "لا توجد بيانات كافية" : ratio >= 0.8 ? "ممتاز" : ratio >= 0.5 ? "جيد" : "يحتاج متابعة" };
+}
+
 function renderParentPanel(found) {
   const panel = document.getElementById("parent-panel");
   if (!found) {
@@ -4695,13 +4704,7 @@ function renderParentPanel(found) {
   const pointsHistory = (Array.isArray(student.history) ? student.history : [])
     .filter((entry) => Number(entry.delta || 0) !== 0)
     .reverse();
-  const positivePoints = pointsHistory.reduce((sum, entry) => sum + Math.max(0, Number(entry.delta) || 0), 0);
-  const negativePoints = pointsHistory.reduce((sum, entry) => sum + Math.max(0, -(Number(entry.delta) || 0)), 0);
-  const recordedPoints = positivePoints + negativePoints;
-  const positiveRatio = recordedPoints ? positivePoints / recordedPoints : 0;
-  const behaviorLabel = !recordedPoints
-    ? "لا توجد بيانات كافية"
-    : positiveRatio >= 0.8 ? "ممتاز" : positiveRatio >= 0.5 ? "جيد" : "يحتاج متابعة";
+  const behaviorLabel = getStudentBehaviorSummary(student).label;
   const messagesHtml = messages.length
     ? `<div class="reward-store-list">
         ${[...messages].reverse().map((m) => `
@@ -5951,68 +5954,69 @@ async function printStudentReportCards(allStudents = false) {
   };
   try {
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
-    let count = 0;
-    let page;
+    const photos = new Map();
+    await Promise.all(students.map(async (student) => {
+      try { photos.set(student.id, await getStudentPhotoDataUrl(cls, student.id)); }
+      catch { photos.set(student.id, ""); }
+    }));
+    const standings = new Map(rankStudents(cls).map((student, index) => [student.id, index + 1]));
     const date = new Date().toLocaleDateString("ar-EG");
     students.forEach((student) => {
-      let content;
-      let part = 0;
-      const newCard = () => {
-        if (count % 4 === 0) {
-          page = document.createElement("section");
-          page.className = "student-report-print-page";
-          root.appendChild(page);
-        }
-        count += 1;
-        part += 1;
+        const page = document.createElement("section");
+        page.className = "student-report-print-page";
+        root.appendChild(page);
         const card = document.createElement("article");
         card.className = "student-report-print-card";
         const level = getStudentLevel(Number(student.points || 0));
-        card.innerHTML = `<header><h2>${escapeReportMarkup(student.name)}${part > 1 ? ` — تابع ${part}` : ""}</h2><p>${escapeReportMarkup(cls.name)} | ${escapeReportMarkup(cls.subject || "")} | ${date}</p><p>النقاط: ${Number(student.points || 0)} | الرتبة: ${escapeReportMarkup(level.name)}</p></header><div class="student-report-card-content"></div>`;
+        const behavior = getStudentBehaviorSummary(student);
+        const code = normalizeName(student.code).toUpperCase();
+        const parentUrl = `${RUNTIME_ORIGIN || DEPLOY_FALLBACK_ORIGIN}/Motivation+/?parentCode=${encodeURIComponent(code)}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(parentUrl)}`;
+        const photo = photos.get(student.id);
+        card.innerHTML = `<header>
+          <div class="report-profile-heading">
+            <div class="report-profile-photo">${photo ? `<img src="${escapeReportMarkup(photo)}" alt="صورة الطالب" />` : `<span>${escapeReportMarkup(studentInitials(student.name))}</span>`}</div>
+            <div class="report-profile-identity"><h2>${escapeReportMarkup(student.name)}</h2><p>${escapeReportMarkup(cls.name)}${cls.subject ? ` | ${escapeReportMarkup(cls.subject)}` : ""}</p><p>الفريق: ${escapeReportMarkup(student.team || "بدون فريق")} | الترتيب: ${standings.get(student.id)} / ${cls.students.length}</p></div>
+            ${code ? `<img class="report-profile-qr" src="${qrUrl}" alt="QR المتابعة" />` : ""}
+          </div>
+          <p class="report-profile-code">كود المتابعة: <b dir="ltr">${escapeReportMarkup(code || "غير مسجل")}</b></p>
+          <div class="report-profile-rank"><span>${escapeReportMarkup(level.emoji)} ${escapeReportMarkup(level.name)}</span><span class="report-profile-stars">${escapeReportMarkup(level.stars || "")}</span></div>
+          <p>${level.levelNumber > 0 ? `الدرع ${level.levelNumber} من 50 | ${level.starCount} نجمة` : "الدرع الأول عند 10 نقاط"}</p>
+          <p><strong>النقاط: ${Number(student.points || 0)}</strong> | السلوك العام: ${behavior.label}</p>
+          <p><span class="report-positive-total">المضافة: +${behavior.positive}</span> | <span class="report-negative-total">المخصومة: ${behavior.negative ? "−" : ""}${behavior.negative}</span> | ${date}</p>
+        </header><div class="student-report-card-content"></div>`;
         page.appendChild(card);
-        content = card.querySelector(".student-report-card-content");
-      };
-      newCard();
+        const content = card.querySelector(".student-report-card-content");
       getStudentReportCardSections(cls, student).forEach((section) => {
+        const heading = document.createElement("h3");
+        heading.textContent = section.title;
+        content.appendChild(heading);
         const entries = section.entries.length ? section.entries : ["لا توجد بيانات مسجلة."];
-        entries.forEach((entry, index) => {
-          let words = String(entry).split(/\s+/);
-          let continued = false;
-          while (words.length) {
-            const block = document.createElement("div");
-            block.className = `student-report-card-entry report-${section.kind}`;
-            const label = index === 0 || continued ? `${section.title}${continued ? " (تابع)" : ""}: ` : "";
-            block.textContent = label + words.join(" ");
-            content.appendChild(block);
-            if (content.scrollHeight <= content.clientHeight + 1) break;
-            block.remove();
-            if (content.children.length) {
-              newCard();
-              continued = true;
-              continue;
-            }
-            // Split oversized entries across cards without losing any text.
-            content.appendChild(block);
-            let low = 1;
-            let high = words.length;
-            let fit = 0;
-            while (low <= high) {
-              const mid = Math.floor((low + high) / 2);
-              block.textContent = label + words.slice(0, mid).join(" ");
-              if (content.scrollHeight <= content.clientHeight + 1) { fit = mid; low = mid + 1; }
-              else high = mid - 1;
-            }
-            if (!fit) throw new Error("Report entry cannot fit on a card");
-            block.textContent = label + words.slice(0, fit).join(" ");
-            words = words.slice(fit);
-            if (words.length) { newCard(); continued = true; }
-          }
+        entries.forEach((entry) => {
+          const block = document.createElement("div");
+          block.className = `student-report-card-entry report-${section.kind}`;
+          block.textContent = String(entry);
+          content.appendChild(block);
         });
       });
     });
+    await Promise.all(Array.from(root.querySelectorAll("img")).map((img) => new Promise((resolve) => {
+      const finish = () => {
+        clearTimeout(timeout);
+        img.onload = img.onerror = null;
+        if (!img.naturalWidth) {
+          if (img.closest(".report-profile-photo")) img.replaceWith(document.createTextNode(studentInitials(img.closest("article").querySelector("h2").textContent)));
+          else img.remove();
+        }
+        resolve();
+      };
+      const timeout = setTimeout(finish, 8000);
+      img.onload = img.onerror = finish;
+      if (img.complete) finish();
+    })));
     document.body.classList.add("printing-student-reports");
     window.addEventListener("afterprint", cleanup);
-    status.textContent = `تم تجهيز ${count} بطاقة في ${Math.ceil(count / 4)} صفحة.`;
+    status.textContent = `تم تجهيز التقارير الكاملة لـ ${students.length} طالب.`;
     window.print();
   } catch {
     cleanup();
