@@ -447,6 +447,38 @@
             <p id="lucky-result" class="muted">اضغط ابدأ اللعبة لاختيار طالب عشوائي.</p>
           </article>
 
+          <article id="feature-treasure-map" class="card feature-card section-9 treasure-feature" data-teacher-panel="random">
+            <h2>🏴‍☠️ خريطة الكنز</h2>
+            <div id="treasure-map-scene" class="treasure-map-scene" data-stage="ready" role="img" aria-label="خريطة كنز تفاعلية">
+              <svg class="treasure-map-art" viewBox="0 0 800 440" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <defs>
+                  <linearGradient id="treasureSea" x2="0" y2="1"><stop stop-color="#bde8e5"/><stop offset="1" stop-color="#72c5bd"/></linearGradient>
+                  <linearGradient id="treasureLand" x2="0" y2="1"><stop stop-color="#e9cb88"/><stop offset="1" stop-color="#c49b58"/></linearGradient>
+                  <pattern id="treasureDots" width="34" height="30" patternUnits="userSpaceOnUse"><circle cx="5" cy="7" r="1.4" fill="#6b5737" opacity=".22"/><circle cx="25" cy="21" r="1" fill="#6b5737" opacity=".2"/></pattern>
+                </defs>
+                <rect width="800" height="440" fill="url(#treasureSea)"/>
+                <path d="M0 84 Q104 30 205 70 T402 67 Q508 28 628 75 T800 48 V390 Q680 426 562 388 T332 402 Q203 435 96 390 T0 407Z" fill="url(#treasureLand)" stroke="#947444" stroke-width="5"/>
+                <path d="M0 84 Q104 30 205 70 T402 67 Q508 28 628 75 T800 48 V390 Q680 426 562 388 T332 402 Q203 435 96 390 T0 407Z" fill="url(#treasureDots)"/>
+                <path d="M85 145 C175 99 255 190 337 155 S497 106 546 179 S649 271 719 222" fill="none" stroke="#fff1bd" stroke-width="7" stroke-linecap="round" stroke-dasharray="2 15" opacity=".9"/>
+                <path d="M90 280 Q155 236 218 275 T343 266 M455 318 Q520 275 580 309 T708 294" fill="none" stroke="#967b4d" stroke-width="2" opacity=".42"/>
+                <g fill="#527b55" stroke="#365d43" stroke-width="3"><path d="M135 191l24-51 24 51zM143 211l16-35 16 35zM293 330l25-56 25 56zM302 352l16-38 16 38zM628 143l24-50 24 50zM636 163l16-35 16 35z"/></g>
+                <g fill="#fff8de" stroke="#647d75" stroke-width="3"><path d="M215 211q16-39 32 0zM224 232q8-22 16 0zM552 241q16-39 32 0zM561 262q8-22 16 0z"/></g>
+                <path d="M671 100v-46m-18 6h36m-18-18v37" stroke="#663f24" stroke-width="4" stroke-linecap="round"/><text x="671" y="31" text-anchor="middle" font-size="22" fill="#49341f">N</text>
+              </svg>
+              <div class="treasure-route-line" aria-hidden="true"></div>
+              <div id="treasure-pirate" class="treasure-pirate" aria-hidden="true">🏴‍☠️</div>
+              <div id="treasure-dig-site" class="treasure-dig-site" aria-hidden="true"><span class="treasure-chest">🧰</span><span class="treasure-dust">✦</span></div>
+              <div id="treasure-reveal" class="treasure-reveal" aria-live="polite" aria-atomic="true"><span class="treasure-chest-open">🪙</span><strong id="treasure-winner-name"></strong></div>
+              <div class="treasure-map-compass" aria-hidden="true">N<br>✥</div>
+            </div>
+            <div class="field-row treasure-controls">
+              <button id="start-treasure-hunt" type="button" class="btn">ابدأ البحث عن الكنز</button>
+              <button id="reset-treasure-hunt" type="button" class="btn secondary" disabled>إعادة المحاولة</button>
+              <button class="btn danger exit-fullscreen" data-feature-exit>خروج من العرض الكامل</button>
+            </div>
+            <p id="treasure-hunt-status" class="muted" role="status" aria-live="polite">ابدأ الرحلة ليكشف الكنز اسم طالب عشوائي من الصف.</p>
+          </article>
+
           <article id="feature-countdown" class="card feature-card section-10" data-teacher-panel="timer">
             <h2>التوقيت التنازلي</h2>
             <p class="muted">هذا المؤقت للوقت فقط ولا يضيف أو يخصم أي نقاط.</p>
@@ -784,7 +816,7 @@
       <p id="action-audio-status" role="status" style="margin:0 0 8px"></p>
       <audio id="action-audio-player" controls preload="none" playsinline webkit-playsinline aria-label="صوت العملية" style="width:100%"></audio>
     </div>
-    <script src="./app.js?v=20261026-actions-in-points-7"></script>
+    <script src="./app.js?v=20261026-treasure-map-1"></script>
 </body>
 </html>
 

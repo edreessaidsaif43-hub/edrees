@@ -1979,7 +1979,7 @@ function triggerCelebration(title, message, duration = 2200, withSound = true) {
 }
 
 function enterFeatureFullscreen(featureId) {
-  if (["feature-wheel", "feature-lucky", "feature-countdown"].includes(featureId)) {
+  if (["feature-wheel", "feature-lucky", "feature-countdown", "feature-treasure-map"].includes(featureId)) {
     try { showTeacherPanel(featureId === "feature-countdown" ? "timer" : "random"); } catch {}
   }
   const feature = document.getElementById(featureId);
@@ -4932,7 +4932,8 @@ function getTeacherPanelTargets() {
     ],
     random: [
       document.getElementById("feature-wheel"),
-      document.getElementById("feature-lucky")
+      document.getElementById("feature-lucky"),
+      document.getElementById("feature-treasure-map")
     ],
     timer: [document.getElementById("feature-countdown")],
     reports: [document.getElementById("reports-panel")]
@@ -5453,6 +5454,71 @@ document.getElementById("wheel-center-text").addEventListener("keyup", (event) =
   }
 });
 
+
+let treasureHuntBusy = false;
+let treasureHuntTimers = [];
+function resetTreasureHunt() {
+  treasureHuntTimers.forEach((timer) => clearTimeout(timer));
+  treasureHuntTimers = [];
+  treasureHuntBusy = false;
+  const scene = document.getElementById("treasure-map-scene");
+  const start = document.getElementById("start-treasure-hunt");
+  const reset = document.getElementById("reset-treasure-hunt");
+  if (!scene || !start || !reset) return;
+  scene.dataset.stage = "ready";
+  scene.style.setProperty("--dig-x", "75%");
+  scene.style.setProperty("--dig-y", "50%");
+  start.disabled = false;
+  reset.disabled = true;
+  document.getElementById("treasure-winner-name").textContent = "";
+  document.getElementById("treasure-hunt-status").textContent = "ابدأ الرحلة ليكشف الكنز اسم طالب عشوائي من الصف.";
+}
+
+function startTreasureHunt() {
+  if (!ensureAuthOrNotify() || treasureHuntBusy) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+  const students = (cls.students || []).filter((student) => student && student.id && normalizeName(student.name));
+  if (!students.length) {
+    document.getElementById("treasure-hunt-status").textContent = "أضف طلابًا إلى الصف أولًا.";
+    return;
+  }
+  const scene = document.getElementById("treasure-map-scene");
+  const start = document.getElementById("start-treasure-hunt");
+  const reset = document.getElementById("reset-treasure-hunt");
+  const status = document.getElementById("treasure-hunt-status");
+  const winner = students[Math.floor(Math.random() * students.length)];
+  const x = 56 + Math.random() * 32;
+  const y = 28 + Math.random() * 44;
+  scene.style.setProperty("--dig-x", `${x}%`);
+  scene.style.setProperty("--dig-y", `${y}%`);
+  scene.dataset.stage = "walking";
+  treasureHuntBusy = true;
+  start.disabled = true;
+  reset.disabled = true;
+  status.textContent = "القراصنة يتبعون الخريطة...";
+  enterFeatureFullscreen("feature-treasure-map");
+  playEventSound("spin");
+  pulseFeatureCardById("feature-treasure-map", "spin");
+  const motion = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 450 : 2800;
+  treasureHuntTimers.push(setTimeout(() => {
+    scene.dataset.stage = "digging";
+    status.textContent = "وجدنا الموقع! جارٍ حفر الكنز...";
+  }, motion));
+  treasureHuntTimers.push(setTimeout(() => {
+    scene.dataset.stage = "revealed";
+    document.getElementById("treasure-winner-name").textContent = winner.name;
+    status.textContent = `كشف الكنز اسم الطالب: ${winner.name}`;
+    treasureHuntBusy = false;
+    reset.disabled = false;
+    playEventSound("winner");
+    pulseFeatureCardById("feature-treasure-map", "winner");
+    triggerCelebration("🏴‍☠️ اكتشاف الكنز", `الكنز اختار ${winner.name}`);
+  }, motion + 1450));
+}
+
+document.getElementById("start-treasure-hunt").addEventListener("click", startTreasureHunt);
+document.getElementById("reset-treasure-hunt").addEventListener("click", resetTreasureHunt);
 
 document.getElementById("start-lucky-game").addEventListener("click", () => {
   startLuckyGame();

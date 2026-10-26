@@ -1221,6 +1221,11 @@ body.feature-fullscreen .feature-fullscreen-backdrop {
   line-height: 1.05;
   padding: 20px 10px;
 }
+.feature-card.fullscreen-feature .treasure-map-scene {
+  width: min(100%, 1120px);
+  max-height: min(58vh, 560px);
+  margin-inline: auto;
+}
 .celebration-overlay {
   position: fixed;
   inset: 0;
@@ -5515,6 +5520,65 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .student-report-card-entry.report-negative { background: #fef2f2; border-color: #dc2626; color: #7f1d1d; }
 .student-report-card-entry.report-grades { background: #e0f2fe; border-color: #0284c7; color: #075985; }
 .student-report-card-entry.report-messages { background: #fefce8; border-color: #a16207; color: #713f12; }
+
+.treasure-feature { overflow: hidden; }
+.treasure-map-scene {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 800 / 440;
+  min-height: 230px;
+  overflow: hidden;
+  isolation: isolate;
+  border: 3px solid #725538;
+  border-radius: 12px;
+  background: #96d6ce;
+  box-shadow: inset 0 0 0 3px rgba(255, 244, 205, .7), 0 8px 22px rgba(50, 65, 54, .18);
+}
+.treasure-map-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.treasure-route-line {
+  position: absolute;
+  inset: 22% 12% 26%;
+  border: 3px dashed rgba(131, 71, 33, .48);
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  transform: rotate(11deg);
+  pointer-events: none;
+}
+.treasure-pirate {
+  position: absolute;
+  z-index: 2;
+  left: 13%;
+  top: 35%;
+  font-size: clamp(30px, 6vw, 58px);
+  line-height: 1;
+  filter: drop-shadow(0 4px 2px rgba(41, 34, 21, .32));
+  transition: left 2.8s cubic-bezier(.2,.65,.25,1), top 2.8s cubic-bezier(.2,.65,.25,1), transform .25s ease;
+}
+.treasure-map-scene[data-stage="walking"] .treasure-pirate { left: var(--dig-x, 75%); top: var(--dig-y, 50%); transform: rotate(9deg) scale(1.12); animation: treasure-walk .36s ease-in-out infinite alternate; }
+.treasure-map-scene[data-stage="digging"] .treasure-pirate { left: var(--dig-x, 75%); top: var(--dig-y, 50%); transform: rotate(-18deg) translateY(4px); animation: treasure-dig .24s ease-in-out infinite alternate; }
+.treasure-dig-site { position: absolute; z-index: 3; left: var(--dig-x, 75%); top: var(--dig-y, 50%); width: 44px; height: 42px; display: grid; place-items: center; transform: translate(-50%, -20%) scale(.2); opacity: 0; transition: transform .35s ease, opacity .3s ease; }
+.treasure-dig-site::before { content: ""; position: absolute; inset: 14px 1px 1px; border-radius: 50%; background: #765235; box-shadow: inset 0 4px 0 rgba(48, 35, 24, .28); }
+.treasure-chest { position: relative; z-index: 1; font-size: 35px; filter: drop-shadow(0 3px 2px #513a24); }
+.treasure-dust { position: absolute; z-index: 2; color: #fff1a8; font-size: 20px; opacity: 0; }
+.treasure-map-scene[data-stage="digging"] .treasure-dig-site,
+.treasure-map-scene[data-stage="revealed"] .treasure-dig-site { opacity: 1; transform: translate(-50%, -20%) scale(1); }
+.treasure-map-scene[data-stage="digging"] .treasure-dust { animation: treasure-spark .55s ease-out infinite; }
+.treasure-reveal { position: absolute; z-index: 4; left: var(--dig-x, 75%); top: var(--dig-y, 50%); display: flex; align-items: center; gap: 10px; max-width: min(70%, 320px); padding: 10px 16px; border: 2px solid #9b671f; border-radius: 12px; color: #432c14; background: #fff2b8; box-shadow: 0 8px 25px rgba(44, 33, 18, .35); opacity: 0; transform: translate(-50%, 20px) scale(.45) rotate(-7deg); pointer-events: none; }
+.treasure-chest-open { font-size: 30px; }
+.treasure-reveal strong { font-size: clamp(16px, 3vw, 25px); overflow-wrap: anywhere; }
+.treasure-map-scene[data-stage="revealed"] .treasure-reveal { opacity: 1; transform: translate(-50%, -115%) scale(1) rotate(0); transition: opacity .3s ease, transform .48s cubic-bezier(.18,.8,.25,1.25); }
+.treasure-map-compass { position: absolute; right: 2%; bottom: 4%; width: 34px; height: 40px; display: grid; place-content: center; border-radius: 50%; color: #5d4324; background: rgba(255, 248, 220, .82); text-align: center; font-size: 10px; font-weight: 900; }
+.treasure-controls { flex-wrap: wrap; }
+@keyframes treasure-walk { to { margin-top: -5px; } }
+@keyframes treasure-dig { to { transform: rotate(18deg) translateY(5px); } }
+@keyframes treasure-spark { 20% { opacity: .9; transform: translate(10px, -12px) scale(.8); } 100% { opacity: 0; transform: translate(-8px, -28px) scale(.3); } }
+@media (prefers-reduced-motion: reduce) {
+  .treasure-pirate, .treasure-dig-site, .treasure-reveal { transition-duration: .01ms !important; }
+  .treasure-map-scene[data-stage="walking"] .treasure-pirate,
+  .treasure-map-scene[data-stage="digging"] .treasure-pirate,
+  .treasure-map-scene[data-stage="digging"] .treasure-dust { animation: none !important; }
+}
 @media print {
   body.printing-student-reports { margin: 0 !important; padding: 0 !important; }
   body.printing-student-reports > *:not(#student-report-print-root) { display: none !important; }
