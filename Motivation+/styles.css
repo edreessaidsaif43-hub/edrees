@@ -5569,11 +5569,14 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .treasure-chest-open { font-size: 30px; }
 .treasure-reveal strong { font-size: clamp(16px, 3vw, 25px); overflow-wrap: anywhere; }
 .treasure-map-scene[data-stage="revealed"] .treasure-reveal { opacity: 1; transform: translate(-50%, -115%) scale(1) rotate(0); transition: opacity .3s ease, transform .48s cubic-bezier(.18,.8,.25,1.25); }
+.treasure-map-scene[data-stage="walking"] .treasure-dig-site { opacity:.6; transform:translate(-50%,-20%) scale(.78); animation:treasure-site-ping 1.2s ease-in-out infinite alternate; }
+.treasure-map-scene[data-stage="revealed"] .treasure-map-art { filter:saturate(1.12) brightness(1.03); transition:filter .4s ease; }
 .treasure-map-compass { position: absolute; right: 2%; bottom: 4%; width: 34px; height: 40px; display: grid; place-content: center; border-radius: 50%; color: #5d4324; background: rgba(255, 248, 220, .82); text-align: center; font-size: 10px; font-weight: 900; }
 .treasure-controls { flex-wrap: wrap; }
 @keyframes treasure-walk { to { translate: 0 -5px; } }
 @keyframes treasure-dig { to { transform: rotate(18deg) translateY(5px); } }
 @keyframes treasure-spark { 20% { opacity: .9; transform: translate(10px, -12px) scale(.8); } 100% { opacity: 0; transform: translate(-8px, -28px) scale(.3); } }
+@keyframes treasure-site-ping { to { filter:drop-shadow(0 0 10px #fff2ac); } }
 
 .claw-machine-scene { position: relative; width: min(100%, 620px); min-height: 440px; margin: 12px auto 4px; padding: 0 7%; box-sizing: border-box; border-radius: 18px; background: linear-gradient(145deg, #c7e8e5, #78bfb9); border: 3px solid #4c7775; box-shadow: inset 0 0 0 3px rgba(255,255,255,.45), 0 9px 24px rgba(31,68,71,.2); overflow: hidden; }
 .claw-machine-top { position: relative; z-index: 2; height: 38px; margin: 13px -2% 0; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; color: #fff9ed; background: #c94d55; border: 3px solid #823940; border-radius: 10px 10px 4px 4px; box-shadow: inset 0 3px rgba(255,255,255,.2); font-size: 12px; font-weight: 900; letter-spacing: 1px; }
@@ -5590,6 +5593,9 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .claw-machine-balls { position: absolute; inset: 132px 2% 7px; display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); align-content: end; align-items: end; justify-items: center; gap: 4px 2px; }
 .claw-machine-ball { position: relative; display: grid; place-items: center; width: clamp(39px, 8vw, 57px); aspect-ratio: 1; padding: 4px; box-sizing: border-box; overflow: hidden; border: 2px solid rgba(255,255,255,.85); border-radius: 50%; color: #fff; background: radial-gradient(circle at 30% 24%, rgba(255,255,255,.8), transparent 25%), radial-gradient(circle at 38% 30%, color-mix(in srgb, var(--ball-color), white 18%), var(--ball-color) 55%, color-mix(in srgb, var(--ball-color), black 28%)); box-shadow: inset -4px -6px 9px rgba(0,0,0,.18), 0 3px 5px rgba(34,54,52,.28); text-align: center; font-size: 9px; line-height: 1.1; font-weight: 800; overflow-wrap: anywhere; animation: claw-ball-bob 1.7s ease-in-out var(--ball-delay,0s) infinite alternate; }
 .claw-machine-ball.is-prize { z-index: 1; }
+.claw-machine-ball.is-prize:not(.is-captured) { outline:3px solid rgba(255,246,181,.82); outline-offset:2px; animation:claw-prize-pulse .75s ease-in-out infinite alternate; }
+.claw-machine-scene[data-stage="moving"] .claw-machine-top i { animation:claw-lamp .3s steps(2,end) infinite; }
+.claw-machine-scene[data-stage="grabbing"] .claw-machine-claw i { box-shadow:0 0 10px #ffe58d; }
 .claw-machine-scene[data-stage="moving"] .claw-machine-claw { --claw-drop: 116px; }
 .claw-machine-scene[data-stage="grabbing"] .claw-machine-claw { --claw-drop: 236px; }
 .claw-machine-scene[data-stage="grabbing"] .claw-machine-claw i { transform: scaleX(.65); }
@@ -5610,6 +5616,8 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .claw-machine-feature.fullscreen-feature .claw-machine-cabinet { height: min(48vh,390px); }
 .claw-machine-feature.fullscreen-feature .claw-machine-balls { inset-block-start: 145px; }
 @keyframes claw-ball-bob { to { translate: 0 -2px; } }
+@keyframes claw-prize-pulse { to { filter:brightness(1.2); transform:scale(1.07); } }
+@keyframes claw-lamp { 50% { background:#fff; box-shadow:0 0 18px #fff; } }
 @media(max-width:520px) {
   .claw-machine-scene { min-height: 440px; padding-inline: 4%; }
   .claw-machine-cabinet { height: 320px; }
@@ -5626,6 +5634,9 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .fishing-waterline { position:absolute; z-index:2; top:13%; left:0; width:100%; height:14px; border-radius:50%; border-top:4px solid rgba(235,255,245,.76); filter:drop-shadow(0 4px 3px rgba(0,78,105,.2)); }
 .fishing-school { position:absolute; z-index:3; inset:112px 14px 47px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); grid-auto-rows:minmax(46px,1fr); align-items:center; justify-items:center; gap:1px 3px; }
 .fishing-fish { position:relative; display:flex; align-items:center; justify-content:center; width:100%; min-width:0; height:100%; min-height:44px; color:#143e4b; animation:fish-swim var(--fish-duration,4s) ease-in-out var(--fish-delay,0s) infinite alternate; }
+.fishing-fish:nth-child(even) svg { transform:scaleX(-1); }
+.fishing-fish svg .fish-tail { transform-box:fill-box; transform-origin:right center; animation:fish-tail-wag .35s ease-in-out infinite alternate; }
+.fishing-fish:nth-child(3n) svg .fish-tail { animation-delay:-.18s; }
 .fishing-fish svg { width:min(64px,78%); height:34px; overflow:visible; filter:drop-shadow(0 3px 2px rgba(2,49,71,.23)); }
 .fishing-fish svg ellipse { fill:var(--fish-color,#f27954); stroke:rgba(255,255,255,.88); stroke-width:2; }
 .fishing-fish .fish-tail,.fishing-fish .fish-fin { fill:color-mix(in srgb,var(--fish-color,#f27954),#273f58 16%); stroke:rgba(255,255,255,.8); stroke-width:1.6; stroke-linejoin:round; }
@@ -5636,6 +5647,8 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .fishing-hook b { position:absolute; top:-15px; left:10px; width:14px; height:16px; border-radius:50% 50% 35% 35%; background:#d99a46; border:2px solid #9d642c; }
 .fishing-hook em { position:absolute; top:-22px; left:7px; width:20px; height:8px; border-radius:50%; background:#f3c978; border:2px solid #9d642c; }
 .fishing-scene[data-stage="casting"] .fishing-hook,.fishing-scene[data-stage="hooked"] .fishing-hook { --hook-drop:var(--target-depth,170px); }
+.fishing-scene[data-stage="casting"] .fishing-waterline { animation:fishing-ripple .65s ease-in-out infinite alternate; }
+.fishing-scene[data-stage="hooked"] .fishing-hook i { filter:drop-shadow(0 0 6px #fff2ad); }
 .fishing-scene[data-stage="revealed"] .fishing-hook { --hook-drop:20px; }
 .fishing-scene[data-stage="hooked"] .fishing-hook i { transform:rotate(-22deg) scale(1.15); }
 .fishing-scene[data-stage="revealed"] .fishing-fish.is-caught { opacity:0; transform:translateY(-210px) scale(.62); animation:none; }
@@ -5655,9 +5668,11 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 .fishing-feature.fullscreen-feature .fishing-school { inset-block-start:125px; }
 .fishing-controls { flex-wrap:wrap; }
 @keyframes fish-swim { to { translate:0 -3px; } }
+@keyframes fish-tail-wag { to { rotate:14deg; } }
+@keyframes fishing-ripple { to { transform:scaleX(.97); opacity:.7; } }
 @keyframes fish-bubble { 0% { opacity:0; transform:translateY(0) scale(.7); } 20% { opacity:.8; } 100% { opacity:0; transform:translateY(-100px) scale(1.1); } }
 @media(max-width:520px) { .fishing-scene { min-height:455px; } .fishing-school { inset:108px 12px 48px; grid-template-columns:repeat(4,minmax(0,1fr)); } .fishing-fish svg { width:min(55px,75%); height:30px; } .fishing-fish span { font-size:8px; padding-inline:4px; } }
-@media(prefers-reduced-motion:reduce) { .fishing-fish,.fishing-hook,.fishing-hook::before,.fishing-hook i,.fishing-reveal,.fishing-bubbles i { animation:none!important; transition-duration:.01ms!important; } }
+@media(prefers-reduced-motion:reduce) { .fishing-fish,.fishing-fish svg .fish-tail,.fishing-hook,.fishing-hook::before,.fishing-hook i,.fishing-reveal,.fishing-bubbles i,.fishing-scene[data-stage="casting"] .fishing-waterline { animation:none!important; transition-duration:.01ms!important; } }
 @media (prefers-reduced-motion: reduce) {
   .treasure-pirate, .treasure-dig-site, .treasure-reveal { transition-duration: .01ms !important; }
   .treasure-map-scene[data-stage="walking"] .treasure-pirate,

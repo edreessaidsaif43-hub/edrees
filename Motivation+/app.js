@@ -5457,6 +5457,54 @@ document.getElementById("wheel-center-text").addEventListener("keyup", (event) =
 });
 
 
+function playArcadeGameSound(name) {
+  const ctx = getSharedAudioContext();
+  if (!ctx) return;
+  const sounds = {
+    "treasure-journey": [[392, 0, .2, "triangle"], [523, .16, .23, "triangle"], [659, .34, .3, "sine"]],
+    "treasure-dig": [[155, 0, .16, "sawtooth"], [116, .12, .2, "triangle"], [92, .29, .2, "sawtooth"]],
+    "treasure-reveal": [[659, 0, .2, "triangle"], [880, .13, .22, "triangle"], [1175, .28, .32, "sine"]],
+    "claw-move": [[145, 0, .18, "sawtooth"], [175, .16, .2, "sawtooth"], [205, .34, .2, "sawtooth"]],
+    "claw-grab": [[260, 0, .09, "square"], [130, .09, .22, "triangle"]],
+    "claw-reveal": [[523, 0, .16, "sine"], [659, .12, .18, "triangle"], [784, .24, .27, "sine"]],
+    "fish-cast": [[660, 0, .12, "sine"], [523, .1, .2, "triangle"]],
+    "fish-hook": [[392, 0, .12, "triangle"], [587, .1, .18, "sine"]],
+    "fish-catch": [[523, 0, .15, "sine"], [784, .13, .18, "triangle"], [988, .27, .3, "sine"]]
+  };
+  (sounds[name] || []).forEach(([frequency, delay, duration, wave]) => {
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = wave;
+    oscillator.frequency.setValueAtTime(frequency, ctx.currentTime + delay);
+    gain.gain.setValueAtTime(.0001, ctx.currentTime + delay);
+    gain.gain.exponentialRampToValueAtTime(wave === "sawtooth" ? .045 : .075, ctx.currentTime + delay + .018);
+    gain.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + delay + duration);
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.start(ctx.currentTime + delay);
+    oscillator.stop(ctx.currentTime + delay + duration + .02);
+  });
+  if (name === "treasure-dig" || name === "claw-grab" || name === "fish-cast" || name === "fish-catch") {
+    const frameCount = Math.floor(ctx.sampleRate * .18);
+    const buffer = ctx.createBuffer(1, frameCount, ctx.sampleRate);
+    const samples = buffer.getChannelData(0);
+    for (let i = 0; i < frameCount; i += 1) samples[i] = (Math.random() * 2 - 1) * (1 - i / frameCount);
+    const noise = ctx.createBufferSource();
+    const filter = ctx.createBiquadFilter();
+    const noiseGain = ctx.createGain();
+    noise.buffer = buffer;
+    filter.type = name.startsWith("fish") ? "lowpass" : "bandpass";
+    filter.frequency.value = name.startsWith("fish") ? 950 : 620;
+    noiseGain.gain.setValueAtTime(.0001, ctx.currentTime);
+    noiseGain.gain.exponentialRampToValueAtTime(name === "fish-catch" ? .14 : .08, ctx.currentTime + .025);
+    noiseGain.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + .18);
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noise.start();
+  }
+}
+
 let treasureHuntBusy = false;
 let treasureHuntTimers = [];
 function resetTreasureHunt() {
@@ -5500,11 +5548,12 @@ function startTreasureHunt() {
   reset.disabled = true;
   status.textContent = "القراصنة يتبعون الخريطة...";
   enterFeatureFullscreen("feature-treasure-map");
-  playEventSound("spin");
+  playArcadeGameSound("treasure-journey");
   pulseFeatureCardById("feature-treasure-map", "spin");
   const motion = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 450 : 2800;
   treasureHuntTimers.push(setTimeout(() => {
     scene.dataset.stage = "digging";
+    playArcadeGameSound("treasure-dig");
     status.textContent = "وجدنا الموقع! جارٍ حفر الكنز...";
   }, motion));
   treasureHuntTimers.push(setTimeout(() => {
@@ -5513,9 +5562,9 @@ function startTreasureHunt() {
     status.textContent = `كشف الكنز اسم الطالب: ${winner.name}`;
     treasureHuntBusy = false;
     reset.disabled = false;
-    playEventSound("winner");
+    playArcadeGameSound("treasure-reveal");
     pulseFeatureCardById("feature-treasure-map", "winner");
-    triggerCelebration("🏴‍☠️ اكتشاف الكنز", `الكنز اختار ${winner.name}`);
+    triggerCelebration("🏴‍☠️ اكتشاف الكنز", `الكنز اختار ${winner.name}`, 2200, false);
   }, motion + 1450));
 }
 
@@ -5571,12 +5620,13 @@ function startClawMachine() {
   document.getElementById("reset-claw-machine").disabled = true;
   document.getElementById("claw-machine-status").textContent = "المخلب يتحرك لاختيار كرة...";
   enterFeatureFullscreen("feature-claw-machine");
-  playEventSound("spin");
+  playArcadeGameSound("claw-move");
   pulseFeatureCardById("feature-claw-machine", "spin");
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const travel = reducedMotion ? 250 : 1550;
   clawMachineTimers.push(setTimeout(() => {
     scene.dataset.stage = "grabbing";
+    playArcadeGameSound("claw-grab");
     document.getElementById("claw-machine-status").textContent = "تم التقاط الكرة!";
   }, travel));
   clawMachineTimers.push(setTimeout(() => {
@@ -5586,9 +5636,9 @@ function startClawMachine() {
     document.getElementById("claw-machine-status").textContent = `الكرة المختارة تحمل اسم: ${winner.name}`;
     clawMachineBusy = false;
     document.getElementById("reset-claw-machine").disabled = false;
-    playEventSound("winner");
+    playArcadeGameSound("claw-reveal");
     pulseFeatureCardById("feature-claw-machine", "winner");
-    triggerCelebration("🎉 كرة الحظ", `تم اختيار ${winner.name}`);
+    triggerCelebration("🎉 كرة الحظ", `تم اختيار ${winner.name}`, 2200, false);
   }, travel + (reducedMotion ? 250 : 1050)));
 }
 
@@ -5653,12 +5703,13 @@ function startFishingGame() {
   document.getElementById("start-fishing").disabled = true;
   document.getElementById("reset-fishing").disabled = true;
   document.getElementById("fishing-status").textContent = "السنارة تنزل إلى الحوض...";
-  playEventSound("spin");
+  playArcadeGameSound("fish-cast");
   pulseFeatureCardById("feature-fishing", "spin");
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const dropTime = reducedMotion ? 220 : 1350;
   fishingGameTimers.push(setTimeout(() => {
     scene.dataset.stage = "hooked";
+    playArcadeGameSound("fish-hook");
     document.getElementById("fishing-status").textContent = "علقت سمكة بالسنارة! جارٍ سحبها...";
   }, dropTime));
   fishingGameTimers.push(setTimeout(() => {
@@ -5668,9 +5719,9 @@ function startFishingGame() {
     document.getElementById("fishing-status").textContent = `اصطدت السمكة التي تحمل اسم: ${winner.name}`;
     fishingGameBusy = false;
     document.getElementById("reset-fishing").disabled = false;
-    playEventSound("winner");
+    playArcadeGameSound("fish-catch");
     pulseFeatureCardById("feature-fishing", "winner");
-    triggerCelebration("🐟 صيد موفق", `تم اختيار ${winner.name}`);
+    triggerCelebration("🐟 صيد موفق", `تم اختيار ${winner.name}`, 2200, false);
   }, dropTime + (reducedMotion ? 300 : 1050)));
 }
 
