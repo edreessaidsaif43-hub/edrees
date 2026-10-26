@@ -5915,6 +5915,113 @@ document.getElementById("print-student-codes").addEventListener("click", async (
   window.setTimeout(cleanupPrint, 5000);
 });
 
+function getStudentReportCardSections(cls, student) {
+  const history = (Array.isArray(student.history) ? student.history : []).filter((entry) => Number(entry.delta));
+  const historyText = (entry) => `${Number(entry.delta) > 0 ? "+" : ""}${Number(entry.delta)} | ${entry.reason || "بدون سبب"} | ${formatMessageDateTime(entry.at)}`;
+  const grades = normalizeGradeBranches(cls.gradeBranches).filter((branch) => Object.prototype.hasOwnProperty.call(branch.scores, student.id));
+  return [
+    { title: "السلوكيات الإيجابية", kind: "positive", entries: history.filter((entry) => Number(entry.delta) > 0).map(historyText) },
+    { title: "السلوكيات السلبية", kind: "negative", entries: history.filter((entry) => Number(entry.delta) < 0).map(historyText) },
+    { title: "الدرجات الدراسية", kind: "grades", entries: grades.map((branch) => `${branch.name}: ${branch.scores[student.id]} / ${branch.max}`) },
+    { title: "رسائل المعلم", kind: "messages", entries: getParentMessageEntries(cls, student.code).map((message) => `${message.text} | ${formatMessageDateTime(message.at)}`) }
+  ];
+}
+
+async function printStudentReportCards(allStudents = false) {
+  if (!ensureAuthOrNotify()) return;
+  const cls = ensureClassOrNotify();
+  if (!cls || document.getElementById("student-report-print-root")) return;
+  const status = document.getElementById("student-report-print-status");
+  const selected = document.getElementById("report-student-select").value;
+  const students = [...cls.students].filter((student) => allStudents || student.id === selected)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), "ar"));
+  if (!students.length) {
+    status.textContent = allStudents ? "لا يوجد طلاب للطباعة." : "اختر الطالب أولاً.";
+    return;
+  }
+  status.textContent = "جاري تجهيز البطاقات...";
+  const root = document.createElement("div");
+  root.id = "student-report-print-root";
+  root.dir = "rtl";
+  document.body.appendChild(root);
+  const cleanup = () => {
+    document.body.classList.remove("printing-student-reports");
+    root.remove();
+    window.removeEventListener("afterprint", cleanup);
+  };
+  try {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    let count = 0;
+    let page;
+    const date = new Date().toLocaleDateString("ar-EG");
+    students.forEach((student) => {
+      let content;
+      let part = 0;
+      const newCard = () => {
+        if (count % 4 === 0) {
+          page = document.createElement("section");
+          page.className = "student-report-print-page";
+          root.appendChild(page);
+        }
+        count += 1;
+        part += 1;
+        const card = document.createElement("article");
+        card.className = "student-report-print-card";
+        const level = getStudentLevel(Number(student.points || 0));
+        card.innerHTML = `<header><h2>${escapeReportMarkup(student.name)}${part > 1 ? ` — تابع ${part}` : ""}</h2><p>${escapeReportMarkup(cls.name)} | ${escapeReportMarkup(cls.subject || "")} | ${date}</p><p>النقاط: ${Number(student.points || 0)} | الرتبة: ${escapeReportMarkup(level.name)}</p></header><div class="student-report-card-content"></div>`;
+        page.appendChild(card);
+        content = card.querySelector(".student-report-card-content");
+      };
+      newCard();
+      getStudentReportCardSections(cls, student).forEach((section) => {
+        const entries = section.entries.length ? section.entries : ["لا توجد بيانات مسجلة."];
+        entries.forEach((entry, index) => {
+          let words = String(entry).split(/\s+/);
+          let continued = false;
+          while (words.length) {
+            const block = document.createElement("div");
+            block.className = `student-report-card-entry report-${section.kind}`;
+            const label = index === 0 || continued ? `${section.title}${continued ? " (تابع)" : ""}: ` : "";
+            block.textContent = label + words.join(" ");
+            content.appendChild(block);
+            if (content.scrollHeight <= content.clientHeight + 1) break;
+            block.remove();
+            if (content.children.length) {
+              newCard();
+              continued = true;
+              continue;
+            }
+            // Split oversized entries across cards without losing any text.
+            content.appendChild(block);
+            let low = 1;
+            let high = words.length;
+            let fit = 0;
+            while (low <= high) {
+              const mid = Math.floor((low + high) / 2);
+              block.textContent = label + words.slice(0, mid).join(" ");
+              if (content.scrollHeight <= content.clientHeight + 1) { fit = mid; low = mid + 1; }
+              else high = mid - 1;
+            }
+            if (!fit) throw new Error("Report entry cannot fit on a card");
+            block.textContent = label + words.slice(0, fit).join(" ");
+            words = words.slice(fit);
+            if (words.length) { newCard(); continued = true; }
+          }
+        });
+      });
+    });
+    document.body.classList.add("printing-student-reports");
+    window.addEventListener("afterprint", cleanup);
+    status.textContent = `تم تجهيز ${count} بطاقة في ${Math.ceil(count / 4)} صفحة.`;
+    window.print();
+  } catch {
+    cleanup();
+    status.textContent = "تعذر تجهيز البطاقات للطباعة. أعد المحاولة.";
+  }
+}
+document.getElementById("print-selected-student-cards").addEventListener("click", () => printStudentReportCards(false));
+document.getElementById("print-class-student-cards").addEventListener("click", () => printStudentReportCards(true));
+
 document.getElementById("print-report").addEventListener("click", () => {
   if (!ensureAuthOrNotify()) return;
   const cls = ensureClassOrNotify();

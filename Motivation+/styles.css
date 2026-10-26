@@ -5442,6 +5442,56 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
   }
 }
 
+#student-report-print-root {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  width: 194mm;
+  font-family: Tahoma, Arial, sans-serif;
+  color: #17202a;
+  background: white;
+  letter-spacing: 0;
+}
+.student-report-print-page {
+  display: grid;
+  width: 194mm;
+  height: 280mm;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 4mm;
+  box-sizing: border-box;
+  break-after: page;
+  page-break-after: always;
+}
+.student-report-print-page:last-child { break-after: auto; page-break-after: auto; }
+.student-report-print-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  padding: 3mm;
+  border: 1px solid #64748b;
+  border-radius: 4px;
+  box-sizing: border-box;
+  break-inside: avoid;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.student-report-print-card header { border-bottom: 1px solid #cbd5e1; padding-bottom: 2mm; margin-bottom: 2mm; }
+.student-report-print-card h2 { font-size: 14px; margin: 0 0 1mm; color: #17202a; }
+.student-report-print-card p { font-size: 10px; margin: 0; }
+.student-report-card-content { min-height: 0; }
+.student-report-card-entry { padding: 1mm 1.5mm; margin-bottom: 1mm; border-right: 2px solid; white-space: pre-wrap; }
+.student-report-card-entry.report-positive { background: #ecfdf5; border-color: #15803d; color: #14532d; }
+.student-report-card-entry.report-negative { background: #fef2f2; border-color: #dc2626; color: #7f1d1d; }
+.student-report-card-entry.report-grades { background: #e0f2fe; border-color: #0284c7; color: #075985; }
+.student-report-card-entry.report-messages { background: #fefce8; border-color: #a16207; color: #713f12; }
+@media print {
+  body.printing-student-reports { margin: 0 !important; padding: 0 !important; }
+  body.printing-student-reports > *:not(#student-report-print-root) { display: none !important; }
+  body.printing-student-reports #student-report-print-root { position: static; display: block !important; margin: 0; padding: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
 .student-codes-print-root {
   display: none;
 }
