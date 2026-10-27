@@ -1839,6 +1839,7 @@ function getCachedCsv() {
           ${createContentBlock('ملاحظات', contents[6], '👨‍👧')}
           ${createContentBlock('مرفقات', contents[7], '📎')}
           ${createContentBlock('الواجبات', contents[8], '📝')}
+          ${createContentBlock('غرف النقاش', contents[9], '💬')}
         </div>
 
         <div style="display:grid;gap:8px;text-align:center;padding:10px;background:#f8fafc;border-radius:10px;">
@@ -1900,6 +1901,9 @@ ${d["12"] || ''}
 
 الواجبات:
 ${d["14"] || ''}
+
+سؤال النقاش
+${d["15"] || ''}
 ----`;
       return text;
     }
