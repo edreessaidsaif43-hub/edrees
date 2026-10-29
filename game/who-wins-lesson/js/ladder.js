@@ -123,8 +123,6 @@
   }
   function openHome() {
     SEL = selection(); paintTeacher();
-    var names=[];try{names=JSON.parse(localStorage.getItem('games-roster:v2:'+getSubscriptionUserId()+':'+S.index[S.grade].id+':'+normalizeSubscriptionSubject(SEL.subject))||'[]');}catch(e){}
-    var list=$('saved-students');if(!list){list=document.createElement('datalist');list.id='saved-students';document.body.appendChild(list);}list.replaceChildren();names.forEach(function(n){var option=document.createElement('option');option.value=n;list.appendChild(option);});['pname'].forEach(function(id){$(id).setAttribute('list','saved-students');});
     $('homeTitle').textContent = SEL.subject + ' – الصف ' + SEL.gradeName;
     $('homeSub').textContent = SEL.unit + ' • ' + SEL.lessons.length + ' درس';
     var box = $('chars'); box.innerHTML = '';
@@ -139,6 +137,7 @@
     chips($('optTime'), D.times.map(function (t) { return t ? t + ' ثانية' : 'بلا وقت'; }), D.times.indexOf(M.time), function (i) { M.time = D.times[i]; saveM(); openHome(); });
     var nq = bankOf().qs.length;
     $('ruleSteps').textContent = buildLadder(nq).pts.length;
+    GameRosters.picker(S.index[S.grade].id,SEL.subject,["pname"],{labels:["المتسابق"]});
     show('home');
   }
 
