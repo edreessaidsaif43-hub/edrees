@@ -21,15 +21,14 @@
   // تحميل البيانات كملفات JS حتى تعمل اللعبة مباشرة من الجهاز دون خادم أو إنترنت
   window.__BANK = window.__BANK || {};
   function loadScriptData(name) {
-    if (window.__BANK[name]) return Promise.resolve(window.__BANK[name]);
-    return new Promise(function (res, rej) {
-      var sc = document.createElement('script');
-      sc.src = cfg.dataPath + name + '.js';
-      sc.onload = function () { window.__BANK[name] ? res(window.__BANK[name]) : rej(new Error('no data')); };
-      sc.onerror = function () { rej(new Error('تعذّر تحميل ' + name)); };
-      document.head.appendChild(sc);
+    if(window.__BANK[name])return Promise.resolve(window.__BANK[name]);
+    return new Promise(function(resolve,reject){var sc=document.createElement('script'),done=false;
+      function finish(error){if(done)return;done=true;clearTimeout(timer);sc.onload=sc.onerror=null;if(error){sc.remove();reject(error);}else resolve(window.__BANK[name]);}
+      var timer=setTimeout(function(){finish(new Error('تأخر تحميل بيانات الصف. تحقق من الاتصال وانقر الصف للمحاولة مجددًا.'));},12000);
+      sc.src=cfg.dataPath+name+'.js';sc.onload=function(){finish(window.__BANK[name]?null:new Error('بيانات الصف غير مكتملة.'));};sc.onerror=function(){finish(new Error('تعذر تحميل بيانات الصف. تحقق من رفع مجلد data كاملًا.'));};document.head.appendChild(sc);
     });
   }
+
   function loadJSON() { return loadScriptData('index'); }
   function loadGrade(id) {
     if (gradeCache[id]) return Promise.resolve(gradeCache[id]);
@@ -51,7 +50,7 @@
   function renderSetup() {
     chips($('grades'), S.index.map(function (g) { return 'الصف ' + g.n; }), S.grade, function (i) {
       S.grade = i; S.subj = S.sem = S.unit = null; S.lessons = []; renderSetup();
-      loadGrade(S.index[i].id).then(function (d) { S.gradeData = d; renderSetup(); });
+      loadGrade(S.index[i].id).then(function (d) { if(S.grade!==i)return;S.gradeData = d; $('setupNote').textContent='';renderSetup(); }).catch(function(error){$('setupNote').textContent=error.message;});
     });
     var gd = S.grade != null && S.gradeData && S.gradeData === gradeCache[S.index[S.grade].id] ? S.gradeData : null;
     lock('step-subject', !gd); lock('step-sem', !gd || S.subj == null); lock('step-unit', !gd || S.sem == null); lock('step-lessons', !gd || S.unit == null);
@@ -81,7 +80,7 @@
       }
     }
     var ready = gd && S.unit != null && S.lessons.length > 0;
-    $('buildBtn').disabled = $('linkBtn').disabled = !ready;
+    $('buildBtn').disabled=!ready;$('linkBtn').disabled=!ready||!window.GamePublish?.configure;
     $('setupNote').textContent = ready ? ('سيتم إنشاء ' + S.lessons.length + ' مرحلة') : '';
   }
 
@@ -128,7 +127,7 @@
 
   function openHome() {
     SEL = selection();
-    GameRosters.picker(S.index[S.grade].id,SEL.subject,[],{onChange:openHome});
+    window.GameRosters?.picker(S.index[S.grade].id,SEL.subject,[],{onChange:openHome});
 
     paintTeacher();
     $('homeTitle').textContent = 'لعبة ' + SEL.subject + ' – الصف ' + SEL.gradeName;
@@ -382,6 +381,7 @@
 
   /* ---------- الإقلاع ---------- */
   async function boot() {
+    if(!window.GameLibraryAccess)throw Error('تعذر تحميل ملف تشغيل اللعبة. أعد تحميل الصفحة.');
     if (!(await window.GameLibraryAccess)) return;
     games = {};
     if (window.Game) games.platform = new window.Game($('gameCanvas'), ui);
@@ -395,7 +395,7 @@
     $('tName').value = S.teacher.name; $('tIg').value = S.teacher.ig;
     $('tName').oninput = $('tIg').oninput = readTeacher;
     $('buildBtn').onclick = function () { readTeacher(); history.replaceState(null, '', hashFor()); openHome(); };
-    GamePublish.configure(function(){readTeacher();var sel=selection();return {version:1,id:crypto.randomUUID(),game:'camel-race',title:cfg.title||document.title,gradeId:S.index[S.grade].id,gradeName:'الصف '+S.index[S.grade].n,subject:sel.subject,sem:sel.sem,unit:sel.unit,lessons:JSON.parse(JSON.stringify(sel.lessons)),teacher:{name:S.teacher.name,ig:S.teacher.ig}};});
+    if(window.GamePublish?.configure)window.GamePublish.configure(function(){readTeacher();var sel=selection();return {version:1,id:crypto.randomUUID(),game:'camel-race',title:cfg.title||document.title,gradeId:S.index[S.grade].id,gradeName:'الصف '+S.index[S.grade].n,subject:sel.subject,sem:sel.sem,unit:sel.unit,lessons:JSON.parse(JSON.stringify(sel.lessons)),teacher:{name:S.teacher.name,ig:S.teacher.ig}};});
     $('selAll').onclick = function () { var gd = gradeCache[S.index[S.grade].id]; S.lessons = gd[S.subj].s[S.sem].u[S.unit].l.map(function (_, k) { return k; }); renderSetup(); };
     $('selNone').onclick = function () { S.lessons = []; renderSetup(); };
     $('backSetup').onclick = function () { history.replaceState(null, '', location.pathname + location.search); show('setup'); renderSetup(); };
@@ -420,5 +420,6 @@
       $('grades').innerHTML = '<span class="muted">تعذّر تحميل بنك الأسئلة (' + esc(e.message) + '). تأكد من وجود مجلد data بجانب الملف.</span>';
     });
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+  function startBoot(){boot().catch(function(error){console.error('Game boot failed:',error);if(window.gameLibraryShowError){window.gameLibraryShowError(error);return;}var host=$('grades');if(host){host.textContent=error.message||'تعذر بدء اللعبة. أعد تحميل الصفحة.';var retry=document.createElement('button');retry.type='button';retry.textContent='إعادة المحاولة';retry.onclick=function(){location.reload();};host.appendChild(retry);}});}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startBoot);else startBoot();
 })();
