@@ -12,7 +12,7 @@
 
   var S = { index: null, grade: null, gradeData: null, subj: null, sem: null, unit: null, lessons: [], teacher: { name: '', ig: '' } };
   var gradeCache = {};
-  function show(id) { ['setup', 'home', 'play'].forEach(function (s) { $(s).classList.toggle('active', s === id); }); }
+  function show(id) { if(window.PublishedGame && id==='setup')id='home'; ['setup', 'home', 'play'].forEach(function (s) { $(s).classList.toggle('active', s === id); }); }
 
   /* ---------- البيانات (ملفات JS تعمل دون خادم) ---------- */
   window.__BANK = window.__BANK || {};
@@ -281,6 +281,8 @@
 
   /* ---------- النهاية ---------- */
   function finish(w, why) {
+    if(window.GameSCORM){var correct=G.teams.reduce(function(a,t){return a+(t.correct||0);},0),wrong=G.teams.reduce(function(a,t){return a+(t.wrong||0);},0);window.GameSCORM.report({score:correct+wrong?100*correct/(correct+wrong):0,completed:true});}
+
     clearInterval(timerT); G.state = 'over';
     var T = G.teams;
     if (w < 0) w = T[0].hp === T[1].hp ? (T[0].dealt === T[1].dealt ? -1 : (T[0].dealt > T[1].dealt ? 0 : 1)) : (T[0].hp > T[1].hp ? 0 : 1);
@@ -332,17 +334,12 @@
     $('tName').value = S.teacher.name; $('tIg').value = S.teacher.ig;
     $('tName').oninput = $('tIg').oninput = readTeacher;
     $('buildBtn').onclick = function () { readTeacher(); try { history.replaceState(null, '', hashFor()); } catch (e) {} openHome(); };
-    $('linkBtn').onclick = function () {
-      readTeacher();
-      var url = location.href.split('#')[0] + hashFor();
-      var done = function () { $('setupNote').textContent = 'تم نسخ الرابط ✓'; };
-      if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, function () { $('setupNote').textContent = url; }); else $('setupNote').textContent = url;
-    };
+    GamePublish.configure(function(){readTeacher();var sel=selection();return {version:1,id:crypto.randomUUID(),game:'heroes-battle',title:cfg.title||document.title,gradeId:S.index[S.grade].id,gradeName:'الصف '+S.index[S.grade].n,subject:sel.subject,sem:sel.sem,unit:sel.unit,lessons:JSON.parse(JSON.stringify(sel.lessons)),teacher:{name:S.teacher.name,ig:S.teacher.ig}};});
     $('selAll').onclick = function () { var gd = gradeCache[S.index[S.grade].id]; S.lessons = gd[S.subj].s[S.sem].u[S.unit].l.map(function (_, k) { return k; }); renderSetup(); };
     $('selNone').onclick = function () { S.lessons = []; renderSetup(); };
     loadScriptData('index').then(function (idx) {
       S.index = idx;
-      var h = new URLSearchParams(location.hash.slice(1));
+      var h = new URLSearchParams(window.PUBLISHED_SELECTION || location.hash.slice(1));
       if (h.get('g')) {
         var gi = idx.findIndex(function (g) { return g.id === h.get('g'); });
         if (gi >= 0) {
