@@ -135,6 +135,7 @@
       });
       box.appendChild(card);
     });
+    GameRosters.picker(S.index[S.grade].id,SEL.subject,["tn0","tn1"],{labels:["طالب الفريق الأول","طالب الفريق الثاني"]});
     show('home');
   }
 

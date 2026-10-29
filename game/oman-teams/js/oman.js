@@ -136,6 +136,7 @@
       });
       box.appendChild(card);
     })(i);
+    GameRosters.picker(S.index[S.grade].id,SEL.subject,Array.from({length:M.n},function(_,i){return 'tn'+i;}),{labels:Array.from({length:M.n},function(_,i){return 'طالب الفريق '+(i+1);})});
     show('home');
   }
 
