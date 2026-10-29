@@ -107,8 +107,6 @@
   var CHAR_N = { girl: 'طالبة', girl2: 'طالبة (عنابي)', boy: 'طالب' };
   function openHome() {
     SEL = selection(); paintTeacher();
-    var names=[];try{names=JSON.parse(localStorage.getItem('games-roster:v2:'+getSubscriptionUserId()+':'+S.index[S.grade].id+':'+normalizeSubscriptionSubject(SEL.subject))||'[]');}catch(e){}
-    var list=$('saved-students');if(!list){list=document.createElement('datalist');list.id='saved-students';document.body.appendChild(list);}list.replaceChildren();names.forEach(function(n){var option=document.createElement('option');option.value=n;list.appendChild(option);});['name0','name1'].forEach(function(id){$(id).setAttribute('list','saved-students');});
     $('homeTitle').textContent = 'تحدي ' + SEL.subject + ' – الصف ' + SEL.gradeName;
     $('homeSub').textContent = SEL.unit + ' • ' + SEL.lessons.length + ' درس';
     [0, 1].forEach(function (i) {
@@ -126,6 +124,7 @@
     var total = SEL.lessons.reduce(function (a, L) { return a + L.qs.length; }, 0);
     chips($('optCount'), D.counts.map(function (c) { return c ? c + ' أسئلة' : 'الكل (' + total + ')'; }), D.counts.indexOf(M.count), function (i) { M.count = D.counts[i]; saveM(); openHome(); });
     chips($('optTime'), D.times.map(function (t) { return t + ' ثانية'; }), D.times.indexOf(M.time), function (i) { M.time = D.times[i]; saveM(); openHome(); });
+    GameRosters.picker(S.index[S.grade].id,SEL.subject,["name0","name1"],{labels:["الطالب الأول","الطالب الثاني"]});
     show('home');
   }
   function saveM() { store.set('duo-settings:'+getSubscriptionUserId(), M); }
