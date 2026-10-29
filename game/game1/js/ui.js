@@ -25,7 +25,7 @@
     return new Promise(function (res, rej) {
       var sc = document.createElement('script');
       sc.src = cfg.dataPath + name + '.js';
-      sc.onload = function () { if (name.indexOf('grades/') === 0 && window.gameLibrarySubject) window.__BANK[name] = window.__BANK[name].filter(function(s){return s.n === window.gameLibrarySubject;}); window.__BANK[name] ? res(window.__BANK[name]) : rej(new Error('no data')); };
+      sc.onload = function () { if (name.indexOf('grades/') === 0) window.__BANK[name] = window.__BANK[name].filter(function(s){return window.gameLibraryAllows(name.split('/')[1],s.n);}); window.__BANK[name] ? res(window.__BANK[name]) : rej(new Error('no data')); };
       sc.onerror = function () { rej(new Error('تعذّر تحميل ' + name)); };
       document.head.appendChild(sc);
     });
@@ -49,6 +49,7 @@
   function lock(id, on) { $(id).classList.toggle('locked', !!on); }
 
   function renderSetup() {
+    if (S.grade != null && window.gameLibrarySetGrade) window.gameLibrarySetGrade(S.index[S.grade].id);
     chips($('grades'), S.index.map(function (g) { return 'الصف ' + g.n; }), S.grade, function (i) {
       S.grade = i; S.subj = S.sem = S.unit = null; S.lessons = []; renderSetup();
       loadGrade(S.index[i].id).then(function (d) { S.gradeData = d; renderSetup(); });
