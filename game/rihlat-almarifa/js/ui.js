@@ -123,11 +123,13 @@
 
   /* ---------- شاشة البداية ---------- */
   var SEL = null;
-  function progressKey() { return 'edu-progress:rihlat-almarifa:'+getSubscriptionUserId()+':'+MODE+':'+SEL.key; }
+  function progressKey() { return 'edu-progress:rihlat-almarifa:'+getSubscriptionUserId()+':'+MODE+':'+(window.gameLibraryStudent?'student:'+encodeURIComponent(JSON.stringify([window.gameLibrarySection,window.gameLibraryStudent]))+':':'')+SEL.key; }
   function getProgress() { return store.get(progressKey(), { last: 0, high: 0, bestCoins: 0, completed: {}, best: {} }); }
 
   function openHome() {
     SEL = selection();
+    GameRosters.picker(S.index[S.grade].id,SEL.subject,[],{onChange:openHome});
+
     paintTeacher();
     $('homeTitle').textContent = 'لعبة ' + SEL.subject + ' – الصف ' + SEL.gradeName;
     $('homeSub').textContent = SEL.unit + ' • ' + SEL.lessons.length + ' مراحل';
