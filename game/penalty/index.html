@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#16a3a0">
+<title>ركلات الترجيح</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- شاشة إعداد المعلم -->
+<section id="setup" class="screen active" aria-label="إعداد المعلم">
+  <div class="setup-wrap">
+    <header class="brand">
+      <div class="logo-mark" aria-hidden="true"><span>⚽</span></div>
+      <div>
+        <h1>ركلات الترجيح</h1>
+        <p>فريقان على شاشة العرض: كل إجابة صحيحة تفتح ركلة جزاء أمام حارس المرمى. اختر الصف ثم المادة ثم الفصل ثم الوحدة ثم الدروس.</p>
+      </div>
+    </header>
+
+    <ol class="steps">
+      <li class="step" id="step-grade"><h2><b>1</b> الصف</h2><div class="chips" id="grades"><span class="muted">جارٍ التحميل…</span></div></li>
+      <li class="step locked" id="step-subject"><h2><b>2</b> المادة</h2><div class="chips" id="subjects"></div></li>
+      <li class="step locked" id="step-sem"><h2><b>3</b> الفصل الدراسي</h2><div class="chips" id="sems"></div></li>
+      <li class="step locked" id="step-unit"><h2><b>4</b> الوحدة</h2><div class="chips" id="units"></div></li>
+      <li class="step locked" id="step-lessons">
+        <h2><b>5</b> الدروس <small>أسئلة الدروس المختارة تُجمع في مباراة واحدة</small></h2>
+        <div class="lesson-tools"><button class="link" id="selAll">تحديد الكل</button><button class="link" id="selNone">إلغاء التحديد</button></div>
+        <div id="lessons" class="lesson-list"></div>
+      </li>
+    </ol>
+
+    <details class="teacher-box">
+      <summary>بيانات المعلم (اختياري)</summary>
+      <div class="teacher-fields">
+        <label>اسم المعلم<input id="tName" type="text" maxlength="40" placeholder="مثال: أ. محمد"></label>
+        <label>حساب Instagram<input id="tIg" type="text" maxlength="30" dir="ltr" placeholder="username"></label>
+      </div>
+    </details>
+
+    <div class="setup-actions">
+      <button class="btn primary big" id="buildBtn" disabled>التالي: الفريقان ▶</button>
+      <button class="btn ghost" id="linkBtn" disabled>نسخ رابط للطلاب</button>
+      <span id="setupNote" class="muted"></span>
+    </div>
+  </div>
+</section>
+
+<!-- الفريقان -->
+<section id="home" class="screen pk-screen" aria-label="الفريقان">
+  <div class="om-wrap">
+    <div class="duo-top">
+      <button class="icon-btn" id="backSetup" title="تغيير الدروس">⚙</button>
+      <div class="teacher-badge" id="teacherHome"></div>
+      <button class="icon-btn sound-btn" title="تشغيل/كتم الصوت">🔊</button>
+    </div>
+    <header class="om-head">
+      <p class="om-kicker" id="homeSub"></p>
+      <h1>ركلات <span>الترجيح</span></h1>
+      <p class="om-subj" id="homeTitle"></p>
+    </header>
+    <div class="bt-teams pk-teams" id="teamsSetup"></div>
+    <div class="bt-opts">
+      <div class="om-count"><span>ركلات كل فريق</span><div class="chips" id="optKicks"></div></div>
+      <div class="om-count"><span>وقت كل سؤال</span><div class="chips" id="optTime"></div></div>
+    </div>
+    <button class="btn primary huge" id="startGame">ابدأ المباراة ⚽</button>
+    <details class="rules" open>
+      <summary>القواعد</summary>
+      <ul>
+        <li>يتناوب الفريقان على التسديد. قبل كل ركلة يظهر سؤال للفريق صاحب الدور.</li>
+        <li><b>الإجابة الصحيحة:</b> يختار الفريق زاوية التسديد من 6 زوايا داخل المرمى، ويقفز حارس المرمى إلى جهة ما. إذا قفز إلى جهة التسديدة نفسها تصدّى لها، وإلا فهو <b>هدف</b>.</li>
+        <li><b>التسديدة القوية ⚡:</b> الإجابة في النصف الأول من الوقت تجعل الحارس أبطأ، فلا يصدّها إلا إذا خمّن الجهة والارتفاع معًا.</li>
+        <li><b>الإجابة الخاطئة أو انتهاء الوقت:</b> تضيع الركلة دون تسديد، ولا تظهر الإجابة الصحيحة، ويعود السؤال بعد 3–5 أسئلة أخرى.</li>
+        <li>لكل فريق عدد الركلات المختار. يفوز صاحب الأهداف الأكثر، وتُحسم المباراة مبكرًا إذا لم يعد الفريق الآخر قادرًا على اللحاق.</li>
+        <li><b>التعادل:</b> ركلات حاسمة — ركلة لكل فريق حتى يسجّل أحدهما ويضيّع الآخر.</li>
+      </ul>
+    </details>
+  </div>
+</section>
+
+<!-- المعركة -->
+<section id="play" class="screen pk-screen" aria-label="المباراة">
+  <div class="mbar">
+    <span class="pill subj" id="hSubj"></span>
+    <span class="pill" id="hRound"></span>
+    <span class="teacher-mini" id="teacherHud"></span>
+    <span class="mbar-btns">
+      <button class="icon-btn sound-btn" title="تشغيل/كتم الصوت">🔊</button>
+      <button class="icon-btn" id="exitBtn" title="الخروج">✕</button>
+    </span>
+  </div>
+  <div class="scoreboard" aria-label="لوحة النتيجة">
+    <div class="sb-row" id="sb0"><span class="sb-dot"></span><b class="sb-name" id="sbn0"></b><span class="sb-marks" id="sbm0"></span><b class="sb-goals" id="sbg0">0</b></div>
+    <div class="sb-row" id="sb1"><span class="sb-dot"></span><b class="sb-name" id="sbn1"></b><span class="sb-marks" id="sbm1"></span><b class="sb-goals" id="sbg1">0</b></div>
+  </div>
+  <div class="pitch" id="pitch">
+    <div class="scene">
+      <div class="stands" aria-hidden="true"><i class="lamp l1"></i><i class="lamp l2"></i></div>
+      <div class="grass" aria-hidden="true"><div class="box"></div><div class="spot"></div></div>
+      <div class="goal" id="goal">
+        <div class="net" aria-hidden="true"></div>
+        <img class="keeper" id="keeper" alt="الحارس">
+        <div class="zones" id="zones"></div>
+        <span class="keeper-tag" id="keeperTag"></span>
+      </div>
+      <img class="kicker" id="kicker" alt="اللاعب">
+      <div class="ball" id="ball" aria-hidden="true"></div>
+      <div class="pk-banner" id="banner" aria-live="polite"></div>
+      <div class="fx" id="fx"></div>
+    </div>
+  </div>
+  <div class="bt-bottom">
+    <div class="turn-tag" id="turnTag"></div>
+    <button class="btn primary big" id="askBtn">اعرض السؤال ▶</button>
+    <span class="om-hint" id="hint">اضغط «اعرض السؤال» أو مفتاح المسافة.</span>
+  </div>
+
+  <div class="modal" id="qModal" role="dialog" aria-modal="true" aria-labelledby="qText">
+    <div class="qcard om-q" id="qCard">
+      <div class="qhead">
+        <span class="team-tag" id="qTeam"></span>
+        <span class="qtype" id="qType"></span>
+        <div class="timer" id="timer" aria-label="الوقت المتبقي"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" class="tr-bg"></circle><circle cx="22" cy="22" r="19" class="tr-fg" id="timerArc"></circle></svg><b id="timerNum">30</b></div>
+      </div>
+      <p class="qtext" id="qText" dir="auto"></p>
+      <div class="qopts" id="qOpts"></div>
+      <div class="qfeedback" id="qFeedback" aria-live="assertive"></div>
+      <button class="btn primary big" id="qConfirm" disabled>تأكيد الإجابة</button>
+      <div class="qfoot"><span id="qRef"></span><span class="teacher-mini" id="teacherQ"></span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="rModal" role="dialog" aria-modal="true">
+    <div class="rcard om-result">
+      <div class="winner-art" id="winArt"></div>
+      <h2 id="rTitle"></h2>
+      <p class="rlesson" id="rLesson"></p>
+      <div class="vs-table" id="rTable"></div>
+      <div class="ractions" id="rActions"></div>
+      <div class="teacher-mini center" id="teacherR"></div>
+    </div>
+  </div>
+</section>
+
+<script src="js/config.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/questions.js"></script>
+<script src="/game/subscriptions.js"></script>
+<script src="/game/access.js"></script>
+<script src="js/penalty.js?v=library1"></script>
+<script src="js/demo-penalty.js"></script>
+</body>
+</html>
