@@ -1,0 +1,21 @@
+[
+  "js/audio.js",
+  "js/config.js",
+  "js/penalty.js",
+  "js/questions.js",
+  "css/style.css",
+  "assets/characters/boy-jump.png",
+  "assets/characters/boy-side.png",
+  "assets/characters/boy-walk.png",
+  "assets/characters/girl-jump.png",
+  "assets/characters/girl-side.png",
+  "assets/characters/girl-walk.png",
+  "assets/characters/girl2-jump.png",
+  "assets/characters/girl2-side.png",
+  "assets/characters/girl2-walk.png",
+  "assets/keeper/diveL-noball.png",
+  "assets/keeper/diveL.png",
+  "assets/keeper/diveR-noball.png",
+  "assets/keeper/diveR.png",
+  "assets/keeper/ready.png"
+]

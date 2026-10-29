@@ -12,7 +12,7 @@
   var S = { index: null, grade: null, gradeData: null, subj: null, sem: null, unit: null, lessons: [], teacher: { name: '', ig: '' } };
   var gradeCache = {};
 
-  function show(id) {
+  function show(id) { if(window.PublishedGame && id==='setup')id='home';
     ['setup', 'home', 'play'].forEach(function (s) { $(s).classList.toggle('active', s === id); });
     if (id === 'play') { game.resize(); checkRotate(); } else { $('rotateHint').classList.remove('show'); }
   }
@@ -306,6 +306,7 @@
     pr.bestCoins = Math.max(pr.bestCoins || 0, sum.coins);
     pr.best[sum.stageIndex] = Math.max(pr.best[sum.stageIndex] || 0, sum.score);
     store.set(progressKey(), pr);
+    if(window.GameSCORM){pr.scormResults=pr.scormResults||{};pr.scormResults[sum.stageIndex]={correct:sum.correct||0,wrong:sum.wrong||0};var totals=Object.values(pr.scormResults).reduce(function(a,r){a[0]+=r.correct;a[1]+=r.wrong;return a;},[0,0]);window.GameSCORM.report({score:totals[0]+totals[1]?100*totals[0]/(totals[0]+totals[1]):0,completed:SEL.lessons.every(function(_,i){return !!pr.completed[i];}),location:String(sum.stageIndex),state:{progress:pr}});}
   }
 
   function results(badge, title, s, actions, full) {
@@ -394,20 +395,14 @@
     $('tName').value = S.teacher.name; $('tIg').value = S.teacher.ig;
     $('tName').oninput = $('tIg').oninput = readTeacher;
     $('buildBtn').onclick = function () { readTeacher(); history.replaceState(null, '', hashFor()); openHome(); };
-    $('linkBtn').onclick = function () {
-      readTeacher();
-      var url = location.href.split('#')[0] + hashFor();
-      var done = function () { $('setupNote').textContent = 'تم نسخ رابط الطلاب ✓'; };
-      if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, function () { prompt('انسخ الرابط:', url); });
-      else prompt('انسخ الرابط:', url);
-    };
+    GamePublish.configure(function(){readTeacher();var sel=selection();return {version:1,id:crypto.randomUUID(),game:'rihlat-almarifa',title:cfg.title||document.title,gradeId:S.index[S.grade].id,gradeName:'الصف '+S.index[S.grade].n,subject:sel.subject,sem:sel.sem,unit:sel.unit,lessons:JSON.parse(JSON.stringify(sel.lessons)),teacher:{name:S.teacher.name,ig:S.teacher.ig}};});
     $('selAll').onclick = function () { var gd = gradeCache[S.index[S.grade].id]; S.lessons = gd[S.subj].s[S.sem].u[S.unit].l.map(function (_, k) { return k; }); renderSetup(); };
     $('selNone').onclick = function () { S.lessons = []; renderSetup(); };
     $('backSetup').onclick = function () { history.replaceState(null, '', location.pathname + location.search); show('setup'); renderSetup(); };
 
     loadJSON('index.json').then(function (idx) {
       S.index = idx;
-      var h = new URLSearchParams(location.hash.slice(1));
+      var h = new URLSearchParams(window.PUBLISHED_SELECTION || location.hash.slice(1));
       if (h.get('g')) {
         var gi = idx.findIndex(function (g) { return g.id === h.get('g'); });
         if (gi >= 0) {
