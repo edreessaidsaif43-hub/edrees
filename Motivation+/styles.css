@@ -5783,6 +5783,35 @@ body.feature-fullscreen #feature-countdown .hourglass-svg {
 @media(max-width:720px) { .parachute-students { grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px 1px; padding-inline:4%; }.parachute-scene { min-height:420px; } }
 @media(max-width:430px) { .parachute-students { grid-template-columns:repeat(3,minmax(0,1fr)); padding:42px 3% 92px; }.parachute-scene,.parachute-feature.fullscreen-feature .parachute-scene,.parachute-feature.fullscreen-feature .parachute-students { min-height:410px; }.parachute-platform { min-width:165px; }.parachute-student.is-landed { top:calc(100% - 140px); } }
 @media(prefers-reduced-motion:reduce) { .parachute-clouds span,.parachute-scene[data-stage="falling"] .parachute-student,.parachute-scene[data-stage="landed"] .parachute-student.is-landed,.parachute-scene[data-stage="revealed"] .parachute-student.is-landed { animation:none!important; }.parachute-student,.parachute-reveal { transition-duration:.01ms!important; } }
+
+.mystery-doors-feature { overflow:hidden; }
+.mystery-doors-scene { position:relative; min-height:450px; overflow:hidden; isolation:isolate; border:3px solid #574460; border-radius:18px; background:radial-gradient(ellipse at 50% 5%,#564465,#29243b 58%,#171a2b); box-shadow:inset 0 0 0 3px rgba(255,255,255,.12),0 10px 26px rgba(24,17,38,.25); }
+.mystery-doors-scene::before { content:""; position:absolute; z-index:0; inset:0; background:linear-gradient(90deg,rgba(7,8,20,.2),transparent 15% 85%,rgba(7,8,20,.2)),radial-gradient(ellipse at 50% 100%,rgba(255,202,110,.13),transparent 55%); pointer-events:none; }
+.mystery-hall-lights { position:absolute; z-index:1; inset:16px 7% auto; display:flex; justify-content:space-between; }
+.mystery-hall-lights i { width:12px; height:12px; border:2px solid #ffe2a2; border-radius:50%; background:#edbd66; box-shadow:0 0 16px 5px rgba(251,207,119,.54); animation:door-light-glow 1.25s ease-in-out infinite alternate; }
+.mystery-hall-lights i:nth-child(2n) { animation-delay:-.65s; }
+.mystery-doors-grid { position:relative; z-index:2; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); align-content:center; justify-items:center; gap:22px 16px; min-height:450px; padding:55px 7% 30px; box-sizing:border-box; perspective:1000px; }
+.mystery-door { position:relative; width:100%; max-width:132px; height:158px; perspective:700px; }
+.mystery-door-frame { position:absolute; inset:0; padding:8px 8px 0; border:3px solid #b58b55; border-bottom:0; border-radius:12px 12px 0 0; background:linear-gradient(90deg,#412a32,#80543a 18%,#50363a 84%,#2d2737); box-shadow:0 0 0 2px #2a202b,0 7px 17px rgba(0,0,0,.35); }
+.mystery-door-opening { position:absolute; inset:9px 9px 0; display:flex; align-items:center; justify-content:center; overflow:hidden; border:2px solid rgba(255,222,150,.65); background:radial-gradient(circle,#fff3b0,#e2a847 44%,#705033); box-shadow:inset 0 0 22px rgba(255,248,179,.65); }
+.mystery-door-opening b { max-width:92%; color:#482f22; text-align:center; overflow-wrap:anywhere; font-size:clamp(11px,1.5vw,16px); text-shadow:0 1px rgba(255,255,255,.5); }
+.mystery-door-panel { position:absolute; z-index:2; inset:8px 8px 0; display:flex; flex-direction:column; align-items:center; justify-content:space-evenly; border:3px solid #d0a16a; border-radius:8px 8px 2px 2px; color:#f6e5c2; background:repeating-linear-gradient(90deg,transparent 0 26px,rgba(25,18,25,.2) 27px 29px),linear-gradient(110deg,#8e5d3f,#694334 52%,#986442); box-shadow:inset 0 0 0 4px rgba(48,29,31,.3),inset 0 0 22px rgba(25,15,19,.38); transform-origin:left center; backface-visibility:hidden; transition:transform .85s cubic-bezier(.2,.7,.2,1),filter .3s ease,box-shadow .3s ease; }
+.mystery-door-panel::before,.mystery-door-panel::after { content:""; width:74%; height:33%; border:2px solid rgba(238,199,142,.67); border-radius:5px; box-shadow:inset 0 0 7px rgba(20,14,17,.25); }
+.mystery-door-number { position:absolute; top:9px; right:9px; display:grid; place-items:center; width:23px; height:23px; border:1px solid #f6dcaa; border-radius:50%; color:#fdf2d7; background:#49373a; font-size:10px; font-weight:900; }
+.mystery-door-knob { position:absolute; right:10px; top:54%; width:10px; height:10px; border:2px solid #ffe7a4; border-radius:50%; background:#b8893f; box-shadow:0 0 8px rgba(255,222,133,.35); }
+.mystery-door.is-lit .mystery-door-panel { filter:brightness(1.55); box-shadow:inset 0 0 0 4px rgba(255,226,137,.48),0 0 23px 8px rgba(255,215,111,.62); }
+.mystery-door.is-open .mystery-door-panel { transform:rotateY(-112deg); filter:brightness(1.25); }
+.mystery-door.is-open .mystery-door-opening { box-shadow:0 0 28px 12px rgba(255,228,127,.87); }
+.mystery-doors-scene[data-stage="scanning"] .mystery-hall-lights i { animation-duration:.35s; }
+.mystery-door-result { position:absolute; z-index:5; left:50%; top:44%; display:flex; align-items:center; gap:10px; max-width:82%; padding:12px 18px; border:3px solid #bd904b; border-radius:16px; color:#4b331d; background:#fff3c6; box-shadow:0 12px 30px rgba(0,0,0,.48); opacity:0; transform:translate(-50%,25px) scale(.65); transition:opacity .35s ease,transform .55s cubic-bezier(.18,.8,.25,1.25); pointer-events:none; }
+.mystery-door-result span { font-size:28px; }.mystery-door-result strong { font-size:clamp(18px,4vw,27px); overflow-wrap:anywhere; }
+.mystery-doors-scene[data-stage="revealed"] .mystery-door-result { opacity:1; transform:translate(-50%,-50%) scale(1); }
+.mystery-doors-controls { flex-wrap:wrap; }
+.mystery-doors-feature.fullscreen-feature .mystery-doors-scene,.mystery-doors-feature.fullscreen-feature .mystery-doors-grid { min-height:min(56vh,500px); }
+@keyframes door-light-glow { to { filter:brightness(1.6); box-shadow:0 0 23px 9px rgba(255,218,124,.72); } }
+@media(max-width:700px) { .mystery-doors-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px 9px; padding-inline:5%; }.mystery-door { max-width:118px; height:145px; } }
+@media(max-width:430px) { .mystery-doors-scene,.mystery-doors-grid,.mystery-doors-feature.fullscreen-feature .mystery-doors-scene,.mystery-doors-feature.fullscreen-feature .mystery-doors-grid { min-height:430px; }.mystery-doors-grid { grid-template-columns:repeat(2,minmax(0,1fr)); padding:48px 9% 22px; gap:13px 12px; }.mystery-door { max-width:128px; height:145px; } }
+@media(prefers-reduced-motion:reduce) { .mystery-hall-lights i { animation:none!important; }.mystery-door-panel,.mystery-door-result { transition-duration:.01ms!important; } }
 @media(prefers-reduced-motion:reduce) { .fishing-fish,.fishing-fish svg .fish-tail,.fishing-hook,.fishing-hook::before,.fishing-hook i,.fishing-reveal,.fishing-bubbles i,.fishing-scene[data-stage="casting"] .fishing-waterline { animation:none!important; transition-duration:.01ms!important; } }
 @media (prefers-reduced-motion: reduce) {
   .treasure-pirate, .treasure-dig-site, .treasure-reveal { transition-duration: .01ms !important; }

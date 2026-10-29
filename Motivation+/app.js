@@ -1979,7 +1979,7 @@ function triggerCelebration(title, message, duration = 2200, withSound = true) {
 }
 
 function enterFeatureFullscreen(featureId) {
-  if (["feature-wheel", "feature-lucky", "feature-countdown", "feature-treasure-map", "feature-claw-machine", "feature-fishing", "feature-name-train", "feature-spotlight", "feature-parachutes"].includes(featureId)) {
+  if (["feature-wheel", "feature-lucky", "feature-countdown", "feature-treasure-map", "feature-claw-machine", "feature-fishing", "feature-name-train", "feature-spotlight", "feature-parachutes", "feature-mystery-doors"].includes(featureId)) {
     try { showTeacherPanel(featureId === "feature-countdown" ? "timer" : "random"); } catch {}
   }
   const feature = document.getElementById(featureId);
@@ -4938,7 +4938,8 @@ function getTeacherPanelTargets() {
       document.getElementById("feature-fishing"),
       document.getElementById("feature-name-train"),
       document.getElementById("feature-spotlight"),
-      document.getElementById("feature-parachutes")
+      document.getElementById("feature-parachutes"),
+      document.getElementById("feature-mystery-doors")
     ],
     timer: [document.getElementById("feature-countdown")],
     reports: [document.getElementById("reports-panel")]
@@ -5480,7 +5481,10 @@ function playArcadeGameSound(name) {
     "spotlight-stop": [[440, 0, .2, "triangle"], [587, .15, .22, "sine"], [784, .32, .3, "triangle"]],
     "parachute-wind": [[660, 0, .22, "sine"], [740, .2, .24, "triangle"], [587, .4, .26, "sine"]],
     "parachute-land": [[330, 0, .12, "triangle"], [494, .12, .16, "sine"], [659, .27, .22, "triangle"]],
-    "parachute-reveal": [[523, 0, .16, "triangle"], [659, .13, .2, "sine"], [880, .28, .3, "triangle"]]
+    "parachute-reveal": [[523, 0, .16, "triangle"], [659, .13, .2, "sine"], [880, .28, .3, "triangle"]],
+    "doors-scan": [[260, 0, .08, "triangle"], [392, .07, .1, "sine"]],
+    "doors-open": [[130, 0, .34, "sawtooth"], [196, .22, .3, "triangle"]],
+    "doors-reveal": [[523, 0, .16, "triangle"], [659, .13, .2, "sine"], [880, .28, .32, "triangle"]]
   };
   (sounds[name] || []).forEach(([frequency, delay, duration, wave]) => {
     const oscillator = ctx.createOscillator();
@@ -6016,6 +6020,85 @@ function startParachutes() {
 
 document.getElementById("start-parachutes").addEventListener("click", startParachutes);
 document.getElementById("reset-parachutes").addEventListener("click", resetParachutes);
+
+let mysteryDoorsBusy = false;
+let mysteryDoorsTimers = [];
+function resetMysteryDoors() {
+  mysteryDoorsTimers.forEach((timer) => clearTimeout(timer));
+  mysteryDoorsTimers = [];
+  mysteryDoorsBusy = false;
+  const scene = document.getElementById("mystery-doors-scene");
+  if (!scene) return;
+  scene.dataset.stage = "ready";
+  document.getElementById("start-mystery-doors").disabled = false;
+  document.getElementById("reset-mystery-doors").disabled = true;
+  document.getElementById("mystery-door-winner-name").textContent = "";
+  document.getElementById("mystery-doors-status").textContent = "تضيء الأبواب بالتتابع، ثم ينفتح باب ويكشف اسم الطالب.";
+  document.getElementById("mystery-doors-grid").innerHTML = "";
+}
+
+function startMysteryDoors() {
+  if (!ensureAuthOrNotify() || mysteryDoorsBusy) return;
+  const cls = ensureClassOrNotify();
+  if (!cls) return;
+  const students = (cls.students || []).filter((student) => student && student.id && normalizeName(student.name));
+  if (!students.length) {
+    document.getElementById("mystery-doors-status").textContent = "أضف طلابًا إلى الصف أولًا.";
+    return;
+  }
+  const winner = students[Math.floor(Math.random() * students.length)];
+  const visibleStudents = students.slice(0, 16);
+  if (!visibleStudents.some((student) => student.id === winner.id)) visibleStudents[visibleStudents.length - 1] = winner;
+  const grid = document.getElementById("mystery-doors-grid");
+  grid.innerHTML = visibleStudents.map((student, index) => `<div class="mystery-door" data-student-id="${escapeReportMarkup(student.id)}"><div class="mystery-door-frame"><div class="mystery-door-opening"><b>${escapeReportMarkup(student.name)}</b></div><div class="mystery-door-panel"><span class="mystery-door-number">${index + 1}</span><i class="mystery-door-knob"></i></div></div></div>`).join("");
+  const doors = Array.from(grid.children);
+  const winnerDoor = doors.find((door) => door.dataset.studentId === winner.id) || doors[doors.length - 1];
+  const scene = document.getElementById("mystery-doors-scene");
+  enterFeatureFullscreen("feature-mystery-doors");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const interval = reducedMotion ? 180 : 680;
+  const scanDoors = [];
+  for (let index = 0; index < 5; index += 1) {
+    let door = doors[Math.floor(Math.random() * doors.length)];
+    if (doors.length > 1 && door === scanDoors[index - 1]) door = doors[(doors.indexOf(door) + 1) % doors.length];
+    scanDoors.push(door);
+  }
+  scanDoors.push(winnerDoor);
+  scene.dataset.stage = "scanning";
+  mysteryDoorsBusy = true;
+  document.getElementById("start-mystery-doors").disabled = true;
+  document.getElementById("reset-mystery-doors").disabled = true;
+  document.getElementById("mystery-doors-status").textContent = "الأبواب تضيء واحدًا تلو الآخر... أي باب سينفتح؟";
+  pulseFeatureCardById("feature-mystery-doors", "spin");
+  scanDoors.forEach((door, index) => {
+    mysteryDoorsTimers.push(setTimeout(() => {
+      doors.forEach((item) => item.classList.toggle("is-lit", item === door));
+      if (index === scanDoors.length - 1) document.getElementById("mystery-doors-status").textContent = "توقف الضوء... الباب الأخير يستعد للفتح!";
+      playArcadeGameSound("doors-scan");
+    }, interval * index));
+  });
+  const openDelay = interval * scanDoors.length;
+  mysteryDoorsTimers.push(setTimeout(() => {
+    scene.dataset.stage = "opening";
+    doors.forEach((door) => door.classList.remove("is-lit"));
+    winnerDoor.classList.add("is-lit", "is-open");
+    document.getElementById("mystery-doors-status").textContent = "الباب ينفتح ببطء... من خلفه؟";
+    playArcadeGameSound("doors-open");
+  }, openDelay));
+  mysteryDoorsTimers.push(setTimeout(() => {
+    scene.dataset.stage = "revealed";
+    document.getElementById("mystery-door-winner-name").textContent = winner.name;
+    document.getElementById("mystery-doors-status").textContent = `انفتح الباب وكشف اسم الطالب: ${winner.name}`;
+    mysteryDoorsBusy = false;
+    document.getElementById("reset-mystery-doors").disabled = false;
+    playArcadeGameSound("doors-reveal");
+    pulseFeatureCardById("feature-mystery-doors", "winner");
+    triggerCelebration("🚪 انفتح الباب الغامض", `الباب اختار ${winner.name}`, 2200, false);
+  }, openDelay + (reducedMotion ? 250 : 900)));
+}
+
+document.getElementById("start-mystery-doors").addEventListener("click", startMysteryDoors);
+document.getElementById("reset-mystery-doors").addEventListener("click", resetMysteryDoors);
 
 document.getElementById("start-lucky-game").addEventListener("click", () => {
   startLuckyGame();

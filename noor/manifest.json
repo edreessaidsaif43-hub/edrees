@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "مساعد تحضير نور",
+  "description": "Fill Noor weekly study plan fields from pasted text or imported Excel files.",
+  "version": "1.0.4",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "host_permissions": [
+    "https://noor.moe.gov.sa/*",
+    "https://lms.moe.gov.om/*"
+  ],
+  "action": {
+    "default_title": "مساعد تحضير نور",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://noor.moe.gov.sa/*",
+        "https://lms.moe.gov.om/*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

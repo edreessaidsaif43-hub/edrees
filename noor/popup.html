@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>مساعد تحضير نور</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div>
+          <h1>مساعد تحضير نور</h1>
+          <p>احفظ التحضير مرة واحدة ثم املأ صفحة نور تلقائياً.</p>
+        </div>
+      </header>
+
+      <section class="status" id="status" role="status" aria-live="polite">
+        جاهز للتعبئة.
+      </section>
+
+      <section class="lesson-picker" id="lesson-picker" hidden>
+        <label>
+          <span>الدروس المستوردة</span>
+          <select id="lesson-select"></select>
+        </label>
+        <p id="lesson-summary"></p>
+      </section>
+
+      <form id="prep-form" class="form">
+        <label>
+          <span>المادة</span>
+          <input name="subject" autocomplete="off" placeholder="مثال: رياضيات">
+        </label>
+
+        <label>
+          <span>الصف / المرحلة</span>
+          <input name="grade" autocomplete="off" placeholder="مثال: الصف الخامس">
+        </label>
+
+        <label>
+          <span>عنوان الدرس</span>
+          <input name="lessonTitle" autocomplete="off" placeholder="مثال: الكسور المتكافئة">
+        </label>
+
+        <div class="grid">
+          <label>
+            <span>التاريخ</span>
+            <input name="date" type="date">
+          </label>
+
+          <label>
+            <span>الحصة</span>
+            <input name="classPeriod" autocomplete="off" placeholder="مثال: الثالثة">
+          </label>
+        </div>
+
+        <div class="grid">
+          <label>
+            <span>الأسبوع</span>
+            <input name="week" autocomplete="off" placeholder="مثال: الأسبوع الأول">
+          </label>
+
+          <label>
+            <span>الفصل</span>
+            <input name="term" autocomplete="off" placeholder="مثال: الفصل الأول">
+          </label>
+        </div>
+
+        <label>
+          <span>إضافة مخرج تعليمي آخر</span>
+          <textarea name="learningOutcome" rows="4" placeholder="اكتب المخرج التعليمي..."></textarea>
+        </label>
+
+        <label>
+          <span>المفاهيم</span>
+          <textarea name="concepts" rows="3" placeholder="المفاهيم والمصطلحات الرئيسة..."></textarea>
+        </label>
+
+        <label>
+          <span>التهيئة / التمهيد / التعلم القبلي</span>
+          <textarea name="intro" rows="3" placeholder="مدخل الدرس أو التهيئة أو التعلم القبلي..."></textarea>
+        </label>
+
+        <label>
+          <span>إجراءات سير الدرس / الأنشطة التدريسية</span>
+          <textarea name="lessonProcedures" rows="5" placeholder="خطوات تنفيذ الدرس والأنشطة التدريسية..."></textarea>
+        </label>
+
+        <label>
+          <span>التقويم التكويني</span>
+          <textarea name="formativeAssessment" rows="3" placeholder="أسئلة وملاحظات أثناء التعلم..."></textarea>
+        </label>
+
+        <label>
+          <span>التقويم الختامي</span>
+          <textarea name="summativeAssessment" rows="3" placeholder="نشاط أو سؤال ختامي لقياس تحقق التعلم..."></textarea>
+        </label>
+
+        <label>
+          <span>ملاحظات ضمن خطة الدراسة الأسبوعية (يشاهدها الطالب وولي الأمر)</span>
+          <textarea name="weeklyPlanNotes" rows="3" placeholder="ملاحظة مختصرة تظهر للطالب وولي الأمر..."></textarea>
+        </label>
+
+        <div class="actions">
+          <button type="button" class="primary" id="fill-page">تعبئة صفحة نور</button>
+          <button type="submit" id="save-data">حفظ</button>
+        </div>
+
+        <div class="utility-actions">
+          <button type="button" id="export-data">تصدير</button>
+          <label class="import-button">
+            استيراد Excel
+            <input type="file" id="import-data" accept=".xlsx,.csv,application/json">
+          </label>
+          <button type="button" id="clear-data">تفريغ</button>
+        </div>
+      </form>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
