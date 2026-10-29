@@ -17,6 +17,56 @@
     * { font-family: 'Tajawal', sans-serif; }
     html, body { width: 100%; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
     img { max-width: 100%; height: auto; }
+    .content-preview {
+      position: relative;
+      width: 100%;
+      height: 0;
+      padding-top: 56.25%;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #e7f3fe, #d5e9f8);
+      border-bottom: 1px solid #c5dced;
+    }
+    .content-preview > img {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #edf5fb;
+    }
+    .content-preview-fallback {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #285779;
+      font-weight: 700;
+      text-align: center;
+      padding: 16px;
+    }
+    .content-preview-play {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .content-preview-play > span {
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: rgba(15, 23, 42, 0.75);
+      color: white;
+      font-size: 24px;
+    }
     section { content-visibility: auto; contain-intrinsic-size: 1px 900px; }
     button, a, input, select, textarea { touch-action: manipulation; }
     .gradient-bg { background:
@@ -2829,7 +2879,7 @@
         const grades = parseMultiValues(game.grade);
         const subjects = parseMultiValues(game.subject);
         return `
-          <div id="content-card-${getSafeDomId(contentId)}" class="game-card card-glass rounded-2xl overflow-hidden shadow-lg">
+          <div id="content-card-${getSafeDomId(contentId)}" class="game-card card-glass rounded-2xl overflow-hidden shadow-lg">${renderContentPreview(game)}
             <div class="bg-gradient-to-br from-purple-400 to-indigo-500 p-6 text-white">
               <div class="content-title-box">
                 <p class="content-title-label">عنوان المشاركة</p>
@@ -2860,6 +2910,20 @@
         `;
       }).join('');
       renderPaginationControls('games-pagination', 'game', totalItems);
+    }
+
+    function renderContentPreview(item) {
+      const types = getContentTypes(item);
+      const video = types.includes('video');
+      const candidate = video ? getVideoThumbnailUrl(item) : types.includes('image') ? String(item.game_link || '') : '';
+      const image = /^https?:\/\//i.test(candidate) ? candidate : '';
+      const label = contentSectionLabels(item) || 'محتوى تعليمي';
+      const play = video ? '<span class="content-preview-play" aria-hidden="true"><span>▶</span></span>' : '';
+      return `<div class="content-preview">
+        <div class="content-preview-fallback"><svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M6 16l4-4 4 4 3-3 3 3"/><circle cx="15" cy="8" r="1"/></svg><span>${escapeHtml(label)}</span></div>
+        ${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(item.lesson_name || 'معاينة المحتوى')}" loading="lazy" decoding="async" onerror="this.hidden=true;this.style.display='none'">` : ''}
+        ${play}
+      </div>`;
     }
 
     function selectDiscoverSections(checked) {
@@ -2918,7 +2982,7 @@
         const actions = {game: 'افتح اللعبة', image: 'عرض الصورة', test: 'ابدأ الاختبار', video: 'شاهد الفيديو', presentation: 'عرض المحتوى', file: 'فتح الملف'};
         const picture = types.includes('image') ? safeUrl : types.includes('video') ? getVideoThumbnailUrl(item) : '';
         return `<article class="card-glass rounded-2xl overflow-hidden shadow-lg flex flex-col">
-          ${picture ? `<div class="aspect-video bg-slate-100"><img src="${escapeHtml(picture)}" alt="${escapeHtml(item.lesson_name || 'معاينة المحتوى')}" loading="lazy" decoding="async" class="w-full h-full object-contain" onerror="this.parentElement.hidden=true"></div>` : ''}
+          ${renderContentPreview(item)}
           <div class="p-5 flex flex-col flex-1">
             <div class="flex flex-wrap gap-1 mb-3">${types.map(type => `<span class="text-xs font-bold bg-sky-100 text-sky-900 rounded-full px-3 py-1">${CONTENT_SECTION_LABELS[type]}</span>`).join('')}</div>
             <h3 class="text-xl font-black text-gray-900 mb-3">${escapeHtml(item.lesson_name || 'محتوى تعليمي')}</h3>
@@ -2988,7 +3052,7 @@
         const link = String(item.game_link || '#');
         const encodedLink = encodeURIComponent(link).replace(/'/g, '%27');
         return `<article id="content-card-${getSafeDomId(contentId)}" class="image-card card-glass rounded-2xl overflow-hidden shadow-lg">
-          <a href="${escapeHtml(link)}" onclick="openContent('${contentId}', '${encodedLink}'); return false;" class="block aspect-video bg-slate-100 overflow-hidden"><img src="${escapeHtml(link)}" alt="${escapeHtml(item.lesson_name || 'صورة تعليمية')}" loading="lazy" decoding="async" class="w-full h-full object-cover" onerror="this.style.display='none';this.parentElement.classList.add('flex','items-center','justify-center');this.parentElement.insertAdjacentHTML('beforeend','<span class=&quot;text-5xl&quot;>🖼️</span>')"></a>
+          <a href="${escapeHtml(link)}" onclick="openContent('${contentId}', '${encodedLink}'); return false;" class="block">${renderContentPreview(item)}</a>
           <div class="bg-gradient-to-br from-teal-500 to-sky-600 p-5 text-white"><h3 class="text-xl font-black mb-3">${escapeHtml(item.lesson_name || 'صورة تعليمية')}</h3><div class="flex items-center gap-3"><img src="${escapeHtml(getTeacherProfileImage(item))}" alt="صورة المعلم" loading="lazy" class="w-12 h-12 rounded-full object-cover border-2 border-white/50 bg-white"><p class="font-bold">${escapeHtml(item.teacher_name || 'معلم')}</p></div></div>
           <div class="p-5"><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-teal-100 text-teal-800 text-xs px-2 py-1 rounded-full font-bold">${escapeHtml(x)}</span>`).join('') || '-'}</div></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-sky-100 text-sky-800 text-xs px-2 py-1 rounded-full font-bold">${escapeHtml(x)}</span>`).join('') || '-'}</div></div>${renderSemesterBadge(item, 'bg-teal-100 text-teal-800')}${renderRatingAndViews(contentId)}<a href="${escapeHtml(link)}" onclick="openContent('${contentId}', '${encodedLink}'); return false;" class="bg-gradient-to-r from-teal-500 to-sky-600 text-white py-3 px-4 rounded-xl font-bold block text-center">🖼️ عرض الصورة</a>${renderCommentsBlock(contentId)}</div>
         </article>`;
@@ -3014,7 +3078,7 @@
         const subjects = parseMultiValues(item.subject);
         const link = String(item.game_link || '#');
         const encodedLink = encodeURIComponent(link).replace(/'/g, '%27');
-        return `<article id="content-card-${getSafeDomId(contentId)}" class="test-card card-glass rounded-2xl overflow-hidden shadow-lg"><div class="bg-gradient-to-br from-amber-400 to-orange-600 p-6 text-white"><div class="text-4xl mb-3">📝</div><h3 class="text-xl font-black mb-3">${escapeHtml(item.lesson_name || 'اختبار تعليمي')}</h3><div class="flex items-center gap-3"><img src="${escapeHtml(getTeacherProfileImage(item))}" alt="صورة المعلم" loading="lazy" class="w-12 h-12 rounded-full object-cover border-2 border-white/50 bg-white"><p class="font-bold">${escapeHtml(item.teacher_name || 'معلم')}</p></div></div><div class="p-6"><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded-full font-bold">${escapeHtml(x)}</span>`).join('') || '-'}</div></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full font-bold">${escapeHtml(x)}</span>`).join('') || '-'}</div></div>${renderSemesterBadge(item, 'bg-amber-100 text-amber-800')}${renderRatingAndViews(contentId)}<a href="${escapeHtml(link)}" onclick="openContent('${contentId}', '${encodedLink}'); return false;" class="bg-gradient-to-r from-amber-500 to-orange-600 text-white py-3 px-4 rounded-xl font-bold block text-center">📝 ابدأ الاختبار</a>${renderCommentsBlock(contentId)}</div></article>`;
+        return `<article id="content-card-${getSafeDomId(contentId)}" class="test-card card-glass rounded-2xl overflow-hidden shadow-lg">${renderContentPreview(item)}<div class="bg-gradient-to-br from-amber-400 to-orange-600 p-6 text-white"><div class="text-4xl mb-3">📝</div><h3 class="text-xl font-black mb-3">${escapeHtml(item.lesson_name || 'اختبار تعليمي')}</h3><div class="flex items-center gap-3"><img src="${escapeHtml(getTeacherProfileImage(item))}" alt="صورة المعلم" loading="lazy" class="w-12 h-12 rounded-full object-cover border-2 border-white/50 bg-white"><p class="font-bold">${escapeHtml(item.teacher_name || 'معلم')}</p></div></div><div class="p-6"><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded-full font-bold">${escapeHtml(x)}</span>`).join('') || '-'}</div></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full font-bold">${escapeHtml(x)}</span>`).join('') || '-'}</div></div>${renderSemesterBadge(item, 'bg-amber-100 text-amber-800')}${renderRatingAndViews(contentId)}<a href="${escapeHtml(link)}" onclick="openContent('${contentId}', '${encodedLink}'); return false;" class="bg-gradient-to-r from-amber-500 to-orange-600 text-white py-3 px-4 rounded-xl font-bold block text-center">📝 ابدأ الاختبار</a>${renderCommentsBlock(contentId)}</div></article>`;
       }).join('');
       renderPaginationControls('tests-pagination', 'test', items.length);
     }
@@ -3058,10 +3122,7 @@
         const thumbnailUrl = getVideoThumbnailUrl(video);
         return `
           <article id="content-card-${getSafeDomId(contentId)}" class="video-card card-glass rounded-2xl overflow-hidden shadow-lg">
-            <div class="relative aspect-video bg-gradient-to-br from-slate-800 via-orange-800 to-rose-700 overflow-hidden">
-              ${thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" alt="صورة مصغّرة لفيديو ${escapeHtml(video.lesson_name || '')}" loading="lazy" decoding="async" onerror="this.remove()" class="absolute inset-0 w-full h-full object-cover">` : ''}
-              <span class="absolute inset-0 flex items-center justify-center pointer-events-none"><span class="w-14 h-14 rounded-full bg-black/65 border border-white/70 text-white flex items-center justify-center text-2xl shadow-xl">▶</span></span>
-            </div>
+            ${renderContentPreview(video)}
             <div class="bg-gradient-to-br from-orange-500 to-rose-600 p-6 text-white">
               <h3 class="text-xl font-black leading-snug mb-3">${escapeHtml(video.lesson_name || 'فيديو تعليمي')}</h3>
               <div class="flex items-center gap-3"><img src="${escapeHtml(getTeacherProfileImage(video))}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border-2 border-white/50 bg-white"><p class="font-bold">${escapeHtml(video.teacher_name || 'معلم')}</p></div>
@@ -3119,7 +3180,7 @@
         const teacherImage = getTeacherProfileImage(p);
         const grades = parseMultiValues(p.grade);
         const subjects = parseMultiValues(p.subject);
-        return `<div id="content-card-${getSafeDomId(contentId)}" class="presentation-card card-glass rounded-2xl p-6"><div class="content-title-box-light"><p class="content-title-label-light">عنوان المشاركة</p><h3 class="content-title-text-dark">${p.lesson_name || 'عرض تقديمي'}</h3></div><div class="flex items-center gap-3 mb-3"><img src="${teacherImage}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border border-gray-300 bg-gray-100"><p class="text-gray-700 font-bold">${p.teacher_name || 'معلم'}</p></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-pink-100 text-pink-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-rose-100 text-rose-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div>${renderSemesterBadge(p, 'bg-pink-100 text-pink-800')}${renderRatingAndViews(contentId)}<a href="${p.game_link || '#'}" onclick="openContent('${contentId}', '${encodeURIComponent(p.game_link || '#')}'); return false;" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r from-pink-500 to-rose-600 text-white py-3 px-4 rounded-xl font-bold block text-center">📊 عرض الآن</a>${renderCommentsBlock(contentId)}</div>`;
+        return `<div id="content-card-${getSafeDomId(contentId)}" class="presentation-card card-glass rounded-2xl overflow-hidden">${renderContentPreview(p)}<div class="p-6"><div class="content-title-box-light"><p class="content-title-label-light">عنوان المشاركة</p><h3 class="content-title-text-dark">${p.lesson_name || 'عرض تقديمي'}</h3></div><div class="flex items-center gap-3 mb-3"><img src="${teacherImage}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border border-gray-300 bg-gray-100"><p class="text-gray-700 font-bold">${p.teacher_name || 'معلم'}</p></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-pink-100 text-pink-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-rose-100 text-rose-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div>${renderSemesterBadge(p, 'bg-pink-100 text-pink-800')}${renderRatingAndViews(contentId)}<a href="${p.game_link || '#'}" onclick="openContent('${contentId}', '${encodeURIComponent(p.game_link || '#')}'); return false;" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r from-pink-500 to-rose-600 text-white py-3 px-4 rounded-xl font-bold block text-center">📊 عرض الآن</a>${renderCommentsBlock(contentId)}</div></div>`;
       }).join('');
       renderPaginationControls('presentations-pagination', 'presentation', totalItems);
     }
@@ -3157,7 +3218,7 @@
         const teacherImage = getTeacherProfileImage(f);
         const grades = parseMultiValues(f.grade);
         const subjects = parseMultiValues(f.subject);
-        return `<div id="content-card-${getSafeDomId(contentId)}" class="file-card card-glass rounded-2xl p-6"><div class="content-title-box-light"><p class="content-title-label-light">عنوان المشاركة</p><h3 class="content-title-text-dark">${f.lesson_name || 'ملف مخزن'}</h3></div><div class="flex items-center gap-3 mb-3"><img src="${teacherImage}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border border-gray-300 bg-gray-100"><p class="text-gray-700 font-bold">${f.teacher_name || 'معلم'}</p></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-cyan-100 text-cyan-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div>${renderSemesterBadge(f, 'bg-cyan-100 text-cyan-800')}${renderRatingAndViews(contentId)}<a href="${f.game_link || '#'}" onclick="openContent('${contentId}', '${encodeURIComponent(f.game_link || '#')}'); return false;" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-3 px-4 rounded-xl font-bold block text-center">📁 تحميل الملف</a>${renderCommentsBlock(contentId)}</div>`;
+        return `<div id="content-card-${getSafeDomId(contentId)}" class="file-card card-glass rounded-2xl overflow-hidden">${renderContentPreview(f)}<div class="p-6"><div class="content-title-box-light"><p class="content-title-label-light">عنوان المشاركة</p><h3 class="content-title-text-dark">${f.lesson_name || 'ملف مخزن'}</h3></div><div class="flex items-center gap-3 mb-3"><img src="${teacherImage}" alt="صورة المعلم" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border border-gray-300 bg-gray-100"><p class="text-gray-700 font-bold">${f.teacher_name || 'معلم'}</p></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📚 الصفوف:</p><div class="flex flex-wrap gap-1">${grades.map(x => `<span class="bg-cyan-100 text-cyan-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div><div class="mb-3"><p class="text-xs text-gray-600 font-bold mb-1">📖 المواد:</p><div class="flex flex-wrap gap-1">${subjects.map(x => `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-bold">${x}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></div>${renderSemesterBadge(f, 'bg-cyan-100 text-cyan-800')}${renderRatingAndViews(contentId)}<a href="${f.game_link || '#'}" onclick="openContent('${contentId}', '${encodeURIComponent(f.game_link || '#')}'); return false;" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-3 px-4 rounded-xl font-bold block text-center">📁 تحميل الملف</a>${renderCommentsBlock(contentId)}</div></div>`;
       }).join('');
       renderPaginationControls('files-pagination', 'file', totalItems);
     }
