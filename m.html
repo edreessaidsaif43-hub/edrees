@@ -572,14 +572,19 @@
         </div>
 
         <form id="profile-settings-form" class="card-glass rounded-2xl p-5 space-y-4">
+          <div>
+            <label for="profile-photo" class="block text-gray-700 font-bold mb-2">تغيير الصورة الشخصية</label>
+            <input id="profile-photo" type="file" accept="image/jpeg,image/png,image/webp" class="w-full p-3 border-2 border-fuchsia-300 rounded-xl bg-white text-gray-800">
+            <p class="text-sm text-gray-500 mt-2">اختر صورة JPG أو PNG أو WebP حتى 5MB، ثم اضغط حفظ التعديلات.</p>
+          </div>
           <h3 class="text-xl font-black text-gray-800">⚙️ إعدادات الحساب</h3>
           <div>
             <label class="block text-gray-700 font-bold mb-2">الاسم الكامل</label>
             <input type="text" id="profile-full-name" class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
           </div>
           <div>
-            <label class="block text-gray-700 font-bold mb-2">الإيميل</label>
-            <input type="email" id="profile-email" class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+            <label class="block text-gray-700 font-bold mb-2" for="profile-email">البريد الإلكتروني أو رقم الهاتف</label>
+            <input type="text" id="profile-email" autocomplete="username" dir="ltr" required class="w-full p-3 border-2 border-fuchsia-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
@@ -643,7 +648,7 @@
       </div>
       <form id="submit-form" class="space-y-5 hidden">
         <div><label class="block text-emerald-200 font-bold mb-2">اسم المعلم</label><input type="text" id="teacher-name" required placeholder="أدخل اسمك الكامل" class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"></div>
-        <div><label class="block text-emerald-200 font-bold mb-2">نوع المحتوى</label><select id="content-type" required onchange="updateContentTypeUI()" class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"><option value="">اختر نوع المحتوى</option><option value="game">🎮 لعبة تعليمية</option><option value="image">🖼️ صورة تعليمية</option><option value="test">📝 اختبار تعليمي</option><option value="video">🎬 فيديو تعليمي</option><option value="presentation">📊 عرض تقديمي</option><option value="file">📁 ملف مخزن</option></select></div>
+        <div><label class="block text-emerald-200 font-bold mb-2">نوع المحتوى</label><fieldset id="content-type" class="grid grid-cols-1 sm:grid-cols-2 gap-2"><legend class="text-sm font-bold mb-2">اختر قسمًا واحدًا أو أكثر</legend><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="game" onchange="updateContentTypeUI()" class="w-5 h-5">الألعاب</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="image" onchange="updateContentTypeUI()" class="w-5 h-5">الصور</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="test" onchange="updateContentTypeUI()" class="w-5 h-5">الاختبارات</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="video" onchange="updateContentTypeUI()" class="w-5 h-5">الفيديوهات</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="presentation" onchange="updateContentTypeUI()" class="w-5 h-5">العروض التقديمية</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="file" onchange="updateContentTypeUI()" class="w-5 h-5">الملفات المخزنة</label></fieldset></div>
         <div><label class="block text-emerald-200 font-bold mb-2">الصفوف الدراسية</label><select id="submit-grade" multiple required class="w-full p-4 border-2 border-emerald-400 rounded-xl input-field outline-none bg-white text-gray-900 font-semibold" size="5"><option value="الصف الأول">الصف الأول</option><option value="الصف الثاني">الصف الثاني</option><option value="الصف الثالث">الصف الثالث</option><option value="الصف الرابع">الصف الرابع</option><option value="الصف الخامس">الصف الخامس</option><option value="الصف السادس">الصف السادس</option><option value="الصف السابع">الصف السابع</option><option value="الصف الثامن">الصف الثامن</option><option value="الصف التاسع">الصف التاسع</option><option value="الصف العاشر">الصف العاشر</option><option value="الصف الحادي عشر">الصف الحادي عشر</option><option value="الصف الثاني عشر">الصف الثاني عشر</option></select></div>
         <div><label class="block text-emerald-200 font-bold mb-2">المواد الدراسية</label><select id="submit-subject" multiple required class="w-full p-4 border-2 border-emerald-400 rounded-xl input-field outline-none bg-white text-gray-900 font-semibold" size="5"><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="الرياضيات">الرياضيات</option><option value="العلوم">العلوم</option><option value="الفيزياء">الفيزياء</option><option value="الكيمياء">الكيمياء</option><option value="الأحياء">الأحياء</option><option value="الدراسات الاجتماعية">الدراسات الاجتماعية</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="الحاسوب">الحاسوب</option><option value="التربية الفنية">التربية الفنية</option><option value="التربية الرياضية">التربية الرياضية</option><option value="التربية الموسيقية">التربية الموسيقية</option></select></div>
         <div><label class="block text-emerald-200 font-bold mb-2">الفصل الدراسي</label><select id="submit-semester" required class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"><option value="">اختر الفصل الدراسي</option><option value="الفصل الأول">الفصل الأول</option><option value="الفصل الثاني">الفصل الثاني</option></select></div>
@@ -730,14 +735,7 @@
         <input id="edit-submission-id" type="hidden">
         <div>
           <label class="block text-gray-700 font-bold mb-2">نوع المحتوى</label>
-          <select id="edit-content-type" required onchange="updateEditThumbnailUI()" class="w-full p-3 border-2 border-emerald-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
-            <option value="game">🎮 لعبة تعليمية</option>
-            <option value="image">🖼️ صورة تعليمية</option>
-            <option value="test">📝 اختبار تعليمي</option>
-            <option value="video">🎬 فيديو تعليمي</option>
-            <option value="presentation">📊 عرض تقديمي</option>
-            <option value="file">📁 ملف مخزن</option>
-          </select>
+          <fieldset id="edit-content-type" class="grid grid-cols-1 sm:grid-cols-2 gap-2"><legend class="text-sm font-bold mb-2">اختر قسمًا واحدًا أو أكثر</legend><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="game" onchange="updateEditThumbnailUI()" class="w-5 h-5">الألعاب</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="image" onchange="updateEditThumbnailUI()" class="w-5 h-5">الصور</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="test" onchange="updateEditThumbnailUI()" class="w-5 h-5">الاختبارات</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="video" onchange="updateEditThumbnailUI()" class="w-5 h-5">الفيديوهات</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="presentation" onchange="updateEditThumbnailUI()" class="w-5 h-5">العروض التقديمية</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="file" onchange="updateEditThumbnailUI()" class="w-5 h-5">الملفات المخزنة</label></fieldset>
         </div>
         <div>
           <label class="block text-gray-700 font-bold mb-2">الصفوف الدراسية</label>
@@ -1036,15 +1034,28 @@
       usersIndexReady = true;
     }
 
+
+    const CONTENT_SECTION_LABELS = {"game":"الألعاب","image":"الصور","test":"الاختبارات","video":"الفيديوهات","presentation":"العروض التقديمية","file":"الملفات المخزنة"};
+    function getContentTypes(item) {
+      const types = Array.isArray(item.content_types) && item.content_types.length ? item.content_types : [item.content_type || 'game'];
+      return [...new Set(types)].filter(type => Object.prototype.hasOwnProperty.call(CONTENT_SECTION_LABELS, type));
+    }
+    function selectedContentTypes(id) {
+      return Array.from(document.querySelectorAll('#' + id + ' input:checked')).map(input => input.value);
+    }
+    function contentSectionLabels(item) {
+      return getContentTypes(item).map(type => CONTENT_SECTION_LABELS[type]).join('، ');
+    }
+
     function rebuildContentIndexes() {
       approvedGames = allGames.filter(g => g.status === 'approved');
       approvedByType = {
-        game: approvedGames.filter(g => g.content_type === 'game'),
-        image: approvedGames.filter(g => g.content_type === 'image'),
-        test: approvedGames.filter(g => g.content_type === 'test'),
-        video: approvedGames.filter(g => g.content_type === 'video'),
-        presentation: approvedGames.filter(g => g.content_type === 'presentation'),
-        file: approvedGames.filter(g => g.content_type === 'file')
+        game: approvedGames.filter(g => getContentTypes(g).includes('game')),
+        image: approvedGames.filter(g => getContentTypes(g).includes('image')),
+        test: approvedGames.filter(g => getContentTypes(g).includes('test')),
+        video: approvedGames.filter(g => getContentTypes(g).includes('video')),
+        presentation: approvedGames.filter(g => getContentTypes(g).includes('presentation')),
+        file: approvedGames.filter(g => getContentTypes(g).includes('file'))
       };
 
       const stats = {};
@@ -1062,9 +1073,7 @@
           };
         }
         stats[key].count += 1;
-        if (stats[key].byType[game.content_type] != null) {
-          stats[key].byType[game.content_type] += 1;
-        }
+        getContentTypes(game).forEach(type => { if (stats[key].byType[type] != null) stats[key].byType[type] += 1; });
         stats[key].items.push(game);
       });
       teacherStatsByKey = stats;
@@ -1627,6 +1636,12 @@
       return String(email).trim().toLowerCase();
     }
 
+    function isValidAccountContact(value) {
+      const contact = normalizeEmail(value);
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)
+        || /^\+?[0-9]{8,15}$/.test(contact.replace(/[\s()-]/g, ''));
+    }
+
     function normalizeUserRecord(user = {}) {
       const gender = user.gender === 'female' ? 'female' : 'male';
       const rawProfileImage = user.profile_image || '';
@@ -1649,7 +1664,7 @@
 
     function isOriginalUserEmail(email = '') {
       const normalized = normalizeEmail(email);
-      if (!normalized || !normalized.includes('@')) return false;
+      if (!isValidAccountContact(normalized)) return false;
       if (normalized.endsWith(RECOVERED_EMAIL_DOMAIN)) return false;
       return true;
     }
@@ -2182,7 +2197,7 @@
         const status = getSubmissionStatusLabel(item.status);
         const canEdit = !!item.id;
         const encodedId = encodeURIComponent(String(item.id || ''));
-        const typeLabel = item.content_type === 'game' ? '🎮 لعبة' : item.content_type === 'image' ? '🖼️ صورة' : item.content_type === 'test' ? '📝 اختبار' : item.content_type === 'video' ? '🎬 فيديو' : item.content_type === 'presentation' ? '📊 عرض' : '📁 ملف';
+        const typeLabel = contentSectionLabels(item);
 
         return `
           <div class="card-glass rounded-xl p-4 border border-white/20">
@@ -2280,7 +2295,7 @@
       }
       activeMySubmission = item;
       document.getElementById('edit-submission-id').value = item.id || '';
-      document.getElementById('edit-content-type').value = item.content_type || 'game';
+      document.querySelectorAll('#edit-content-type input').forEach(input => { input.checked = getContentTypes(item).includes(input.value); });
       updateEditThumbnailUI();
       document.getElementById('edit-submit-semester').value = normalizeSemester(item.semester);
       document.getElementById('edit-lesson-name').value = item.lesson_name || '';
@@ -2305,7 +2320,8 @@
         return;
       }
 
-      const contentType = document.getElementById('edit-content-type').value;
+      const contentTypes = selectedContentTypes('edit-content-type');
+      const contentType = contentTypes[0] || '';
       const semester = normalizeSemester(document.getElementById('edit-submit-semester').value);
       const grades = collectMultiSelectValues('edit-submit-grade');
       const subjects = collectMultiSelectValues('edit-submit-subject');
@@ -2321,8 +2337,8 @@
       setButtonLoadingState(saveBtn, true, '⏳ جاري حفظ التعديلات...');
 
       try {
-        const openingFrameUrl = contentType === 'video'
-          ? (gameLink === activeMySubmission.game_link && activeMySubmission.content_type === 'video'
+        const openingFrameUrl = contentTypes.includes('video')
+          ? (gameLink === activeMySubmission.game_link && getContentTypes(activeMySubmission).includes('video')
               ? activeMySubmission.opening_frame_url || ''
               : await createOpeningFrameUrl(gameLink, saveBtn))
           : '';
@@ -2340,6 +2356,7 @@
           semester,
           lesson_name: lessonName,
           content_type: contentType,
+          content_types: contentTypes,
           opening_frame_url: openingFrameUrl,
           reviewed_at: null,
           updated_at: new Date().toISOString()
@@ -2468,7 +2485,7 @@
 
       const stats = getMemberStats(currentUser.email, currentUser.full_name, currentUser.user_id);
       const selectedGender = currentUser.gender === 'female' ? 'female' : 'male';
-      const profileImage = getDefaultProfileImageByGender(selectedGender);
+      const profileImage = currentUser.profile_image || getDefaultProfileImageByGender(selectedGender);
 
       const fullNameView = document.getElementById('profile-full-name-view');
       const usernameView = document.getElementById('profile-email-view');
@@ -2587,7 +2604,7 @@
     }
 
     function getTeacherProfileImage(item) {
-      const user = findUserForTeacher(item.teacher_name, item.teacher_email || item.teacher_username);
+      const user = findTeacherAccount(item) || findUserForTeacher(item.teacher_name, item.teacher_email || item.teacher_username);
       return (user && user.profile_image) ? user.profile_image : getDefaultProfileImageByGender(user?.gender || 'male');
     }
 
@@ -2769,7 +2786,7 @@
         if (!key) return;
         if (!stats[key]) stats[key] = { key, name: item.teacher_name || 'معلم غير معروف', count: 0, byType: { game: 0, image: 0, test: 0, video: 0, presentation: 0, file: 0 }, items: [] };
         stats[key].count += 1;
-        if (stats[key].byType[item.content_type] != null) stats[key].byType[item.content_type] += 1;
+        getContentTypes(item).forEach(type => { if (stats[key].byType[type] != null) stats[key].byType[type] += 1; });
         stats[key].items.push(item);
       });
       starSeasonStats = stats;
@@ -3251,8 +3268,8 @@
         }))
         .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
-      presentations = allGames.filter(g => g.content_type === 'presentation');
-      storedFiles = allGames.filter(g => g.content_type === 'file');
+      presentations = allGames.filter(g => getContentTypes(g).includes('presentation'));
+      storedFiles = allGames.filter(g => getContentTypes(g).includes('file'));
 
       if (persistCache) {
         writeLocalJson(CONTENT_CACHE_KEY, { ts: Date.now(), data: allGames });
@@ -3342,7 +3359,7 @@
       container.innerHTML = pending.map(item => {
         const grades = Array.isArray(item.grade) ? item.grade : (typeof item.grade === 'string' ? item.grade.split(',').map(s => s.trim()) : []);
         const subjects = Array.isArray(item.subject) ? item.subject : (typeof item.subject === 'string' ? item.subject.split(',').map(s => s.trim()) : []);
-        const typeLabel = item.content_type === 'game' ? '🎮 لعبة' : item.content_type === 'image' ? '🖼️ صورة' : item.content_type === 'test' ? '📝 اختبار' : item.content_type === 'video' ? '🎬 فيديو' : item.content_type === 'presentation' ? '📊 عرض' : '📁 ملف';
+        const typeLabel = contentSectionLabels(item);
         return `
           <div class="card-glass rounded-2xl p-4 border border-white/20">
             <div class="flex flex-wrap justify-between items-start gap-2 mb-3">
@@ -3850,7 +3867,9 @@
       const users = loadUsers();
       const idx = users.findIndex(u => normalizeEmail(u.email) === normalizeEmail(userLike.email));
       if (idx >= 0) {
+        const savedPhoto = users[idx].profile_image;
         users[idx] = { ...users[idx], ...userLike };
+        if (savedPhoto && !isDefaultProfileImage(savedPhoto) && isDefaultProfileImage(userLike.profile_image)) users[idx].profile_image = savedPhoto;
       } else {
         users.push(userLike);
       }
@@ -4047,7 +4066,58 @@
       const preview = document.getElementById('profile-preview');
       if (!preview) return;
       const g = document.getElementById('profile-gender').value === 'female' ? 'female' : 'male';
+      const currentImage = getCurrentUser()?.profile_image;
+      if (document.getElementById('profile-photo').files.length || (currentImage && !isDefaultProfileImage(currentImage))) return;
       preview.src = getDefaultProfileImageByGender(g);
+    });
+
+    async function prepareProfilePhoto(file) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+        throw new Error('اختر صورة JPG أو PNG أو WebP لا تتجاوز 5MB');
+      }
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      let timer;
+      try {
+        await new Promise((resolve, reject) => {
+          timer = setTimeout(() => reject(new Error('تعذر تجهيز الصورة. جرّب صورة أخرى.')), 10000);
+          img.onload = resolve;
+          img.onerror = () => reject(new Error('تعذر قراءة الصورة'));
+          img.src = objectUrl;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 320;
+        const ctx = canvas.getContext('2d');
+        const size = Math.min(img.naturalWidth, img.naturalHeight);
+        if (!size) throw new Error('الصورة غير صالحة');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 320, 320);
+        ctx.drawImage(img, (img.naturalWidth - size) / 2, (img.naturalHeight - size) / 2, size, size, 0, 0, 320, 320);
+        return canvas.toDataURL('image/jpeg', 0.82);
+      } finally {
+        clearTimeout(timer);
+        img.onload = img.onerror = null;
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
+
+    let profilePhotoTask = Promise.resolve(null);
+    let profilePhotoOwner = '';
+    document.getElementById('profile-photo').addEventListener('change', event => {
+      const file = event.target.files[0];
+      const user = getCurrentUser();
+      profilePhotoOwner = String(user?.user_id || user?.email || '');
+      const task = file ? prepareProfilePhoto(file) : Promise.resolve(null);
+      profilePhotoTask = task;
+      task.then(photo => {
+        if (profilePhotoTask === task) document.getElementById('profile-preview').src = photo || user?.profile_image || getDefaultProfileImageByGender(user?.gender);
+      }).catch(error => {
+        if (profilePhotoTask !== task) return;
+        event.target.value = '';
+        profilePhotoTask = Promise.resolve(null);
+        document.getElementById('profile-preview').src = user?.profile_image || getDefaultProfileImageByGender(user?.gender);
+        showToast(error.message, 'error');
+      });
     });
 
     document.getElementById('profile-settings-form').addEventListener('submit', async (e) => {
@@ -4073,18 +4143,18 @@
         const notificationEnabled = document.getElementById('profile-notifications')?.checked !== false;
 
         if (!fullName || !email) {
-          showToast('❌ الاسم الكامل والإيميل مطلوبان', 'error');
+          showToast('❌ الاسم الكامل والبريد الإلكتروني أو رقم الهاتف مطلوبان', 'error');
           return;
         }
-        if (!email.includes('@')) {
-          showToast('❌ يرجى إدخال إيميل صحيح', 'error');
+        if (!isValidAccountContact(email)) {
+          showToast('❌ يرجى إدخال بريد إلكتروني أو رقم هاتف صحيح', 'error');
           return;
         }
 
         const users = loadUsers();
         const emailConflict = users.some(u => normalizeEmail(u.email) === email && normalizeEmail(u.email) !== normalizeEmail(currentUser.email));
         if (emailConflict) {
-          showToast('❌ هذا الإيميل مستخدم بالفعل، يرجى تغييره', 'error');
+          showToast('❌ البريد الإلكتروني أو رقم الهاتف مستخدم في حساب آخر', 'error');
           return;
         }
         const nameConflict = users.some(u =>
@@ -4096,6 +4166,7 @@
           return;
         }
 
+        const selectedPhoto = profilePhotoOwner === String(currentUser.user_id || currentUser.email || '') ? await profilePhotoTask : null;
         const updatedUser = {
           ...currentUser,
           full_name: fullName,
@@ -4104,13 +4175,13 @@
           language,
           background,
           notification_enabled: notificationEnabled,
-          profile_image: getDefaultProfileImageByGender(gender)
+          profile_image: selectedPhoto || (currentUser.profile_image && !isDefaultProfileImage(currentUser.profile_image) ? currentUser.profile_image : getDefaultProfileImageByGender(gender))
         };
 
         const oldEmail = currentUser.email;
 
         const idx = users.findIndex(u => normalizeEmail(u.email) === normalizeEmail(oldEmail));
-        if (idx !== -1) users[idx] = updatedUser;
+        if (idx !== -1) users[idx] = updatedUser; else users.push(updatedUser);
         saveUsers(users);
         const saved = await forceSaveRemoteStorageNow();
         if (!saved) {
@@ -4118,6 +4189,8 @@
           return;
         }
         setCurrentUser(updatedUser);
+        document.getElementById('profile-photo').value = '';
+        profilePhotoTask = Promise.resolve(null);
 
         if (normalizeEmail(oldEmail) !== normalizeEmail(email) || currentUser.full_name !== fullName) {
           migrateUserReferences(oldEmail, email, fullName);
@@ -4155,15 +4228,16 @@
 
     function updateContentTypeUI() {
       const input = document.getElementById('content-file');
-      const contentType = document.getElementById('content-type').value;
-      const isVideo = contentType === 'video';
-      input.accept = isVideo ? 'video/*,.mp4,.webm,.mov,.m4v,.ogv' : contentType === 'image' ? 'image/*,.jpg,.jpeg,.png,.webp,.gif' : '';
+      const contentTypes = selectedContentTypes('content-type');
+      const contentType = contentTypes[0] || '';
+      const isVideo = contentTypes.includes('video');
+      input.accept = contentTypes.length === 1 && isVideo ? 'video/*,.mp4,.webm,.mov,.m4v,.ogv' : contentTypes.length === 1 && contentType === 'image' ? 'image/*,.jpg,.jpeg,.png,.webp,.gif' : '';
       document.getElementById('video-frame-note').classList.toggle('hidden', !isVideo);
       if (input.files?.length) validateContentFile();
     }
 
     function updateEditThumbnailUI() {
-      const isVideo = document.getElementById('edit-content-type').value === 'video';
+      const isVideo = selectedContentTypes('edit-content-type').includes('video');
       document.getElementById('edit-video-frame-note').classList.toggle('hidden', !isVideo);
     }
 
@@ -4273,13 +4347,13 @@
         showToast('❌ حجم الملف يتجاوز 100 MB', 'error');
         return false;
       }
-      if (document.getElementById('content-type').value === 'video' && !isVideoFile(file)) {
+      if (selectedContentTypes('content-type').length === 1 && selectedContentTypes('content-type').includes('video') && !isVideoFile(file)) {
         input.value = '';
         status.textContent = 'اختر ملف فيديو بصيغة مدعومة.';
         showToast('❌ اختر ملف فيديو', 'error');
         return false;
       }
-      if (document.getElementById('content-type').value === 'image' && !String(file.type || '').startsWith('image/')) {
+      if (selectedContentTypes('content-type').length === 1 && selectedContentTypes('content-type').includes('image') && !String(file.type || '').startsWith('image/')) {
         input.value = '';
         status.textContent = 'اختر ملف صورة بصيغة مدعومة.';
         showToast('❌ اختر ملف صورة', 'error');
@@ -4326,7 +4400,8 @@
       const teacherName = String(teacherNameRaw).replace(/\s+/g, ' ');
       const teacherKey = normalizeTeacherName(teacherName);
 
-      const contentType = document.getElementById('content-type').value;
+      const contentTypes = selectedContentTypes('content-type');
+      const contentType = contentTypes[0] || '';
       const semester = normalizeSemester(document.getElementById('submit-semester').value);
       const gradeSelect = document.getElementById('submit-grade');
       const selectedGrades = Array.from(gradeSelect.selectedOptions).map(option => option.value);
@@ -4345,7 +4420,7 @@
         showToast('❌ حجم الملف يتجاوز 100 MB', 'error');
         return;
       }
-      if (isFile && contentType === 'video' && !isVideoFile(contentFile)) {
+      if (isFile && contentTypes.length === 1 && contentType === 'video' && !isVideoFile(contentFile)) {
         showToast('❌ اختر ملف فيديو', 'error');
         return;
       }
@@ -4360,7 +4435,7 @@
       }
 
       try {
-        const frameSource = contentType === 'video' ? (isFile ? contentFile : contentLink) : null;
+        const frameSource = contentTypes.includes('video') && (!isFile || isVideoFile(contentFile)) ? (isFile ? contentFile : contentLink) : null;
         const framePromise = frameSource ? createOpeningFrameUrlWithoutBlocking(frameSource) : Promise.resolve('');
         const contentPromise = isFile ? uploadContentFile(contentFile, submitBtn) : Promise.resolve(contentLink);
         const [uploadedContentLink, openingFrameUrl] = await Promise.all([contentPromise, framePromise]);
@@ -4379,6 +4454,7 @@
           opening_frame_url: openingFrameUrl,
           status: 'pending',
           content_type: contentType,
+          content_types: contentTypes,
           created_at: new Date().toISOString()
         };
 

@@ -86,6 +86,7 @@ function normalizeContent(input = {}) {
     opening_frame_url: String(input.opening_frame_url || "").trim(),
     status: String(input.status || "pending").trim(),
     content_type: String(input.content_type || "game").trim(),
+    content_types: [...new Set(stringifyArray(input.content_types).length ? stringifyArray(input.content_types) : [String(input.content_type || "game").trim()])].filter(type => ["game", "image", "test", "video", "presentation", "file"].includes(type)),
     created_at: createdAt,
     reviewed_at: input.reviewed_at || "",
   };
@@ -404,6 +405,7 @@ export default async function handler(req, res) {
           semester: body.semester ?? body.game?.semester ?? current.semester,
           lesson_name: body.lesson_name ?? body.game?.lesson_name ?? current.lesson_name,
           content_type: body.content_type ?? body.game?.content_type ?? current.content_type,
+          content_types: body.content_types ?? body.game?.content_types ?? (body.content_type || body.game?.content_type ? [body.content_type || body.game.content_type] : current.content_types),
           status: body.status ?? body.game?.status ?? current.status,
           game_link: body.gameLink ?? body.game_link ?? body.game?.game_link ?? current.game_link,
           thumbnail_url: body.thumbnail_url ?? body.game?.thumbnail_url ?? current.thumbnail_url,

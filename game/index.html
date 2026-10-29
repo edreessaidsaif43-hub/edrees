@@ -1,0 +1,83 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>مكتبة الألعاب</title><style id="subscription-style">
+.page-section-label{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 14px;border-radius:8px;font-size:15px;font-weight:900}
+.page-section-label span{font-size:18px}
+.subscription-section{padding:16px;border:1px solid #fed7aa;border-radius:10px;background:#fff7ed;margin-bottom:28px}
+.subscription-section .page-section-label{background:#ffedd5;color:#9a3412}
+.preparation-section{padding:18px;border:1px solid #bfdbfe;border-radius:10px;background:#f8fbff}
+.preparation-section .page-section-label{background:#dbeafe;color:#174ea6}
+.subscription-section .subscription-card{margin:0}
+@media(max-width:760px){.subscription-section,.preparation-section{padding:12px}.subscription-section{margin-bottom:22px}}
+.subscription-card{background:#fff;border:1px solid #dbe7f5;border-radius:12px;padding:16px;margin:16px 0;box-shadow:0 8px 24px rgba(15,23,42,.06);direction:rtl;text-align:right}
+.subscription-card.active{border-color:#b7e4c7;background:#f7fff9}
+.subscription-card.pending{border-color:#fde68a;background:#fffbea}
+.subscription-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.subscription-title{font-weight:900;color:#163b72;font-size:16px}
+.subscription-badge{background:#e8f1ff;color:#174ea6;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800}
+.subscription-text{color:#475569;font-size:13px;line-height:1.7;margin:6px 0 10px}.transfer-number{display:inline-flex;align-items:center;direction:ltr;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:8px;padding:3px 9px;margin:0 4px;font-weight:900;font-size:15px;letter-spacing:.4px;box-shadow:0 2px 8px rgba(251,146,60,.18)}
+.subscription-form{display:grid;grid-template-columns:minmax(160px,1fr) minmax(180px,1.2fr) auto;gap:10px;align-items:end}
+.subscription-form label{display:block;font-size:12px;font-weight:800;color:#334155;margin-bottom:5px}
+.subscription-form select,.subscription-form input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font-family:inherit;font-size:13px}.subscription-form select[multiple]{min-height:132px}.subscription-amount{grid-column:1 / -1;background:#eef6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;color:#174ea6;font-size:13px;font-weight:900}
+.subscription-form button,.subscription-action{border:none;border-radius:8px;padding:10px 14px;background:#1a56a0;color:#fff;font-family:inherit;font-weight:900;cursor:pointer;min-height:39px}
+.subscription-form button:disabled{opacity:.65;cursor:not-allowed}
+.subscription-status{font-size:12px;color:#64748b;margin-top:10px;line-height:1.7}
+#subscription-subject{display:none}
+.subscription-subject-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;min-height:96px;max-height:220px;overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid #dbe7f5;border-radius:10px;background:#f8fafc;padding:8px}
+.subscription-subject-choice{display:flex!important;align-items:center;gap:7px;margin:0!important;padding:8px 9px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#334155;font-size:13px;line-height:1.45;cursor:pointer;min-height:42px}
+.subscription-subject-choice:has(input:checked){border-color:#60a5fa;background:#eff6ff;color:#174ea6}
+.subscription-subject-choice input{width:auto!important;min-width:16px;margin:0;flex:0 0 auto}
+.subscription-subject-choice span{min-width:0;overflow-wrap:anywhere}
+.subscription-subject-empty{grid-column:1 / -1;color:#64748b;font-size:13px;padding:10px;line-height:1.7}
+.subscription-subject-summary{display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-top:8px;color:#64748b;font-size:12px}
+.subscription-subject-chip{border:1px solid #bfdbfe;background:#eff6ff;color:#174ea6;border-radius:999px;padding:5px 9px;font-family:inherit;font-weight:800;cursor:pointer;max-width:100%;white-space:normal;text-align:right;line-height:1.5}
+@media(min-width:761px){
+  .subscription-card{padding:18px 20px}
+  .subscription-form{grid-template-columns:minmax(190px,.75fr) minmax(340px,1.45fr) minmax(180px,.65fr);align-items:stretch;gap:12px}
+  .subscription-form>div:nth-child(1){grid-column:1;grid-row:1}
+  .subscription-form>div:nth-child(2){grid-column:2;grid-row:1 / span 2}
+  .subscription-form>div:nth-child(3){grid-column:1;grid-row:2}
+  .subscription-form button{grid-column:3;grid-row:2;align-self:end}
+  .subscription-amount{grid-column:3;grid-row:1;align-self:start;min-height:44px;display:flex;align-items:center}
+  #subscription-grade{height:43px}
+  #subscription-subject{min-height:190px}
+}
+@media(max-width:760px){
+  .subscription-card{padding:14px;margin:12px 0;border-radius:10px}
+  .subscription-head{align-items:flex-start}
+  .subscription-badge{border-radius:8px}
+  .subscription-form{grid-template-columns:1fr;gap:12px;align-items:stretch}
+  .subscription-form select,.subscription-form input,.subscription-form button{min-height:44px;font-size:14px}
+  .subscription-form button{width:100%}
+  .subscription-subject-picker{grid-template-columns:1fr;max-height:280px;padding:10px;gap:9px}
+  .subscription-subject-choice{min-height:46px;padding:10px 11px;font-size:14px}
+  .subscription-subject-summary{margin-top:10px}
+  .subscription-subject-chip{border-radius:8px}
+}
+</style><style>body{margin:0;background:#f2f6fb;color:#163b72;font:16px Tahoma,Arial}main{max-width:1050px;margin:auto;padding:24px}nav,.row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.card{background:white;border:1px solid #dbe7f5;border-radius:16px;padding:24px;margin:20px 0}h1{font-size:32px}label{display:block;margin:12px 0}select,input,button{font:inherit;padding:11px;border-radius:8px;border:1px solid #bacadd;max-width:100%}button,.launch{background:#1a56a0;color:white;cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}#names{max-height:180px;overflow:auto;line-height:1.9}#notice{padding:12px;white-space:pre-line}a{color:#1a56a0}small{color:#567}</style></head><body><main><nav><a href="/">الرئيسية</a><a href="/t">تحضير الدروس</a><a id="login" href="#">تسجيل الدخول</a></nav><h1>🎮 مكتبة الألعاب</h1><p>اختر المادة المفعلة في اشتراك التحضير، وأضف طلاب الصف ثم اختر اللعبة.</p>    <section class="subscription-section" aria-labelledby="subscription-section-title">
+      <div class="page-section-label" id="subscription-section-title"><span>💳</span> الاشتراك وتفعيل المواد</div>
+    <div class="subscription-card" id="subscription-card">
+      <div class="subscription-head">
+        <div class="subscription-title">اشتراك المواد</div>
+        <div class="subscription-badge" id="subscription-badge">2 ريال لكل مادة</div>
+      </div>
+      <div class="subscription-text" id="subscription-text">
+        اختر الصف ثم المادة، حوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع الإيصال. الاشتراك ينتهي في 10/06 من كل سنة.
+      </div>
+      <div class="subscription-form">
+        <div>
+          <label for="subscription-grade">الصف</label>
+          <select id="subscription-grade" onchange="fillSubscriptionSubjectOptions()"></select>
+        </div>
+        <div>
+          <label for="subscription-subject">المواد المطلوبة <span style="font-weight:700;color:#64748b;font-size:11px">(يمكن اختيار أكثر من مادة)</span></label>
+          <select id="subscription-subject" multiple onchange="updateSubscriptionAmount()"></select>
+        </div>
+        <div>
+          <label for="subscription-receipt">صورة الإيصال فقط</label>
+          <input id="subscription-receipt" type="file" accept="image/*">
+        </div>
+        <button type="button" id="subscription-submit" onclick="submitSubscriptionRequest()">إرسال الإيصال</button>
+        <div class="subscription-amount" id="subscription-amount">قيمة الاشتراك: 2 ريال عماني لكل مادة</div>
+      </div>
+      <div class="subscription-status" id="subscription-status">سجل الدخول ثم أرسل الإيصال ليتم تفعيل المادة.</div>
+    </div>
+    </section><section class="card"><h2>المواد المشترك بها</h2><div class="row"><label>الصف <select id="library-grade"></select></label><label>المادة <select id="library-subject"></select></label><button id="refresh">تحديث الاشتراك</button></div></section><section class="card"><h2>طلاب الصف</h2><p>ارفع ملف Excel ثم اختر ورقة العمل وعمود أسماء الطلاب. تُحفظ القائمة لهذا الحساب والصف في هذا المتصفح وتظهر تلقائيًا في الألعاب.</p><input id="excel" type="file" accept=".xlsx,.xls,.csv"><div class="row"><label>ورقة العمل <select id="sheet"></select></label><label>عمود الأسماء <select id="column"></select></label><label><input id="header" type="checkbox" checked> الصف الأول عنوان</label><button id="import" disabled>إضافة الطلاب</button><button id="clear">مسح القائمة</button></div><p id="count"></p><ol id="names"></ol></section><section class="card"><h2>game1 — مغامرة سند التعليمية</h2><p>لعبة منصات وأسئلة تعليمية. اختر الفصل والوحدة والدروس داخل اللعبة.</p><button id="launch" disabled>اختيار اللعبة وبدء الإعداد ▶</button></section><p id="notice" role="status" aria-live="polite"></p></main><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="/game/game1/data/index.js"></script><script src="/game/subscriptions.js"></script><script src="/game/library.js"></script></body></html>
