@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>غلاف اللعبة</title>
+<style>
+  :root{--navy:#1d2b53;--orange:#ff7a1a;--orange-dk:#d45a00;--gold:#ffd23f;--teal:#16a3a0;--cream:#fff8ec}
+  html,body{margin:0;background:#000}
+  #cover{position:relative;width:var(--w);height:var(--h);overflow:hidden;font-family:"DejaVu Sans","Segoe UI",Tahoma,sans-serif}
+  canvas{position:absolute;inset:0;width:100%;height:100%}
+  .shade{position:absolute;inset:0;background:linear-gradient(270deg,rgba(255,250,235,.0) 0%,rgba(255,250,235,0) 40%,rgba(29,43,83,.0) 100%)}
+  .text{position:absolute;top:var(--tt);right:var(--tr);width:var(--tw);display:grid;gap:calc(var(--u)*1.4);justify-items:start;text-align:right}
+  .kicker{background:var(--teal);color:#fff;font-weight:800;font-size:calc(var(--u)*2.2);padding:calc(var(--u)*.6) calc(var(--u)*1.8);border-radius:999px;box-shadow:0 calc(var(--u)*.4) 0 #0d7472}
+  h1{margin:0;font-size:calc(var(--u)*8.4);line-height:1.12;color:#fff;font-weight:900;
+     text-shadow:0 calc(var(--u)*.5) 0 var(--navy),0 calc(var(--u)*1) 0 rgba(0,0,0,.18);-webkit-text-stroke:calc(var(--u)*.35) var(--navy);paint-order:stroke fill}
+  h1 span{color:var(--gold)}
+  .tag{margin:0;font-size:calc(var(--u)*2.6);font-weight:800;color:var(--navy);background:rgba(255,255,255,.88);padding:calc(var(--u)*.7) calc(var(--u)*1.8);border-radius:calc(var(--u)*1.4)}
+  .chips{display:flex;flex-wrap:wrap;gap:calc(var(--u)*1)}
+  .chip{background:#fff;color:var(--navy);font-weight:800;font-size:calc(var(--u)*2);padding:calc(var(--u)*.6) calc(var(--u)*1.5);border-radius:999px;box-shadow:0 calc(var(--u)*.35) 0 rgba(29,43,83,.25);display:flex;align-items:center;gap:calc(var(--u)*.7)}
+  .coin{width:calc(var(--u)*2.2);height:calc(var(--u)*2.2);border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff2a8,#ffd23f 45%,#c98a00)}
+  .play{background:var(--orange);color:#fff;font-weight:900;font-size:calc(var(--u)*3);padding:calc(var(--u)*1) calc(var(--u)*3.4);border-radius:calc(var(--u)*1.8);box-shadow:0 calc(var(--u)*.6) 0 var(--orange-dk)}
+  .hero{position:absolute;filter:drop-shadow(0 calc(var(--u)*1) calc(var(--u)*.8) rgba(0,0,0,.25))}
+  .qcard{position:absolute;background:#fff;border-radius:calc(var(--u)*1.6);padding:calc(var(--u)*1.2) calc(var(--u)*1.6);box-shadow:0 calc(var(--u)*.7) 0 rgba(0,0,0,.2);transform:rotate(-4deg);display:grid;gap:calc(var(--u)*.8);width:calc(var(--u)*24)}
+  .qcard b{font-size:calc(var(--u)*1.5);background:var(--gold);color:var(--navy);border-radius:999px;padding:calc(var(--u)*.2) calc(var(--u)*1);justify-self:start}
+  .qcard p{margin:0;font-weight:800;color:var(--navy);font-size:calc(var(--u)*2)}
+  .qcard .ops{display:flex;gap:calc(var(--u)*.8)}
+  .qcard .op{flex:1;text-align:center;border:calc(var(--u)*.25) solid #e7dcc7;border-radius:calc(var(--u)*1);padding:calc(var(--u)*.5);font-weight:900;color:var(--navy);font-size:calc(var(--u)*1.9)}
+  .qcard .op.ok{border-color:#22b35e;background:#e6f8ee}
+  .fc{position:absolute;width:calc(var(--u)*4);height:calc(var(--u)*4);border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff2a8,#ffd23f 45%,#c98a00);box-shadow:0 0 0 calc(var(--u)*.35) #c98a00 inset}
+</style>
+</head>
+<body>
+<div id="cover">
+  <canvas id="bg"></canvas>
+  <div class="text">
+    <span class="kicker">لعبة تعليمية للصفوف 1 – 12</span>
+    <h1>رحلة<br><span>المعرفة</span></h1>
+    <p class="tag">اجرِ واقفز واجمع الذهب… وأجب عن أسئلة دروسك!</p>
+    <div class="chips">
+      <span class="chip"><i class="coin"></i>كل 5 ذهبيات = سؤال</span>
+      <span class="chip">❤ 3 أرواح</span>
+      <span class="chip">📱 هاتف وكمبيوتر</span>
+    </div>
+    <span class="play">ابدأ اللعب ▶</span>
+  </div>
+  <img class="hero" id="girl" src="../assets/characters/girl-jump.png" alt="">
+  <img class="hero" id="boy" src="../assets/characters/boy-jump.png" alt="">
+  <div class="qcard" id="qc"><b>صح أو خطأ</b><p>تحتاج النباتات إلى الضوء لتنمو.</p><div class="ops"><span class="op ok">✓ صح</span><span class="op">✗ خطأ</span></div></div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/level.js"></script>
+<script src="../js/render.js"></script>
+<script>
+  // P = {w,h,theme,stage,camX}
+  var P = Object.assign({ w: 1600, h: 900, stage: 1, camX: 1200 }, JSON.parse(decodeURIComponent(location.hash.slice(1) || '{}')));
+  var root = document.getElementById('cover');
+  var u = P.w / P.h < 1.3 ? P.w / 105 : Math.min(P.w / 160, P.h / 90);
+  var sq = P.w / P.h < 1.3;
+  root.style.setProperty('--w', P.w + 'px'); root.style.setProperty('--h', P.h + 'px'); root.style.setProperty('--u', u + 'px');
+  root.style.setProperty('--tt', (sq ? P.h * 0.06 : P.h * 0.12) + 'px');
+  root.style.setProperty('--tr', (P.w * 0.05) + 'px');
+  root.style.setProperty('--tw', (sq ? P.w * 0.9 : P.w * 0.5) + 'px');
+  var cv = document.getElementById('bg'); cv.width = P.w; cv.height = P.h;
+  var ctx = cv.getContext('2d');
+  var L = window.LevelGen.generate(P.stage, 6, 'غلاف');
+  var VH = 360, s = P.h / VH, VW = P.w / s;
+  ctx.setTransform(s, 0, 0, s, 0, 0);
+  var G = { level: L, camX: P.camX, player: { x: -999, y: 0, w: 0, h: 0, invuln: 0, onGround: true, vx: 0, anim: 0, facing: 1 }, particles: [] };
+  window.Render.frame(ctx, G, VW, VH, 1.3);
+  // ذهبيات متطايرة حول الشخصيات
+  var place = function (el, x, y, h) { el.style.left = x + 'px'; el.style.top = y + 'px'; if (h) el.style.height = h + 'px'; };
+  var girl = document.getElementById('girl'), boy = document.getElementById('boy'), qc = document.getElementById('qc');
+  if (sq) {
+    place(boy, P.w * 0.04, P.h * 0.46, P.h * 0.48);
+    place(girl, P.w * 0.36, P.h * 0.43, P.h * 0.52);
+    place(qc, P.w * 0.6, P.h * 0.66);
+  } else {
+    place(boy, P.w * 0.05, P.h * 0.30, P.h * 0.62);
+    place(girl, P.w * 0.24, P.h * 0.20, P.h * 0.68);
+    place(qc, P.w * 0.36, P.h * 0.70);
+  }
+  [[0.18, 0.16], [0.42, 0.12], [0.08, 0.2], [0.47, 0.4], [0.03, 0.55]].forEach(function (c, i) {
+    if (sq && i === 1) return;
+    var d = document.createElement('i'); d.className = 'fc';
+    d.style.left = (P.w * c[0]) + 'px'; d.style.top = (P.h * c[1] + (sq ? P.h * 0.22 : 0)) + 'px';
+    d.style.transform = 'scale(' + (0.8 + (i % 3) * 0.2) + ')';
+    root.appendChild(d);
+  });
+</script>
+</body>
+</html>
