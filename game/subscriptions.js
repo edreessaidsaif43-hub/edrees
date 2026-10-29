@@ -417,9 +417,11 @@ async function refreshSubscriptionStatus() {
     updateSubscriptionPanel();
     return subscriptionState;
   }
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),10000);
   try {
-    const response = await fetch(subscriptionApiUrl('/api/subscriptions?action=status&userId=' + encodeURIComponent(userId)));
-    const data = await response.json().catch(() => ({}));
+    const response = await fetch(subscriptionApiUrl('/api/subscriptions?action=status&userId=' + encodeURIComponent(userId)), {signal:controller.signal});
+    const data = await response.json().catch(error=>{if(controller.signal.aborted)throw error;throw Error('استجابة الاشتراك غير صحيحة. أعد المحاولة.');});
     if (!response.ok) throw new Error(data.message || 'تعذر جلب حالة الاشتراك.');
     subscriptionState = {
       loaded: true,
@@ -430,9 +432,9 @@ async function refreshSubscriptionStatus() {
       paymentNumber: data.paymentNumber || '91470590'
     };
   } catch (error) {
-    subscriptionState = { loaded: true, activeGrades: [], activeSubjects: [], pending: [], subscriptions: [], paymentNumber: '91470590' };
+    subscriptionState = { loaded: true, activeGrades: [], activeSubjects: [], pending: [], subscriptions: [], paymentNumber: '91470590', loadError:error.name==='AbortError'?'تأخر التحقق من الاشتراك. تحقق من الاتصال ثم أعد المحاولة.':(error.message||'تعذر التحقق من الاشتراك. أعد المحاولة.') };
     console.warn('subscription status failed', error);
-  }
+  } finally {clearTimeout(timer);}
   updateSubscriptionPanel();
   return subscriptionState;
 }
