@@ -506,16 +506,63 @@ export async function loadTeacherMotivation(userId) {
   }
 }
 
+function preserveMotivationMedia(nextState, existingState) {
+  if (!nextState || typeof nextState !== "object" || !existingState || typeof existingState !== "object") return nextState;
+  const existingClasses = new Map();
+  for (const cls of Array.isArray(existingState.classes) ? existingState.classes : []) {
+    const keys = [cls?.id, cls?.sharedId].map((value) => String(value || "").trim()).filter(Boolean);
+    keys.forEach((key) => existingClasses.set(key, cls));
+  }
+  for (const cls of Array.isArray(nextState.classes) ? nextState.classes : []) {
+    const oldClass = [cls?.id, cls?.sharedId]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+      .map((key) => existingClasses.get(key))
+      .find(Boolean);
+    if (!oldClass) continue;
+    const oldStudents = new Map();
+    for (const student of Array.isArray(oldClass.students) ? oldClass.students : []) {
+      [student?.id, student?.code].map((value) => String(value || "").trim()).filter(Boolean)
+        .forEach((key) => oldStudents.set(key, student));
+    }
+    for (const student of Array.isArray(cls.students) ? cls.students : []) {
+      const oldStudent = [student?.id, student?.code]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+        .map((key) => oldStudents.get(key))
+        .find(Boolean);
+      if (oldStudent && !("photoDataUrl" in student)) student.photoDataUrl = String(oldStudent.photoDataUrl || "");
+    }
+    const oldGifts = new Map((Array.isArray(oldClass.giftStore) ? oldClass.giftStore : [])
+      .map((gift) => [String(gift?.id || "").trim(), gift]).filter(([id]) => id));
+    for (const gift of Array.isArray(cls.giftStore) ? cls.giftStore : []) {
+      const oldGift = oldGifts.get(String(gift?.id || "").trim());
+      if (oldGift && !("imageDataUrl" in gift)) gift.imageDataUrl = String(oldGift.imageDataUrl || "");
+    }
+  }
+  return nextState;
+}
+
 export async function saveTeacherMotivation(payload) {
   if (!hasMotivationDbEnv) return dbUnavailable();
   try {
     const userId = String(payload?.userId || "");
-    const state = payload?.state;
+    let state = payload?.state;
     if (!userId || !state || typeof state !== "object") {
       return { error: "invalid_payload", message: "Missing userId or state." };
     }
     await ensureMotivationSchema();
     const normalizedUserId = userId.trim();
+    if (payload?.preserveMedia) {
+      const existingRows = await motivationSql`
+        SELECT state
+        FROM motivation_teacher_states
+        WHERE user_id = ${normalizedUserId}
+        LIMIT 1;
+      `;
+      const existingState = existingRows?.[0]?.state;
+      state = preserveMotivationMedia(state, existingState);
+    }
     await motivationSql`
       INSERT INTO motivation_teacher_states (user_id, state, created_at, updated_at)
       VALUES (

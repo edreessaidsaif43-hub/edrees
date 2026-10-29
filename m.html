@@ -151,7 +151,34 @@
     }
   </style>
   <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
-  <style>body { box-sizing: border-box; }</style>
+  <style>
+    body { box-sizing: border-box; }
+    #discover-sections label > span {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      height: 100%;
+    }
+    #discover-sections label > span::before {
+      content: '';
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 22px;
+      width: 22px;
+      height: 22px;
+      border: 2px solid currentColor;
+      border-radius: 6px;
+      font: bold 18px/1 sans-serif;
+    }
+    #discover-sections input:checked + span::before {
+      content: '\2713';
+      background: #075985;
+      border-color: #075985;
+      color: #fff;
+    }
+  </style>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js" type="text/javascript"></script>
  <link rel="stylesheet" href="/assets/site-navbar.css?v=1">
 </head>
