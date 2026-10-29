@@ -49,12 +49,12 @@
   function lock(id, on) { $(id).classList.toggle('locked', !!on); }
 
   function renderSetup() {
-    if (S.grade != null && window.gameLibrarySetGrade) window.gameLibrarySetGrade(S.index[S.grade].id);
     chips($('grades'), S.index.map(function (g) { return 'الصف ' + g.n; }), S.grade, function (i) {
       S.grade = i; S.subj = S.sem = S.unit = null; S.lessons = []; renderSetup();
       loadGrade(S.index[i].id).then(function (d) { S.gradeData = d; renderSetup(); });
     });
     var gd = S.grade != null && S.gradeData && S.gradeData === gradeCache[S.index[S.grade].id] ? S.gradeData : null;
+    if(S.grade != null && window.gameLibrarySetGrade) window.gameLibrarySetGrade(S.index[S.grade].id, gd && S.subj != null ? gd[S.subj].n : '');
     lock('step-subject', !gd); lock('step-sem', !gd || S.subj == null); lock('step-unit', !gd || S.sem == null); lock('step-lessons', !gd || S.unit == null);
     $('subjects').innerHTML = $('sems').innerHTML = $('units').innerHTML = $('lessons').innerHTML = '';
     if (gd) {
@@ -128,6 +128,7 @@
   function getProgress() { return store.get(progressKey(), { last: 0, high: 0, bestCoins: 0, completed: {}, best: {} }); }
 
   function openHome() {
+    if(window.gameLibrarySetGrade) window.gameLibrarySetGrade(S.index[S.grade].id, gradeCache[S.index[S.grade].id][S.subj].n);
     SEL = selection();
     paintTeacher();
     $('homeTitle').textContent = 'لعبة ' + SEL.subject + ' – الصف ' + SEL.gradeName;
