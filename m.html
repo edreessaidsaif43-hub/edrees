@@ -309,7 +309,13 @@
   </div>
 
   <div class="min-h-full w-full relative z-10 p-4 md:p-8">
-   <header class="app-hero text-center"><h1 id="site-title" class="text-3xl md:text-5xl font-black text-white">حقيبة المعلم</h1></header>
+   <header class="app-hero text-center">
+    <h1 id="site-title" class="text-3xl md:text-5xl font-black text-white">حقيبة المعلم</h1>
+    <div class="flex flex-wrap items-center justify-center gap-3 mt-5">
+      <button type="button" onclick="switchTab('submit')" class="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg">رفع محتوى</button>
+      <button type="button" onclick="switchTab('discover')" class="px-6 py-3 rounded-xl bg-white border border-sky-300 text-sky-900 font-bold">تصفح المحتوى</button>
+    </div>
+   </header>
    <div id="global-user-bar" class="hidden mb-3 max-w-6xl mx-auto card-glass rounded-xl px-4 py-3 flex items-center justify-between gap-3">
     <span id="global-user-label" class="font-bold text-gray-800"></span>
     <div class="flex items-center gap-2">
