@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b6fa4">
+<title>غوص اللؤلؤ</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- شاشة إعداد المعلم -->
+<section id="setup" class="screen active" aria-label="إعداد المعلم">
+  <div class="setup-wrap">
+    <header class="brand">
+      <div class="logo-mark" aria-hidden="true"><span>🤿</span></div>
+      <div>
+        <h1>غوص اللؤلؤ</h1>
+        <p>مراجعة سريعة: أجب صحيحًا لتجمع اللآلئ وتنزل أعمق، والخطأ ينقص الأكسجين. اختر الصف ثم المادة ثم الفصل ثم الوحدة ثم الدروس.</p>
+      </div>
+    </header>
+
+    <ol class="steps">
+      <li class="step" id="step-grade"><h2><b>1</b> الصف</h2><div class="chips" id="grades"><span class="muted">جارٍ التحميل…</span></div></li>
+      <li class="step locked" id="step-subject"><h2><b>2</b> المادة</h2><div class="chips" id="subjects"></div></li>
+      <li class="step locked" id="step-sem"><h2><b>3</b> الفصل الدراسي</h2><div class="chips" id="sems"></div></li>
+      <li class="step locked" id="step-unit"><h2><b>4</b> الوحدة</h2><div class="chips" id="units"></div></li>
+      <li class="step locked" id="step-lessons">
+        <h2><b>5</b> الدروس <small>أسئلة الدروس المختارة أسئلة الدروس المختارة تُجمع في غوصة واحدة</small></h2>
+        <div class="lesson-tools"><button class="link" id="selAll">تحديد الكل</button><button class="link" id="selNone">إلغاء التحديد</button></div>
+        <div id="lessons" class="lesson-list"></div>
+      </li>
+    </ol>
+
+    <details class="teacher-box">
+      <summary>بيانات المعلم (اختياري)</summary>
+      <div class="teacher-fields">
+        <label>اسم المعلم<input id="tName" type="text" maxlength="40" placeholder="مثال: أ. محمد"></label>
+        <label>حساب Instagram<input id="tIg" type="text" maxlength="30" dir="ltr" placeholder="username"></label>
+      </div>
+    </details>
+
+    <div class="setup-actions">
+      <button class="btn primary big" id="buildBtn" disabled>التالي: الغوّاص ▶</button>
+      <button class="btn ghost" id="linkBtn" disabled>تحميل SCORM ↓</button>
+      <span id="setupNote" class="muted"></span>
+    </div>
+  </div>
+</section>
+
+<!-- الاستعداد -->
+<section id="home" class="screen pl-screen" aria-label="الاستعداد للغوص">
+  <div class="om-wrap">
+    <div class="duo-top">
+      <button class="icon-btn" id="backSetup" title="تغيير الدروس">⚙</button>
+      <div class="teacher-badge" id="teacherHome"></div>
+      <button class="icon-btn sound-btn" title="تشغيل/كتم الصوت">🔊</button>
+    </div>
+    <header class="om-head">
+      <p class="om-kicker" id="homeSub"></p>
+      <h1>غوص <span>اللؤلؤ</span></h1>
+      <p class="om-subj" id="homeTitle"></p>
+    </header>
+    <div class="pl-setup">
+      <div class="tcard pl-card"><span class="pick-lbl">اختر الغوّاص</span><div class="pchars" id="charPick"></div></div>
+      <div class="pl-opts">
+        <div class="om-count"><span>العمق المطلوب</span><div class="chips" id="optGoal"></div></div>
+        <div class="om-count"><span>وقت كل سؤال</span><div class="chips" id="optTime"></div></div>
+        <p class="pl-best" id="best"></p>
+      </div>
+    </div>
+    <button class="btn primary huge" id="startGame">انزل إلى البحر 🤿</button>
+    <details class="rules" open>
+      <summary>القواعد</summary>
+      <ul>
+        <li>ينزل الغوّاص نحو قاع البحر، ويظهر سؤال في كل مرحلة من الغوص.</li>
+        <li><b>الإجابة الصحيحة:</b> لؤلؤة جديدة، وينزل الغوّاص 10 أمتار أعمق.</li>
+        <li><b>الإجابة الخاطئة أو انتهاء الوقت:</b> تنقص أسطوانة أكسجين (لديك 3). لا تظهر الإجابة الصحيحة، ويعود السؤال بعد 3–5 أسئلة أخرى.</li>
+        <li>إذا وصلت إلى القاع فزت بصندوق الكنز، وإذا نفد الأكسجين يصعد الغوّاص إلى السطح.</li>
+      </ul>
+    </details>
+  </div>
+</section>
+
+<!-- الغوص -->
+<section id="play" class="screen pl-screen" aria-label="الغوص">
+  <div class="sea" id="sea">
+    <div class="sea-rays" aria-hidden="true"></div>
+    <div class="ruler" id="ruler" aria-hidden="true"></div>
+    <div class="world" id="world" aria-hidden="true"></div>
+    <div class="seabed" id="seabed" aria-hidden="true"><div class="weed w1"></div><div class="weed w2"></div><div class="weed w3"></div><div class="rock r1"></div><div class="rock r2"></div>
+      <div class="chest" id="chest"><div class="lid"></div><div class="box"></div><div class="glow"></div></div></div>
+    <div class="diver" id="diver"><div class="tank"></div><div class="hose"></div><img id="diverImg" alt="الغوّاص"><div class="helmet"></div></div>
+    <div class="oyster" id="oyster" aria-hidden="true"><div class="shell bottom"></div><i class="pearl"></i><div class="shell top"></div></div>
+    <div class="pl-flash" id="flash"></div>
+    <div class="pl-fx" id="fx"></div>
+    <div class="pl-msg" id="msg"></div>
+  </div>
+  <div class="pl-hud">
+    <span class="pill subj" id="hSubj"></span>
+    <span class="hud-box"><small>العمق</small><b id="hDepth">0</b><small>م</small></span>
+    <span class="hud-box"><i class="pearl-ic"></i><b id="hPearls">0</b></span>
+    <span class="hud-box o2" id="o2" aria-label="الأكسجين"></span>
+    <span class="teacher-mini" id="teacherHud"></span>
+    <span class="mbar-btns">
+      <button class="icon-btn sound-btn" title="تشغيل/كتم الصوت">🔊</button>
+      <button class="icon-btn" id="exitBtn" title="الخروج">✕</button>
+    </span>
+  </div>
+  <div class="pl-progress" aria-hidden="true"><i id="hProg"></i></div>
+  <div class="modal" id="qModal" role="dialog" aria-modal="true" aria-labelledby="qText">
+    <div class="qcard om-q" id="qCard">
+      <div class="qhead">
+        <span class="team-tag" id="qTeam"></span>
+        <span class="qtype" id="qType"></span>
+        <div class="timer" id="timer" aria-label="الوقت المتبقي"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" class="tr-bg"></circle><circle cx="22" cy="22" r="19" class="tr-fg" id="timerArc"></circle></svg><b id="timerNum">30</b></div>
+      </div>
+      <p class="qtext" id="qText" dir="auto"></p>
+      <div class="qopts" id="qOpts"></div>
+      <div class="qfeedback" id="qFeedback" aria-live="assertive"></div>
+      <button class="btn primary big" id="qConfirm" disabled>تأكيد الإجابة</button>
+      <div class="qfoot"><span id="qRef"></span><span class="teacher-mini" id="teacherQ"></span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="rModal" role="dialog" aria-modal="true">
+    <div class="rcard om-result">
+      <div class="winner-art" id="winArt"></div>
+      <h2 id="rTitle"></h2>
+      <p class="rlesson" id="rLesson"></p>
+      <div class="vs-table" id="rTable"></div>
+      <div class="ractions" id="rActions"></div>
+      <div class="teacher-mini center" id="teacherR"></div>
+    </div>
+  </div>
+
+</section>
+
+<script src="js/config.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/questions.js"></script>
+<script src="/game/subscriptions.js?v=startup2"></script>
+<script src="/game/rosters.js?v=2"></script>
+<script src="/game/access.js?v=startup2"></script>
+<script src="/game/publish.js?v=3"></script>
+<script src="/game/question-bank.js?v=2"></script>
+<script src="js/pearl.js?v=questions1"></script>
+<script src="js/demo-pearl.js"></script>
+</body>
+</html>
