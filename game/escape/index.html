@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#7a4a1f">
+<title>الهروب من قلعة جبرين</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- شاشة إعداد المعلم -->
+<section id="setup" class="screen active" aria-label="إعداد المعلم">
+  <div class="setup-wrap">
+    <header class="brand">
+      <div class="logo-mark" aria-hidden="true"><span>🗝️</span></div>
+      <div>
+        <h1>الهروب من قلعة جبرين</h1>
+        <p>غرفة هروب تعليمية: ابحث في غرف القلعة، أجب عن الأسئلة لتكشف الأدلة، وافتح الأقفال قبل غروب الشمس. اختر الصف ثم المادة ثم الفصل ثم الوحدة ثم الدروس.</p>
+      </div>
+    </header>
+
+    <ol class="steps">
+      <li class="step" id="step-grade"><h2><b>1</b> الصف</h2><div class="chips" id="grades"><span class="muted">جارٍ التحميل…</span></div></li>
+      <li class="step locked" id="step-subject"><h2><b>2</b> المادة</h2><div class="chips" id="subjects"></div></li>
+      <li class="step locked" id="step-sem"><h2><b>3</b> الفصل الدراسي</h2><div class="chips" id="sems"></div></li>
+      <li class="step locked" id="step-unit"><h2><b>4</b> الوحدة</h2><div class="chips" id="units"></div></li>
+      <li class="step locked" id="step-lessons">
+        <h2><b>5</b> الدروس <small>أسئلة الدروس المختارة تُجمع في مغامرة واحدة</small></h2>
+        <div class="lesson-tools"><button class="link" id="selAll">تحديد الكل</button><button class="link" id="selNone">إلغاء التحديد</button></div>
+        <div id="lessons" class="lesson-list"></div>
+      </li>
+    </ol>
+
+    <details class="teacher-box">
+      <summary>بيانات المعلم (اختياري)</summary>
+      <div class="teacher-fields">
+        <label>اسم المعلم<input id="tName" type="text" maxlength="40" placeholder="مثال: أ. محمد"></label>
+        <label>حساب Instagram<input id="tIg" type="text" maxlength="30" dir="ltr" placeholder="username"></label>
+      </div>
+    </details>
+
+    <div class="setup-actions">
+      <button class="btn primary big" id="buildBtn" disabled>التالي: المغامرة ▶</button>
+      <button class="btn ghost" id="linkBtn" disabled>تحميل SCORM ↓</button>
+      <span id="setupNote" class="muted"></span>
+    </div>
+  </div>
+</section>
+
+<!-- المغامرة -->
+<section id="home" class="screen es-screen" aria-label="بداية المغامرة">
+  <div class="om-wrap">
+    <div class="duo-top">
+      <button class="icon-btn" id="backSetup" title="تغيير الدروس">⚙</button>
+      <div class="teacher-badge" id="teacherHome"></div>
+      <button class="icon-btn sound-btn" title="تشغيل/كتم الصوت">🔊</button>
+    </div>
+    <header class="om-head">
+      <p class="om-kicker" id="homeSub"></p>
+      <h1>الهروب من <span>قلعة جبرين</span></h1>
+      <p class="om-subj" id="homeTitle"></p>
+    </header>
+    <div class="es-story">
+      <div class="es-scroll">
+        <p>أُغلقت أبواب <b>قلعة جبرين</b> عليك وعلى فريقك! 🏰</p>
+        <p>في القلعة ثلاث غرف، ولكل غرفة قفل. ابحثوا عن الأشياء المضيئة، وأجيبوا عن أسئلة الدرس لتكشفوا الأدلة، ثم افتحوا الأقفال واخرجوا <b>قبل غروب الشمس</b>.</p>
+        <ol class="es-rooms"><li>🛋️ المجلس — قفل بثلاثة أرقام</li><li>📜 المكتبة — قفل بثلاثة رموز</li><li>🗝️ سطح البرج — مفتاح من ثلاث قطع</li></ol>
+      </div>
+      <div class="tcard es-card"><span class="pick-lbl">المستكشف</span><div class="pchars" id="charPick"></div></div>
+    </div>
+    <div class="bt-opts">
+      <div class="om-count"><span>الوقت حتى الغروب</span><div class="chips" id="optMin"></div></div>
+      <div class="om-count"><span>وقت كل سؤال</span><div class="chips" id="optTime"></div></div>
+    </div>
+    <button class="btn primary huge" id="startGame">ادخل القلعة 🗝️</button>
+    <p class="es-best" id="best"></p>
+    <details class="rules">
+      <summary>القواعد</summary>
+      <ul>
+        <li>اضغط على الأشياء المضيئة في الغرفة؛ لكل شيء سؤال من الدرس.</li>
+        <li><b>الإجابة الصحيحة:</b> تكشف دليلًا (رقمًا أو رمزًا أو قطعة مفتاح) يُحفظ في حقيبتك.</li>
+        <li><b>الإجابة الخاطئة:</b> يبقى الشيء مغلقًا ويُخصم من الوقت، ولا تظهر الإجابة الصحيحة. حاول مرة أخرى بسؤال آخر.</li>
+        <li>عندما تجمع أدلة الغرفة الثلاثة، اضغط على القفل وأدخل الرمز بالترتيب الصحيح.</li>
+        <li>اخرج من الغرفة الثالثة قبل الغروب لتفوز بالكنز ⭐</li>
+      </ul>
+    </details>
+  </div>
+</section>
+
+<!-- القلعة -->
+<section id="play" class="screen es-screen" aria-label="القلعة">
+  <div class="es-hud">
+    <span class="pill subj" id="hSubj"></span>
+    <span class="es-room" id="hRoom"></span>
+    <div class="es-sunbar" id="sunbar" title="الوقت حتى الغروب"><i id="sunFill"></i><b id="sunTxt"></b></div>
+    <span class="teacher-mini" id="teacherHud"></span>
+    <span class="mbar-btns">
+      <button class="icon-btn sound-btn" title="تشغيل/كتم الصوت">🔊</button>
+      <button class="icon-btn" id="exitBtn" title="الخروج">✕</button>
+    </span>
+  </div>
+  <div class="es-stage" id="stage">
+    <svg id="room" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" role="img" aria-label="غرفة في القلعة"></svg>
+    <img class="es-guide" id="guide" alt="">
+    <div class="es-tip" id="tip"></div>
+    <div class="es-fade" id="fade"></div>
+  </div>
+  <div class="es-bag">
+    <span class="es-bag-t">🎒 الأدلة</span>
+    <div class="es-slots" id="slots"></div>
+    <span class="es-hint" id="hint"></span>
+  </div>
+
+  <!-- القفل -->
+  <div class="modal" id="lockModal" role="dialog" aria-modal="true" aria-labelledby="lockTitle">
+    <div class="es-lock" id="lockBox">
+      <h2 id="lockTitle">القفل</h2>
+      <p class="es-lock-sub" id="lockSub"></p>
+      <div class="es-dials" id="dials"></div>
+      <div class="es-lock-msg" id="lockMsg"></div>
+      <div class="es-lock-act"><button class="btn primary big" id="lockTry">افتح القفل 🔓</button><button class="btn ghost" id="lockClose">رجوع</button></div>
+    </div>
+  </div>
+  <!-- رسالة الدليل -->
+  <div class="modal" id="clueModal" role="dialog" aria-modal="true">
+    <div class="es-clue"><div class="es-clue-ic" id="clueIc"></div><h2 id="clueTitle"></h2><p id="clueText"></p><button class="btn primary big" id="clueOk">أضف إلى الحقيبة</button></div>
+  </div>
+  <div class="modal" id="qModal" role="dialog" aria-modal="true" aria-labelledby="qText">
+    <div class="qcard om-q" id="qCard">
+      <div class="qhead">
+        <span class="team-tag" id="qTeam"></span>
+        <span class="qtype" id="qType"></span>
+        <div class="timer" id="timer" aria-label="الوقت المتبقي"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" class="tr-bg"></circle><circle cx="22" cy="22" r="19" class="tr-fg" id="timerArc"></circle></svg><b id="timerNum">30</b></div>
+      </div>
+      <p class="qtext" id="qText" dir="auto"></p>
+      <div class="qopts" id="qOpts"></div>
+      <div class="qfeedback" id="qFeedback" aria-live="assertive"></div>
+      <button class="btn primary big" id="qConfirm" disabled>تأكيد الإجابة</button>
+      <div class="qfoot"><span id="qRef"></span><span class="teacher-mini" id="teacherQ"></span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="rModal" role="dialog" aria-modal="true">
+    <div class="rcard om-result">
+      <div class="winner-art" id="winArt"></div>
+      <h2 id="rTitle"></h2>
+      <p class="rlesson" id="rLesson"></p>
+      <div class="vs-table" id="rTable"></div>
+      <div class="ractions" id="rActions"></div>
+      <div class="teacher-mini center" id="teacherR"></div>
+    </div>
+  </div>
+
+</section>
+
+<script src="js/config.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/questions.js"></script>
+<script src="/game/subscriptions.js?v=startup2"></script>
+<script src="/game/rosters.js?v=2"></script>
+<script src="/game/access.js?v=startup2"></script>
+<script src="/game/publish.js?v=4"></script>
+<script src="/game/question-bank.js?v=2"></script>
+<script src="js/escape.js?v=library1"></script>
+<script src="js/demo-escape.js"></script>
+</body>
+</html>

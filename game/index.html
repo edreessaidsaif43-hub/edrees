@@ -118,9 +118,9 @@
       <div class="subscription-status" id="subscription-status">سجل الدخول ثم أرسل الإيصال ليتم تفعيل المادة.</div>
     </div>
     </section></div></details>
-<section class="library-intro"><h1>مكتبة الألعاب</h1><p>اختر اللعبة، ثم حدّد الصف والمادة وابدأ.</p><a href="/game/questions.html" class="button subtle" style="margin-top:14px">إدارة بنك الأسئلة العام ↗</a></section>
+<section class="library-intro"><h1>مكتبة الألعاب</h1><p>اختر اللعبة، ثم حدّد الصف والمادة وابدأ.</p><a href="/game/admin-login.html" class="button subtle" style="margin-top:14px">إدارة بنك الأسئلة العام ↗</a></section>
 <details class="subscription-details roster-details"><summary><span>إضافة الطلاب<small>استيراد أسماء الطلاب من Excel حسب الصف والمادة</small></span><span class="plus">＋</span></summary><section class="roster-panel" aria-labelledby="roster-title"><div class="panel-head"><div><span class="eyebrow">صفك، حاضر في كل لعبة</span><h2 id="roster-title">قائمة الطلاب</h2><p>اختر الصف المشترك به والمادة، ثم أنشئ شعبًا بأسماء تختارها واحفظ طلاب كل شعبة بشكل مستقل.</p></div><span class="pill" id="count">٠ طالب</span></div><div class="roster-grid"><div><label for="library-grade">صف قائمة الطلاب</label><select id="library-grade"></select><label for="roster-subject">المادة</label><select id="roster-subject"><option value="">اختر المادة</option></select><label for="roster-section">الشعبة</label><select id="roster-section"><option value="">اختر الشعبة</option></select><label for="section-name">إنشاء شعبة جديدة</label><div class="section-create"><input id="section-name" type="text" maxlength="60" placeholder="مثل: 1 أو الثامن أ"><button id="create-section" class="button subtle" type="button">إضافة الشعبة</button></div><p class="excel-warning" role="note">تنبيه: يجب أن تكون أسماء الطلاب في العمود الأول (A) من ملف Excel. اختر الصف والمادة والشعبة قبل حفظ الطلاب.</p><label class="upload-box" for="excel"><span class="upload-icon">↥</span><strong>أضف ملف الطلاب</strong><span>Excel أو CSV · حتى 10 ميجابايت</span><input id="excel" type="file" accept=".xlsx,.xls,.csv"></label><div class="fields"><div><label for="sheet">ورقة العمل</label><select id="sheet"></select></div></div><label class="check"><input id="header" type="checkbox" checked> الصف الأول يحتوي على عناوين</label><div class="actions"><button id="import" class="button primary" disabled>حفظ الطلاب</button><button id="clear" class="button subtle">مسح القائمة</button></div></div><div class="student-list"><div class="list-heading"><strong>طلاب الصف</strong><span>تُستبعد الأسماء المكررة</span></div><ol id="names"></ol><p class="empty-hint">اختر الصف والمادة وأضف ملفًا لعرض أسماء الطلاب هنا.</p></div></div><p class="storage-note">تُحفظ القوائم لكل حساب وصف ومادة وشعبة في هذا المتصفح.</p></section></details>
-<div class="section-heading" id="games"><h2>الألعاب</h2><span class="pill">١١ لعبة</span></div>
+<div class="section-heading" id="games"><h2>الألعاب</h2><span class="pill">١٢ لعبة</span></div>
 
 
 
@@ -136,6 +136,7 @@
 <article class="simple-game"><div class="simple-cover"><img src="/game/assets/covers-3d/spin-wheel-3d-1600x900.jpg" alt="غلاف العجلة الدوّارة" width="1600" height="900" loading="lazy"></div><div class="simple-game-body"><h3>العجلة الدوّارة</h3><button id="launch-wheel" class="button primary" aria-label="ابدأ لعبة العجلة الدوّارة" disabled>ابدأ اللعب ←</button></div></article>
 <article class="simple-game"><div class="simple-cover"><img src="/game/assets/covers-3d/pearl-dive-3d-1600x900.jpg" alt="غلاف غوص اللؤلؤ" width="1600" height="900" loading="lazy"></div><div class="simple-game-body"><h3>غوص اللؤلؤ</h3><button id="launch-pearl" class="button primary" aria-label="ابدأ لعبة غوص اللؤلؤ" disabled>ابدأ اللعب ←</button></div></article>
 <article class="simple-game"><div class="simple-cover"><img src="/game/assets/covers-3d/castle-builder-3d-1600x900.jpg" alt="غلاف بناء القلعة" width="1600" height="900" loading="lazy"></div><div class="simple-game-body"><h3>بناء القلعة</h3><button id="launch-castle" class="button primary" aria-label="ابدأ لعبة بناء القلعة" disabled>ابدأ اللعب ←</button></div></article>
+<article class="simple-game"><div class="simple-cover"><img src="/game/assets/covers-3d/escape-jabreen-3d-1600x900.jpg" alt="غلاف الهروب من قلعة جبرين" width="1600" height="900" loading="lazy"></div><div class="simple-game-body"><h3>الهروب من قلعة جبرين</h3><button id="launch-escape" class="button primary" aria-label="ابدأ لعبة الهروب من قلعة جبرين" disabled>ابدأ اللعب ←</button></div></article>
 </div>
 
 
@@ -145,5 +146,5 @@
 
 
 </main><footer class="wrap footer"><span>التحضير الذكي · مكتبة الألعاب</span><span>مساحة صغيرة، لمغامرات كبيرة.</span></footer>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="/game/rihlat-almarifa/data/index.js"></script><script src="/game/subscriptions.js?v=startup2"></script><script src="/game/rosters.js?v=2"></script><script src="/game/library.js?v=14"></script><script src="/assets/site-navbar.js?v=1"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="/game/rihlat-almarifa/data/index.js"></script><script src="/game/subscriptions.js?v=startup2"></script><script src="/game/rosters.js?v=2"></script><script src="/game/library.js?v=15"></script><script src="/assets/site-navbar.js?v=1"></script>
 </body></html>
