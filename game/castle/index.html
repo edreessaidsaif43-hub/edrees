@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#c4802f">
+<title>بناء القلعة</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- شاشة إعداد المعلم -->
+<section id="setup" class="screen active" aria-label="إعداد المعلم">
+  <div class="setup-wrap">
+    <header class="brand">
+      <div class="logo-mark" aria-hidden="true"><span>🏰</span></div>
+      <div>
+        <h1>بناء القلعة</h1>
+        <p>لعبة للصف كله: كل إجابة صحيحة تضيف حجرًا إلى القلعة حتى تكتمل. اختر الصف ثم المادة ثم الفصل ثم الوحدة ثم الدروس.</p>
+      </div>
+    </header>
+
+    <ol class="steps">
+      <li class="step" id="step-grade"><h2><b>1</b> الصف</h2><div class="chips" id="grades"><span class="muted">جارٍ التحميل…</span></div></li>
+      <li class="step locked" id="step-subject"><h2><b>2</b> المادة</h2><div class="chips" id="subjects"></div></li>
+      <li class="step locked" id="step-sem"><h2><b>3</b> الفصل الدراسي</h2><div class="chips" id="sems"></div></li>
+      <li class="step locked" id="step-unit"><h2><b>4</b> الوحدة</h2><div class="chips" id="units"></div></li>
+      <li class="step locked" id="step-lessons">
+        <h2><b>5</b> الدروس <small>أسئلة الدروس المختارة أسئلة الدروس المختارة تُجمع في بناء قلعة واحدة</small></h2>
+        <div class="lesson-tools"><button class="link" id="selAll">تحديد الكل</button><button class="link" id="selNone">إلغاء التحديد</button></div>
+        <div id="lessons" class="lesson-list"></div>
+      </li>
+    </ol>
+
+    <details class="teacher-box">
+      <summary>بيانات المعلم (اختياري)</summary>
+      <div class="teacher-fields">
+        <label>اسم المعلم<input id="tName" type="text" maxlength="40" placeholder="مثال: أ. محمد"></label>
+        <label>حساب Instagram<input id="tIg" type="text" maxlength="30" dir="ltr" placeholder="username"></label>
+      </div>
+    </details>
+
+    <div class="setup-actions">
+      <button class="btn primary big" id="buildBtn" disabled>التالي: اختيار القلعة ▶</button>
+      <button class="btn ghost" id="linkBtn" disabled>تحميل SCORM ↓</button>
+      <span id="setupNote" class="muted"></span>
+    </div>
+  </div>
+</section>
+
+<!-- اختيار القلعة -->
+<section id="home" class="screen cs-screen" aria-label="اختيار القلعة">
+  <div class="om-wrap">
+    <div class="duo-top">
+      <button class="icon-btn" id="backSetup" title="تغيير الدروس">⚙</button>
+      <div class="teacher-badge" id="teacherHome"></div>
+      <button class="icon-btn sound-btn" title="تشغيل/كتم الصوت">🔊</button>
+    </div>
+    <header class="om-head">
+      <p class="om-kicker" id="homeSub"></p>
+      <h1>بناء <span>القلعة</span></h1>
+      <p class="om-subj" id="homeTitle"></p>
+    </header>
+    <div class="cs-forts" id="fortPick"></div>
+    <div class="cs-opts">
+      <div class="tcard cs-card"><span class="pick-lbl">البنّاء</span><div class="pchars" id="charPick"></div></div>
+      <div class="cs-opt-col">
+        <div class="om-count"><span>عدد الأحجار</span><div class="chips" id="optStones"></div></div>
+        <div class="om-count"><span>وقت كل سؤال</span><div class="chips" id="optTime"></div></div>
+      </div>
+    </div>
+    <button class="btn primary huge" id="startGame">ابدأ البناء 🧱</button>
+    <details class="rules" open>
+      <summary>القواعد</summary>
+      <ul>
+        <li>يجيب الصف معًا عن الأسئلة، وكل إجابة صحيحة تضيف حجرًا جديدًا إلى القلعة.</li>
+        <li>شريط التقدّم يوضّح كم بقي حتى تكتمل القلعة.</li>
+        <li><b>الإجابة الخاطئة:</b> يسقط الحجر ولا يُضاف، ولا تظهر الإجابة الصحيحة، ويعود السؤال بعد 3–5 أسئلة أخرى.</li>
+        <li>عندما تكتمل القلعة يُرفع عليها العلم 🎉</li>
+      </ul>
+    </details>
+  </div>
+</section>
+
+<!-- البناء -->
+<section id="play" class="screen cs-screen" aria-label="البناء">
+  <div class="mbar">
+    <span class="pill subj" id="hSubj"></span>
+    <span class="pill" id="hFort"></span>
+    <span class="teacher-mini" id="teacherHud"></span>
+    <span class="mbar-btns">
+      <button class="icon-btn sound-btn" title="تشغيل/كتم الصوت">🔊</button>
+      <button class="icon-btn" id="exitBtn" title="الخروج">✕</button>
+    </span>
+  </div>
+  <div class="cs-progress">
+    <div class="cs-bar"><i id="hBar"></i><span id="hPct">0%</span></div>
+    <b class="cs-count" id="hCount">0 / 10</b>
+  </div>
+  <div class="cs-stage" id="stage">
+    <div class="cs-sky" aria-hidden="true"><i class="sun"></i><i class="cloud c1"></i><i class="cloud c2"></i><i class="mtn"></i></div>
+    <svg id="fort" viewBox="0 0 800 500" preserveAspectRatio="xMidYMax meet" role="img" aria-label="القلعة"></svg>
+    <img class="cs-builder" id="builder" alt="البنّاء">
+    <div class="cs-fx" id="fx"></div>
+  </div>
+  <div class="cs-bottom">
+    <button class="btn primary big" id="askBtn">السؤال التالي ▶</button>
+    <span class="om-hint" id="hint">اضغط «السؤال التالي» أو مفتاح المسافة.</span>
+  </div>
+  <div class="modal" id="qModal" role="dialog" aria-modal="true" aria-labelledby="qText">
+    <div class="qcard om-q" id="qCard">
+      <div class="qhead">
+        <span class="team-tag" id="qTeam"></span>
+        <span class="qtype" id="qType"></span>
+        <div class="timer" id="timer" aria-label="الوقت المتبقي"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" class="tr-bg"></circle><circle cx="22" cy="22" r="19" class="tr-fg" id="timerArc"></circle></svg><b id="timerNum">30</b></div>
+      </div>
+      <p class="qtext" id="qText" dir="auto"></p>
+      <div class="qopts" id="qOpts"></div>
+      <div class="qfeedback" id="qFeedback" aria-live="assertive"></div>
+      <button class="btn primary big" id="qConfirm" disabled>تأكيد الإجابة</button>
+      <div class="qfoot"><span id="qRef"></span><span class="teacher-mini" id="teacherQ"></span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="rModal" role="dialog" aria-modal="true">
+    <div class="rcard om-result">
+      <div class="winner-art" id="winArt"></div>
+      <h2 id="rTitle"></h2>
+      <p class="rlesson" id="rLesson"></p>
+      <div class="vs-table" id="rTable"></div>
+      <div class="ractions" id="rActions"></div>
+      <div class="teacher-mini center" id="teacherR"></div>
+    </div>
+  </div>
+
+</section>
+
+<script src="js/config.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/questions.js"></script>
+<script src="/game/subscriptions.js?v=startup2"></script>
+<script src="/game/rosters.js?v=2"></script>
+<script src="/game/access.js?v=startup2"></script>
+<script src="/game/publish.js?v=3"></script>
+<script src="/game/question-bank.js?v=2"></script>
+<script src="js/castle.js?v=questions1"></script>
+<script src="js/demo-castle.js"></script>
+</body>
+</html>
