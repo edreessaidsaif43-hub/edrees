@@ -26,11 +26,11 @@
   }
 
   function loadGrade(id) {
-    if (gradeCache[id]) return Promise.resolve(gradeCache[id]);
-    return loadScriptData('grades/' + id).then(function (d) { d=d.filter(function(s){return window.gameLibraryAllows(id,s.n);});gradeCache[id] = d; return d; });
+    if(gradeCache[id])return Promise.resolve(gradeCache[id]);
+    var publicQuestions=window.GameQuestionBank?window.GameQuestionBank.load(id):Promise.resolve([]);
+    return Promise.all([loadScriptData('grades/'+id),publicQuestions]).then(function(results){var d=window.GameQuestionBank?window.GameQuestionBank.merge(id,results[0],results[1]):results[0];d=d.filter(function(s){return window.gameLibraryAllows(id,s.n);});gradeCache[id]=d;return d;});
   }
 
-  /* ---------- إعداد المعلم ---------- */
   function chips(el, items, cur, onPick) {
     el.innerHTML = '';
     items.forEach(function (it, i) {
