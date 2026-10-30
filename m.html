@@ -202,6 +202,36 @@
   <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
   <style>
     body { box-sizing: border-box; }
+    #section-submit > div {
+      background: #f8fcff;
+      border-color: #a8cde7;
+      color: #163b56;
+    }
+    #section-submit h2,
+    #section-submit label,
+    #section-submit legend { color: #163b56; }
+    #section-submit p { color: #3b556b; }
+    #section-submit input,
+    #section-submit select {
+      color: #172f43;
+      background-color: #fff;
+      border-color: #86b2d0;
+    }
+    #section-submit input::placeholder { color: #607588; opacity: 1; }
+    #section-submit input:focus-visible,
+    #section-submit select:focus-visible {
+      outline: 3px solid #2563a6;
+      outline-offset: 2px;
+    }
+    #section-submit input[type="checkbox"] { accent-color: #047857; }
+    #section-submit #submit-login-required {
+      background: #e8f3fc;
+      border-color: #a8cde7;
+    }
+    #section-submit #submit-review-btn {
+      background: linear-gradient(135deg, #047857, #0f766e);
+      color: #fff;
+    }
     .light-blue-theme { color: #153b60; }
     .light-blue-theme .section-nav { background: #174e78; border-color: #27648f; box-shadow: 0 10px 28px rgba(38,93,141,0.14); }
     .light-blue-theme .app-hero {
