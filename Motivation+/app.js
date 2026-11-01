@@ -3515,6 +3515,7 @@ function startLuckyGame() {
 function generateReportText(cls) {
   const ranked = rankStudents(cls);
   const insights = weeklyInsights(cls);
+  const gradeBranches = normalizeGradeBranches(cls && cls.gradeBranches);
   const lines = [];
   lines.push(`تقرير أسبوعي - المعلم: ${currentTeacher ? currentTeacher.name : "-"}`);
   lines.push(`الصف: ${cls ? cls.name : "-"} | المادة: ${cls ? cls.subject : "-"}`);
@@ -3526,9 +3527,24 @@ function generateReportText(cls) {
   lines.push("تقرير طلاب الصف:");
   ranked.forEach((student, index) => {
     const history = Array.isArray(student.history) ? student.history : [];
-    const added = history.reduce((sum, entry) => sum + Math.max(0, Number(entry.delta || 0)), 0);
-    const deducted = history.reduce((sum, entry) => sum + Math.abs(Math.min(0, Number(entry.delta || 0))), 0);
-    lines.push(`${index + 1}) ${student.name} | الرصيد: ${Number(student.points || 0)} | المضاف: +${added} | المخصوم: -${deducted}`);
+    const positive = history.filter((entry) => Number(entry.delta || 0) > 0);
+    const negative = history.filter((entry) => Number(entry.delta || 0) < 0);
+    const added = positive.reduce((sum, entry) => sum + Number(entry.delta || 0), 0);
+    const deducted = negative.reduce((sum, entry) => sum + Math.abs(Number(entry.delta || 0)), 0);
+    lines.push("");
+    lines.push(`${index + 1}) ${student.name} | الرصيد الحالي: ${Number(student.points || 0)} | إجمالي الموجب: +${added} | إجمالي السالب: -${deducted}`);
+    lines.push(`السلوكيات الإيجابية (+${added}):`);
+    if (positive.length) positive.forEach((entry) => lines.push(`  +${Number(entry.delta)} نقطة | ${entry.reason || "بدون سبب"} | ${formatMessageDateTime(entry.at)}`));
+    else lines.push("  لا توجد نقاط موجبة مسجلة.");
+    lines.push(`السلوكيات السلبية (-${deducted}):`);
+    if (negative.length) negative.forEach((entry) => lines.push(`  ${Number(entry.delta)} نقطة | ${entry.reason || "بدون سبب"} | ${formatMessageDateTime(entry.at)}`));
+    else lines.push("  لا توجد نقاط سالبة مسجلة.");
+    lines.push("الدرجات الدراسية:");
+    if (gradeBranches.length) gradeBranches.forEach((branch) => {
+      const score = Object.prototype.hasOwnProperty.call(branch.scores, student.id) ? branch.scores[student.id] : "غير مرصودة";
+      lines.push(`  ${branch.name}: ${score} / ${branch.max}`);
+    });
+    else lines.push("  لا توجد فروع درجات مضافة للصف.");
   });
   const challenge = cls ? normalizeChallenge(cls.challenge) : null;
   if (challenge && challenge.title) {
@@ -3544,8 +3560,11 @@ function generateReportText(cls) {
 
 function generateStudentReportText(cls, student) {
   const history = Array.isArray(student && student.history) ? student.history : [];
-  const added = history.reduce((sum, entry) => sum + Math.max(0, Number(entry.delta || 0)), 0);
-  const deducted = history.reduce((sum, entry) => sum + Math.abs(Math.min(0, Number(entry.delta || 0))), 0);
+  const positive = history.filter((entry) => Number(entry.delta || 0) > 0);
+  const negative = history.filter((entry) => Number(entry.delta || 0) < 0);
+  const added = positive.reduce((sum, entry) => sum + Number(entry.delta || 0), 0);
+  const deducted = negative.reduce((sum, entry) => sum + Math.abs(Number(entry.delta || 0)), 0);
+  const gradeBranches = normalizeGradeBranches(cls && cls.gradeBranches);
   const lines = [
     `تقرير الطالب: ${student.name}`,
     `الصف: ${cls.name} | المادة: ${cls.subject || "-"}`,
@@ -3554,17 +3573,21 @@ function generateStudentReportText(cls, student) {
     `إجمالي النقاط المخصومة: -${deducted}`,
     `التاريخ: ${new Date().toLocaleDateString("ar-EG")}`,
     "",
-    "سجل النقاط:"
+    `السلوكيات الإيجابية (+${added}):`
   ];
-  if (!history.length) {
-    lines.push("لا توجد عمليات نقاط مسجلة.");
-  } else {
-    [...history].reverse().forEach((entry, index) => {
-      const delta = Number(entry.delta || 0);
-      const sign = delta > 0 ? "+" : "";
-      lines.push(`${index + 1}) ${sign}${delta} نقطة | ${entry.reason || "بدون سبب"} | ${formatMessageDateTime(entry.at)}`);
-    });
-  }
+  if (positive.length) [...positive].reverse().forEach((entry, index) => lines.push(`${index + 1}) +${Number(entry.delta)} نقطة | ${entry.reason || "بدون سبب"} | ${formatMessageDateTime(entry.at)}`));
+  else lines.push("لا توجد نقاط موجبة مسجلة.");
+  lines.push("");
+  lines.push(`السلوكيات السلبية (-${deducted}):`);
+  if (negative.length) [...negative].reverse().forEach((entry, index) => lines.push(`${index + 1}) ${Number(entry.delta)} نقطة | ${entry.reason || "بدون سبب"} | ${formatMessageDateTime(entry.at)}`));
+  else lines.push("لا توجد نقاط سالبة مسجلة.");
+  lines.push("");
+  lines.push("الدرجات الدراسية:");
+  if (gradeBranches.length) gradeBranches.forEach((branch) => {
+    const score = Object.prototype.hasOwnProperty.call(branch.scores, student.id) ? branch.scores[student.id] : "غير مرصودة";
+    lines.push(`${branch.name}: ${score} / ${branch.max}`);
+  });
+  else lines.push("لا توجد فروع درجات مضافة للصف.");
   return lines.join("\n");
 }
 
