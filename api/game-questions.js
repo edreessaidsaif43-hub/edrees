@@ -1,3 +1,4 @@
+import {createGameAdminSession} from './_lib/game-admin-session.js';
 import {createGameSheetHandler} from './_lib/game-sheet-store.js';
 import {neon} from '@neondatabase/serverless';
 import {requireAdmin} from '../enjazy/server_api/_lib/admin-auth.js';
@@ -5,12 +6,28 @@ import {validateQuestion,publicQuestion,adminQuestion} from './_lib/game-questio
 export const config={api:{bodyParser:{sizeLimit:'1mb'},responseLimit:false}};
 const url=process.env.DATABASE_URL||process.env.POSTGRES_URL||process.env.POSTGRES_PRISMA_URL||'';
 const sql=url?neon(url):null;
-export function createQuestionHandler(database,authorize){
+export function createQuestionHandler(database,authorize,options={}){
+ const session=createGameAdminSession(options.sessionSecret??process.env.ADMIN_PASSWORD??'');
  const sheetHandler=createGameSheetHandler(database);
  let schema;
  const ensure=()=>schema||(schema=(async()=>{await database`CREATE TABLE IF NOT EXISTS game_public_questions (id BIGSERIAL PRIMARY KEY,grade_id TEXT NOT NULL,subject TEXT NOT NULL,semester TEXT NOT NULL,unit TEXT NOT NULL,lesson TEXT NOT NULL,type TEXT NOT NULL,text TEXT NOT NULL,options JSONB NOT NULL DEFAULT '[]'::jsonb,answer SMALLINT NOT NULL,reference TEXT NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),deleted_at TIMESTAMPTZ)`;await database`CREATE INDEX IF NOT EXISTS game_public_questions_grade_id_idx ON game_public_questions(grade_id,id DESC)`;})().catch(error=>{schema=null;throw error;}));
  return async function(req,res){res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');const fail=(status,message)=>res.status(status).json({message});
-  try{const action=String(req.query?.action||'bank'),admin=!['bank','sheet_bank'].includes(action);if(admin){const auth=authorize(req);if(!auth.ok)return fail(auth.status,auth.status===401?'كلمة مرور الإدارة غير صحيحة.':'لم تُضبط كلمة مرور الإدارة على الخادم.');}if(!database)return fail(503,'قاعدة بيانات بنك الأسئلة غير مهيأة على الخادم.');await ensure();
+  try{const action=String(req.query?.action||'bank'),admin=!['bank','sheet_bank'].includes(action);
+   if(['admin_login','admin_logout'].includes(action)){
+    if(req.method!=='POST')return fail(405,'العملية غير متاحة.');
+    if(!session.sameOrigin(req))return fail(403,'افتح صفحة الإدارة من رابط الموقع نفسه.');
+    if(action==='admin_logout'){session.clear(req,res);return res.status(200).json({ok:true});}
+    let body;try{body=typeof req.body==='string'?JSON.parse(req.body):req.body||{};}catch{return fail(400,'بيانات الدخول غير صحيحة.');}
+    const password=typeof body.password==='string'?body.password:'';
+    if(!password||password.length>4096)return fail(400,'أدخل كلمة مرور الإدارة.');
+    const auth=authorize({...req,headers:{...req.headers,'x-admin-password':password}});
+    if(!auth.ok)return fail(auth.status,auth.status===401?'كلمة مرور الإدارة غير صحيحة.':'لم تُضبط كلمة مرور الإدارة على الخادم.');
+    if(!session.configured)return fail(503,'لم تُضبط جلسة الإدارة على الخادم. تحقق من إعداد ADMIN_PASSWORD.');
+    session.start(req,res);return res.status(200).json({ok:true});
+   }
+   if(admin){if(!session.sameOrigin(req))return fail(403,'افتح صفحة الإدارة من رابط الموقع نفسه.');if(!session.valid(req)){const auth=authorize(req);if(!auth.ok)return fail(auth.status,auth.status===401?'يرجى تسجيل دخول الإدارة.':'لم تُضبط كلمة مرور الإدارة على الخادم.');}}
+   if(action==='admin_session'){if(req.method!=='GET')return fail(405,'العملية غير متاحة.');return res.status(200).json({authenticated:true});}
+   if(!database)return fail(503,'قاعدة بيانات بنك الأسئلة غير مهيأة على الخادم.');await ensure();
    const grade=String(req.query?.grade||'');if(grade&&!/^g(?:0\d|1[01])$/.test(grade))return fail(400,'الصف غير صحيح.');
    if(action.startsWith('sheet_'))return await sheetHandler(req,res);
    if(action==='bank'&&req.method==='GET'){if(!grade)return fail(400,'اختر الصف.');const cursor=String(req.query?.cursor||'9223372036854775807');if(!/^\d{1,19}$/.test(cursor)||BigInt(cursor)>9223372036854775807n)return fail(400,'مؤشر الصفحة غير صحيح.');const rows=await database`SELECT * FROM game_public_questions WHERE deleted_at IS NULL AND grade_id=${grade} AND id < ${cursor}::bigint ORDER BY id DESC LIMIT 501`;return res.status(200).json({items:rows.slice(0,500).map(publicQuestion),nextCursor:rows.length>500?String(rows[499].id):null});}
