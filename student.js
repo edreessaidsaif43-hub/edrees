@@ -1,0 +1,3 @@
+(async function(){try{
+ const p=await GamePublish.decode(location.hash.slice(1));const base=new URL('/game/'+p.game+'/',location.href);const response=await fetch(new URL('index.html',base),{cache:'no-cache'});if(!response.ok)throw Error('تعذر تحميل اللعبة.');const html=GamePublish.prepare(await response.text(),p,base.href,'/game/student-bootstrap.js');const frame=document.createElement('iframe');frame.title=p.title;frame.allow='fullscreen';frame.srcdoc=html;document.body.append(frame);document.getElementById('status').remove();document.title=p.title;
+}catch(error){document.getElementById('status').textContent=error.message||'تعذر فتح رابط اللعبة.';}})();
