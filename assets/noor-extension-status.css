@@ -10,6 +10,6 @@
 @media(max-width:540px){:is(#noor-ext-status,.noor-extension-service-note).noor-extension-notice{width:calc(100% - 24px);font-size:13px;padding:12px 14px 12px 42px}.noor-extension-dismiss{left:18px}}
 @media print{.noor-extension-shell{display:none!important}}
 
-.noor-extension-service-note[hidden],[data-noor-services-wrapper] #noor-ext-status[hidden]{display:none!important}
+.noor-extension-service-note[hidden],#noor-ext-status[hidden]{display:none!important}
 .noor-extension-service-note a{color:inherit;font-weight:700;text-decoration:underline}
 .noor-extension-shell[data-noor-game-screen]{position:fixed;left:0;right:0;z-index:10000;pointer-events:none}.noor-extension-shell[data-noor-game-screen] :is(#noor-ext-status,.noor-extension-dismiss){pointer-events:auto}
