@@ -1,3 +1,4 @@
+import { createEduAdminAuth } from './_lib/edu-admin-auth.js';
 import { neon } from "@neondatabase/serverless";
 import { loginTeacher } from "../enjazy/server_api/_lib/store.js";
 
@@ -102,7 +103,7 @@ function defaultStorage() {
 }
 
 function tokenAllowed(req) {
-  if (!MIGRATION_TOKEN) return true;
+  if (!MIGRATION_TOKEN) return false;
   const header = String(req.headers.authorization || "");
   const bearer = header.startsWith("Bearer ") ? header.slice(7) : "";
   const queryToken = String(req.query?.token || "");
@@ -343,12 +344,33 @@ async function migrateLegacyData() {
   };
 }
 
+function publicStorage(storage) { return {...storage,users:(storage.users || []).map(user => {const safe={...user};delete safe.password;delete safe.passwordHash;delete safe.password_hash;return safe;})}; }
+function adminStorageUpdate(current,incoming) {
+ const key=user=>String(user.user_id||user.userId||user.email||user.username||'').trim().toLowerCase();
+ const stored=new Map((current.users||[]).map(user=>[key(user),user]));
+ return {...incoming,users:(incoming.users||[]).map(user=>{
+  const prior=stored.get(key(user)),next={...user};
+  if(prior)for(const field of ['password','passwordHash','password_hash'])if(!next[field]&&prior[field])next[field]=prior[field];
+  return next;
+ })};
+}
+function publicStorageUpdate(current,incoming) {
+ const comments={...(current.contentComments||{})};
+ for(const [key,value] of Object.entries(incoming.contentComments||{})) {
+  const prior=comments[key];
+  if(Array.isArray(value)){const old=Array.isArray(prior)?prior:[];const ids=new Set(old.map(item=>String(item.id||JSON.stringify(item))));comments[key]=old.concat(value.filter(item=>item&&typeof item==='object'&&!ids.has(String(item.id||JSON.stringify(item)))));}
+ }
+ return {...current,contentMetrics:incoming.contentMetrics||current.contentMetrics,contentComments:comments};
+}
 export default async function handler(req, res) {
   try {
-    if (!sql) return dbUnavailable(res);
-
     const body = parseBody(req);
     const action = String(req.query?.action || body.action || "");
+    const adminAuth = createEduAdminAuth();
+    if (adminAuth.handle(req, res, action, body)) return;
+    const isAdmin = adminAuth.valid(req);
+    if (action === 'updateGame' && !isAdmin && !body.ownerPassword) return send(res, 401, {success:false,error:'admin_or_owner_session_required'});
+    if (!sql) return dbUnavailable(res);
 
     if (req.method === "GET") {
       if (action === "getGames") {
@@ -358,10 +380,10 @@ export default async function handler(req, res) {
         return send(res, 200, { success: true, data: await getContents(true) });
       }
       if (action === "getStorage") {
-        return send(res, 200, { success: true, storage: await getStorage() });
+        return send(res, 200, { success: true, storage: publicStorage(await getStorage()) });
       }
       if (action === "migrateLegacy") {
-        if (!tokenAllowed(req)) return send(res, 403, { success: false, error: "forbidden" });
+        if (!isAdmin && !tokenAllowed(req)) return send(res, 403, { success: false, error: "forbidden" });
         const result = await migrateLegacyData();
         return send(res, 200, { success: true, migration: result });
       }
@@ -371,12 +393,13 @@ export default async function handler(req, res) {
     if (req.method === "POST") {
       if (action === "addGame") {
         const content = normalizeContent(body.game || {});
+        if (!isAdmin) { content.status = 'pending'; content.reviewed_at = ''; content.id = randomId(); }
         await ensureSchema();
         await sql`
           INSERT INTO edu_contents (id, data, created_at, updated_at)
           VALUES (${content.id}, ${JSON.stringify(content)}::jsonb, NOW(), NOW())
           ON CONFLICT (id)
-          DO UPDATE SET data = EXCLUDED.data, updated_at = NOW();
+          DO NOTHING;
         `;
         return send(res, 200, { success: true, id: content.id, data: content });
       }
@@ -393,6 +416,12 @@ export default async function handler(req, res) {
         `;
         if (!rows?.[0]) return send(res, 404, { success: false, error: "not_found" });
         const current = normalizeContent(rows[0].data || {});
+        if (!isAdmin) {
+          const email = String(body.ownerEmail || '').trim().toLowerCase();
+          const auth = await loginTeacher({contact:email,password:String(body.ownerPassword || '')});
+          const userId = String(auth.data?.userId || '');
+          if (auth.error || !userId || !(current.teacher_user_id ? current.teacher_user_id === userId : current.teacher_email === email)) return send(res,403,{success:false,error:'not_owner'});
+        }
         const updated = normalizeContent({
           ...current,
           ...(body.game || {}),
@@ -412,6 +441,7 @@ export default async function handler(req, res) {
           opening_frame_url: body.opening_frame_url ?? body.game?.opening_frame_url ?? current.opening_frame_url,
           reviewed_at: body.reviewed_at ?? body.game?.reviewed_at ?? current.reviewed_at,
         });
+        if (!isAdmin) { updated.status = 'pending'; updated.reviewed_at = ''; updated.teacher_user_id = current.teacher_user_id; updated.teacher_email = current.teacher_email; updated.teacher_key = current.teacher_key; }
         await sql`
           UPDATE edu_contents
           SET data = ${JSON.stringify(updated)}::jsonb, updated_at = NOW()
@@ -447,11 +477,12 @@ export default async function handler(req, res) {
       }
 
       if (action === "saveStorage") {
-        return send(res, 200, { success: true, storage: await saveStorage(body.storage || {}) });
+        const current = await getStorage(),incoming = body.storage || {};
+        return send(res, 200, { success: true, storage: publicStorage(await saveStorage(isAdmin ? adminStorageUpdate(current,incoming) : publicStorageUpdate(current,incoming))) });
       }
 
       if (action === "migrateLegacy") {
-        if (!tokenAllowed(req)) return send(res, 403, { success: false, error: "forbidden" });
+        if (!isAdmin && !tokenAllowed(req)) return send(res, 403, { success: false, error: "forbidden" });
         const result = await migrateLegacyData();
         return send(res, 200, { success: true, migration: result });
       }

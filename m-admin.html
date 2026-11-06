@@ -604,12 +604,8 @@
         <p class="text-red-100 font-medium">أدخل كلمة المرور للوصول إلى لوحة المدير.</p>
         <form id="admin-login-form" class="space-y-3">
           <div>
-            <label class="block text-red-200 font-bold mb-2">الإيميل</label>
-            <input type="email" id="admin-email" required class="w-full p-3 border-2 border-red-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
-          </div>
-          <div>
             <label class="block text-red-200 font-bold mb-2">كلمة المرور</label>
-            <input type="password" id="admin-password" required class="w-full p-3 border-2 border-red-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
+            <input type="password" id="admin-password" autocomplete="current-password" required class="w-full p-3 border-2 border-red-300 rounded-xl outline-none bg-white text-gray-800 font-medium">
           </div>
           <button type="submit" class="w-full bg-gradient-to-r from-red-600 to-orange-600 text-white py-3 rounded-xl font-bold">دخول</button>
         </form>
@@ -687,10 +683,9 @@
     </div>
   </div>
 
-  <script>
+  <script src="/assets/edu-admin-auth.js?v=2"></script>
+<script>
     const VERCEL_DATABASE_API_URL = '/api/edu';
-    const ADMIN_EMAIL = 'edreessaidsaif43@gmail.com';
-    const ADMIN_PASSWORD = 'Edrees92526869@';
 
     const defaultConfig = {
       site_title: 'حقيبة المعلم',
@@ -908,6 +903,8 @@
     }
 
     async function apiPost(payload, timeoutMs = 18000) {
+      if (payload && payload.action === 'updateGame' && !window.eduAdminAuthenticated) { const current = typeof getCurrentUser === 'function' ? getCurrentUser() : null; const password = current && window.prompt('أدخل كلمة مرور حسابك لتأكيد تعديل المشاركة:'); if (!password) throw new Error('يلزم تأكيد كلمة المرور.'); payload = { ...payload, ownerEmail: current.email || current.contact || '', ownerPassword: password }; }
+
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -3985,11 +3982,9 @@
       syncNotifications(false);
     });
 
-    document.getElementById('admin-login-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const email = normalizeEmail(document.getElementById('admin-email').value);
-      const input = document.getElementById('admin-password').value;
-      if (email === normalizeEmail(ADMIN_EMAIL) && input === ADMIN_PASSWORD) {
+    document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();      const input = document.getElementById('admin-password').value;
+      if (await eduAdminLogin(input)) {
         document.getElementById('admin-login-box').classList.add('hidden');
         document.getElementById('admin-panel-box').classList.remove('hidden');
         showToast('✅ تم تسجيل دخول المدير بنجاح', 'success');
@@ -4044,11 +4039,10 @@
       await recoverUsersFromPlatformData(e.currentTarget);
     });
 
-    document.getElementById('admin-logout-btn').addEventListener('click', () => {
+    document.getElementById('admin-logout-btn').addEventListener('click', async () => {
+      try { await eduAdminLogout(); } catch (error) { showToast('تعذر تسجيل الخروج. حاول مجددًا.', 'error'); return; }
       document.getElementById('admin-login-box').classList.remove('hidden');
-      document.getElementById('admin-panel-box').classList.add('hidden');
-      document.getElementById('admin-email').value = '';
-      document.getElementById('admin-password').value = '';
+      document.getElementById('admin-panel-box').classList.add('hidden');      document.getElementById('admin-password').value = '';
       const list = document.getElementById('admin-submissions-list');
       if (list) list.innerHTML = '';
       const usersList = document.getElementById('admin-users-list');

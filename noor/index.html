@@ -57,6 +57,9 @@
     @media (max-width: 520px) { .service { padding: 18px; } .service h2 { font-size: 21px; } }
   </style>
   <link rel="stylesheet" href="../assets/site-navbar.css?v=2">
+
+
+<link rel="stylesheet" href="/assets/noor-extension-status.css?v=6">
 </head>
 <body class="gradient-bg light-blue-theme">
   <nav id="nav" aria-label="التنقل الرئيسي">
@@ -100,8 +103,8 @@
     </header>
 
     <!-- تملؤه الإضافة: مثبتة أم لا، ورقم الإصدار -->
-    <div class="status" id="noor-ext-status" data-state="missing" role="status">
-      <span>إضافة التحضير الذكي غير مثبتة على هذا المتصفح، فلن تعمل الخدمات.</span>
+    <div class="status" id="noor-ext-status" data-state="checking" role="status">
+      <span>جارٍ التحقق من إضافة التحضير الذكي…</span>
       <!-- ضع رابط صفحة الإضافة في المتجر هنا -->
       <a href="#" id="noor-ext-install">تثبيت الإضافة</a>
     </div>
@@ -255,5 +258,8 @@
       refreshSubscription();
     })();
   </script>
+
+
+<script src="/assets/noor-extension-status.js?v=6"></script>
 </body>
 </html>

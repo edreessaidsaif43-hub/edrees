@@ -287,7 +287,10 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js" type="text/javascript"></script>
 <link rel="stylesheet" href="/assets/site-navbar.css?v=1">
-<link rel="stylesheet" href="/assets/noor-extension-status.css?v=4">
+
+
+
+<link rel="stylesheet" href="/assets/noor-extension-status.css?v=6">
 </head>
 <body class="gradient-bg light-blue-theme">
 <!-- ===== NAVBAR COPIED FROM INDEX START ===== -->
@@ -738,10 +741,9 @@
     </div>
   </div>
 
-  <script>
+  <script src="/assets/edu-admin-auth.js?v=2"></script>
+<script>
     const VERCEL_DATABASE_API_URL = '/api/edu';
-    const ADMIN_EMAIL = 'edreessaidsaif43@gmail.com';
-    const ADMIN_PASSWORD = 'Edrees92526869@';
 
     const defaultConfig = {
       site_title: 'حقيبة المعلم',
@@ -959,6 +961,8 @@
     }
 
     async function apiPost(payload, timeoutMs = 18000) {
+      if (payload && payload.action === 'updateGame' && !window.eduAdminAuthenticated) { const current = typeof getCurrentUser === 'function' ? getCurrentUser() : null; const password = current && window.prompt('أدخل كلمة مرور حسابك لتأكيد تعديل المشاركة:'); if (!password) throw new Error('يلزم تأكيد كلمة المرور.'); payload = { ...payload, ownerEmail: current.email || current.contact || '', ownerPassword: password }; }
+
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -4048,11 +4052,9 @@
       syncNotifications(false);
     });
 
-    document.getElementById('admin-login-form')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const email = normalizeEmail(document.getElementById('admin-email').value);
-      const input = document.getElementById('admin-password').value;
-      if (email === normalizeEmail(ADMIN_EMAIL) && input === ADMIN_PASSWORD) {
+    document.getElementById('admin-login-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();      const input = document.getElementById('admin-password').value;
+      if (await eduAdminLogin(input)) {
         document.getElementById('admin-login-box').classList.add('hidden');
         document.getElementById('admin-panel-box').classList.remove('hidden');
         showToast('✅ تم تسجيل دخول المدير بنجاح', 'success');
@@ -4107,11 +4109,10 @@
       await recoverUsersFromPlatformData(e.currentTarget);
     });
 
-    document.getElementById('admin-logout-btn')?.addEventListener('click', () => {
+    document.getElementById('admin-logout-btn')?.addEventListener('click', async () => {
+      try { await eduAdminLogout(); } catch (error) { showToast('تعذر تسجيل الخروج. حاول مجددًا.', 'error'); return; }
       document.getElementById('admin-login-box').classList.remove('hidden');
-      document.getElementById('admin-panel-box').classList.add('hidden');
-      document.getElementById('admin-email').value = '';
-      document.getElementById('admin-password').value = '';
+      document.getElementById('admin-panel-box').classList.add('hidden');      document.getElementById('admin-password').value = '';
       const list = document.getElementById('admin-submissions-list');
       if (list) list.innerHTML = '';
       const usersList = document.getElementById('admin-users-list');
@@ -4669,7 +4670,10 @@
     initApp();
   </script>
 <script src="/assets/site-navbar.js?v=1"></script>
-<script src="/assets/noor-extension-status.js?v=5"></script>
+
+
+
+<script src="/assets/noor-extension-status.js?v=6"></script>
 </body>
 </html>
 

@@ -1,236 +1,106 @@
-(function () {
-  'use strict';
-  const status = document.getElementById('noor-ext-status');
-  if (!status) return;
-  const stores = {
-    chrome: { name: 'Google Chrome', url: 'https://chromewebstore.google.com/detail/fgdlajfbjmobhaeabmgdfgmecpjjlmng' },
-    firefox: { name: 'Mozilla Firefox', url: 'https://addons.mozilla.org/en-US/firefox/addon/التحضير-الذكي-للمعلم-العماني/' }
-  };
-  const channel = 'altahdir-noor-extension-status-v1';
-  const targetOrigin = window.location.origin === 'null' ? '*' : window.location.origin;
-  const ua = navigator.userAgent || '';
-  const mobile = !!(navigator.userAgentData && navigator.userAgentData.mobile)
-    || /Android|iPhone|iPad|iPod|Mobile/i.test(ua)
-    || ((navigator.platform === 'MacIntel' || /Macintosh/i.test(ua)) && navigator.maxTouchPoints > 1);
-  const runtimeStore = /Firefox|FxiOS/i.test(ua) ? 'firefox' : /Chrome|Chromium|Edg|OPR|CriOS/i.test(ua) ? 'chrome' : '';
-  const selectedStore = mobile ? 'firefox' : runtimeStore;
-  let installedStore = runtimeStore;
-  let installedVersion = '';
-  let manualVersion = '';
-  let manualStore = '';
-  let confirmed = status.getAttribute('data-state') === 'ready';
-  let detectionState = confirmed ? 'ready' : 'checking';
-  let catalog = null;
-  let catalogLoading = false;
-  let catalogRequest = 0;
-  let catalogController;
-  let requestId;
-  let detectionTimer;
-  let probeTimer;
-  let probeContainer;
-  let message;
-  let tools;
-  let refs;
-  let lastMessage = '';
-  let lastLegacyVersion = '';
-  let lastLegacyStore = '';
-
-  function validVersion(value) {
-    if (typeof value !== 'string') return '';
-    const text = value.trim().replace(/[٠-٩]/g, digit => String(digit.charCodeAt(0) - 1632));
-    return /^\d{1,5}(?:\.\d{1,5}){0,3}$/.test(text) && text.split('.').every(part => Number(part) <= 65535) ? text : '';
-  }
-  function compareVersions(a, b) {
-    const left = validVersion(a), right = validVersion(b);
-    if (!left || !right) return null;
-    const x = left.split('.').map(Number), y = right.split('.').map(Number);
-    for (let i = 0; i < Math.max(x.length, y.length); i++) {
-      if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0) ? -1 : 1;
-    }
-    return 0;
-  }
-  function setText(node, text) { if (node.textContent !== text) node.textContent = text; }
-  function setHidden(node, hidden) { if (node.hidden !== hidden) node.hidden = hidden; }
-  function setAttribute(node, key, value) { if (node.getAttribute(key) !== value) node.setAttribute(key, value); }
-  function reportMatchesBrowser(store) { return !stores[store] || store === selectedStore; }
-
-  // Store metadata belongs to this UI and must never be parsed as an installed version.
-  function readLegacyReport() {
-    if (status.getAttribute('data-state') !== 'ready') return null;
-    const explicit = validVersion(status.getAttribute('data-version'));
-    const legacyMessage = status.querySelector('.noor-extension-message');
-    let text = '';
-    if (legacyMessage) {
-      if (legacyMessage.textContent !== lastMessage) text = legacyMessage.textContent;
-    } else {
-      text = Array.from(status.childNodes).filter(node => !(node.nodeType === 1 && node.hasAttribute('data-noor-version-ui'))).map(node => node.textContent).join(' ');
-    }
-    const match = text.match(/(?:الإصدار|version|\bv)\s*[:：]?\s*(\d{1,5}(?:\.\d{1,5}){0,3})/i);
-    const store = status.getAttribute('data-browser') || status.getAttribute('data-store');
-    return { version: explicit || validVersion(match && match[1]), store: stores[store] ? store : '' };
-  }
-
-  function ensureUI() {
-    message = status.querySelector('.noor-extension-message');
-    if (!message) {
-      status.replaceChildren();
-      message = document.createElement('span');
-      message.className = 'noor-extension-message';
-      status.appendChild(message);
-    }
-    if (tools && tools.isConnected) return;
-    status.querySelectorAll('.noor-extension-actions, [data-noor-version-ui]').forEach(node => node.remove());
-    tools = document.createElement('div');
-    tools.className = 'noor-extension-tools';
-    tools.setAttribute('data-noor-version-ui', '1');
-    tools.innerHTML = '<div class="noor-extension-actions"><span class="noor-store-current"></span><a id="noor-ext-install" class="noor-extension-store-link" target="_blank" rel="noopener noreferrer"></a><button type="button" data-noor-extension-refresh>إعادة الفحص</button></div><div class="noor-version-numbers"></div><p class="noor-version-result"></p><details class="noor-manual-version" hidden><summary>مقارنة الإصدار يدويًا</summary><label for="noor-installed-version">الإصدار المثبّت كما يظهر في قائمة إضافات المتصفح</label><div class="noor-manual-row"><input id="noor-installed-version" type="text" inputmode="decimal" placeholder="مثل 2.14.0" maxlength="23" autocomplete="off" spellcheck="false" dir="ltr"><button type="button" data-noor-compare>مقارنة</button></div><p class="noor-version-error" role="status"></p></details>';
-    status.appendChild(tools);
-    refs = {
-      browserLabel: tools.querySelector('.noor-store-current'), link: tools.querySelector('#noor-ext-install'),
-      refresh: tools.querySelector('[data-noor-extension-refresh]'), numbers: tools.querySelector('.noor-version-numbers'),
-      result: tools.querySelector('.noor-version-result'), manual: tools.querySelector('details'),
-      input: tools.querySelector('input'), compare: tools.querySelector('[data-noor-compare]'), error: tools.querySelector('.noor-version-error')
-    };
-    refs.refresh.addEventListener('click', function () { restartDetection(); loadCatalog(); });
-    refs.compare.addEventListener('click', function () {
-      const value = validVersion(refs.input.value);
-      if (!value) { setText(refs.error, 'أدخل رقم إصدار صحيحًا مثل 2.14.0.'); return; }
-      manualVersion = value; manualStore = selectedStore;
-      setText(refs.error, ''); render();
-    });
-  }
-
-  function render() {
-    ensureUI();
-    const store = stores[selectedStore];
-    const entry = catalog && catalog[selectedStore];
-    const latest = entry && !entry.error && validVersion(entry.version);
-    const matchesStore = !installedStore || installedStore === selectedStore;
-    const effectiveVersion = matchesStore ? (installedVersion || (manualStore === selectedStore ? manualVersion : '')) : '';
-    const comparison = confirmed && effectiveVersion && latest
-      ? compareVersions(effectiveVersion, latest) : null;
-    const verified = comparison !== null && comparison >= 0;
-    const checking = catalogLoading || (!confirmed && detectionState === 'checking');
-    setAttribute(status, 'data-device', mobile ? 'mobile' : 'desktop');
-    setAttribute(status, 'data-state', verified ? 'ready' : checking ? 'checking' : 'missing');
-    setAttribute(status, 'data-update-state', verified ? 'current' : comparison !== null && comparison < 0 ? 'outdated' : 'unknown');
-    lastMessage = verified ? '✓ إضافة التحضير الذكي مثبتة.'
-      : checking ? 'جارٍ التحقق من آخر إصدار لإضافة التحضير الذكي…'
-      : !store ? 'افتح هذه الصفحة من كروم أو فايرفوكس لتثبيت آخر إصدار من الإضافة.'
-      : !confirmed ? 'يجب تثبيت آخر إصدار من إضافة التحضير الذكي.'
-      : !latest ? 'تعذّر جلب آخر إصدار من المتجر. اضغط التحقق للمحاولة مجددًا.'
-      : !matchesStore ? 'افتح هذه الصفحة من ' + store.name + ' للتحقق من آخر إصدار للإضافة.'
-      : comparison !== null && comparison < 0 ? 'يجب تحديث إضافة التحضير الذكي إلى آخر إصدار.'
-      : 'تم رصد الإضافة، لكن رقم إصدارها غير متاح تلقائيًا. أدخل الإصدار أدناه للتحقق من أنه الأحدث.';
-    setText(message, lastMessage);
-    setHidden(refs.browserLabel, true);
-    setHidden(refs.refresh, false);
-    setText(refs.refresh, 'التحقق من آخر إصدار');
-    refs.refresh.disabled = catalogLoading;
-    setHidden(refs.numbers, true);
-    setHidden(refs.result, true);
-    setHidden(refs.manual, !confirmed || !!installedVersion || !store || !matchesStore || !latest || verified);
-    const showLink = !!store && !verified && !checking;
-    setHidden(tools, false);
-    setHidden(refs.link, !showLink);
-    if (store) {
-      refs.link.href = store.url;
-      setText(refs.link, comparison !== null && comparison < 0 ? 'تحديث الإضافة' : 'تثبيت آخر إصدار');
-    }
-  }
-
-  function confirm(version, store) {
-    if (!reportMatchesBrowser(store)) return;
-    confirmed = true; detectionState = 'ready';
-    const value = validVersion(version);
-    installedVersion = value;
-    if (stores[store]) installedStore = store;
-    clearTimeout(detectionTimer); clearTimeout(probeTimer);
-    if (probeContainer) { probeContainer.remove(); probeContainer = null; }
-    render();
-  }
-
-  async function loadCatalog() {
-    const id = ++catalogRequest;
-    if (catalogController) catalogController.abort();
-    catalogController = new AbortController();
-    const controller = catalogController;
-    const timeout = setTimeout(() => controller.abort(), 12000);
-    catalogLoading = true; render();
-    try {
-      const base = window.location.protocol === 'file:' ? 'https://altahdir.app' : '';
-      const response = await fetch(base + '/api/noor-extension-versions', { cache: 'no-store', signal: controller.signal });
-      if (!response.ok) throw new Error('Store version request failed');
-      const data = await response.json();
-      if (id !== catalogRequest) return;
-      catalog = data && typeof data === 'object' ? data : null;
-    } catch (error) { if (id === catalogRequest) catalog = null; }
-    finally { clearTimeout(timeout); if (id === catalogRequest) { catalogLoading = false; render(); } }
-  }
-
-  function checkPublishedExtensionStyles() {
-    if (confirmed || probeContainer || typeof window.getComputedStyle !== 'function') return;
-    probeContainer = document.createElement('div');
-    probeContainer.setAttribute('aria-hidden', 'true');
-    probeContainer.style.setProperty('display', 'none', 'important');
-    const probe = document.createElement('span');
-    probe.className = 'noor-t-box'; probe.style.setProperty('forced-color-adjust', 'none');
-    probeContainer.appendChild(probe); document.body.appendChild(probeContainer);
-    let attempts = 0;
-    function check() {
-      if (confirmed) return;
-      const style = window.getComputedStyle(probe);
-      if (style.display === 'grid' && style.borderTopStyle === 'dashed' && parseFloat(style.borderTopWidth) > 0
-          && style.borderTopColor.replace(/\s/g, '') === 'rgb(15,118,110)' && style.backgroundColor.replace(/\s/g, '') === 'rgb(240,253,250)') { confirm(''); return; }
-      if (++attempts < 60) probeTimer = setTimeout(check, 500);
-      else if (probeContainer) { probeContainer.remove(); probeContainer = null; }
-    }
-    check();
-  }
-
-  function acceptResponse(data) {
-    if (!data || data.channel !== channel || data.type !== 'status-response' || data.requestId !== requestId || data.installed !== true) return;
-    confirm(data.version, data.browser || data.store);
-  }
-  function requestStatus(fresh = true) {
-    if (fresh || !requestId) requestId = window.crypto && typeof window.crypto.randomUUID === 'function' ? window.crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
-    const request = { channel, type: 'status-request', requestId };
-    window.postMessage(request, targetOrigin);
-    if (selectedStore === 'chrome' && window.chrome && window.chrome.runtime && typeof window.chrome.runtime.sendMessage === 'function') {
-      try { window.chrome.runtime.sendMessage('fgdlajfbjmobhaeabmgdfgmecpjjlmng', request, function (response) {
-        if (!window.chrome.runtime.lastError) acceptResponse(response);
-      }); } catch (error) {}
-    }
-  }
-
-  function restartDetection() {
-    clearTimeout(detectionTimer); clearTimeout(probeTimer);
-    if (probeContainer) { probeContainer.remove(); probeContainer = null; }
-    confirmed = false; installedVersion = ''; installedStore = runtimeStore;
-    manualVersion = ''; manualStore = ''; lastLegacyVersion = ''; lastLegacyStore = '';
-    detectionState = 'checking';
-    ['data-version', 'data-browser', 'data-store'].forEach(key => status.removeAttribute(key));
-    render(); refs.input.value = ''; setText(refs.error, '');
-    detectionTimer = setTimeout(function () { if (!confirmed) { detectionState = 'missing'; render(); } }, 4000);
-    requestStatus(); checkPublishedExtensionStyles();
-  }
-
-  const initialReport = readLegacyReport();
-  if (initialReport && reportMatchesBrowser(initialReport.store)) { installedVersion = initialReport.version; lastLegacyVersion = initialReport.version; lastLegacyStore = initialReport.store; if (initialReport.store) installedStore = initialReport.store; }
-  else if (initialReport) { confirmed = false; detectionState = 'checking'; }
-  ensureUI(); render();
-  new MutationObserver(function () {
-    const report = readLegacyReport();
-    if (report && reportMatchesBrowser(report.store) && (!confirmed || (report.version && report.version !== lastLegacyVersion) || (report.store && report.store !== lastLegacyStore))) {
-      lastLegacyVersion = report.version; lastLegacyStore = report.store;
-      confirm(report.version, report.store);
-    }
-    else if (!message.isConnected || !tools.isConnected) render();
-  }).observe(status, { attributes: true, attributeFilter: ['data-state', 'data-version', 'data-browser', 'data-store'], childList: true, subtree: true, characterData: true });
-  window.addEventListener('message', function (event) { if (event.source === window && event.origin === window.location.origin) acceptResponse(event.data); });
-  if (!confirmed) detectionTimer = setTimeout(function () { if (!confirmed) { detectionState = 'missing'; render(); } }, 4000);
-  loadCatalog(); requestStatus(); checkPublishedExtensionStyles();
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { requestStatus(false); }, { once: true });
-  window.addEventListener('focus', checkPublishedExtensionStyles);
-  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') checkPublishedExtensionStyles(); });
+(function(){
+ 'use strict';
+ const html=document.documentElement,services=html.hasAttribute('data-noor-services');
+ const channel='altahdir-noor-extension-status-v1',dismissKey='noor-extension-dismissed-until-v1',week=7*86400000;
+ const ua=navigator.userAgent||'';
+ const mobile=!!navigator.userAgentData?.mobile||/Android|iPhone|iPad|iPod|Mobile/i.test(ua)||(/Macintosh|MacIntel/i.test(ua+' '+navigator.platform)&&navigator.maxTouchPoints>1);
+ const firefox=/Firefox|FxiOS/i.test(ua),mobileChrome=mobile&&!firefox&&/Chrome|Chromium|CriOS|EdgA|OPR/i.test(ua);
+ const browser=mobile?'firefox':firefox?'firefox':/Chrome|Chromium|Edg|OPR/i.test(ua)?'chrome':'';
+ const urls={chrome:'https://chromewebstore.google.com/detail/fgdlajfbjmobhaeabmgdfgmecpjjlmng',firefox:'https://addons.mozilla.org/en-US/firefox/addon/التحضير-الذكي-للمعلم-العماني/'};
+ let status=document.getElementById('noor-ext-status');
+ if(!status){status=document.createElement('div');status.id='noor-ext-status';const anchor=document.getElementById('nmob')||document.getElementById('nav');if(anchor)anchor.insertAdjacentElement('afterend',status);else document.body.prepend(status);}
+ const shell=document.createElement('div');shell.className='noor-extension-shell';if(services)shell.setAttribute('data-noor-services-wrapper','1');status.before(shell);shell.appendChild(status);
+ if(/\/game\/[^/]+\/(?:index\.html)?$/.test(location.pathname||'')){shell.setAttribute('data-noor-game-screen','1');shell.style.top=document.getElementById('nav')?'62px':'0';}
+ const close=document.createElement('button');close.type='button';close.className='noor-extension-dismiss';close.textContent='✕';close.setAttribute('aria-label','إخفاء تنبيه الإضافة أسبوعًا');close.title='إخفاء أسبوعًا';shell.appendChild(close);
+ try{const until=Number(localStorage.getItem(dismissKey));shell.hidden=Number.isFinite(until)&&until>Date.now();}catch{}
+ close.addEventListener('click',()=>{try{localStorage.setItem(dismissKey,String(Date.now()+week));}catch{}shell.hidden=true;});
+ let detected=false,version='',expired=false,catalog=null,loading=false,requestId='',timer,pollTimer,probeBox,probe,retryTimers=[];
+ let message,link,recheck,storeNote,serviceNote;
+ let seenMarker='',seenDOM='';
+ function valid(value){if(typeof value!=='string')return '';const v=value.trim();return /^\d{1,5}(?:\.\d{1,5}){0,3}$/.test(v)&&v.split('.').every(n=>Number(n)<=65535)?v:'';}
+ function compare(a,b){const x=valid(a),y=valid(b);if(!x||!y)return null;const aa=x.split('.').map(Number),bb=y.split('.').map(Number);for(let i=0;i<Math.max(aa.length,bb.length);i++){if((aa[i]||0)!==(bb[i]||0))return (aa[i]||0)<(bb[i]||0)?-1:1;}return 0;}
+ function text(node,value){if(node.textContent!==value)node.textContent=value;}
+ function attr(node,key,value){if(node.getAttribute(key)!==value)node.setAttribute(key,value);}
+ function ensureUI(){
+  if(services)return;
+  if(message?.isConnected&&link?.isConnected)return;
+  status.classList.add('noor-extension-notice');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
+  status.replaceChildren();message=document.createElement('span');message.className='noor-extension-message';
+  const actions=document.createElement('span');actions.className='noor-extension-actions';
+  link=document.createElement('a');link.id='noor-ext-install';link.target='_blank';link.rel='noopener noreferrer';link.className='noor-extension-store-link';
+  recheck=document.createElement('button');recheck.type='button';recheck.textContent='التحقق من آخر إصدار';recheck.addEventListener('click',()=>{start();loadCatalog();});
+  storeNote=document.createElement('span');storeNote.className='noor-extension-store-note';
+  actions.append(link,recheck);status.append(message,actions,storeNote);
+ }
+ function render(){
+  if(services){
+   const ready=!!version||status.getAttribute('data-state')==='ready';
+   if(ready&&!mobileChrome){status.hidden=false;if(serviceNote)serviceNote.hidden=true;return;}
+   if(!mobileChrome&&!expired)return;
+   if(!serviceNote){serviceNote=document.createElement('div');serviceNote.className='noor-extension-notice noor-extension-service-note';serviceNote.setAttribute('role','status');status.after(serviceNote);}
+   status.hidden=true;serviceNote.hidden=false;attr(serviceNote,'data-state',detected?'outdated':'missing');
+   const label=mobileChrome?'الإضافة تعمل على الحاسوب، وعلى فايرفوكس في أندرويد':detected?'إضافة التحضير الذكي مثبتة، لكن إصدارها قديم':'يجب تثبيت آخر إصدار من إضافة التحضير الذكي.';
+   if(serviceNote.getAttribute('data-label')!==label){serviceNote.replaceChildren();const copy=document.createElement('span');copy.textContent=label;serviceNote.appendChild(copy);if(urls[browser]){const action=document.createElement('a');action.href=urls[browser];action.target='_blank';action.rel='noopener noreferrer';action.textContent=detected?'تحديث الإضافة':'فتح صفحة الإضافة';serviceNote.appendChild(action);}attr(serviceNote,'data-label',label);}
+   return;
+  }ensureUI();
+  const latest=catalog?.[browser]&&!catalog[browser].error?valid(catalog[browser].version):'';
+  const comparison=compare(version,latest);let state='checking',label='جارٍ التحقق من إضافة التحضير الذكي…',action='',note='';
+  if(mobileChrome){state='unsupported';label='الإضافة تعمل على الحاسوب، وعلى فايرفوكس في أندرويد';action='فتح صفحة الإضافة لفايرفوكس';}
+  else if(version){
+   state=comparison!==null&&comparison<0?'outdated':'ready';label='✓ إضافة التحضير الذكي مثبتة (الإصدار '+version+')';
+   if(state==='outdated'){label+=' — يتوفر إصدار أحدث.';action='تحديث الإضافة';}
+   else if(!loading&&!latest)note='تعذّر جلب إصدار المتجر حاليًا. يمكنك إعادة الفحص.';
+  }else if(!expired){label='جارٍ التحقق من إضافة التحضير الذكي…';}
+  else if(detected){state='outdated';label='إضافة التحضير الذكي مثبتة، لكن إصدارها قديم';action='تحديث الإضافة';}
+  else{state='missing';label='يجب تثبيت آخر إصدار من إضافة التحضير الذكي.';action='تثبيت آخر إصدار';}
+  if(!browser&&!mobileChrome){state='unsupported';label='افتح هذه الصفحة من كروم أو فايرفوكس لاستخدام الإضافة.';action='';}
+  attr(status,'data-state',state);attr(status,'data-update-state',state==='outdated'?'outdated':comparison!==null&&comparison>=0?'current':'unknown');
+  text(message,label);text(storeNote,note);storeNote.hidden=!note;
+  link.hidden=!action||!urls[browser];if(urls[browser])link.href=urls[browser];text(link,action);
+  recheck.disabled=loading;recheck.hidden=mobileChrome;
+ }
+ function report(v,sourceBrowser){
+  if(sourceBrowser&&sourceBrowser!==browser)return;
+  if(mobileChrome)return;
+  detected=true;const supplied=valid(v);if(supplied)version=supplied;
+  render();
+ }
+ function readSignals(){
+  const marker=valid(html.getAttribute('data-noor-ext'));if(marker&&marker!==seenMarker){seenMarker=marker;report(marker,browser);}
+  const supplied=valid(status.getAttribute('data-version')),sourceBrowser=status.getAttribute('data-browser');
+  const signature=supplied+'|'+(sourceBrowser||browser);
+  if(status.getAttribute('data-state')==='ready'&&supplied&&signature!==seenDOM){seenDOM=signature;if(!marker||compare(supplied,marker)>=0)report(supplied,sourceBrowser||browser);}
+ }
+ function sendRequest(){
+  if(mobileChrome)return;
+  const payload={channel,type:'status-request',requestId};
+  window.postMessage(payload,location.origin==='null'?'*':location.origin);
+  if(browser==='chrome'&&window.chrome?.runtime?.sendMessage){try{window.chrome.runtime.sendMessage('fgdlajfbjmobhaeabmgdfgmecpjjlmng',payload,response=>{if(!window.chrome.runtime.lastError)accept(response);});}catch{}}
+ }
+ function accept(data){if(data&&data.channel===channel&&data.type==='status-response'&&data.requestId===requestId&&data.installed===true)report(data.version,data.browser);}
+ function probeStyles(){
+  if(mobileChrome||probeBox||version)return;
+  probeBox=document.createElement('div');probeBox.style.setProperty('display','none','important');probeBox.setAttribute('aria-hidden','true');probe=document.createElement('span');probe.className='noor-t-box';probe.style.setProperty('forced-color-adjust','none');probeBox.appendChild(probe);document.body.appendChild(probeBox);
+  let count=0;function check(){
+   const style=getComputedStyle(probe);
+   if(style.display==='grid'&&style.borderTopStyle==='dashed'&&parseFloat(style.borderTopWidth)>0&&style.borderTopColor.replace(/\s/g,'')==='rgb(15,118,110)'&&style.backgroundColor.replace(/\s/g,'')==='rgb(240,253,250)'){detected=true;render();}
+   if(++count<60&&!version)pollTimer=setTimeout(check,500);else{probeBox.remove();probeBox=null;}
+  }check();
+ }
+ function start(){
+  clearTimeout(timer);clearTimeout(pollTimer);retryTimers.forEach(clearTimeout);retryTimers=[];
+  if(probeBox){probeBox.remove();probeBox=null;}
+  // Keep a reported version until the extension supplies a newer report; never erase extension-owned attributes.
+  expired=false;requestId=window.crypto?.randomUUID?.()||Date.now().toString(36)+Math.random().toString(36).slice(2);
+  readSignals();render();sendRequest();
+  retryTimers=[500,1500,3000].map(delay=>setTimeout(sendRequest,delay));
+  timer=setTimeout(()=>{expired=true;readSignals();render();},6000);probeStyles();
+ }
+ let catalogId=0;
+ async function loadCatalog(){const id=++catalogId;loading=true;render();const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);try{const response=await fetch((location.protocol==='file:'?'https://altahdir.app':'')+'/api/noor-extension-versions',{cache:'no-store',signal:controller.signal});if(!response.ok)throw Error('unavailable');const data=await response.json();if(id===catalogId)catalog=data;}catch{if(id===catalogId)catalog=null;}finally{clearTimeout(timeout);if(id===catalogId){loading=false;render();}}}
+ window.addEventListener('message',event=>{if(event.source===window&&event.origin===location.origin)accept(event.data);});
+ new MutationObserver(()=>{readSignals();if(!services&&(!message?.isConnected||!link?.isConnected))render();}).observe(status,{attributes:true,attributeFilter:['data-state','data-version','data-browser'],childList:true,subtree:true});
+ new MutationObserver(readSignals).observe(html,{attributes:true,attributeFilter:['data-noor-ext']});
+ window.addEventListener('load',sendRequest);document.addEventListener('DOMContentLoaded',sendRequest,{once:true});
+ readSignals();ensureUI();start();if(!services)loadCatalog();
 })();
