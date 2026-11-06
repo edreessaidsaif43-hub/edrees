@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ar" dir="rtl">
+<html data-noor-extension-status="1" lang="ar" dir="rtl">
  <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
@@ -588,6 +588,7 @@
 }
 </style>
 <link rel="stylesheet" href="/assets/site-navbar.css?v=1">
+<link rel="stylesheet" href="/assets/noor-extension-status.css?v=3">
 </head>
  <body style="padding: 8px; padding-bottom: 100px; overflow-x: hidden;">
 <!-- ===== NAVBAR COPIED FROM INDEX START ===== -->
@@ -623,6 +624,15 @@
   <a href="https://gyab-xi.vercel.app/" data-page="attendance" target="_blank" rel="noopener noreferrer">الحضور والتسرب</a>
   <a href="#" onclick="goUnifiedAuth();return false;">دخول / تسجيل</a>
 </div>
+<div id="noor-ext-status" class="noor-extension-notice" data-state="checking" role="status" aria-live="polite" aria-atomic="true">
+  <span class="noor-extension-message">جارٍ التحقق من إضافة التحضير الذكي…</span>
+  <span class="noor-extension-actions">
+    <a class="noor-extension-install" id="noor-ext-install" href="https://chromewebstore.google.com/detail/fgdlajfbjmobhaeabmgdfgmecpjjlmng" target="_blank" rel="noopener noreferrer">تثبيت إضافة كروم</a>
+    <a class="noor-extension-install" href="https://addons.mozilla.org/en-US/firefox/addon/التحضير-الذكي-للمعلم-العماني/" target="_blank" rel="noopener noreferrer">تثبيت إضافة فايرفوكس</a>
+    <button type="button" data-noor-extension-refresh>تحديث الصفحة</button>
+  </span>
+</div>
+
 
 <!-- ===== NAVBAR COPIED FROM INDEX END ===== -->
   <div id="loadingScreen" class="loading-screen">
@@ -1946,6 +1956,7 @@ function showMessage(text, type = 'info') {
     loadData();
   </script>
  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ddd6fb1b2c1f9f0',t:'MTc3Mzc2NTU5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><a href="/game/" style="position:fixed;bottom:20px;left:20px;z-index:1000;background:#163b72;color:white;padding:12px;border-radius:12px;text-decoration:none">🎮 مكتبة الألعاب</a><script src="/assets/site-navbar.js?v=1"></script>
+<script src="/assets/noor-extension-status.js?v=3"></script>
 </body>
 </html>
 

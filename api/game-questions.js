@@ -1,3 +1,5 @@
+import {createTeacherQuestionHandler} from './_lib/game-teacher-questions.js';
+import {loginTeacher} from '../enjazy/server_api/_lib/store.js';
 import {createGameAdminSession} from './_lib/game-admin-session.js';
 import {createGameSheetHandler} from './_lib/game-sheet-store.js';
 import {neon} from '@neondatabase/serverless';
@@ -9,10 +11,12 @@ const sql=url?neon(url):null;
 export function createQuestionHandler(database,authorize,options={}){
  const session=createGameAdminSession(options.sessionSecret??process.env.ADMIN_PASSWORD??'');
  const sheetHandler=createGameSheetHandler(database);
+ const teacherHandler=createTeacherQuestionHandler(database,options.teacherLogin||loginTeacher,options.teacherSessionSecret??options.sessionSecret??process.env.ADMIN_PASSWORD??url);
  let schema;
  const ensure=()=>schema||(schema=(async()=>{await database`CREATE TABLE IF NOT EXISTS game_public_questions (id BIGSERIAL PRIMARY KEY,grade_id TEXT NOT NULL,subject TEXT NOT NULL,semester TEXT NOT NULL,unit TEXT NOT NULL,lesson TEXT NOT NULL,type TEXT NOT NULL,text TEXT NOT NULL,options JSONB NOT NULL DEFAULT '[]'::jsonb,answer SMALLINT NOT NULL,reference TEXT NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),deleted_at TIMESTAMPTZ)`;await database`CREATE INDEX IF NOT EXISTS game_public_questions_grade_id_idx ON game_public_questions(grade_id,id DESC)`;})().catch(error=>{schema=null;throw error;}));
  return async function(req,res){res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');const fail=(status,message)=>res.status(status).json({message});
   try{const action=String(req.query?.action||'bank'),admin=!['bank','sheet_bank'].includes(action);
+   if(action.startsWith('teacher_'))return await teacherHandler(req,res);
    if(['admin_login','admin_logout'].includes(action)){
     if(req.method!=='POST')return fail(405,'العملية غير متاحة.');
     if(!session.sameOrigin(req))return fail(403,'افتح صفحة الإدارة من رابط الموقع نفسه.');

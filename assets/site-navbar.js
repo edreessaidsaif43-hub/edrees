@@ -2,11 +2,24 @@
 (function(){
   const SK='enjazy_session_v1';
   const MK='lesson_platform_backend_session_v1';
+  const scriptUrl=document.currentScript&&document.currentScript.src;
+  const siteRoot=scriptUrl?new URL('../',scriptUrl):new URL('./',location.href);
   window.tNav=function(){
     const b=document.getElementById('ntog'),m=document.getElementById('nmob');
     if(!b||!m)return;
     b.classList.toggle('o');m.classList.toggle('o');
+    b.setAttribute('aria-expanded',String(m.classList.contains('o')));
   };
+  function addNoorLinks(){
+    document.querySelectorAll('#nav .nl,#nmob').forEach(function(menu){
+      const games=menu.querySelector('[data-page="games"]');
+      if(!games)return;
+      let noor=menu.querySelector('[data-page="noor"]');
+      if(!noor){noor=document.createElement('a');noor.setAttribute('data-page','noor');noor.textContent='خدمات نور';}
+      noor.href=new URL(location.protocol==='file:'?'noor/index.html':'noor/',siteRoot).href;
+      games.insertAdjacentElement('afterend',noor);
+    });
+  }
   function projectRoot(){
     const href=window.location.href;
     const marker='/New%20project2/';
@@ -59,12 +72,17 @@
     else if(p.includes('/enjazy'))page='enjazy';
     else if(p.includes('/mash'))page='mash';
     else if(p.includes('/motivation+/'))page='motivation';
-    document.querySelectorAll('#nav [data-page],#nmob [data-page]').forEach(function(a){a.classList.toggle('on',a.getAttribute('data-page')===page)});
+    else if(/\/noor(?:\/|$)/.test(p))page='noor';
+    document.querySelectorAll('#nav [data-page],#nmob [data-page]').forEach(function(a){
+      const active=a.getAttribute('data-page')===page;
+      a.classList.toggle('on',active);
+      if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');
+    });
   }
   document.addEventListener('click',function(e){
     const m=document.getElementById('nmob'),b=document.getElementById('ntog');
-    if(m&&b&&m.classList.contains('o')&&!m.contains(e.target)&&!b.contains(e.target)){m.classList.remove('o');b.classList.remove('o');}
+    if(m&&b&&m.classList.contains('o')&&!m.contains(e.target)&&!b.contains(e.target)){m.classList.remove('o');b.classList.remove('o');b.setAttribute('aria-expanded','false');}
   });
   window.addEventListener('scroll',function(){const n=document.getElementById('nav');if(n)n.classList.toggle('sc',scrollY>10);});
-  markActive();updateNavUser(readSession());
+  addNoorLinks();markActive();updateNavUser(readSession());
 })();

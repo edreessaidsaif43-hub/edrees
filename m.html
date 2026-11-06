@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ar" dir="rtl" class="h-full">
+<html data-noor-extension-status="1" lang="ar" dir="rtl" class="h-full">
  <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
@@ -287,6 +287,7 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js" type="text/javascript"></script>
 <link rel="stylesheet" href="/assets/site-navbar.css?v=1">
+<link rel="stylesheet" href="/assets/noor-extension-status.css?v=3">
 </head>
 <body class="gradient-bg light-blue-theme">
 <!-- ===== NAVBAR COPIED FROM INDEX START ===== -->
@@ -322,6 +323,15 @@
   <a href="https://gyab-xi.vercel.app/" data-page="attendance" target="_blank" rel="noopener noreferrer">الحضور والتسرب</a>
   <a href="#" onclick="goUnifiedAuth();return false;">دخول / تسجيل</a>
 </div>
+<div id="noor-ext-status" class="noor-extension-notice" data-state="checking" role="status" aria-live="polite" aria-atomic="true">
+  <span class="noor-extension-message">جارٍ التحقق من إضافة التحضير الذكي…</span>
+  <span class="noor-extension-actions">
+    <a class="noor-extension-install" id="noor-ext-install" href="https://chromewebstore.google.com/detail/fgdlajfbjmobhaeabmgdfgmecpjjlmng" target="_blank" rel="noopener noreferrer">تثبيت إضافة كروم</a>
+    <a class="noor-extension-install" href="https://addons.mozilla.org/en-US/firefox/addon/التحضير-الذكي-للمعلم-العماني/" target="_blank" rel="noopener noreferrer">تثبيت إضافة فايرفوكس</a>
+    <button type="button" data-noor-extension-refresh>تحديث الصفحة</button>
+  </span>
+</div>
+
 
 <!-- ===== NAVBAR COPIED FROM INDEX END ===== -->
  
@@ -4659,6 +4669,7 @@
     initApp();
   </script>
 <script src="/assets/site-navbar.js?v=1"></script>
+<script src="/assets/noor-extension-status.js?v=3"></script>
 </body>
 </html>
 
