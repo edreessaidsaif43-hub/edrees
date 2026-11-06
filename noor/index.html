@@ -100,5 +100,130 @@
   </main>
 
   <script src="/assets/site-navbar.js?v=1"></script>
+  <script>
+    (function () {
+      const button = document.getElementById('noor-att-go');
+      const sessionKeys = ['lesson_platform_backend_session_v1', 'enjazy_session_v1', 'lesson_platform_current_user_v1'];
+      let allowed = false;
+      let verifiedIdentity = '';
+      let accessUntil = 0;
+      let requestId = 0;
+      let controller;
+      let expiryTimer;
+
+      function readIdentity() {
+        for (const key of sessionKeys) {
+          try {
+            const record = JSON.parse(localStorage.getItem(key) || 'null');
+            if (!record || typeof record !== 'object') continue;
+            const records = [record, record.user, record.profile, record.account, record.data, record.data?.user];
+            let userId = '', email = '';
+            for (const item of records) {
+              if (!item || typeof item !== 'object') continue;
+              userId = userId || String(item.userId || item.user_id || item.id || '').trim();
+              email = email || String(item.email || item.contact || item.username || '').trim().toLowerCase();
+            }
+            if (userId || email) return { userId: userId || email, email };
+          } catch (error) {}
+        }
+        return null;
+      }
+
+      function identityKey(identity) {
+        return identity ? JSON.stringify([identity.userId, identity.email]) : '';
+      }
+
+      function expiryOf(item) {
+        const value = item.expiresAt || item.expires_at;
+        if (!value) return Infinity;
+        const end = new Date(String(value).slice(0, 10) + 'T23:59:59.999').getTime();
+        return Number.isFinite(end) ? end : 0;
+      }
+
+      function subscriptionExpiry(data) {
+        const subscriptions = Array.isArray(data.subscriptions) ? data.subscriptions : [];
+        if (data.accountStopped || subscriptions.some(item => item?.accountStopped)) return 0;
+        let latest = 0;
+        for (const item of subscriptions) {
+          if (!item || item.status !== 'active' || expiryOf(item) <= Date.now()) continue;
+          const subjects = Array.isArray(item.subjects) ? item.subjects : [];
+          if (subjects.length) {
+            for (const subject of subjects) {
+              if (!subject || !String(subject.subject || '').trim()) continue;
+              if (subject.status && subject.status !== 'active') continue;
+              latest = Math.max(latest, Math.min(expiryOf(subject), expiryOf(item)));
+            }
+          } else if (String(item.grade || '').trim() || (Array.isArray(item.grades) && item.grades.some(grade => String(grade || '').trim()))) {
+            latest = Math.max(latest, expiryOf(item));
+          }
+        }
+        return latest > Date.now() ? latest : 0;
+      }
+
+      function hasAccess() {
+        return allowed && Date.now() < accessUntil && verifiedIdentity === identityKey(readIdentity());
+      }
+
+      function updateButton(active, message) {
+        allowed = active;
+        button.disabled = !active;
+        button.title = message;
+      }
+
+      async function refreshSubscription() {
+        const version = ++requestId;
+        if (controller) controller.abort();
+        clearTimeout(expiryTimer);
+        const identity = readIdentity();
+        verifiedIdentity = identityKey(identity);
+        accessUntil = 0;
+        updateButton(false, identity ? 'جارٍ التحقق من الاشتراك...' : 'سجّل الدخول بحساب مشترك لتفعيل الخدمة.');
+        if (!identity) return;
+        const key = verifiedIdentity;
+        const params = new URLSearchParams({ action: 'status', userId: identity.userId });
+        if (identity.email) params.set('email', identity.email);
+        const requestController = new AbortController();
+        controller = requestController;
+        const timeout = setTimeout(() => requestController.abort(), 12000);
+        try {
+          const base = window.location.protocol === 'file:' ? 'https://altahdir.app' : '';
+          const response = await fetch(base + '/api/subscriptions?' + params.toString(), { cache: 'no-store', signal: requestController.signal });
+          if (!response.ok) throw new Error('Subscription check failed');
+          const data = await response.json();
+          if (version !== requestId || key !== identityKey(readIdentity())) return;
+          accessUntil = subscriptionExpiry(data);
+          updateButton(accessUntil > Date.now(), accessUntil ? 'اشتراكك ساري، يمكنك استخدام الخدمة.' : 'تحتاج إلى اشتراك ساري لتفعيل الخدمة.');
+          if (allowed && Number.isFinite(accessUntil)) expiryTimer = setTimeout(refreshSubscription, Math.min(accessUntil - Date.now() + 1, 2147483647));
+        } catch (error) {
+          if (version === requestId) updateButton(false, 'تعذر التحقق من الاشتراك. أعد تحميل الصفحة للمحاولة مجددًا.');
+        } finally {
+          clearTimeout(timeout);
+        }
+      }
+
+      // Keep the subscription restriction in place if the extension changes the button.
+      new MutationObserver(function () {
+        const disabled = !hasAccess();
+        if (button.disabled !== disabled) button.disabled = disabled;
+      }).observe(button, { attributes: true, attributeFilter: ['disabled'] });
+      window.addEventListener('click', function (event) {
+        if (event.target instanceof Element && event.target.closest('#noor-att-go') && !hasAccess()) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          refreshSubscription();
+        }
+      }, true);
+      document.addEventListener('click', function () {
+        if (verifiedIdentity !== identityKey(readIdentity())) refreshSubscription();
+      });
+      window.addEventListener('storage', function (event) {
+        if (event.key === null || sessionKeys.includes(event.key)) refreshSubscription();
+      });
+      window.addEventListener('focus', refreshSubscription);
+      window.addEventListener('pageshow', function (event) { if (event.persisted) refreshSubscription(); });
+      document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') refreshSubscription(); });
+      refreshSubscription();
+    })();
+  </script>
 </body>
 </html>
