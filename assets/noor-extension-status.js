@@ -1,7 +1,7 @@
 (function(){
  'use strict';
  const html=document.documentElement,services=html.hasAttribute('data-noor-services');
- const channel='altahdir-noor-extension-status-v1',dismissKey='noor-extension-dismissed-until-v1',week=7*86400000;
+ const channel='altahdir-noor-extension-status-v1';
  const ua=navigator.userAgent||'';
  const mobile=!!navigator.userAgentData?.mobile||/Android|iPhone|iPad|iPod|Mobile/i.test(ua)||(/Macintosh|MacIntel/i.test(ua+' '+navigator.platform)&&navigator.maxTouchPoints>1);
  const firefox=/Firefox|FxiOS/i.test(ua),mobileChrome=mobile&&!firefox&&/Chrome|Chromium|CriOS|EdgA|OPR/i.test(ua);
@@ -14,9 +14,6 @@
  if(services){status=document.createElement('div');status.id='noor-extension-update-status';status.className='noor-extension-service-note';const anchor=document.getElementById('nmob')||document.getElementById('nav');if(anchor)anchor.insertAdjacentElement('afterend',status);else document.body.prepend(status);}
  const shell=document.createElement('div');shell.className='noor-extension-shell';status.before(shell);shell.appendChild(status);
  if(/\/game\/[^/]+\/(?:index\.html)?$/.test(location.pathname||'')){shell.setAttribute('data-noor-game-screen','1');shell.style.top=document.getElementById('nav')?'62px':'0';}
- const close=document.createElement('button');close.type='button';close.className='noor-extension-dismiss';close.textContent='✕';close.setAttribute('aria-label','إخفاء تنبيه الإضافة أسبوعًا');close.title='إخفاء أسبوعًا';shell.appendChild(close);
- try{const until=Number(localStorage.getItem(dismissKey));shell.hidden=Number.isFinite(until)&&until>Date.now();}catch{}
- close.addEventListener('click',()=>{try{localStorage.setItem(dismissKey,String(Date.now()+week));}catch{}shell.hidden=true;});
  let detected=false,version='',expired=false,catalog=null,loading=false,requestId='',timer,pollTimer,probeBox,probe,retryTimers=[];
  let message,link,recheck,storeNote;
  let seenMarker='',seenDOM='';
