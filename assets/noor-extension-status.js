@@ -106,27 +106,32 @@
     const entry = catalog && catalog[selectedStore];
     const latest = entry && !entry.error && validVersion(entry.version);
     const matchesStore = !installedStore || installedStore === selectedStore;
-    const comparison = confirmed && matchesStore && installedVersion && latest
-      ? compareVersions(installedVersion, latest) : null;
+    const effectiveVersion = matchesStore ? (installedVersion || (manualStore === selectedStore ? manualVersion : '')) : '';
+    const comparison = confirmed && effectiveVersion && latest
+      ? compareVersions(effectiveVersion, latest) : null;
     const verified = comparison !== null && comparison >= 0;
     const checking = catalogLoading || (!confirmed && detectionState === 'checking');
     setAttribute(status, 'data-device', mobile ? 'mobile' : 'desktop');
     setAttribute(status, 'data-state', verified ? 'ready' : checking ? 'checking' : 'missing');
     setAttribute(status, 'data-update-state', verified ? 'current' : comparison !== null && comparison < 0 ? 'outdated' : 'unknown');
     lastMessage = verified ? '✓ إضافة التحضير الذكي مثبتة.'
-      : checking ? 'جارٍ التحقق من إضافة التحضير الذكي…'
+      : checking ? 'جارٍ التحقق من آخر إصدار لإضافة التحضير الذكي…'
       : !store ? 'افتح هذه الصفحة من كروم أو فايرفوكس لتثبيت آخر إصدار من الإضافة.'
       : !confirmed ? 'يجب تثبيت آخر إصدار من إضافة التحضير الذكي.'
+      : !latest ? 'تعذّر جلب آخر إصدار من المتجر. اضغط التحقق للمحاولة مجددًا.'
+      : !matchesStore ? 'افتح هذه الصفحة من ' + store.name + ' للتحقق من آخر إصدار للإضافة.'
       : comparison !== null && comparison < 0 ? 'يجب تحديث إضافة التحضير الذكي إلى آخر إصدار.'
-      : 'تعذّر التأكد من الإصدار المثبّت. يُرجى تثبيت آخر إصدار من إضافة التحضير الذكي.';
+      : 'تم رصد الإضافة، لكن رقم إصدارها غير متاح تلقائيًا. أدخل الإصدار أدناه للتحقق من أنه الأحدث.';
     setText(message, lastMessage);
     setHidden(refs.browserLabel, true);
-    setHidden(refs.refresh, true);
+    setHidden(refs.refresh, false);
+    setText(refs.refresh, 'التحقق من آخر إصدار');
+    refs.refresh.disabled = catalogLoading;
     setHidden(refs.numbers, true);
     setHidden(refs.result, true);
-    setHidden(refs.manual, true);
+    setHidden(refs.manual, !confirmed || !!installedVersion || !store || !matchesStore || !latest || verified);
     const showLink = !!store && !verified && !checking;
-    setHidden(tools, !showLink);
+    setHidden(tools, false);
     setHidden(refs.link, !showLink);
     if (store) {
       refs.link.href = store.url;
