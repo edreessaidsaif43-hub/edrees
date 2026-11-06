@@ -56,7 +56,10 @@ function randomId(length = 10) {
 }
 
 function normalizeContact(value) {
-  return String(value || "").trim().toLowerCase();
+  const raw = String(value || "").trim().toLowerCase()
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)));
+  return raw.includes("@") ? raw.replace(/\s+/g, "") : raw.replace(/[\s\-().]/g, "");
 }
 
 function normalizeInviteCode(value) {
@@ -194,13 +197,29 @@ async function ensureMotivationSchema() {
 
 async function getUserByContact(contactNorm) {
   await ensureSchema();
-  const rows = await sql`
+  let rows = await sql`
     SELECT id, contact_norm, password, profile, entries
     FROM teacher_users
     WHERE contact_norm = ${contactNorm}
     LIMIT 1;
   `;
-  return rows?.[0] || null;
+  if (rows?.[0]) return rows[0];
+
+  // Older accounts may have stored spaces or phone punctuation in contact_norm.
+  rows = await sql`
+    SELECT id, contact_norm, password, profile, entries
+    FROM teacher_users
+    WHERE LOWER(REGEXP_REPLACE(contact_norm, '[\\s\\-().]', '', 'g')) = ${contactNorm}
+       OR LOWER(REGEXP_REPLACE(COALESCE(profile->>'contact', ''), '[\\s\\-().]', '', 'g')) = ${contactNorm}
+    ORDER BY updated_at DESC
+    LIMIT 1;
+  `;
+  const user = rows?.[0] || null;
+  if (user && user.contact_norm !== contactNorm) {
+    await sql`UPDATE teacher_users SET contact_norm = ${contactNorm}, updated_at = NOW() WHERE id = ${user.id};`;
+    user.contact_norm = contactNorm;
+  }
+  return user;
 }
 
 async function getUserById(userId) {
@@ -273,7 +292,31 @@ export async function loginTeacher(payload) {
       return { error: "invalid_credentials", message: "Missing credentials." };
     }
 
-    const user = await getUserByContact(contactNorm);
+    let user = await getUserByContact(contactNorm);
+    if (!user && contactNorm.includes("@")) {
+      const legacy = (await listLegacyEduUsers()).find((item) => item.email === contactNorm);
+      if (legacy && String(legacy.password || "") !== password) {
+        return { error: "invalid_credentials", message: "Password mismatch." };
+      }
+      if (legacy && String(legacy.password || "") === password) {
+        const legacyId = String(legacy.user_id || "").trim();
+        const userId = legacyId && !(await getUserById(legacyId)) ? legacyId : randomId(10);
+        const profile = {
+          name: String(legacy.full_name || ""),
+          contact: contactNorm,
+          school: "",
+          subject: "",
+          grades: "",
+          shareTheme: "classic",
+        };
+        await sql`
+          INSERT INTO teacher_users (id, contact_norm, password, profile, entries, created_at, updated_at)
+          VALUES (${userId}, ${contactNorm}, ${password}, ${JSON.stringify(profile)}::jsonb, '[]'::jsonb, NOW(), NOW())
+          ON CONFLICT (contact_norm) DO NOTHING;
+        `;
+        user = await getUserByContact(contactNorm);
+      }
+    }
     if (!user) return { error: "not_found", message: "Account not found." };
     if (String(user.password || "") !== password) {
       return { error: "invalid_credentials", message: "Password mismatch." };
@@ -946,6 +989,7 @@ async function listLegacyEduUsers() {
       SELECT item->>'user_id' AS user_id,
         LOWER(TRIM(COALESCE(item->>'email', item->>'username', ''))) AS email,
         item->>'full_name' AS full_name,
+        item->>'password' AS password,
         item->>'created_at' AS created_at
       FROM edu_storage,
         LATERAL jsonb_array_elements(
