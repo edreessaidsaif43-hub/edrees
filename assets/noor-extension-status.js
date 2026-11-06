@@ -102,44 +102,36 @@
 
   function render() {
     ensureUI();
-    setAttribute(status, 'data-device', mobile ? 'mobile' : 'desktop');
-    setAttribute(status, 'data-state', confirmed ? 'ready' : detectionState);
-    lastMessage = confirmed
-      ? '✓ إضافة التحضير الذكي مثبتة' + (installedVersion ? ' (الإصدار ' + installedVersion + ')' : '') + '. سجّل الدخول في منصة نور قبل البدء.'
-      : detectionState === 'checking' ? 'جارٍ التحقق من إضافة التحضير الذكي…' : 'لم يتم رصد إضافة التحضير الذكي في هذا المتصفح. إذا كانت مثبتة، فعّلها لهذا الموقع ثم أعد الفحص.';
-    setText(message, lastMessage);
-    refs.refresh.disabled = catalogLoading;
     const store = stores[selectedStore];
-    setText(refs.browserLabel, store ? (mobile ? 'إضافة الهاتف: ' : 'إضافة المتصفح: ') + store.name : 'لم يتم تحديد متصفح متوافق');
-    setHidden(refs.link, !store);
-    if (store) { refs.link.href = store.url; setText(refs.link, (confirmed ? 'صفحة الإضافة في ' : 'تثبيت الإضافة من ') + store.name); }
-    const matchesStore = !installedStore || installedStore === selectedStore;
-    const effectiveVersion = matchesStore ? (installedVersion || (manualStore === selectedStore ? manualVersion : '')) : '';
-    setHidden(refs.manual, !confirmed || !!installedVersion || !store || !matchesStore);
-    let updateState = 'unknown', result = '', numbers = '';
     const entry = catalog && catalog[selectedStore];
     const latest = entry && !entry.error && validVersion(entry.version);
-    if (!store) result = 'افتح هذه الصفحة من كروم أو فايرفوكس لفحص إضافة المتصفح المستخدم.';
-    else if (catalogLoading) result = 'جارٍ جلب أحدث إصدار من المتجر الرسمي…';
-    else if (!latest) result = 'تعذر جلب إصدار المتجر حاليًا. يمكنك فتح صفحة الإضافة أو إعادة الفحص.';
-    else {
-      const sourceLabel = manualVersion && !installedVersion && manualStore === selectedStore ? 'المثبّت (مدخل يدويًا)' : 'المثبّت';
-      const installedLabel = ' في ' + store.name;
-      numbers = sourceLabel + installedLabel + ': ' + (effectiveVersion || 'غير متاح') + ' · إصدار متجر ' + store.name + ': ' + latest;
-      if (confirmed && !matchesStore) result = 'افتح هذه الصفحة من ' + store.name + ' لفحص إصدار الإضافة المثبّتة فيه.';
-      else if (effectiveVersion) {
-        const comparison = compareVersions(effectiveVersion, latest);
-        if (comparison < 0) {
-          updateState = 'outdated'; result = 'يتوفر تحديث للإضافة من ' + effectiveVersion + ' إلى ' + latest + '.';
-          setText(refs.link, 'تحديث الإضافة من ' + store.name);
-        } else if (comparison === 0) { updateState = 'current'; result = 'إصدار إضافتك يطابق أحدث إصدار في المتجر.'; }
-        else { updateState = 'ahead'; result = 'إصدارك أحدث من الإصدار المعروض حاليًا في المتجر.'; }
-      } else if (confirmed) result = 'تم رصد الإضافة، لكن رقم الإصدار المثبّت غير متاح للموقع. يمكنك إدخاله يدويًا للمقارنة.';
-      else result = mobile ? 'على الهاتف، افتح رابط إضافة فايرفوكس لتثبيتها.' : 'افتح رابط إضافة ' + store.name + ' لتثبيتها على متصفحك الحالي.';
+    const matchesStore = !installedStore || installedStore === selectedStore;
+    const comparison = confirmed && matchesStore && installedVersion && latest
+      ? compareVersions(installedVersion, latest) : null;
+    const verified = comparison !== null && comparison >= 0;
+    const checking = catalogLoading || (!confirmed && detectionState === 'checking');
+    setAttribute(status, 'data-device', mobile ? 'mobile' : 'desktop');
+    setAttribute(status, 'data-state', verified ? 'ready' : checking ? 'checking' : 'missing');
+    setAttribute(status, 'data-update-state', verified ? 'current' : comparison !== null && comparison < 0 ? 'outdated' : 'unknown');
+    lastMessage = verified ? '✓ إضافة التحضير الذكي مثبتة.'
+      : checking ? 'جارٍ التحقق من إضافة التحضير الذكي…'
+      : !store ? 'افتح هذه الصفحة من كروم أو فايرفوكس لتثبيت آخر إصدار من الإضافة.'
+      : !confirmed ? 'يجب تثبيت آخر إصدار من إضافة التحضير الذكي.'
+      : comparison !== null && comparison < 0 ? 'يجب تحديث إضافة التحضير الذكي إلى آخر إصدار.'
+      : 'تعذّر التأكد من الإصدار المثبّت. يُرجى تثبيت آخر إصدار من إضافة التحضير الذكي.';
+    setText(message, lastMessage);
+    setHidden(refs.browserLabel, true);
+    setHidden(refs.refresh, true);
+    setHidden(refs.numbers, true);
+    setHidden(refs.result, true);
+    setHidden(refs.manual, true);
+    const showLink = !!store && !verified && !checking;
+    setHidden(tools, !showLink);
+    setHidden(refs.link, !showLink);
+    if (store) {
+      refs.link.href = store.url;
+      setText(refs.link, comparison !== null && comparison < 0 ? 'تحديث الإضافة' : 'تثبيت آخر إصدار');
     }
-    setAttribute(status, 'data-update-state', updateState);
-    setText(refs.numbers, numbers); setHidden(refs.numbers, !numbers);
-    setText(refs.result, result);
   }
 
   function confirm(version, store) {

@@ -11,7 +11,7 @@
 @media(max-width:540px){#noor-ext-status.noor-extension-notice{width:calc(100% - 24px);padding:12px 14px;font-size:13px;gap:7px}#noor-ext-status .noor-extension-actions{gap:7px 12px}#noor-ext-status a,#noor-ext-status button{font-size:12px}}
 @media print{#noor-ext-status.noor-extension-notice{display:none!important}}
 #noor-ext-status [hidden]{display:none!important}
-#noor-ext-status .noor-extension-tools{flex:1 1 100%;min-width:0}
+#noor-ext-status .noor-extension-tools{flex:0 0 auto;min-width:0}
 #noor-ext-status .noor-store-current{display:inline-flex;align-items:center;min-height:36px;padding:5px 9px;border:1px solid #b5c8d8;border-radius:7px;background:#fff;font-size:13px;font-weight:700}
 #noor-ext-status input{box-sizing:border-box;min-height:36px;padding:6px 9px;border:1px solid #a7bbcd;border-radius:7px;background:#fff;color:#163b62;font:inherit;font-size:13px;line-height:1.4}
 #noor-ext-status input:focus-visible{outline:3px solid #1a56c8;outline-offset:2px}
