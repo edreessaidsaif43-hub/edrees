@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#122e40"><title>مكتبة الألعاب | التحضير الذكي</title><style id="subscription-style">
+<html data-noor-extension-status="1" lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#122e40"><title>مكتبة الألعاب | التحضير الذكي</title><style id="subscription-style">
 .page-section-label{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 14px;border-radius:8px;font-size:15px;font-weight:900}
 .page-section-label span{font-size:18px}
 .subscription-section{padding:16px;border:1px solid #fed7aa;border-radius:10px;background:#fff7ed;margin-bottom:28px}
@@ -55,6 +55,7 @@
 }
 </style>
 <link rel="stylesheet" href="/game/library.css?v=10"><link rel="stylesheet" href="/assets/site-navbar.css?v=1">
+<link rel="stylesheet" href="/assets/noor-extension-status.css?v=4">
 </head><body>
 <nav id="nav">
   <a href="https://altahdir.app/" class="nb">
@@ -87,6 +88,15 @@
   <a href="https://gyab-xi.vercel.app/" data-page="attendance" target="_blank" rel="noopener noreferrer">الحضور والتسرب</a>
   <a href="#" onclick="goUnifiedAuth();return false;">دخول / تسجيل</a>
 </div>
+<div id="noor-ext-status" class="noor-extension-notice" data-state="checking" role="status" aria-live="polite" aria-atomic="true">
+  <span class="noor-extension-message">جارٍ التحقق من إضافة التحضير الذكي…</span>
+  <span class="noor-extension-actions">
+    <a class="noor-extension-install" id="noor-ext-install" href="https://chromewebstore.google.com/detail/fgdlajfbjmobhaeabmgdfgmecpjjlmng" target="_blank" rel="noopener noreferrer">تثبيت إضافة كروم</a>
+    <a class="noor-extension-install" href="https://addons.mozilla.org/en-US/firefox/addon/التحضير-الذكي-للمعلم-العماني/" target="_blank" rel="noopener noreferrer">تثبيت إضافة فايرفوكس</a>
+    <button type="button" data-noor-extension-refresh>تحديث الصفحة</button>
+  </span>
+</div>
+
 
 <main class="wrap">
 <details class="subscription-details"><summary><span>الاشتراك وتفعيل المواد<small>تفعيل مادة جديدة أو متابعة حالة طلبك</small></span><span class="plus">＋</span></summary><div class="subscription-content"><button id="refresh" class="button subtle">تحديث حالة الاشتراك ↻</button>    <section class="subscription-section" aria-labelledby="subscription-section-title">
@@ -148,4 +158,5 @@
 
 </main><footer class="wrap footer"><span>التحضير الذكي · مكتبة الألعاب</span><span>مساحة صغيرة، لمغامرات كبيرة.</span></footer>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="/game/rihlat-almarifa/data/index.js"></script><script src="/game/subscriptions.js?v=startup2"></script><script src="/game/rosters.js?v=2"></script><script src="/game/library.js?v=16"></script><script src="/assets/site-navbar.js?v=1"></script>
+<script src="/assets/noor-extension-status.js?v=4"></script>
 </body></html>
