@@ -621,6 +621,11 @@
     .noor-device-grid[data-recommended]{grid-template-columns:minmax(0,1fr)}
     .noor-device-grid [hidden]{display:none!important}
     .noor-device-panel{border-top:1px solid rgba(214,225,238,.95);padding-top:14px;min-width:0}
+    .noor-inline-player{margin:12px 0;max-width:760px;overflow:hidden;border:1px solid #d6e5e3;border-radius:8px;background:#fff}
+    .noor-inline-player[hidden]{display:none}
+    .noor-player-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 12px;color:#174340;font-size:.88rem;overflow-wrap:anywhere}
+    .noor-player-close{width:36px;height:36px;flex-shrink:0;border:0;border-radius:6px;background:#eaf6f3;color:#174340;font:inherit;font-size:1.25rem;cursor:pointer}
+    .noor-inline-player video{display:block;width:100%;height:auto;max-height:65vh;background:#111}
     .noor-help-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:12px}
     .noor-help-group:first-child{grid-column:1/-1}
     .noor-help-group h5{font-size:.9rem;color:#0f766e;margin-bottom:8px}
@@ -845,18 +850,18 @@
               <h4>الحاسب الآلي</h4>
               <a class="noor-tool-link" data-browser="chrome" href="https://chromewebstore.google.com/detail/%D8%AA%D8%B9%D8%A8%D8%A6%D8%A9-%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%AF%D8%B1%D9%88%D8%B3-%D9%86%D9%88%D8%B1/fgdlajfbjmobhaeabmgdfgmecpjjlmng" target="_blank" rel="noopener noreferrer">تثبيت أداة كروم للكمبيوتر</a>
               <a class="noor-tool-link" data-browser="firefox" href="https://addons.mozilla.org/en-US/firefox/addon/%D8%A7%D9%84%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%B0%D9%83%D9%8A-%D9%84%D9%84%D9%85%D8%B9%D9%84%D9%85-%D8%A7%D9%84%D8%B9%D9%85%D8%A7%D9%86%D9%8A/" target="_blank" rel="noopener noreferrer">تثبيت أداة فايرفوكس للكمبيوتر</a>
-              <a class="noor-tool-link noor-video-link" href="assets/noor-desktop-install.mp4" target="_blank" rel="noopener noreferrer" aria-label="مشاهدة طريقة تثبيت أداة التعبئة على الكمبيوتر في كروم أو فايرفوكس" title="فيديو طريقة التثبيت"><span aria-hidden="true">▶</span></a>
+              <a class="noor-tool-link noor-video-link" href="assets/noor-desktop-install.mp4" data-noor-video aria-label="مشاهدة طريقة تثبيت أداة التعبئة على الكمبيوتر في كروم أو فايرفوكس" title="فيديو طريقة التثبيت"><span aria-hidden="true">▶</span></a>
             </div>
             <div class="noor-device-panel" data-device="ios">
               <h4>هاتف الآيفون</h4>
               <a class="noor-tool-link" href="https://chromewebstore.google.com/detail/%D8%AA%D8%B9%D8%A8%D8%A6%D8%A9-%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%AF%D8%B1%D9%88%D8%B3-%D9%86%D9%88%D8%B1/fgdlajfbjmobhaeabmgdfgmecpjjlmng" target="_blank" rel="noopener noreferrer">تثبيت أداة كروم عبر Orion Browser by Kagi</a>
               <a class="noor-tool-link" href="https://addons.mozilla.org/en-US/firefox/addon/%D8%A7%D9%84%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%B0%D9%83%D9%8A-%D9%84%D9%84%D9%85%D8%B9%D9%84%D9%85-%D8%A7%D9%84%D8%B9%D9%85%D8%A7%D9%86%D9%8A/" target="_blank" rel="noopener noreferrer">تثبيت أداة فايرفوكس عبر Orion Browser by Kagi</a>
-              <a class="noor-tool-link noor-video-link" href="assets/noor-iphone-install.mp4" target="_blank" rel="noopener noreferrer" aria-label="مشاهدة طريقة تثبيت أداة التعبئة للآيفون والآيباد" title="فيديو طريقة التثبيت"><span aria-hidden="true">▶</span></a>
+              <a class="noor-tool-link noor-video-link" href="assets/noor-iphone-install.mp4" data-noor-video aria-label="مشاهدة طريقة تثبيت أداة التعبئة للآيفون والآيباد" title="فيديو طريقة التثبيت"><span aria-hidden="true">▶</span></a>
             </div>
             <div class="noor-device-panel" data-device="android">
               <h4>هاتف الأندرويد</h4>
               <a class="noor-tool-link" href="https://addons.mozilla.org/en-US/firefox/addon/%D8%A7%D9%84%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%B0%D9%83%D9%8A-%D9%84%D9%84%D9%85%D8%B9%D9%84%D9%85-%D8%A7%D9%84%D8%B9%D9%85%D8%A7%D9%86%D9%8A/" target="_blank" rel="noopener noreferrer">تحميل أداة فايرفوكس للأندرويد</a>
-              <a class="noor-tool-link noor-video-link" href="assets/noor-android-firefox-install.mp4" target="_blank" rel="noopener noreferrer" aria-label="مشاهدة طريقة تثبيت أداة التعبئة في فايرفوكس للأندرويد" title="فيديو طريقة التثبيت"><span aria-hidden="true">▶</span></a>
+              <a class="noor-tool-link noor-video-link" href="assets/noor-android-firefox-install.mp4" data-noor-video aria-label="مشاهدة طريقة تثبيت أداة التعبئة في فايرفوكس للأندرويد" title="فيديو طريقة التثبيت"><span aria-hidden="true">▶</span></a>
             </div>
           </div>
           <section class="noor-device-panel" aria-labelledby="noor-help-title">
@@ -865,23 +870,23 @@
               <div class="noor-help-group">
                 <h5>التسجيل والاشتراك</h5>
                 <ol start="1">
-                  <li><a href="assets/noor-registration-subscription.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة التسجيل والاشتراك</span><span aria-hidden="true">▶</span></a></li>
+                  <li><a href="assets/noor-registration-subscription.mp4" data-noor-video><span>طريقة التسجيل والاشتراك</span><span aria-hidden="true">▶</span></a></li>
                 </ol>
               </div>
               <div class="noor-help-group">
                 <h5>تثبيت أداة التعبئة</h5>
                 <ol start="2">
-                  <li><a href="assets/noor-desktop-install.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة تثبيت الأداة على الحاسب الآلي (كروم أو فايرفوكس)</span><span aria-hidden="true">▶</span></a></li>
-                  <li><a href="assets/noor-android-firefox-install.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة تثبيت الأداة على الأندرويد (فايرفوكس)</span><span aria-hidden="true">▶</span></a></li>
-                  <li><a href="assets/noor-iphone-install.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة تثبيت الأداة على الآيفون والآيباد (Orion Browser by Kagi)</span><span aria-hidden="true">▶</span></a></li>
+                  <li><a href="assets/noor-desktop-install.mp4" data-noor-video><span>طريقة تثبيت الأداة على الحاسب الآلي (كروم أو فايرفوكس)</span><span aria-hidden="true">▶</span></a></li>
+                  <li><a href="assets/noor-android-firefox-install.mp4" data-noor-video><span>طريقة تثبيت الأداة على الأندرويد (فايرفوكس)</span><span aria-hidden="true">▶</span></a></li>
+                  <li><a href="assets/noor-iphone-install.mp4" data-noor-video><span>طريقة تثبيت الأداة على الآيفون والآيباد (Orion Browser by Kagi)</span><span aria-hidden="true">▶</span></a></li>
                 </ol>
               </div>
               <div class="noor-help-group">
                 <h5>تحضير الدروس</h5>
                 <ol start="5">
-                  <li><a href="assets/noor-desktop-lesson-preparation.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة تحضير الدروس بالحاسب الآلي</span><span aria-hidden="true">▶</span></a></li>
-                  <li><a href="assets/noor-android-lesson-preparation.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة التحضير باستخدام أجهزة الأندرويد</span><span aria-hidden="true">▶</span></a></li>
-                  <li><a href="assets/noor-iphone-lesson-preparation.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة التحضير باستخدام أجهزة الآيفون والآيباد</span><span aria-hidden="true">▶</span></a></li>
+                  <li><a href="assets/noor-desktop-lesson-preparation.mp4" data-noor-video><span>طريقة تحضير الدروس بالحاسب الآلي</span><span aria-hidden="true">▶</span></a></li>
+                  <li><a href="assets/noor-android-lesson-preparation.mp4" data-noor-video><span>طريقة التحضير باستخدام أجهزة الأندرويد</span><span aria-hidden="true">▶</span></a></li>
+                  <li><a href="assets/noor-iphone-lesson-preparation.mp4" data-noor-video><span>طريقة التحضير باستخدام أجهزة الآيفون والآيباد</span><span aria-hidden="true">▶</span></a></li>
                 </ol>
               </div>
             </div>
@@ -1254,6 +1259,53 @@
     desktopChrome.textContent = 'بديل: أداة كروم للحاسب';
     panel.appendChild(desktopChrome);
   }
+})();
+</script>
+<script>
+(function () {
+  const card = document.querySelector('.noor-fill-card');
+  if (!card) return;
+  const player = document.createElement('div');
+  player.className = 'noor-inline-player';
+  player.innerHTML = '<div class="noor-player-heading"><strong></strong><button type="button" class="noor-player-close" aria-label="إغلاق الفيديو" title="إغلاق الفيديو">&times;</button></div><video controls playsinline preload="none"></video>';
+  const video = player.querySelector('video');
+  const title = player.querySelector('strong');
+  const close = player.querySelector('button');
+  let trigger = null;
+
+  function stopVideo(restoreFocus) {
+    if (!trigger) return;
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+    player.remove();
+    if (restoreFocus) trigger.focus();
+    trigger = null;
+  }
+
+  card.addEventListener('click', event => {
+    const link = event.target.closest('a[data-noor-video]');
+    if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    if (trigger === link) { stopVideo(true); return; }
+    stopVideo(false);
+    trigger = link;
+    title.textContent = link.getAttribute('aria-label') || link.querySelector('span')?.textContent || link.textContent;
+    video.setAttribute('aria-label', title.textContent);
+    (link.closest('li') || link.closest('.noor-device-panel')).appendChild(player);
+    video.src = link.href;
+    const playback = video.play();
+    if (playback) playback.catch(() => {});
+    close.focus({ preventScroll: true });
+    player.scrollIntoView({ block: 'nearest' });
+  });
+  close.addEventListener('click', () => stopVideo(true));
+  player.addEventListener('keydown', event => {
+    if (event.key === 'Escape') stopVideo(true);
+  });
+  card.addEventListener('toggle', () => {
+    if (!card.open) stopVideo(false);
+  });
 })();
 </script>
 <script src="/assets/site-navbar.js?v=1"></script>
