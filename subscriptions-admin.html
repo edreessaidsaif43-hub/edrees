@@ -155,6 +155,7 @@ function esc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','
 function statusLabel(s){ return ({pending:'قيد المراجعة',active:'مفعل',rejected:'مرفوض',stopped:'متوقف'})[s] || s; }
 const STOP_REASON_TEMPLATES = [
   '',
+  'الإيصال مكرر. للتواصل مع الإدارة: 91470590',
   'الإيصال المرفوع مكرر ومستخدم في حساب آخر. يرجى رفع إيصال جديد خاص بهذا الحساب. للتواصل مع الإدارة: 91470590',
   'بيانات التحويل في الإيصال غير واضحة. يرجى رفع صورة واضحة وكاملة للإيصال. للتواصل مع الإدارة: 91470590',
   'قيمة التحويل لا تطابق قيمة الاشتراك المطلوبة. يرجى إكمال المبلغ ورفع الإيصال الصحيح. للتواصل مع الإدارة: 91470590',
@@ -187,9 +188,9 @@ function receiptPreview(item){
   const duplicate = item.duplicateReceipt || {};
   const otherUsers = Array.isArray(duplicate.otherUsers) ? duplicate.otherUsers : [];
   const warning = otherUsers.length
-    ? '<div class="duplicate-warning cross-user">تحذير: الإيصال مستخدم في حسابات أخرى: ' + esc(otherUsers.join('، ')) + '</div>'
+    ? '<div class="duplicate-warning cross-user">تحذير: الإيصال مكرر ومستخدم في حسابات أخرى: ' + esc(otherUsers.join('، ')) + '. للتواصل مع الإدارة: 91470590</div>'
     : duplicate.sameUser
-      ? '<div class="duplicate-warning">تنبيه: الإيصال مكرر داخل الحساب نفسه</div>'
+      ? '<div class="duplicate-warning">تنبيه: الإيصال مكرر داخل الحساب نفسه. للتواصل مع الإدارة: 91470590</div>'
       : '';
   return '<a class="receipt-link" href="' + url + '" target="_blank" rel="noopener" title="فتح الإيصال">' + preview + '<span class="file-name">' + name + '</span></a>' + warning;
 }

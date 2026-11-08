@@ -165,6 +165,7 @@ function isImageReceipt(item){ return String(item?.receiptFileType || '').starts
 function statusLabel(status){ return ({ active:'مفعل', pending:'قيد المراجعة', rejected:'مرفوض', stopped:'متوقف' })[status] || status || 'غير محدد'; }
 const STOP_REASON_TEMPLATES = [
   '',
+  'الإيصال مكرر. للتواصل مع الإدارة: 91470590',
   'الإيصال المرفوع مكرر ومستخدم في حساب آخر. يرجى رفع إيصال جديد خاص بهذا الحساب. للتواصل مع الإدارة: 91470590',
   'بيانات التحويل في الإيصال غير واضحة. يرجى رفع صورة واضحة وكاملة للإيصال. للتواصل مع الإدارة: 91470590',
   'قيمة التحويل لا تطابق قيمة الاشتراك المطلوبة. يرجى إكمال المبلغ ورفع الإيصال الصحيح. للتواصل مع الإدارة: 91470590',
@@ -208,9 +209,9 @@ function receiptCell(item){
     const duplicate = receipt.duplicateReceipt || {};
     const otherUsers = Array.isArray(duplicate.otherUsers) ? duplicate.otherUsers : [];
     const warning = otherUsers.length
-      ? '<span class="duplicate-receipt cross-user">إيصال مكرر لدى ' + otherUsers.length + ' مستخدم: ' + esc(otherUsers.join('، ')) + '</span>'
+      ? '<span class="duplicate-receipt cross-user">إيصال مكرر لدى ' + otherUsers.length + ' مستخدم: ' + esc(otherUsers.join('، ')) + '. للتواصل مع الإدارة: 91470590</span>'
       : duplicate.sameUser
-        ? '<span class="duplicate-receipt">مكرر داخل الحساب نفسه</span>'
+        ? '<span class="duplicate-receipt">الإيصال مكرر داخل الحساب نفسه. للتواصل مع الإدارة: 91470590</span>'
         : '';
     return '<div class="receipt-item">' + thumb + '<span class="receipt-name">' + esc(name) + '</span>' + warning + '</div>';
   }).join('') + '</div>';
