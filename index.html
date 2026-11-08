@@ -621,6 +621,16 @@
     .noor-device-grid[data-recommended]{grid-template-columns:minmax(0,1fr)}
     .noor-device-grid [hidden]{display:none!important}
     .noor-device-panel{border-top:1px solid rgba(214,225,238,.95);padding-top:14px;min-width:0}
+    .noor-help-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:12px}
+    .noor-help-group:first-child{grid-column:1/-1}
+    .noor-help-group h5{font-size:.9rem;color:#0f766e;margin-bottom:8px}
+    .noor-help-group ol{list-style:decimal;padding-inline-start:1.55rem}
+    .noor-help-group li{padding-inline-start:.2rem;margin-bottom:6px}
+    .noor-help-group li::marker{color:#0f766e;font-weight:800}
+    .noor-help-group a{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:44px;padding:8px 12px;border:1px solid #d6e5e3;border-radius:7px;color:#174340;background:#f7fcfb;text-decoration:none;font-weight:700;overflow-wrap:anywhere}
+    .noor-help-group a:hover,.noor-help-group a:focus-visible{background:#eaf6f3;border-color:#0f766e}
+    .noor-help-group a span:last-child{color:#0f766e;flex-shrink:0}
+    @media(max-width:680px){.noor-help-grid{grid-template-columns:minmax(0,1fr);gap:12px}}
     .noor-device-panel h4{font-size:.96rem;font-weight:900;color:#0a1628;margin-bottom:9px}
     .noor-device-panel p{font-size:.82rem;line-height:1.8;margin:0;color:#5b718b;max-width:none}
     .noor-tool-link.noor-video-link{min-width:42px;padding-inline:10px;font-size:1rem;vertical-align:middle}
@@ -851,13 +861,30 @@
           </div>
           <section class="noor-device-panel" aria-labelledby="noor-help-title">
             <h4 id="noor-help-title">أسئلة وشروحات</h4>
-            <a class="noor-tool-link" href="assets/noor-registration-subscription.mp4" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▶</span>&nbsp; 1- طريقة التسجيل والاشتراك</a>
-            <a class="noor-tool-link" href="assets/noor-desktop-lesson-preparation.mp4" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▶</span>&nbsp; 2- طريقة تحضير الدروس بالحاسب الآلي</a>
-            <a class="noor-tool-link" href="assets/noor-android-lesson-preparation.mp4" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▶</span>&nbsp; 3- طريقة التحضير باستخدام أجهزة الأندرويد</a>
-            <a class="noor-tool-link" href="assets/noor-iphone-lesson-preparation.mp4" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▶</span>&nbsp; 4- طريقة التحضير باستخدام أجهزة الآيفون والآيباد</a>
-            <a class="noor-tool-link" href="assets/noor-desktop-install.mp4" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▶</span>&nbsp; 5- طريقة تثبيت الأداة على الحاسب الآلي (كروم أو فايرفوكس)</a>
-            <a class="noor-tool-link" href="assets/noor-android-firefox-install.mp4" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▶</span>&nbsp; 6- طريقة تثبيت الأداة على الأندرويد (فايرفوكس)</a>
-            <a class="noor-tool-link" href="assets/noor-iphone-install.mp4" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▶</span>&nbsp; 7- طريقة تثبيت الأداة على الآيفون والآيباد (Orion Browser by Kagi)</a>
+            <div class="noor-help-grid">
+              <div class="noor-help-group">
+                <h5>التسجيل والاشتراك</h5>
+                <ol start="1">
+                  <li><a href="assets/noor-registration-subscription.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة التسجيل والاشتراك</span><span aria-hidden="true">▶</span></a></li>
+                </ol>
+              </div>
+              <div class="noor-help-group">
+                <h5>تثبيت أداة التعبئة</h5>
+                <ol start="2">
+                  <li><a href="assets/noor-desktop-install.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة تثبيت الأداة على الحاسب الآلي (كروم أو فايرفوكس)</span><span aria-hidden="true">▶</span></a></li>
+                  <li><a href="assets/noor-android-firefox-install.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة تثبيت الأداة على الأندرويد (فايرفوكس)</span><span aria-hidden="true">▶</span></a></li>
+                  <li><a href="assets/noor-iphone-install.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة تثبيت الأداة على الآيفون والآيباد (Orion Browser by Kagi)</span><span aria-hidden="true">▶</span></a></li>
+                </ol>
+              </div>
+              <div class="noor-help-group">
+                <h5>تحضير الدروس</h5>
+                <ol start="5">
+                  <li><a href="assets/noor-desktop-lesson-preparation.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة تحضير الدروس بالحاسب الآلي</span><span aria-hidden="true">▶</span></a></li>
+                  <li><a href="assets/noor-android-lesson-preparation.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة التحضير باستخدام أجهزة الأندرويد</span><span aria-hidden="true">▶</span></a></li>
+                  <li><a href="assets/noor-iphone-lesson-preparation.mp4" target="_blank" rel="noopener noreferrer"><span>طريقة التحضير باستخدام أجهزة الآيفون والآيباد</span><span aria-hidden="true">▶</span></a></li>
+                </ol>
+              </div>
+            </div>
           </section>
         </details>
 
