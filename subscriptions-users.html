@@ -16,8 +16,8 @@
     .login{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
     .field{display:flex;flex-direction:column;gap:5px}
     .field label{font-size:12px;font-weight:800;color:#475569}
-    input,button,textarea{font-family:inherit}
-    input,textarea{border:1px solid #cbd5e1;border-radius:8px;padding:10px;min-width:220px}
+    input,button,textarea,select{font-family:inherit}
+    input,textarea,.reason-template{border:1px solid #cbd5e1;border-radius:8px;padding:10px;min-width:220px}
     textarea{width:100%;min-height:78px;resize:vertical;font-size:13px;line-height:1.7;margin-top:8px}
     button{border:none;border-radius:8px;padding:10px 14px;background:#1a56a0;color:white;font-weight:900;cursor:pointer}
     button:disabled{background:#cbd5e1;cursor:not-allowed}
@@ -52,6 +52,8 @@
     .receipt-thumb{display:block;width:92px;height:70px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;object-fit:cover}
     .receipt-fallback{width:92px;height:70px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:12px;font-weight:900;text-align:center}
     .receipt-name{display:block;margin-top:4px;color:#475569;font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .duplicate-receipt{display:block;margin-top:5px;padding:4px 6px;border:1px solid #f59e0b;border-radius:6px;background:#fffbeb;color:#92400e;font-size:11px;font-weight:900;line-height:1.4}
+    .duplicate-receipt.cross-user{border-color:#dc2626;background:#fef2f2;color:#991b1b}
     .receipt-modal{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(15,23,42,.76)}
     .receipt-modal.open{display:flex}
     .receipt-modal-content{position:relative;max-width:min(1100px,96vw);max-height:92vh;background:#fff;border-radius:8px;box-shadow:0 24px 70px rgba(15,23,42,.35);padding:14px}
@@ -61,6 +63,8 @@
     .edit-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
     .user-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .user-actions button{font-size:12px;padding:9px 11px}
+    .reason-template{width:100%;min-width:190px;margin-top:8px;background:#fff;color:#334155;font-size:12px;font-weight:700}
+    .stop-note{width:100%;min-width:190px;min-height:70px}
     .pager{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;color:#475569;font-size:13px;font-weight:800}
     .pager-actions{display:flex;gap:8px;align-items:center}
     @media(max-width:760px){
@@ -159,6 +163,16 @@ function jsString(v){ return JSON.stringify(String(v ?? '')); }
 function formatDate(value){ const d = value ? new Date(value) : null; return d && Number.isFinite(d.getTime()) ? d.toLocaleString('ar-OM') : ''; }
 function isImageReceipt(item){ return String(item?.receiptFileType || '').startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(String(item?.receiptUrl || item?.receiptFileName || '')); }
 function statusLabel(status){ return ({ active:'مفعل', pending:'قيد المراجعة', rejected:'مرفوض', stopped:'متوقف' })[status] || status || 'غير محدد'; }
+const STOP_REASON_TEMPLATES = [
+  '',
+  'الإيصال المرفوع مكرر ومستخدم في حساب آخر. يرجى رفع إيصال جديد خاص بهذا الحساب.',
+  'بيانات التحويل في الإيصال غير واضحة. يرجى رفع صورة واضحة وكاملة للإيصال.',
+  'قيمة التحويل لا تطابق قيمة الاشتراك المطلوبة. يرجى إكمال المبلغ ورفع الإيصال الصحيح.',
+  'رقم التحويل في الإيصال لا يطابق رقم التحويل المعتمد 91470590.',
+  'تعذر التحقق من عملية التحويل. يرجى التواصل مع الإدارة وإرفاق إثبات الدفع.'
+];
+function reasonTemplateOptions(){ return STOP_REASON_TEMPLATES.map((text,index) => '<option value="'+esc(text)+'">'+(index?esc(text):'اختر رسالة جاهزة...')+'</option>').join(''); }
+function applyStopReason(id,value){ if(value){ const note=document.getElementById('stop-note-'+id); if(note) note.value=value; } }
 
 function openReceiptModal(url, name){
   const modal = document.getElementById('receipt-modal');
@@ -191,7 +205,14 @@ function receiptCell(item){
     const thumb = isImageReceipt(previewItem)
       ? '<button class="receipt-view-button" type="button" title="عرض الإيصال بالحجم الطبيعي" data-action="open-receipt" data-receipt-url="' + esc(receipt.url) + '" data-receipt-name="' + esc(name) + '"><img class="receipt-thumb" src="' + esc(receipt.url) + '" alt="صورة الإيصال ' + (index + 1) + '" loading="lazy"></button>'
       : '<div class="receipt-fallback">ملف غير صورة</div>';
-    return '<div class="receipt-item">' + thumb + '<span class="receipt-name">' + esc(name) + '</span></div>';
+    const duplicate = receipt.duplicateReceipt || {};
+    const otherUsers = Array.isArray(duplicate.otherUsers) ? duplicate.otherUsers : [];
+    const warning = otherUsers.length
+      ? '<span class="duplicate-receipt cross-user">إيصال مكرر لدى ' + otherUsers.length + ' مستخدم: ' + esc(otherUsers.join('، ')) + '</span>'
+      : duplicate.sameUser
+        ? '<span class="duplicate-receipt">مكرر داخل الحساب نفسه</span>'
+        : '';
+    return '<div class="receipt-item">' + thumb + '<span class="receipt-name">' + esc(name) + '</span>' + warning + '</div>';
   }).join('') + '</div>';
 }
 
@@ -213,7 +234,7 @@ document.getElementById('list')?.addEventListener('click', async event => {
   try {
     if(action === 'save-selection') await saveUserSelection(userId, id);
     if(action === 'activate') await activateUserSubscription(id, button.dataset.blocked === 'true');
-    if(action === 'block') await blockUserAccount(userId);
+    if(action === 'block') await blockUserAccount(userId, id);
     if(action === 'stop') await stopUserSubscription(userId, id);
   } catch (error) {
     alert(error?.message || 'تعذر تنفيذ العملية، يرجى المحاولة مرة أخرى.');
@@ -278,7 +299,7 @@ async function loadUsers(page = usersPage){
         '<td data-label="الصف / المادة المفعلة"><span class="status ' + esc(item.status) + '">' + esc(item.accountStopped ? 'موقوف بالكامل' : statusLabel(item.status)) + '</span>' + activeItemsCell(item) + '<textarea id="selection-' + item.id + '" placeholder="مثال: الصف الخامس - الرياضيات">' + esc(editableItemsValue(item)) + '</textarea><div class="edit-actions"><button type="button" class="btn-muted" data-action="save-selection" data-user-id="' + esc(item.userId) + '" data-sub-id="' + esc(item.id) + '">حفظ الصف والمواد</button></div></td>' +
         '<td data-label="الإيصال">' + receiptCell(item) + '</td>' +
         '<td data-label="آخر تحديث"><div class="meta">' + esc(formatDate(item.updatedAt)) + '</div></td>' +
-        '<td data-label="الإجراء"><div class="user-actions"><button type="button" class="btn-ok" data-action="activate" data-blocked="' + !!item.accountStopped + '" data-sub-id="' + esc(item.id) + '">تفعيل</button><button type="button" class="btn-danger" data-action="stop" data-user-id="' + esc(item.userId) + '" data-sub-id="' + esc(item.id) + '">إيقاف الحساب</button><button type="button" class="btn-danger" data-action="block" data-user-id="' + esc(item.userId) + '" ' + (item.accountStopped ? 'disabled' : '') + '>إيقاف كامل</button></div></td>' +
+        '<td data-label="الإجراء"><select class="reason-template" onchange="applyStopReason(' + jsString(item.id) + ',this.value)">' + reasonTemplateOptions() + '</select><textarea class="stop-note" id="stop-note-' + esc(item.id) + '" placeholder="سبب الإيقاف الذي سيظهر للمستخدم">' + esc(item.adminNote || '') + '</textarea><div class="user-actions"><button type="button" class="btn-ok" data-action="activate" data-blocked="' + !!item.accountStopped + '" data-sub-id="' + esc(item.id) + '">تفعيل</button><button type="button" class="btn-danger" data-action="stop" data-user-id="' + esc(item.userId) + '" data-sub-id="' + esc(item.id) + '">إيقاف الحساب</button><button type="button" class="btn-danger" data-action="block" data-user-id="' + esc(item.userId) + '" data-sub-id="' + esc(item.id) + '" ' + (item.accountStopped ? 'disabled' : '') + '>إيقاف كامل</button></div></td>' +
       '</tr>';
     }).join('') + '</tbody></table></div>';
     const pager = renderPager(usersPage, items.length, !!data.hasMore);
@@ -289,18 +310,20 @@ async function loadUsers(page = usersPage){
 }
 
 async function stopUserSubscription(userId, id){
+  const note = document.getElementById('stop-note-' + id)?.value.trim() || '';
+  if(!note){ alert('اختر رسالة جاهزة أو اكتب سبب الإيقاف ليظهر للمستخدم.'); return; }
   if(!confirm('هل تريد إيقاف تفعيل كل اشتراكات هذا المستخدم؟')) return;
   let res = await fetch(api('/api/subscriptions?action=admin_stop_user'), {
     method:'POST',
     headers:{ 'Content-Type':'application/json', 'x-admin-password': adminPassword },
-    body: JSON.stringify({ userId, note: 'تم إيقاف التفعيل من صفحة متابعة المستخدمين المشتركين' })
+    body: JSON.stringify({ userId, note })
   });
   let data = await res.json().catch(() => ({}));
   if(res.ok && Number(data.stopped || 0) === 0 && id){
     res = await fetch(api('/api/subscriptions?action=admin_update'), {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'x-admin-password': adminPassword },
-      body: JSON.stringify({ id, status: 'stopped', note: 'تم إيقاف الحساب من صفحة متابعة المستخدمين المشتركين' })
+      body: JSON.stringify({ id, status: 'stopped', note })
     });
     data = await res.json().catch(() => ({}));
   }
@@ -308,9 +331,11 @@ async function stopUserSubscription(userId, id){
   await loadUsers(usersPage);
 }
 
-async function blockUserAccount(userId) {
+async function blockUserAccount(userId, id) {
+  const note = document.getElementById('stop-note-' + id)?.value.trim() || '';
+  if(!note){ alert('اختر رسالة جاهزة أو اكتب سبب الإيقاف الكامل ليظهر للمستخدم.'); return; }
   if(!confirm('هل تريد إيقاف الحساب بالكامل؟ لن يعاد تفعيله برفع إيصال جديد، ويمكن رفع الإيقاف من الإدارة فقط.')) return;
-  const res = await fetch(api('/api/subscriptions?action=admin_block_user'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword }, body: JSON.stringify({ userId }) });
+  const res = await fetch(api('/api/subscriptions?action=admin_block_user'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword }, body: JSON.stringify({ userId, note }) });
   const data = await res.json();
   if(!res.ok) throw new Error(data.message || 'تعذر إيقاف الحساب بالكامل.');
   await loadUsers(usersPage);

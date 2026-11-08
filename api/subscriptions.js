@@ -1,5 +1,6 @@
 ﻿import { neon } from "@neondatabase/serverless";
 import { list, put } from "@vercel/blob";
+import { createHash } from "node:crypto";
 import { requireAdmin } from "../enjazy/server_api/_lib/admin-auth.js";
 
 export const config = {
@@ -28,9 +29,17 @@ function sqlClient() {
 const sql = sqlClient();
 let schemaPromise = null;
 let accountStopSchemaPromise = null;
+let receiptHashSchemaPromise = null;
 async function ensureAccountStopSchema() {
   if (!accountStopSchemaPromise) accountStopSchemaPromise = sql`ALTER TABLE teacher_subscriptions ADD COLUMN IF NOT EXISTS account_stopped BOOLEAN NOT NULL DEFAULT FALSE;`.catch(error => { accountStopSchemaPromise = null; throw error; });
   await accountStopSchemaPromise;
+}
+async function ensureReceiptHashSchema() {
+  if (!receiptHashSchemaPromise) receiptHashSchemaPromise = (async () => {
+    await sql`ALTER TABLE teacher_subscriptions ADD COLUMN IF NOT EXISTS receipt_hash TEXT NOT NULL DEFAULT '';`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_teacher_subscriptions_receipt_hash ON teacher_subscriptions (receipt_hash) WHERE receipt_hash <> '';`;
+  })().catch(error => { receiptHashSchemaPromise = null; throw error; });
+  await receiptHashSchemaPromise;
 }
 
 function send(res, status, payload) { res.status(status).json(payload); }
@@ -54,6 +63,7 @@ async function ensureSchema() {
           receipt_url TEXT NOT NULL DEFAULT '',
           receipt_file_name TEXT NOT NULL DEFAULT '',
           receipt_file_type TEXT NOT NULL DEFAULT '',
+          receipt_hash TEXT NOT NULL DEFAULT '',
           receipt_history JSONB NOT NULL DEFAULT '[]'::jsonb,
           admin_note TEXT NOT NULL DEFAULT '',
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -71,6 +81,15 @@ async function ensureSchema() {
       await sql`
         ALTER TABLE teacher_subscriptions
         ADD COLUMN IF NOT EXISTS receipt_history JSONB NOT NULL DEFAULT '[]'::jsonb;
+      `;
+      await sql`
+        ALTER TABLE teacher_subscriptions
+        ADD COLUMN IF NOT EXISTS receipt_hash TEXT NOT NULL DEFAULT '';
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS idx_teacher_subscriptions_receipt_hash
+        ON teacher_subscriptions (receipt_hash)
+        WHERE receipt_hash <> '';
       `;
       if (RUN_SCHEMA_MIGRATIONS) {
         await sql`
@@ -155,6 +174,7 @@ async function dbReady(res, ensure = true) {
   }
   if (ensure) await ensureSchema();
   await ensureAccountStopSchema();
+  await ensureReceiptHashSchema();
   return true;
 }
 
@@ -483,6 +503,43 @@ function subscriptionHistory(row) {
   return Array.isArray(row?.receipt_history) ? row.receipt_history : [];
 }
 
+function receiptSha256(buffer) {
+  return createHash("sha256").update(buffer).digest("hex");
+}
+
+async function findReceiptHashMatches(receiptHash) {
+  if (!receiptHash) return [];
+  const rows = await sql`
+    SELECT user_id, receipt_hash, receipt_history
+    FROM teacher_subscriptions
+    WHERE receipt_hash = ${receiptHash}
+       OR EXISTS (
+         SELECT 1 FROM jsonb_array_elements(
+           CASE WHEN jsonb_typeof(receipt_history) = 'array' THEN receipt_history ELSE '[]'::jsonb END
+         ) item
+         WHERE item->>'receiptHash' = ${receiptHash}
+       );
+  `;
+  const matches = [];
+  for (const row of rows || []) {
+    if (row.receipt_hash === receiptHash) matches.push({ userId: String(row.user_id), source: "current" });
+    for (const item of subscriptionHistory(row)) {
+      if (String(item?.receiptHash || "") === receiptHash) matches.push({ userId: String(row.user_id), source: "history" });
+    }
+  }
+  return matches;
+}
+
+function duplicateReceiptInfo(matches, userId) {
+  const users = [...new Set((matches || []).map((item) => String(item.userId || "")).filter(Boolean))];
+  return {
+    duplicate: matches.length > 0,
+    sameUser: users.includes(String(userId || "")),
+    otherUsers: users.filter((id) => id !== String(userId || "")),
+    occurrences: matches.length,
+  };
+}
+
 function safeReceiptUrl(value) {
   const url = String(value || "");
   if (!url || url.length > 4096 || url.startsWith("data:")) return "";
@@ -603,6 +660,7 @@ async function getStatus(req, res) {
       CASE WHEN LEFT(s.receipt_url, 5) = 'data:' THEN '' ELSE LEFT(s.receipt_url, 4097) END AS receipt_url,
       LEFT(s.receipt_file_name, 180) AS receipt_file_name,
       LEFT(s.receipt_file_type, 80) AS receipt_file_type,
+      CASE WHEN pg_column_size(s.receipt_history) <= 1048576 THEN s.receipt_history ELSE '[]'::jsonb END AS receipt_history,
       LEFT(s.admin_note, 500) AS admin_note,
       s.created_at,
       s.updated_at
@@ -655,6 +713,7 @@ async function requestSubscription(req, res) {
       CASE WHEN LEFT(receipt_url, 5) = 'data:' THEN '' ELSE LEFT(receipt_url, 4097) END AS receipt_url,
       LEFT(receipt_file_name, 180) AS receipt_file_name,
       LEFT(receipt_file_type, 80) AS receipt_file_type,
+      receipt_hash,
       CASE WHEN pg_column_size(receipt_history) <= 1048576 THEN receipt_history ELSE '[]'::jsonb END AS receipt_history,
       LEFT(admin_note, 500) AS admin_note,
       created_at,
@@ -684,6 +743,8 @@ async function requestSubscription(req, res) {
   const gradeText = joinGrades(nextGrades);
   const selectedGradeText = requestedNewSubjects.length ? requestedNewSubjects.map((item) => item.grade + ' - ' + item.subject).join('، ') : joinGrades(requestedGrades);
   const amountOmr = subscriptionAmountOmr(fields, requestedNewSubjects, requestedGrades);
+  const receiptHash = receiptSha256(receipt.buffer);
+  const duplicateInfo = duplicateReceiptInfo(await findReceiptHashMatches(receiptHash), userId);
   const blob = await put(`receipts/${userId}/${Date.now()}-${receipt.fileName}`, receipt.buffer, {
     access: "public",
     contentType: receipt.contentType,
@@ -700,6 +761,8 @@ async function requestSubscription(req, res) {
     receiptUrl: blob.url,
     receiptFileName: receipt.fileName,
     receiptFileType: receipt.contentType,
+    receiptHash,
+    duplicateReceipt: duplicateInfo,
     status: requestStatus,
     product: fields.product || '',
     operation: 'subscription_request',
@@ -707,9 +770,9 @@ async function requestSubscription(req, res) {
   };
   const rows = await sql`
     INSERT INTO teacher_subscriptions (
-      user_id, grade, grades, subjects, status, receipt_url, receipt_file_name, receipt_file_type, receipt_history, admin_note, created_at, updated_at
+      user_id, grade, grades, subjects, status, receipt_url, receipt_file_name, receipt_file_type, receipt_hash, receipt_history, admin_note, created_at, updated_at
     ) VALUES (
-      ${userId}, ${gradeText}, ${JSON.stringify(nextGrades)}::jsonb, ${JSON.stringify(nextSubjects)}::jsonb, ${requestStatus}, ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, ${JSON.stringify([nextHistoryEntry, ...existingHistory])}::jsonb, '', NOW(), NOW()
+      ${userId}, ${gradeText}, ${JSON.stringify(nextGrades)}::jsonb, ${JSON.stringify(nextSubjects)}::jsonb, ${requestStatus}, ${blob.url}, ${receipt.fileName}, ${receipt.contentType}, ${receiptHash}, ${JSON.stringify([nextHistoryEntry, ...existingHistory])}::jsonb, '', NOW(), NOW()
     )
     ON CONFLICT (user_id)
     DO UPDATE SET
@@ -720,6 +783,7 @@ async function requestSubscription(req, res) {
       receipt_url = EXCLUDED.receipt_url,
       receipt_file_name = EXCLUDED.receipt_file_name,
       receipt_file_type = EXCLUDED.receipt_file_type,
+      receipt_hash = EXCLUDED.receipt_hash,
       receipt_history = EXCLUDED.receipt_history,
       admin_note = '',
       updated_at = NOW()
@@ -740,7 +804,7 @@ async function requestSubscription(req, res) {
       updated_at;
   `;
   if (!rows?.length) return fail(res, 403, "الحساب موقوف بالكامل من الإدارة.", "account_stopped");
-  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), amountOmr, message: (requestStatus === "pending" ? "تم إرسال الإيصال للمراجعة. المبلغ المطلوب: " : "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. المبلغ المطلوب: ") + amountOmr + " ريال عماني. ينتهي الاشتراك في " + expiryDate + "." });
+  send(res, 200, { ok: true, subscription: rowToSubscription(rows[0]), amountOmr, duplicateReceipt: duplicateInfo, message: (duplicateInfo.duplicate ? "تم استلام الإيصال مع تسجيل تنبيه بأنه مكرر. " : "") + (requestStatus === "pending" ? "تم إرسال الإيصال للمراجعة. المبلغ المطلوب: " : "تم إرسال الإيصال وتفعيل الاشتراك مباشرة. المبلغ المطلوب: ") + amountOmr + " ريال عماني. ينتهي الاشتراك في " + expiryDate + "." });
 }
 
 async function adminList(req, res) {
@@ -764,6 +828,7 @@ async function adminList(req, res) {
       CASE WHEN LEFT(s.receipt_url, 5) = 'data:' THEN '' ELSE LEFT(s.receipt_url, 4097) END AS receipt_url,
       LEFT(s.receipt_file_name, 180) AS receipt_file_name,
       LEFT(s.receipt_file_type, 80) AS receipt_file_type,
+      CASE WHEN pg_column_size(s.receipt_history) <= 1048576 THEN s.receipt_history ELSE '[]'::jsonb END AS receipt_history,
       LEFT(s.admin_note, 500) AS admin_note,
       s.created_at,
       s.updated_at,
@@ -795,11 +860,12 @@ async function adminList(req, res) {
     receiptUrl: safeReceiptUrl(row.receipt_url),
     receiptFileName: row.receipt_file_name,
     receiptFileType: row.receipt_file_type,
+    duplicateReceipt: subscriptionHistory(row)?.[0]?.duplicateReceipt || {},
     adminNote: row.admin_note,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    receiptHistory: [],
-    receiptHistoryCount: 0,
+    receiptHistory: subscriptionHistory(row).slice(0, 20),
+    receiptHistoryCount: subscriptionHistory(row).length,
     profile: row.profile || {},
   }));
   send(res, 200, {
@@ -896,6 +962,8 @@ async function adminActiveList(req, res) {
         CASE WHEN LEFT(s.receipt_url, 5) = 'data:' THEN '' ELSE LEFT(s.receipt_url, 4097) END AS receipt_url,
         LEFT(s.receipt_file_name, 180) AS receipt_file_name,
         LEFT(s.receipt_file_type, 80) AS receipt_file_type,
+        s.receipt_hash,
+        '{}'::jsonb AS duplicate_receipt,
         s.updated_at,
         s.id,
         0 AS receipt_order
@@ -909,6 +977,8 @@ async function adminActiveList(req, res) {
         CASE WHEN LEFT(COALESCE(history_item.value->>'receiptUrl', ''), 5) = 'data:' THEN '' ELSE LEFT(COALESCE(history_item.value->>'receiptUrl', ''), 4097) END AS receipt_url,
         LEFT(COALESCE(history_item.value->>'receiptFileName', ''), 180) AS receipt_file_name,
         LEFT(COALESCE(history_item.value->>'receiptFileType', ''), 80) AS receipt_file_type,
+        COALESCE(history_item.value->>'receiptHash', '') AS receipt_hash,
+        COALESCE(history_item.value->'duplicateReceipt', '{}'::jsonb) AS duplicate_receipt,
         s.updated_at,
         s.id,
         history_item.ordinality AS receipt_order
@@ -926,6 +996,8 @@ async function adminActiveList(req, res) {
           'url', receipt_url,
           'fileName', receipt_file_name,
           'fileType', receipt_file_type,
+          'receiptHash', receipt_hash,
+          'duplicateReceipt', duplicate_receipt,
           'updatedAt', updated_at
         ) ORDER BY updated_at DESC, id DESC, receipt_order ASC) AS receipts
       FROM receipt_rows
@@ -974,6 +1046,8 @@ async function adminActiveList(req, res) {
       url: safeReceiptUrl(receipt?.url),
       fileName: String(receipt?.fileName || "").slice(0, 180),
       fileType: String(receipt?.fileType || "").slice(0, 80),
+      receiptHash: String(receipt?.receiptHash || ""),
+      duplicateReceipt: receipt?.duplicateReceipt && typeof receipt.duplicateReceipt === "object" ? receipt.duplicateReceipt : {},
       updatedAt: receipt?.updatedAt || "",
     })).filter((receipt) => receipt.url) : [],
     adminNote: row.admin_note,
@@ -1000,8 +1074,9 @@ async function adminBlockUser(req, res) {
   if (!(await dbReady(res, false))) return;
   const body = await readJsonBody(req);
   const userId = String(body.userId || '').trim();
+  const note = String(body.note || 'تم إيقاف الحساب بالكامل من الإدارة').trim().slice(0, 500);
   if (!userId) return fail(res, 400, 'بيانات المستخدم غير صحيحة.', 'invalid_payload');
-  const rows = await sql`UPDATE teacher_subscriptions SET account_stopped = TRUE, status = 'stopped', subjects = COALESCE((SELECT jsonb_agg(item.value || jsonb_build_object('status', 'stopped')) FROM jsonb_array_elements(subjects) item(value)), '[]'::jsonb), admin_note = 'تم إيقاف الحساب بالكامل من الإدارة', updated_at = NOW() WHERE user_id = ${userId} RETURNING id;`;
+  const rows = await sql`UPDATE teacher_subscriptions SET account_stopped = TRUE, status = 'stopped', subjects = COALESCE((SELECT jsonb_agg(item.value || jsonb_build_object('status', 'stopped')) FROM jsonb_array_elements(subjects) item(value)), '[]'::jsonb), admin_note = ${note}, updated_at = NOW() WHERE user_id = ${userId} RETURNING id;`;
   if (!rows?.length) return fail(res, 404, 'المستخدم غير موجود.', 'not_found');
   return send(res, 200, { ok: true, accountStopped: true });
 }
@@ -1012,7 +1087,7 @@ async function adminStopUser(req, res) {
   if (!auth.ok) return send(res, auth.status, { error: auth.error, message: auth.message });
   const body = await readJsonBody(req);
   const userId = String(body.userId || "").trim();
-  const note = String(body.note || "تم إيقاف التفعيل من صفحة متابعة المستخدمين المشتركين").trim();
+  const note = String(body.note || "تم إيقاف التفعيل من صفحة متابعة المستخدمين المشتركين").trim().slice(0, 500);
   if (!userId) return fail(res, 400, "بيانات المستخدم غير صحيحة.", "invalid_payload");
   const rows = await sql`
     UPDATE teacher_subscriptions
@@ -1072,9 +1147,12 @@ async function adminUpdate(req, res) {
   const body = await readJsonBody(req);
   const id = Number(body.id || 0);
   const status = String(body.status || "").trim();
-  const note = String(body.note || "").trim();
+  const note = String(body.note || "").trim().slice(0, 500);
   const allowed = new Set(["pending", "active", "rejected", "stopped"]);
   if (!id || !allowed.has(status)) return fail(res, 400, "بيانات تحديث الاشتراك غير صحيحة.", "invalid_payload");
+  if ((status === "stopped" || status === "rejected") && !note) {
+    return fail(res, 400, "اكتب سبب الإيقاف أو الرفض ليظهر للمستخدم.", "missing_admin_note");
+  }
   const existingRows = await sql`
     SELECT
       id,

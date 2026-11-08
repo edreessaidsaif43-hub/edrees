@@ -931,12 +931,17 @@ function getStateDataWeight(snapshot) {
       ? cls.students.reduce((sSum, student) => sSum + (Array.isArray(student.history) ? student.history.length : 0), 0)
       : 0);
   }, 0);
+  const positivePoints = classes.reduce((sum, cls) => {
+    return sum + (Array.isArray(cls.students)
+      ? cls.students.reduce((studentSum, student) => studentSum + Math.max(0, Number(student && student.points) || 0), 0)
+      : 0);
+  }, 0);
   const photos = classes.reduce((sum, cls) => {
     return sum + (Array.isArray(cls.students)
       ? cls.students.filter((student) => student && student.photoDataUrl).length
       : 0);
   }, 0);
-  return { classes: classes.length, students, history, photos };
+  return { classes: classes.length, students, history, positivePoints, photos };
 }
 
 function isRemoteStateDangerouslySparse(localSnapshot, remoteSnapshot) {
@@ -944,7 +949,11 @@ function isRemoteStateDangerouslySparse(localSnapshot, remoteSnapshot) {
   const remoteWeight = getStateDataWeight(remoteSnapshot);
   if (!localWeight.students) return false;
   if (!remoteWeight.students) return true;
-  return remoteWeight.students < localWeight.students && remoteWeight.history < localWeight.history;
+  const lostManyStudentsAndActions = remoteWeight.students < localWeight.students && remoteWeight.history < localWeight.history;
+  const pointLoss = localWeight.positivePoints - remoteWeight.positivePoints;
+  const lostLargePointBalance = localWeight.positivePoints >= 25 && pointLoss >= Math.max(20, localWeight.positivePoints * 0.35);
+  const lostMostPointHistory = localWeight.history >= 6 && remoteWeight.history <= localWeight.history * 0.5;
+  return lostManyStudentsAndActions || lostLargePointBalance || lostMostPointHistory;
 }
 
 function backupTeacherData(reason = "auto") {
@@ -1427,8 +1436,11 @@ async function pullRemoteStateIfNeeded(forceRemote = false) {
 
   if (forceRemote) {
     if (isRemoteStateDangerouslySparse(state, remoteState)) {
-      await saveStateToRemote(userId, copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state));
-      showAuthMessage("تم منع استبدال بيانات الطلاب بنسخة سحابية فارغة، وتم رفع النسخة المحلية الحالية.", true);
+      backupTeacherData("blocked_sparse_remote_state");
+      const saved = await saveStateToRemote(userId, copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state));
+      showAuthMessage(saved
+        ? "تم منع استبدال الأرصدة المحلية بنسخة سحابية ناقصة، وحُفظت نسخة احتياطية محلية قبل المزامنة."
+        : "تم منع استبدال الأرصدة المحلية بنسخة سحابية ناقصة. تعذرت مزامنة النسخة المحلية؛ أعد المحاولة عند استقرار الاتصال.", true);
       return "pushed";
     }
     backupTeacherData("before_forced_remote_pull");
@@ -1443,7 +1455,11 @@ async function pullRemoteStateIfNeeded(forceRemote = false) {
   const hasNewLiveGame = remoteHasNewLiveGame(state, remoteState);
   if (remoteTs > localTs || hasNewLiveGame) {
     if (isRemoteStateDangerouslySparse(state, remoteState)) {
-      await saveStateToRemote(userId, copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state));
+      backupTeacherData("blocked_sparse_remote_state");
+      const saved = await saveStateToRemote(userId, copyStudentPhotosBetweenStates(JSON.parse(JSON.stringify(state)), state));
+      showAuthMessage(saved
+        ? "تم منع استبدال الأرصدة المحلية بنسخة سحابية ناقصة، وحُفظت نسخة احتياطية محلية قبل المزامنة."
+        : "تم منع استبدال الأرصدة المحلية بنسخة سحابية ناقصة. تعذرت مزامنة النسخة المحلية؛ أعد المحاولة عند استقرار الاتصال.", true);
       return "pushed";
     }
     backupTeacherData("before_remote_pull");
@@ -1617,10 +1633,12 @@ async function refreshMotivationSubscriptionStatus() {
     const motivation = getMotivationSubscriptionItems(data);
     const active = motivation.active.length > 0 || motivation.subscriptions.some((item) => item.status === "active");
     const pending = !active && (motivation.pending.length > 0 || motivation.subscriptions.some((item) => item.status === "pending"));
+    const blocked = motivation.subscriptions.find((item) => item.status === "stopped" || item.status === "rejected") || null;
     motivationSubscriptionState = {
       loaded: true,
       active,
       pending,
+      blocked,
       subscriptions: motivation.subscriptions,
       paymentNumber: data?.paymentNumber || "91470590"
     };
@@ -1656,6 +1674,14 @@ function renderMotivationSubscriptionStatus() {
   if (motivationSubscriptionState.pending) {
     status.textContent = "تم استلام طلب الاشتراك وهو بانتظار اعتماد الإدارة.";
     status.style.color = "#92400e";
+    return;
+  }
+  if (motivationSubscriptionState.blocked) {
+    const item = motivationSubscriptionState.blocked;
+    const label = item.status === "rejected" ? "تم رفض الإيصال" : "تم إيقاف اشتراك تحفيز+";
+    const reason = String(item.adminNote || "").trim();
+    status.textContent = reason ? `${label}. السبب: ${reason}` : `${label}. يرجى التواصل مع الإدارة.`;
+    status.style.color = "#991b1b";
     return;
   }
   status.textContent = motivationSubscriptionState.message || "يلزم تفعيل اشتراك تحفيز+ للدخول إلى أدوات المعلم.";

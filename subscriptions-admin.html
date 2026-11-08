@@ -15,8 +15,8 @@
     .login{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
     .field{display:flex;flex-direction:column;gap:5px}
     .field label{font-size:12px;font-weight:800;color:#475569}
-    input,button,textarea{font-family:inherit}
-    input,textarea{border:1px solid #cbd5e1;border-radius:8px;padding:10px;min-width:220px}
+    input,button,textarea,select{font-family:inherit}
+    input,textarea,.reason-template{border:1px solid #cbd5e1;border-radius:8px;padding:10px;min-width:220px}
     button{border:none;border-radius:8px;padding:10px 14px;background:#1a56a0;color:white;font-weight:900;cursor:pointer}
     .btn-danger{background:#dc2626}.btn-ok{background:#15803d}.btn-muted{background:#64748b}
     .meta{font-size:13px;color:#64748b;line-height:1.8}
@@ -40,9 +40,12 @@
     .receipt-link{display:block;color:inherit;text-decoration:none}
     .receipt-preview{width:180px;height:130px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;overflow:hidden;display:flex;align-items:center;justify-content:center}
     .receipt-preview img{width:100%;height:100%;object-fit:contain;background:#fff}
+    .duplicate-warning{margin-top:7px;padding:7px;border:1px solid #f59e0b;border-radius:7px;background:#fffbeb;color:#92400e;font-size:12px;font-weight:900;line-height:1.5}
+    .duplicate-warning.cross-user{border-color:#dc2626;background:#fef2f2;color:#991b1b}
     .file-preview{padding:12px;text-align:center;color:#334155;font-weight:900}
     .file-name{display:block;width:180px;margin-top:6px;color:#1a56a0;font-size:12px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .note{width:220px;min-width:220px;min-height:58px;resize:vertical}
+    .reason-template{width:220px;margin-bottom:7px;background:#fff;color:#334155;font-size:12px;font-weight:700}
     .actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
     .actions button{padding:8px 10px;font-size:12px}
     .pager{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;color:#475569;font-size:13px;font-weight:800}
@@ -150,6 +153,18 @@ function clearSubscriptionFilters(){
 function api(path){ return (location.protocol === 'file:' ? 'https://altahdir.app' : '') + path; }
 function esc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function statusLabel(s){ return ({pending:'قيد المراجعة',active:'مفعل',rejected:'مرفوض',stopped:'متوقف'})[s] || s; }
+const STOP_REASON_TEMPLATES = [
+  '',
+  'الإيصال المرفوع مكرر ومستخدم في حساب آخر. يرجى رفع إيصال جديد خاص بهذا الحساب.',
+  'بيانات التحويل في الإيصال غير واضحة. يرجى رفع صورة واضحة وكاملة للإيصال.',
+  'قيمة التحويل لا تطابق قيمة الاشتراك المطلوبة. يرجى إكمال المبلغ ورفع الإيصال الصحيح.',
+  'رقم التحويل في الإيصال لا يطابق رقم التحويل المعتمد 91470590.',
+  'تعذر التحقق من عملية التحويل. يرجى التواصل مع الإدارة وإرفاق إثبات الدفع.'
+];
+function reasonTemplateOptions(){
+  return STOP_REASON_TEMPLATES.map((text, index) => '<option value="' + esc(text) + '">' + (index ? esc(text) : 'اختر رسالة جاهزة...') + '</option>').join('');
+}
+function applyReasonTemplate(id, value){ if(value){ const note=document.getElementById('note-'+id); if(note) note.value=value; } }
 function formatDate(value){ const d = value ? new Date(value) : null; return d && Number.isFinite(d.getTime()) ? d.toLocaleString('ar-OM') : ''; }
 function isImageReceipt(item){ return String(item?.receiptFileType || '').startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(String(item?.receiptUrl || item?.receiptFileName || '')); }
 function isPdfReceipt(item){ return String(item?.receiptFileType || '').includes('pdf') || /\.pdf($|\?)/i.test(String(item?.receiptUrl || item?.receiptFileName || '')); }
@@ -169,7 +184,14 @@ function receiptPreview(item){
   const name = esc(item.receiptFileName || 'receipt');
   const label = isPdfReceipt(item) ? 'ملف PDF' : (isImageReceipt(item) ? 'صورة إيصال' : 'ملف إيصال');
   const preview = '<div class="receipt-preview"><div class="file-preview">' + label + '<br>اضغط للفتح</div></div>';
-  return '<a class="receipt-link" href="' + url + '" target="_blank" rel="noopener" title="فتح الإيصال">' + preview + '<span class="file-name">' + name + '</span></a>';
+  const duplicate = item.duplicateReceipt || {};
+  const otherUsers = Array.isArray(duplicate.otherUsers) ? duplicate.otherUsers : [];
+  const warning = otherUsers.length
+    ? '<div class="duplicate-warning cross-user">تحذير: الإيصال مستخدم في حسابات أخرى: ' + esc(otherUsers.join('، ')) + '</div>'
+    : duplicate.sameUser
+      ? '<div class="duplicate-warning">تنبيه: الإيصال مكرر داخل الحساب نفسه</div>'
+      : '';
+  return '<a class="receipt-link" href="' + url + '" target="_blank" rel="noopener" title="فتح الإيصال">' + preview + '<span class="file-name">' + name + '</span></a>' + warning;
 }
 
 function renderOperations(item){
@@ -231,7 +253,7 @@ async function loadSubscriptions(page = adminPage){
         '<td data-label="الحالة"><span class="status ' + esc(item.status) + '">' + esc(statusLabel(item.status)) + '</span></td>' +
         '<td data-label="الإيصال">' + receiptPreview(item) + '</td>' +
         '<td data-label="آخر تحديث"><div class="meta">' + esc(formatDate(item.updatedAt)) + '</div></td>' +
-        '<td data-label="ملاحظة وإجراءات"><textarea class="note" id="note-' + item.id + '" placeholder="ملاحظة إدارية اختيارية">' + esc(item.adminNote || '') + '</textarea><div class="actions"><button class="btn-ok" onclick="updateSub(' + item.id + ', \'active\')">تفعيل</button><button class="btn-danger" onclick="updateSub(' + item.id + ', \'stopped\')">إيقاف</button><button class="btn-muted" onclick="updateSub(' + item.id + ', \'rejected\')">رفض</button></div></td>' +
+        '<td data-label="ملاحظة وإجراءات"><select class="reason-template" onchange="applyReasonTemplate(' + item.id + ',this.value)">' + reasonTemplateOptions() + '</select><textarea class="note" id="note-' + item.id + '" placeholder="سبب الإيقاف أو الرفض الذي سيظهر للمستخدم">' + esc(item.adminNote || '') + '</textarea><div class="actions"><button class="btn-ok" onclick="updateSub(' + item.id + ', \'active\')">تفعيل</button><button class="btn-danger" onclick="updateSub(' + item.id + ', \'stopped\')">إيقاف</button><button class="btn-muted" onclick="updateSub(' + item.id + ', \'rejected\')">رفض</button></div></td>' +
       '</tr>';
     }).join('') + '</tbody></table></div>';
     const pager = renderPager(total, adminPage, limit, items.length, hasMore);
@@ -241,6 +263,7 @@ async function loadSubscriptions(page = adminPage){
 
 async function updateSub(id,status){
   const note = document.getElementById('note-'+id)?.value || '';
+  if((status === 'stopped' || status === 'rejected') && !note.trim()){ alert('اختر رسالة جاهزة أو اكتب سبب الإيقاف ليظهر للمستخدم.'); return; }
   const res = await fetch(api('/api/subscriptions?action=admin_update'), {
     method:'POST',
     headers:{ 'Content-Type':'application/json', 'x-admin-password': adminPassword },
