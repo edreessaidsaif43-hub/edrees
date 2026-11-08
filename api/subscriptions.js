@@ -17,6 +17,7 @@ const DATABASE_URL =
   "";
 const MAX_RECEIPT_SIZE = 12 * 1024 * 1024;
 const PAYMENT_NUMBER = "91470590";
+const SUPPORT_PHONE = "91470590";
 const ADMIN_LIST_DEFAULT_LIMIT = 25;
 const ADMIN_LIST_MAX_LIMIT = 50;
 const RUN_SCHEMA_MIGRATIONS = process.env.RUN_SUBSCRIPTION_SCHEMA_MIGRATIONS === "1";
@@ -44,6 +45,11 @@ async function ensureReceiptHashSchema() {
 
 function send(res, status, payload) { res.status(status).json(payload); }
 function fail(res, status, message, error = "request_failed") { send(res, status, { error, message }); }
+function withSupportPhone(message) {
+  const text = String(message || "").trim();
+  if (!text) return `للتواصل مع الإدارة: ${SUPPORT_PHONE}`;
+  return text.includes(SUPPORT_PHONE) ? text.slice(0, 500) : `${text} للتواصل مع الإدارة: ${SUPPORT_PHONE}`.slice(0, 500);
+}
 function boundedInt(value, fallback, min, max) {
   const number = Number.parseInt(String(value ?? ""), 10);
   if (!Number.isFinite(number)) return fallback;
@@ -1074,7 +1080,7 @@ async function adminBlockUser(req, res) {
   if (!(await dbReady(res, false))) return;
   const body = await readJsonBody(req);
   const userId = String(body.userId || '').trim();
-  const note = String(body.note || 'تم إيقاف الحساب بالكامل من الإدارة').trim().slice(0, 500);
+  const note = withSupportPhone(body.note || 'تم إيقاف الحساب بالكامل من الإدارة');
   if (!userId) return fail(res, 400, 'بيانات المستخدم غير صحيحة.', 'invalid_payload');
   const rows = await sql`UPDATE teacher_subscriptions SET account_stopped = TRUE, status = 'stopped', subjects = COALESCE((SELECT jsonb_agg(item.value || jsonb_build_object('status', 'stopped')) FROM jsonb_array_elements(subjects) item(value)), '[]'::jsonb), admin_note = ${note}, updated_at = NOW() WHERE user_id = ${userId} RETURNING id;`;
   if (!rows?.length) return fail(res, 404, 'المستخدم غير موجود.', 'not_found');
@@ -1087,7 +1093,7 @@ async function adminStopUser(req, res) {
   if (!auth.ok) return send(res, auth.status, { error: auth.error, message: auth.message });
   const body = await readJsonBody(req);
   const userId = String(body.userId || "").trim();
-  const note = String(body.note || "تم إيقاف التفعيل من صفحة متابعة المستخدمين المشتركين").trim().slice(0, 500);
+  const note = withSupportPhone(body.note || "تم إيقاف التفعيل من صفحة متابعة المستخدمين المشتركين");
   if (!userId) return fail(res, 400, "بيانات المستخدم غير صحيحة.", "invalid_payload");
   const rows = await sql`
     UPDATE teacher_subscriptions
@@ -1147,12 +1153,13 @@ async function adminUpdate(req, res) {
   const body = await readJsonBody(req);
   const id = Number(body.id || 0);
   const status = String(body.status || "").trim();
-  const note = String(body.note || "").trim().slice(0, 500);
+  const rawNote = String(body.note || "").trim();
   const allowed = new Set(["pending", "active", "rejected", "stopped"]);
   if (!id || !allowed.has(status)) return fail(res, 400, "بيانات تحديث الاشتراك غير صحيحة.", "invalid_payload");
-  if ((status === "stopped" || status === "rejected") && !note) {
+  if ((status === "stopped" || status === "rejected") && !rawNote) {
     return fail(res, 400, "اكتب سبب الإيقاف أو الرفض ليظهر للمستخدم.", "missing_admin_note");
   }
+  const note = status === "stopped" || status === "rejected" ? withSupportPhone(rawNote) : rawNote.slice(0, 500);
   const existingRows = await sql`
     SELECT
       id,
