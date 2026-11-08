@@ -618,6 +618,8 @@
     @media(max-width:650px){.home-card.noor-fill-card{grid-column:1 / -1}}
     .noor-fill-intro{max-width:760px!important;margin-bottom:18px!important}
     .noor-device-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:4px 0 18px}
+    .noor-device-grid[data-recommended]{grid-template-columns:minmax(0,1fr)}
+    .noor-device-grid [hidden]{display:none!important}
     .noor-device-panel{border-top:1px solid rgba(214,225,238,.95);padding-top:14px;min-width:0}
     .noor-device-panel h4{font-size:.96rem;font-weight:900;color:#0a1628;margin-bottom:9px}
     .noor-device-panel p{font-size:.82rem;line-height:1.8;margin:0;color:#5b718b;max-width:none}
@@ -830,7 +832,7 @@
             <p class="noor-fill-intro">انقل تحضير الدرس إلى منصة نور من الحاسب أو الهاتف.</p>
           </summary>
           <div class="noor-device-grid">
-            <div class="noor-device-panel">
+            <div class="noor-device-panel" data-device="desktop">
               <h4>الحاسب الآلي</h4>
               <ol class="noor-steps">
                 <li>افتح متصفح كروم أو فايرفوكس ثم ثبّت أداة التعبئة التلقائية للدرس.</li>
@@ -841,10 +843,10 @@
                 <li>اضغط زر تعبئة التحضير، ثم الصق نص الدرس في الصندوق.</li>
                 <li>اضغط تعبئة الدرس أو حفظه.</li>
               </ol>
-              <a class="noor-tool-link" href="https://chromewebstore.google.com/detail/%D8%AA%D8%B9%D8%A8%D8%A6%D8%A9-%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%AF%D8%B1%D9%88%D8%B3-%D9%86%D9%88%D8%B1/fgdlajfbjmobhaeabmgdfgmecpjjlmng" target="_blank" rel="noopener noreferrer">تثبيت أداة كروم للكمبيوتر</a>
-              <a class="noor-tool-link" href="https://addons.mozilla.org/en-US/firefox/addon/%D8%A7%D9%84%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%B0%D9%83%D9%8A-%D9%84%D9%84%D9%85%D8%B9%D9%84%D9%85-%D8%A7%D9%84%D8%B9%D9%85%D8%A7%D9%86%D9%8A/" target="_blank" rel="noopener noreferrer">تثبيت أداة فايرفوكس للكمبيوتر</a>
+              <a class="noor-tool-link" data-browser="chrome" href="https://chromewebstore.google.com/detail/%D8%AA%D8%B9%D8%A8%D8%A6%D8%A9-%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%AF%D8%B1%D9%88%D8%B3-%D9%86%D9%88%D8%B1/fgdlajfbjmobhaeabmgdfgmecpjjlmng" target="_blank" rel="noopener noreferrer">تثبيت أداة كروم للكمبيوتر</a>
+              <a class="noor-tool-link" data-browser="firefox" href="https://addons.mozilla.org/en-US/firefox/addon/%D8%A7%D9%84%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%B0%D9%83%D9%8A-%D9%84%D9%84%D9%85%D8%B9%D9%84%D9%85-%D8%A7%D9%84%D8%B9%D9%85%D8%A7%D9%86%D9%8A/" target="_blank" rel="noopener noreferrer">تثبيت أداة فايرفوكس للكمبيوتر</a>
             </div>
-            <div class="noor-device-panel">
+            <div class="noor-device-panel" data-device="ios">
               <h4>هاتف الآيفون</h4>
               <ol class="noor-steps">
                 <li>حمّل تطبيق Orion Browser by Kagi على الآيفون.</li>
@@ -859,7 +861,7 @@
               </ol>
               <a class="noor-tool-link" href="https://addons.mozilla.org/en-US/firefox/addon/%D8%A7%D9%84%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%B0%D9%83%D9%8A-%D9%84%D9%84%D9%85%D8%B9%D9%84%D9%85-%D8%A7%D9%84%D8%B9%D9%85%D8%A7%D9%86%D9%8A/" target="_blank" rel="noopener noreferrer">تحميل إضافة فايرفوكس للآيفون</a>
             </div>
-            <div class="noor-device-panel">
+            <div class="noor-device-panel" data-device="android">
               <h4>هاتف الأندرويد</h4>
               <ol class="noor-steps">
                 <li>افتح متصفح فايرفوكس ثم ثبّت أداة التعبئة التلقائية للدرس.</li>
@@ -1200,6 +1202,53 @@
 
   // Init
   checkSession();
+</script>
+<script>
+(function () {
+  const grid = document.querySelector('.noor-fill-card .noor-device-grid');
+  if (!grid) return;
+  const ua = navigator.userAgent || '';
+  const ios = /iPhone|iPad|iPod|FxiOS|CriOS/i.test(ua) ||
+    (/Mac/i.test(navigator.platform || '') && navigator.maxTouchPoints > 1);
+  const mobile = /Android|Mobile|Tablet/i.test(ua) || navigator.userAgentData?.mobile;
+  const device = ios ? 'ios' : mobile ? 'android' : 'desktop';
+  const firefox = /Firefox\//i.test(ua);
+  const chrome = /Chrome\//i.test(ua) && !/Edg|OPR|SamsungBrowser|Vivaldi|YaBrowser/i.test(ua) &&
+    !navigator.brave;
+  const browser = firefox ? 'firefox' : chrome ? 'chrome' : '';
+  grid.dataset.recommended = device;
+  grid.querySelectorAll('[data-device]').forEach(panel => {
+    panel.hidden = panel.dataset.device !== device;
+  });
+  const panel = grid.querySelector('[data-device="' + device + '"]');
+  const heading = panel.querySelector('h4');
+  const firstStep = panel.querySelector('li');
+  if (device === 'desktop') {
+    if (browser) {
+      const name = firefox ? 'فايرفوكس' : 'كروم';
+      heading.textContent = 'أداة التعبئة لـ' + name + ' على الحاسب';
+      firstStep.textContent = 'ثبّت أداة التعبئة التلقائية لمتصفح ' + name + ' من الرابط أدناه.';
+    } else {
+      heading.textContent = 'أدوات التعبئة للحاسب: فايرفوكس أو كروم';
+    }
+    panel.querySelectorAll('[data-browser]').forEach(link => {
+      link.hidden = Boolean(browser) && link.dataset.browser !== browser;
+    });
+  } else if (device === 'android') {
+    heading.textContent = 'أداة التعبئة لفايرفوكس على أندرويد';
+    firstStep.textContent = firefox
+      ? 'ثبّت أداة التعبئة لفايرفوكس من الرابط أدناه.'
+      : 'افتح الصفحة في فايرفوكس على أندرويد وثبّت الإضافة، أو استخدم كروم على الحاسب.';
+  } else {
+    heading.textContent = 'إضافة فايرفوكس عبر Orion على آيفون وآيباد';
+  }
+  if (device === 'android' && !firefox || device === 'ios') {
+    const desktopChrome = grid.querySelector('[data-browser="chrome"]').cloneNode(true);
+    desktopChrome.hidden = false;
+    desktopChrome.textContent = 'بديل: أداة كروم للحاسب';
+    panel.appendChild(desktopChrome);
+  }
+})();
 </script>
 <script src="/assets/site-navbar.js?v=1"></script>
 </body>
