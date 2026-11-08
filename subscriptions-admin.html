@@ -166,6 +166,9 @@ function reasonTemplateOptions(){
   return STOP_REASON_TEMPLATES.map((text, index) => '<option value="' + esc(text) + '">' + (index ? esc(text) : 'اختر رسالة جاهزة...') + '</option>').join('');
 }
 function applyReasonTemplate(id, value){ if(value){ const note=document.getElementById('note-'+id); if(note) note.value=value; } }
+function selectedReason(id){
+  return (document.getElementById('note-'+id)?.value || document.getElementById('reason-template-'+id)?.value || '').trim();
+}
 function formatDate(value){ const d = value ? new Date(value) : null; return d && Number.isFinite(d.getTime()) ? d.toLocaleString('ar-OM') : ''; }
 function isImageReceipt(item){ return String(item?.receiptFileType || '').startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(String(item?.receiptUrl || item?.receiptFileName || '')); }
 function isPdfReceipt(item){ return String(item?.receiptFileType || '').includes('pdf') || /\.pdf($|\?)/i.test(String(item?.receiptUrl || item?.receiptFileName || '')); }
@@ -254,7 +257,7 @@ async function loadSubscriptions(page = adminPage){
         '<td data-label="الحالة"><span class="status ' + esc(item.status) + '">' + esc(statusLabel(item.status)) + '</span></td>' +
         '<td data-label="الإيصال">' + receiptPreview(item) + '</td>' +
         '<td data-label="آخر تحديث"><div class="meta">' + esc(formatDate(item.updatedAt)) + '</div></td>' +
-        '<td data-label="ملاحظة وإجراءات"><select class="reason-template" onchange="applyReasonTemplate(' + item.id + ',this.value)">' + reasonTemplateOptions() + '</select><textarea class="note" id="note-' + item.id + '" placeholder="سبب الإيقاف أو الرفض الذي سيظهر للمستخدم">' + esc(item.adminNote || '') + '</textarea><div class="actions"><button class="btn-ok" onclick="updateSub(' + item.id + ', \'active\')">تفعيل</button><button class="btn-danger" onclick="updateSub(' + item.id + ', \'stopped\')">إيقاف</button><button class="btn-muted" onclick="updateSub(' + item.id + ', \'rejected\')">رفض</button></div></td>' +
+        '<td data-label="ملاحظة وإجراءات"><select id="reason-template-' + item.id + '" class="reason-template" onchange="applyReasonTemplate(' + item.id + ',this.value)">' + reasonTemplateOptions() + '</select><textarea class="note" id="note-' + item.id + '" placeholder="اختياري: عدّل الرسالة الجاهزة أو اكتب رسالة مخصصة">' + esc(item.adminNote || '') + '</textarea><div class="meta">اختيار الرسالة الجاهزة يكفي للحفظ.</div><div class="actions"><button class="btn-ok" onclick="updateSub(' + item.id + ', \'active\')">تفعيل</button><button class="btn-danger" onclick="updateSub(' + item.id + ', \'stopped\')">إيقاف</button><button class="btn-muted" onclick="updateSub(' + item.id + ', \'rejected\')">رفض</button></div></td>' +
       '</tr>';
     }).join('') + '</tbody></table></div>';
     const pager = renderPager(total, adminPage, limit, items.length, hasMore);
@@ -263,7 +266,7 @@ async function loadSubscriptions(page = adminPage){
 }
 
 async function updateSub(id,status){
-  const note = document.getElementById('note-'+id)?.value || '';
+  const note = selectedReason(id);
   if((status === 'stopped' || status === 'rejected') && !note.trim()){ alert('اختر رسالة جاهزة أو اكتب سبب الإيقاف ليظهر للمستخدم.'); return; }
   const res = await fetch(api('/api/subscriptions?action=admin_update'), {
     method:'POST',
