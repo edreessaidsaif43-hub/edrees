@@ -4,6 +4,7 @@
   const byId = (id) => document.getElementById(id);
   const workspacePrefix = 'lawh-studio.workspace.account.v1:';
   const legacyStorageKey = 'lawh-studio.workspace.v1';
+  const blankBoardName = 'سبورة فارغة';
   const sessionKeys = new Set(['enjazy_session_v1', 'lesson_platform_backend_session_v1']);
   const subscriptionPage = '/t#subscription-section-title';
   const signInPage = '/enjazy/auth.html?mode=login&reauth=board&return=%2FBoard%2Findex.html';
@@ -201,6 +202,7 @@
   }
 
   function loadWorkspace() {
+    let boards = [];
     try {
       const saved = localStorage.getItem(workspacePrefix + teacher.id);
       if (saved) {
@@ -210,15 +212,18 @@
           if (typeof board?.id !== 'string' || !board.id) throw Error();
           validateBoard(board);
         }
-        if (!data.boards.some(({ id }) => id === data.activeBoardId)) data.activeBoardId = data.boards[0].id;
-        return data;
+        boards = data.boards;
       }
     } catch {
       loadFailed = true;
     }
 
-    const sample = makeBoard('الدالة التربيعية', BoardMath.demo());
-    return { version: 1, boards: [sample, makeBoard('سبورة فارغة')], activeBoardId: sample.id };
+    let blankBoard = boards.find((board) => board.name === blankBoardName && board.background === 'grid' && board.objects.length === 0);
+    if (!blankBoard) {
+      blankBoard = makeBoard(blankBoardName);
+      boards.unshift(blankBoard);
+    }
+    return { version: 1, boards, activeBoardId: blankBoard.id };
   }
 
   function saveWorkspace() {

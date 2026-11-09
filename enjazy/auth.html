@@ -283,7 +283,7 @@
   window.goUnifiedAuth=function(mode){
     const targetMode=mode||'login';
     const ret=window.location.protocol==='file:'?window.location.href:(window.location.pathname+window.location.search+window.location.hash||'/');
-    const auth=window.location.protocol==='file:'?projectRoot()+'enjazy/auth.html':'https://altahdir.app/enjazy/auth.html';
+    const auth=window.location.protocol==='file:'?projectRoot()+'enjazy/auth.html':'/enjazy/auth.html';
     window.location.href=auth+'?mode='+encodeURIComponent(targetMode)+'&return='+encodeURIComponent(ret);
   };
   function readSession(){
@@ -434,11 +434,13 @@
     const isProfileEditMode = intent === "profile_edit";
     const isBoardReauth = !isProfileEditMode && query.get("reauth") === "board"
       && query.get("return") === "/Board/index.html";
+    let boardSessionProbe;
 
     function setMode(nextMode) {
       const isRegister = nextMode === "register";
       const isReset = nextMode === "reset";
       const isLogin = !isRegister && !isReset;
+      if (!isLogin) boardSessionProbe?.abort();
       tabLogin.classList.toggle("active", isLogin);
       tabRegister.classList.toggle("active", isRegister);
       tabReset.classList.toggle("active", isReset);
@@ -558,6 +560,31 @@
         });
       }, 120);
       return true;
+    }
+
+    async function resumeBoardSession() {
+      const controller = new AbortController();
+      boardSessionProbe = controller;
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      try {
+        const response = await fetch("/api/auth/login", {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (!controller.signal.aborted && result?.authenticated === true) {
+          window.location.replace(safeReturnPath());
+        }
+      } catch {
+        // The regular login form stays available when a session cannot be verified.
+      } finally {
+        clearTimeout(timeout);
+        boardSessionProbe = undefined;
+      }
     }
 
     function persistSession(payload) {
@@ -745,6 +772,7 @@
 
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
+      boardSessionProbe?.abort();
       showMessage("", false);
       try {
         await doLogin();
@@ -824,6 +852,9 @@
 
     if (isBoardReauth) {
       try { sessionStorage.removeItem(ENJAZY_AUTH_BRIDGE_KEY); } catch (e) {}
+      if (mode !== "register" && mode !== "reset" && /^https?:$/.test(window.location.protocol)) {
+        void resumeBoardSession();
+      }
     } else if (!autoRedirectIfLoggedIn()) {
       (async () => {
         const bridge = consumeBridgePayload();

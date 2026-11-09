@@ -545,9 +545,10 @@ dialog {
 }
 dialog::backdrop { background: #21153384; backdrop-filter: blur(2px); }
 .dialog-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.dialog-head > div { min-width: 0; overflow-wrap: anywhere; }
 .dialog-close { display: grid; flex: none; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--muted); }
 .dialog-close:hover { background: #faf8ff; color: var(--accent-dark); }
-.dialog-close .icon { width: 16px; height: 16px; }
+.dialog-close > svg { display: block; inline-size: 16px; block-size: 16px; }
 dialog h2 { margin: 0; font-size: 20px; line-height: 1.35; }
 dialog p { margin: 8px 0 13px; color: var(--muted); font-size: 13px; line-height: 1.55; }
 dialog label { display: block; margin: 12px 0 5px; color: #4f455e; font-size: 12px; font-weight: 700; }
@@ -569,9 +570,30 @@ dialog textarea { resize: vertical; }
 .dialog-button:is(.primary, .dialog-primary, [type=submit]) { border-color: var(--accent); background: var(--accent); color: #fff; }
 .dialog-button:is(.primary, .dialog-primary, [type=submit]):hover { border-color: var(--accent-dark); background: var(--accent-dark); }
 .dialog-button:is(.danger, .dialog-danger) { border-color: #f1c8d6; background: #fff8fb; color: #a92d53; }
-.dialog-option { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 35px; margin-block: 5px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); text-align: start; font-size: 12px; }
-.dialog-option .icon { width: 15px; height: 15px; }
-.dialog-option-copy { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.dialog-option {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  margin-block: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  text-align: start;
+  font-size: 12px;
+}
+.dialog-option > svg {
+  display: block;
+  justify-self: center;
+  inline-size: 16px;
+  block-size: 16px;
+  color: var(--accent-dark);
+}
+.dialog-option-copy { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; line-height: 1.4; }
 .dialog-option-copy small { color: var(--muted); font-size: 11px; }
 .dialog-option:is(.is-active, [aria-current=true]) { border-color: #dbcafc; background: var(--accent-tint); color: var(--accent-dark); }
 .dialog-error { color: #a92d53; font-size: 11px; }

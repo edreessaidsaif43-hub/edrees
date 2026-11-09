@@ -1,8 +1,13 @@
 import { loginTeacher } from "../_lib/store.js";
-import { clearTeacherSession, isTeacherSessionOrigin, setTeacherSession } from "../_lib/teacher-session.js";
+import { clearTeacherSession, isTeacherSessionOrigin, readTeacherSession, setTeacherSession } from "../_lib/teacher-session.js";
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "private, no-store");
+  if (req.method === "GET") {
+    const authenticated = Boolean(readTeacherSession(req));
+    res.status(authenticated ? 200 : 401).json({ authenticated });
+    return;
+  }
   if (req.method === "DELETE") {
     if (!isTeacherSessionOrigin(req)) {
       res.status(403).json({ error: "origin_not_allowed" });
@@ -13,6 +18,7 @@ export default async function handler(req, res) {
     return;
   }
   if (req.method !== "POST") {
+    res.setHeader("Allow", "GET, POST, DELETE");
     res.status(405).json({ error: "method_not_allowed" });
     return;
   }
