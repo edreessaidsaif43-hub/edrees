@@ -87,7 +87,7 @@ function normalizeContent(input = {}) {
     opening_frame_url: String(input.opening_frame_url || "").trim(),
     status: String(input.status || "pending").trim(),
     content_type: String(input.content_type || "game").trim(),
-    content_types: [...new Set(stringifyArray(input.content_types).length ? stringifyArray(input.content_types) : [String(input.content_type || "game").trim()])].filter(type => ["game", "image", "test", "video", "presentation", "file"].includes(type)),
+    content_types: [...new Set(stringifyArray(input.content_types).length ? stringifyArray(input.content_types) : [String(input.content_type || "game").trim()])].filter(type => ["game", "image", "test", "video", "presentation", "file", "interactive"].includes(type)),
     created_at: createdAt,
     reviewed_at: input.reviewed_at || "",
   };

@@ -1,6 +1,8 @@
 import { registerTeacher, updateTeacherProfile } from "../_lib/store.js";
+import { setTeacherSession } from "../_lib/teacher-session.js";
 
 export default async function handler(req, res) {
+  res.setHeader("Cache-Control", "private, no-store");
   if (req.method !== "POST") {
     res.status(405).json({ error: "method_not_allowed" });
     return;
@@ -30,6 +32,7 @@ export default async function handler(req, res) {
     return;
   }
 
+  if (action !== "update_profile") setTeacherSession(req, res, out.data.userId);
   res.status(action === "update_profile" ? 200 : 201).json({
     userId: out.data.userId,
     profile: out.data.profile || {},

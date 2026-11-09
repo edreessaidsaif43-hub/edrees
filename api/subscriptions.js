@@ -2,6 +2,7 @@
 import { list, put } from "@vercel/blob";
 import { createHash } from "node:crypto";
 import { requireAdmin } from "../enjazy/server_api/_lib/admin-auth.js";
+import { readTeacherSession } from "../enjazy/server_api/_lib/teacher-session.js";
 
 export const config = {
   api: {
@@ -693,6 +694,61 @@ async function getStatus(req, res) {
   send(res, 200, { activeGrades, activeSubjects, pending, subscriptions, paymentNumber: PAYMENT_NUMBER });
 }
 
+function boardSubscriptionCurrent(value, now) {
+  if (!value) return true;
+  const date = String(value).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const end = new Date(`${date}T23:59:59.999+04:00`);
+  return end.getTime() > now && end.toISOString().slice(0, 10) === date;
+}
+
+function boardSubscriptionActive(row, now) {
+  if (row.status !== "active") return false;
+  const lessonSubjects = subscriptionSubjects(row).filter(item =>
+    !/motivation|تحفيز/i.test([item.product, item.grade, item.subject].join(" "))
+  );
+  if (lessonSubjects.length) {
+    return lessonSubjects.some(item => isSubjectEntryActive(item) && boardSubscriptionCurrent(item.expiresAt, now));
+  }
+  if (Array.isArray(row.subjects) && row.subjects.length) return false;
+  const lessonGrades = new Set(gradeDefinitions().map(item => item.key));
+  return subscriptionGrades(row).some(grade => lessonGrades.has(normalizeGradeKey(grade)));
+}
+
+async function boardAccess(req, res) {
+  res.setHeader("Cache-Control", "private, no-store");
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return send(res, 405, { error: "method_not_allowed" });
+  }
+  const userId = readTeacherSession(req);
+  if (!userId) return send(res, 401, { error: "sign_in_required" });
+  const unavailable = () => send(res, 503, { error: "subscription_check_unavailable" });
+  if (!sql) return unavailable();
+
+  try {
+    await ensureAccountStopSchema();
+    const rows = await sql`
+      SELECT u.id, COALESCE(NULLIF(BTRIM(u.profile->>'name'), ''),
+        NULLIF(BTRIM(u.profile->>'full_name'), ''), NULLIF(BTRIM(u.profile->>'fullName'), ''), '') AS name,
+        s.status, s.account_stopped, s.grade, s.grades, s.subjects
+      FROM teacher_users u
+      LEFT JOIN teacher_subscriptions s ON s.user_id = u.id OR (
+        STRPOS(u.contact_norm, '@') > 0 AND LOWER(s.user_id) = LOWER(u.contact_norm)
+        AND NOT EXISTS (SELECT 1 FROM teacher_users owner WHERE owner.id = s.user_id AND owner.id <> u.id)
+      )
+      WHERE u.id = ${userId};
+    `;
+    if (!rows.length) return send(res, 401, { error: "sign_in_required" });
+    if (rows.some(row => row.account_stopped)) return send(res, 403, { error: "account_stopped" });
+    const now = Date.now();
+    if (!rows.some(row => boardSubscriptionActive(row, now))) return send(res, 403, { error: "subscription_required" });
+    return send(res, 200, { teacher: { id: rows[0].id, name: rows[0].name } });
+  } catch {
+    return unavailable();
+  }
+}
+
 async function requestSubscription(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readBodyBuffer(req);
@@ -1198,6 +1254,7 @@ async function adminUpdate(req, res) {
 export default async function handler(req, res) {
   try {
     const action = String(req.query?.action || "status");
+    if (action === "board_access") return await boardAccess(req, res);
     if (req.method === "GET" && action === "status") return await getStatus(req, res);
     if (req.method === "POST" && action === "request") return await requestSubscription(req, res);
     if (req.method === "GET" && action === "admin_list") return await adminList(req, res);

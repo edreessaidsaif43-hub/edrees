@@ -207,7 +207,7 @@
       <h2>تسجيل دخول المدير</h2>
       <div class="row">
         <label for="admin-password">كلمة مرور المدير</label>
-        <input id="admin-password" type="password" placeholder="أدخل ADMIN_PASSWORD" />
+        <input id="admin-password" type="password" placeholder="أدخل كلمة مرور الإدارة" />
       </div>
       <button id="admin-login-btn" class="btn btn-primary" type="button">دخول</button>
       <div id="login-msg" class="msg"></div>
@@ -616,7 +616,7 @@
         await runLogin();
       } catch (error) {
         const m = String(error?.message || "");
-        if (m.includes("admin_not_configured")) showLoginMessage("ADMIN_PASSWORD غير مضبوط في Vercel.");
+        if (m.includes("admin_not_configured")) showLoginMessage("كلمة مرور الإدارة غير مضبوط في Vercel.");
         else if (m.includes("endpoint_not_found")) showLoginMessage("مسار API غير موجود في النشر الحالي.");
         else showLoginMessage("فشل تسجيل دخول المدير. تأكد من كلمة المرور.");
       }

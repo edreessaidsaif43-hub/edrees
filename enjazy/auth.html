@@ -291,6 +291,9 @@
     try{const r=localStorage.getItem(SK);const p=r?JSON.parse(r):null;return p&&p.userId?{userId:p.userId}:null;}catch(e){return null;}
   }
   window.logoutUnifiedNav=function(){
+    if (/^https?:$/.test(window.location.protocol)) {
+      fetch('/api/auth/login', {method:'DELETE',credentials:'same-origin',keepalive:true}).catch(() => {});
+    }
     localStorage.removeItem(SK);localStorage.removeItem(MK);localStorage.removeItem('lesson_platform_current_user_v1');
     updateNavUser(null);
     document.getElementById('user-menu')?.remove();
@@ -429,6 +432,8 @@
     const mode = String(query.get("mode") || "").toLowerCase();
     const intent = String(query.get("intent") || "").toLowerCase();
     const isProfileEditMode = intent === "profile_edit";
+    const isBoardReauth = !isProfileEditMode && query.get("reauth") === "board"
+      && query.get("return") === "/Board/index.html";
 
     function setMode(nextMode) {
       const isRegister = nextMode === "register";
@@ -577,6 +582,10 @@
 
     function redirectAfterAuth(session) {
       const target = safeReturnPath();
+      if (isBoardReauth) {
+        window.location.href = target;
+        return;
+      }
       try {
         const url = new URL(target, window.location.origin);
         if (session?.userId) url.searchParams.set("enjazyUserId", session.userId);
@@ -813,7 +822,9 @@
 
     if (mode === "login" && !isProfileEditMode) clearIncompleteStoredSession();
 
-    if (!autoRedirectIfLoggedIn()) {
+    if (isBoardReauth) {
+      try { sessionStorage.removeItem(ENJAZY_AUTH_BRIDGE_KEY); } catch (e) {}
+    } else if (!autoRedirectIfLoggedIn()) {
       (async () => {
         const bridge = consumeBridgePayload();
         if (!bridge || mode !== "login" || isProfileEditMode) return;
