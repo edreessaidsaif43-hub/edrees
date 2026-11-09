@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#e2553a">
+<title>عدّاء الكورنيش 3D</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- شاشة إعداد المعلم -->
+<section id="setup" class="screen active" aria-label="إعداد المعلم">
+  <div class="setup-wrap">
+    <header class="brand">
+      <div class="logo-mark" aria-hidden="true"><span>🏃</span></div>
+      <div>
+        <h1>عدّاء الكورنيش 3D</h1>
+        <p>اجرِ على كورنيش مطرح عند الغروب: تقترب بوابات الأسئلة، فادخل بوابة الإجابة الصحيحة واجمع العملات حتى تصل إلى القلعة. اختر الصف ثم المادة ثم الفصل ثم الوحدة ثم الدروس.</p>
+      </div>
+    </header>
+
+    <ol class="steps">
+      <li class="step" id="step-grade"><h2><b>1</b> الصف</h2><div class="chips" id="grades"><span class="muted">جارٍ التحميل…</span></div></li>
+      <li class="step locked" id="step-subject"><h2><b>2</b> المادة</h2><div class="chips" id="subjects"></div></li>
+      <li class="step locked" id="step-sem"><h2><b>3</b> الفصل الدراسي</h2><div class="chips" id="sems"></div></li>
+      <li class="step locked" id="step-unit"><h2><b>4</b> الوحدة</h2><div class="chips" id="units"></div></li>
+      <li class="step locked" id="step-lessons">
+        <h2><b>5</b> الدروس <small>أسئلة الدروس المختارة تظهر على بوابات الكورنيش</small></h2>
+        <div class="lesson-tools"><button class="link" id="selAll">تحديد الكل</button><button class="link" id="selNone">إلغاء التحديد</button></div>
+        <div id="lessons" class="lesson-list"></div>
+      </li>
+    </ol>
+
+    <details class="teacher-box">
+      <summary>بيانات المعلم (اختياري)</summary>
+      <div class="teacher-fields">
+        <label>اسم المعلم<input id="tName" type="text" maxlength="40" placeholder="مثال: أ. محمد"></label>
+        <label>حساب Instagram<input id="tIg" type="text" maxlength="30" dir="ltr" placeholder="username"></label>
+      </div>
+    </details>
+
+    <div class="setup-actions">
+      <button class="btn primary big" id="buildBtn" disabled>التالي: اختر العدّاء ▶</button>
+      <button class="btn ghost" id="linkBtn" disabled>تحميل SCORM ↓</button>
+      <span id="setupNote" class="muted"></span>
+    </div>
+  </div>
+</section>
+
+<!-- اختيار العدّاء -->
+<section id="home" class="screen cr-home" aria-label="اختر العدّاء">
+  <div class="om-wrap">
+    <div class="duo-top">
+      <button class="icon-btn" id="backSetup" title="تغيير الدروس">⚙</button>
+      <div class="teacher-badge" id="teacherHome"></div>
+      <button class="icon-btn sound-btn" title="تشغيل/كتم الصوت">🔊</button>
+    </div>
+    <header class="om-head">
+      <p class="om-kicker" id="homeSub"></p>
+      <h1>عدّاء <span>الكورنيش</span> <b class="cr-3d">3D</b></h1>
+      <p class="om-subj" id="homeTitle"></p>
+    </header>
+    <div class="es-story">
+      <div class="es-scroll cr-scroll">
+        <p>اجرِ على <b>كورنيش مطرح</b> عند الغروب 🌅 بين البحر وسفن الداو والبيوت القديمة.</p>
+        <p>تقترب <b>بوابة الأسئلة</b>، وعلى كل فتحة منها إجابة. انتقل إلى فتحة الإجابة الصحيحة وادخلها، واقفز فوق العربات والحواجز، واجمع العملات حتى تصل إلى <b>قلعة مطرح</b> 🏰</p>
+      </div>
+      <div class="tcard es-card cr-card"><span class="pick-lbl">العدّاء</span><div class="pchars" id="charPick"></div>
+        <label class="pname cr-name">اسم الطالب (اختياري)<input id="stName" type="text" maxlength="24" placeholder="اكتب اسمك"></label></div>
+    </div>
+    <div class="bt-opts cr-opts">
+      <div class="om-count"><span>الإجابات للوصول إلى القلعة</span><div class="chips" id="optGoal"></div></div>
+      <div class="om-count"><span>وقت الوصول إلى البوابة</span><div class="chips" id="optTime"></div></div>
+      <div class="om-count"><span>السرعة</span><div class="chips" id="optSpeed"></div></div>
+      <div class="om-count"><span>القلوب</span><div class="chips" id="optHearts"></div></div>
+      <div class="om-count"><span>جودة الرسوم</span><div class="chips" id="optQuality"></div></div>
+    </div>
+    <button class="btn primary huge" id="startGame">انطلق على الكورنيش 🏃</button>
+    <p class="cr-note" id="glNote"></p>
+    <p class="es-best" id="best"></p>
+    <details class="rules">
+      <summary>القواعد وطريقة التحكم</summary>
+      <ul>
+        <li><b>التحكم:</b> الأسهم ← → للتنقّل بين المسارات، و↑ أو المسافة للقفز. على الهاتف أو السبورة: اسحب بإصبعك أو استخدم الأزرار أسفل الشاشة.</li>
+        <li>يظهر السؤال وتقترب بوابة عليها الخيارات: <b>ادخل فتحة الإجابة الصحيحة</b>.</li>
+        <li><b>الإجابة الصحيحة:</b> دفعة سرعة وعملات، ويتقدّم شريط الطريق نحو القلعة.</li>
+        <li><b>الإجابة الخاطئة:</b> يتعثّر العدّاء ويخسر قلبًا. لا تظهر الإجابة الصحيحة، ويعود السؤال لاحقًا.</li>
+        <li>الاصطدام بعربة أو حاجز يبطئك فقط، فاقفز فوقها أو تجنّبها.</li>
+      </ul>
+    </details>
+  </div>
+</section>
+
+<!-- الجري -->
+<section id="play" class="screen cr-screen" aria-label="الجري على الكورنيش">
+  <div class="cr-stage" id="crStage"></div>
+  <div class="cr-lines" id="speedLines"></div>
+  <div class="cr-hud">
+    <div class="cr-top">
+      <div class="cr-glass cr-logo"><i>🏃</i><div><b>عدّاء الكورنيش</b><small id="hSubj"></small></div></div>
+      <div class="cr-glass cr-prog"><span class="s">🏁</span><div class="rail"><i class="fill" id="pFill"></i><span class="me" id="pMe"><img alt=""></span></div><span class="e">🏰</span></div>
+      <div class="cr-glass cr-stat" id="hHearts"></div>
+      <div class="cr-glass cr-stat">🪙 <b id="hCoins">0</b></div>
+      <div class="cr-glass cr-stat cr-qn">السؤال <b id="hQ">0</b></div>
+      <span class="teacher-mini" id="teacherHud"></span>
+      <div class="cr-btns"><button class="icon-btn sound-btn" title="تشغيل/كتم الصوت">🔊</button><button class="icon-btn" id="exitBtn" title="الخروج">✕</button></div>
+    </div>
+    <div class="cr-glass cr-qc" id="qc">
+      <small id="qcTag">اجرِ نحو بوابة الإجابة الصحيحة</small>
+      <p id="qcText" dir="auto"></p>
+      <div class="ops" id="qcOps"></div>
+      <div class="bar"><i id="qcBar"></i></div>
+    </div>
+    <div class="cr-ctrl" id="ctrl">
+      <button class="cr-key" id="bR" aria-label="يمين">▶</button>
+      <button class="cr-key up" id="bJ" aria-label="قفز">▲</button>
+      <button class="cr-key" id="bL" aria-label="يسار">◀</button>
+    </div>
+    <div class="cr-banner" id="banner"></div>
+    <div class="cr-pop" id="pop"></div>
+    <div class="cr-load" id="crLoad"><div><i></i><p>جارٍ تجهيز الكورنيش…</p></div></div>
+  </div>
+  <div class="modal" id="qModal" role="dialog" aria-modal="true" aria-labelledby="qText">
+    <div class="qcard om-q" id="qCard">
+      <div class="qhead">
+        <span class="team-tag" id="qTeam"></span>
+        <span class="qtype" id="qType"></span>
+        <div class="timer" id="timer" aria-label="الوقت المتبقي"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" class="tr-bg"></circle><circle cx="22" cy="22" r="19" class="tr-fg" id="timerArc"></circle></svg><b id="timerNum">30</b></div>
+      </div>
+      <p class="qtext" id="qText" dir="auto"></p>
+      <div class="qopts" id="qOpts"></div>
+      <div class="qfeedback" id="qFeedback" aria-live="assertive"></div>
+      <button class="btn primary big" id="qConfirm" disabled>تأكيد الإجابة</button>
+      <div class="qfoot"><span id="qRef"></span><span class="teacher-mini" id="teacherQ"></span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="rModal" role="dialog" aria-modal="true">
+    <div class="rcard om-result">
+      <div class="winner-art" id="winArt"></div>
+      <h2 id="rTitle"></h2>
+      <p class="rlesson" id="rLesson"></p>
+      <div class="vs-table" id="rTable"></div>
+      <div class="ractions" id="rActions"></div>
+      <div class="teacher-mini center" id="teacherR"></div>
+    </div>
+  </div>
+
+</section>
+
+<script src="js/config.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/questions.js"></script>
+<script src="/game/subscriptions.js?v=startup2"></script>
+<script src="/game/rosters.js?v=2"></script>
+<script src="/game/access.js?v=startup2"></script>
+<script src="/game/question-bank.js?v=3"></script>
+<script src="/game/publish.js?v=7"></script>
+<script src="js/race-chars.js"></script>
+<script src="js/run-engine.js"></script>
+<script src="js/runner.js?v=library1"></script>
+</body>
+</html>
