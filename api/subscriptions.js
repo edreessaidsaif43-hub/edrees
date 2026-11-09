@@ -3,6 +3,7 @@ import { list, put } from "@vercel/blob";
 import { createHash } from "node:crypto";
 import { requireAdmin } from "../enjazy/server_api/_lib/admin-auth.js";
 import { readTeacherSession } from "../enjazy/server_api/_lib/teacher-session.js";
+import { createBoardWorkspaceHandler } from "./_lib/board-workspace.js";
 
 export const config = {
   api: {
@@ -29,6 +30,7 @@ function sqlClient() {
 }
 
 const sql = sqlClient();
+const boardWorkspace = createBoardWorkspaceHandler(sql, readBodyBuffer);
 let schemaPromise = null;
 let accountStopSchemaPromise = null;
 let receiptHashSchemaPromise = null;
@@ -715,10 +717,10 @@ function boardSubscriptionActive(row, now) {
   return subscriptionGrades(row).some(grade => lessonGrades.has(normalizeGradeKey(grade)));
 }
 
-async function boardAccess(req, res) {
+async function boardAccess(req, res, workspace = false) {
   res.setHeader("Cache-Control", "private, no-store");
-  if (req.method !== "GET") {
-    res.setHeader("Allow", "GET");
+  if (req.method !== "GET" && !(workspace && req.method === "POST")) {
+    res.setHeader("Allow", workspace ? "GET, POST" : "GET");
     return send(res, 405, { error: "method_not_allowed" });
   }
   const userId = readTeacherSession(req);
@@ -743,7 +745,8 @@ async function boardAccess(req, res) {
     if (rows.some(row => row.account_stopped)) return send(res, 403, { error: "account_stopped" });
     const now = Date.now();
     if (!rows.some(row => boardSubscriptionActive(row, now))) return send(res, 403, { error: "subscription_required" });
-    return send(res, 200, { teacher: { id: rows[0].id, name: rows[0].name } });
+    const teacher = { id: rows[0].id, name: rows[0].name };
+    return workspace ? await boardWorkspace(req, res, teacher) : send(res, 200, { teacher });
   } catch {
     return unavailable();
   }
@@ -1255,6 +1258,7 @@ export default async function handler(req, res) {
   try {
     const action = String(req.query?.action || "status");
     if (action === "board_access") return await boardAccess(req, res);
+    if (action === "board_workspace") return await boardAccess(req, res, true);
     if (req.method === "GET" && action === "status") return await getStatus(req, res);
     if (req.method === "POST" && action === "request") return await requestSubscription(req, res);
     if (req.method === "GET" && action === "admin_list") return await adminList(req, res);

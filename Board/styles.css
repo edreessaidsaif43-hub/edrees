@@ -454,8 +454,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   font-size: 11px;
   cursor: pointer;
 }
-.save-indicator { color: #4b6557; white-space: nowrap; }
-.save-dot { width: 7px; height: 7px; border-radius: 50%; background: #34a675; box-shadow: 0 0 0 3px #e9f7ef; }
+.save-indicator { --save-dot-color: #91869f; --save-dot-halo: #f0edf5; min-width: 0; color: var(--muted); }
+.save-indicator:has(> [data-status=saving]) { --save-dot-color: #a66c1d; --save-dot-halo: #fff1da; color: #805a25; }
+.save-indicator:has(> [data-status=saved]) { --save-dot-color: #34a675; --save-dot-halo: #e9f7ef; color: #4b6557; }
+.save-indicator:has(> [data-status=error]) { --save-dot-color: #bf4368; --save-dot-halo: #fceaf0; color: #a92d53; }
+.save-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--save-dot-color); box-shadow: 0 0 0 3px var(--save-dot-halo); }
 .view-actions { direction: ltr; gap: 2px; }
 .view-actions .icon-button { inline-size: 27px; block-size: 27px; }
 .zoom-value { min-inline-size: 40px; border: 0; background: transparent; color: var(--muted); font-size: 11px; }

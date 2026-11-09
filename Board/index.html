@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="styles.css">
   <script src="math.js" defer></script>
   <script src="canvas.js" defer></script>
+  <script src="cloud.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -27,7 +28,7 @@
       <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m14.5 5-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m5 9 7 7 7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-download" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11m-4-4 4 4 4-4M5 15v4.5h14V15"/></g></symbol>
-      <symbol id="i-storage" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 14h17M7.5 17h.1m3.6 0h.1"/></g></symbol>
+      <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18.5h10.5a3.5 3.5 0 0 0 .25-7 5.75 5.75 0 0 0-11.1-.85A3.95 3.95 0 0 0 7 18.5Z" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-layers" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5zm-9 9 9 5 9-5m-18 4 9 5 9-5"/></g></symbol>
       <symbol id="i-edit" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 16.5 11-11a2.1 2.1 0 0 1 3 3l-11 11-3.5.5.5-3.5zM14 7l3 3m-4 10h7"/></g></symbol>
       <symbol id="i-cursor" viewBox="0 0 24 24"><path d="m5 3 14.5 9-6.2 1.2-3.5 5.4L5 3Z" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -115,8 +116,8 @@
       </section>
 
       <div class="sidebar-foot">
-        <svg class="icon" aria-hidden="true"><use href="#i-storage"/></svg>
-        <span><strong>الحفظ على هذا الجهاز</strong>لكل معلم مكتبته الخاصة</span>
+        <svg class="icon" aria-hidden="true"><use href="#i-cloud"/></svg>
+        <span><strong>الحفظ في حسابك</strong>مكتبة لوحاتك في التحضير الذكي</span>
       </div>
     </aside>
 
@@ -221,7 +222,7 @@
                 <button class="icon-button ruler-rotate ruler-clockwise" type="button" data-action="rotate-ruler-right" title="تدوير الأداة مع عقارب الساعة ١٥ درجة" aria-label="تدوير الأداة مع عقارب الساعة ١٥ درجة"><svg class="icon" aria-hidden="true"><use href="#i-rotate"/></svg></button>
                 <button class="button ruler-pen" type="button" data-action="ruler-pen" title="اختيار القلم للرسم بمحاذاة الأداة"><svg class="icon" aria-hidden="true"><use href="#i-pen"/></svg>القلم</button>
               </div>
-              <div class="save-indicator"><span class="save-dot" aria-hidden="true"></span><span id="save-status" role="status">تم الحفظ محليًا</span></div>
+              <div class="save-indicator"><span class="save-dot" aria-hidden="true"></span><span id="save-status" role="status">جارٍ تحميل اللوحات</span></div>
               <div class="view-actions" role="group" aria-label="عرض اللوحة">
                 <button class="icon-button" type="button" data-action="zoom-out" title="تصغير" aria-label="تصغير"><svg class="icon" aria-hidden="true"><use href="#i-minus"/></svg></button>
                 <button class="zoom-value" id="zoom-value" type="button" data-action="zoom-reset" title="إعادة ضبط التكبير" aria-label="إعادة ضبط التكبير">100%</button>

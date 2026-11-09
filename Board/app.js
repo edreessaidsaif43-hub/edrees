@@ -6,6 +6,7 @@
   const legacyStorageKey = 'lawh-studio.workspace.v1';
   const blankBoardName = 'سبورة فارغة';
   const sessionKeys = new Set(['enjazy_session_v1', 'lesson_platform_backend_session_v1']);
+  const workspaceApi = '/api/subscriptions?action=board_workspace';
   const subscriptionPage = '/t#subscription-section-title';
   const signInPage = '/enjazy/auth.html?mode=login&reauth=board&return=%2FBoard%2Findex.html';
   const backgrounds = new Set(['grid', 'dots', 'plain', 'dark']);
@@ -30,8 +31,6 @@
   const canvas = byId('drawing-canvas');
   const app = byId('board-app');
   const accessPanel = byId('board-access');
-  let storageFailed = false;
-  let loadFailed = false;
   let currentTool = 'pen';
   let edgeGuideActive = false;
   let compassReady = false;
@@ -40,7 +39,8 @@
   let toastTimer;
   let state = null;
   let teacher = null;
-  let workspaceSnapshot;
+  let cloud = null;
+  let legacyTransfer;
   let accessRequest;
 
   const activeBoard = () => state?.boards.find(({ id }) => id === state.activeBoardId);
@@ -127,6 +127,9 @@
 
   function lockWorkspace() {
     if (!teacher) return;
+    cloud?.dispose();
+    cloud = null;
+    legacyTransfer = undefined;
     app.hidden = true;
     if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     if (dialog.open) dialog.close();
@@ -147,14 +150,14 @@
     showAccess('سجّل الدخول إلى التحضير الذكي', 'استخدم حساب المعلّم المسجّل لفتح السبورة المشمولة في اشتراكك.', signInPage, 'تسجيل الدخول');
   }
 
-  async function verifyAccess() {
+  async function verifyAccess({ discardPending = false } = {}) {
     accessRequest?.abort();
     const request = new AbortController();
     accessRequest = request;
     const timeout = setTimeout(() => request.abort('timeout'), 9000);
     if (!teacher) showAccess('جارٍ فتح السبورة', 'جارٍ التحقق من حسابك واشتراكك في التحضير الذكي.', '/m', 'العودة إلى التحضير الذكي');
     try {
-      const response = await fetch('/api/subscriptions?action=board_access', {
+      const response = await fetch(workspaceApi, {
         credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }, signal: request.signal,
       });
       if (accessRequest !== request) return;
@@ -176,26 +179,51 @@
       }
       const identity = data.teacher;
       if (!response.ok || typeof identity?.id !== 'string' || !identity.id || typeof identity.name !== 'string' || !identity.name.trim()) throw Error();
-      if (teacher?.id === identity.id) {
-        if (teacher.name !== identity.name) {
-          teacher = identity;
-          showWorkspace();
-        }
+      if (!Number.isSafeInteger(data.revision) || data.revision < 0 || (data.workspace === null) !== (data.revision === 0)) throw Error();
+      const remote = data.workspace === null ? null : validateWorkspace(data.workspace);
+      if (teacher?.id === identity.id && !discardPending) {
+        const nameChanged = teacher.name !== identity.name;
+        teacher = identity;
+        if (data.revision > cloud.revision && cloud.acceptRevision(data.revision)) {
+          if (dialog.open) dialog.close();
+          state = workspaceView(remote, state.activeBoardId);
+          updateSaveStatus('saved');
+          openBoard();
+        } else if (nameChanged) showWorkspace();
         return;
       }
+      const legacy = remote === null ? readLegacyWorkspace(identity.id) : null;
+      const nextWorkspace = workspaceView(remote ?? legacy?.workspace);
+      const connection = new BoardCloud({
+        teacherId: identity.id,
+        revision: data.revision,
+        readWorkspace: () => state,
+        onStatus(kind, code) {
+          if (cloud !== connection) return;
+          updateSaveStatus(kind, code);
+          if (kind === 'saved' && legacyTransfer) finishLegacyTransfer();
+        },
+        onAccessLost() {
+          if (cloud === connection) void verifyAccess();
+        },
+      });
       lockWorkspace();
       teacher = identity;
-      storageFailed = false;
-      loadFailed = false;
-      state = loadWorkspace();
+      state = nextWorkspace;
+      cloud = connection;
       accessPanel.hidden = true;
       app.hidden = false;
+      updateSaveStatus(data.revision > 0 ? 'saved' : 'ready');
       openBoard();
-      if (loadFailed && !storageFailed) showToast('تعذّر قراءة اللوحات المحفوظة.', true);
+      if (legacy) {
+        legacyTransfer = legacy;
+        connection.schedule();
+        void connection.flush();
+      }
     } catch {
       if (accessRequest !== request) return;
-      lockWorkspace();
-      showAccess('تعذّر التحقق من الاشتراك', 'تأكد من الاتصال ثم حاول فتح السبورة مجددًا.', '/m', 'العودة إلى التحضير الذكي', true);
+      if (teacher) showToast('تعذّر تحديث المكتبة من الحساب. تحقق من الاتصال ثم حاول مرة أخرى.', true);
+      else showAccess('تعذّر تحميل مكتبة اللوحات', 'تأكد من الاتصال ثم حاول فتح السبورة مجددًا.', '/m', 'العودة إلى التحضير الذكي', true);
     } finally {
       clearTimeout(timeout);
       if (accessRequest === request) accessRequest = undefined;
@@ -216,86 +244,66 @@
     } catch {}
   }
 
-  function loadWorkspace(savedRecord, preferredBoardId) {
-    let boards = [];
-    let libraryResetId;
-    try {
-      const saved = savedRecord ?? localStorage.getItem(workspacePrefix + teacher.id);
-      workspaceSnapshot = saved;
-      if (saved) {
-        const data = JSON.parse(saved);
-        if (data.version !== 1 || !Array.isArray(data.boards) || !data.boards.length) throw Error();
-        for (const board of data.boards) {
-          if (typeof board?.id !== 'string' || !board.id) throw Error();
-          validateBoard(board);
-        }
-        boards = data.boards;
-        if (typeof data.libraryResetId === 'string') libraryResetId = data.libraryResetId;
-      }
-    } catch {
-      loadFailed = true;
+  function validateWorkspace(workspace) {
+    if (workspace?.version !== 1 || !Array.isArray(workspace.boards) || !workspace.boards.length) throw Error();
+    for (const board of workspace.boards) {
+      if (typeof board?.id !== 'string' || !board.id) throw Error();
+      validateBoard(board);
     }
+    return workspace;
+  }
 
+  function readLegacyWorkspace(id) {
+    try {
+      const key = workspacePrefix + id;
+      const saved = localStorage.getItem(key);
+      if (saved) return { key, saved, workspace: validateWorkspace(JSON.parse(saved)) };
+    } catch {}
+    return null;
+  }
+
+  function finishLegacyTransfer() {
+    const { key, saved } = legacyTransfer;
+    legacyTransfer = undefined;
+    try {
+      if (localStorage.getItem(key) === saved) localStorage.removeItem(key);
+    } catch {}
+    showToast('تم نقل اللوحات السابقة إلى حسابك');
+  }
+
+  function workspaceView(workspace, preferredBoardId) {
+    const boards = [...(workspace?.boards || [])];
     let board = preferredBoardId ? (boards.find(({ id }) => id === preferredBoardId) || boards[0])
       : boards.find((item) => item.name === blankBoardName && item.background === 'grid' && item.objects.length === 0);
     if (!board) {
       board = makeBoard(blankBoardName);
       boards.unshift(board);
     }
-    return { version: 1, boards, activeBoardId: board.id, libraryResetId };
+    return { version: 1, boards, activeBoardId: board.id };
   }
 
-  function openStoredWorkspace(saved) {
-    if (dialog.open) dialog.close();
-    state = loadWorkspace(saved, state.activeBoardId);
-    updateSaveStatus(false);
-    openBoard({ persist: false });
-  }
-
-  function syncLibraryReset(saved) {
-    if (!saved || saved === workspaceSnapshot) return false;
-    let libraryResetId;
-    try { ({ libraryResetId } = JSON.parse(saved)); } catch { return false; }
-    if (typeof libraryResetId !== 'string' || libraryResetId === state.libraryResetId) return false;
-
-    openStoredWorkspace(saved);
-    showToast('تم تحديث مكتبة اللوحات من علامة تبويب أخرى');
-    return true;
-  }
-
-  function saveWorkspace(nextState = state, { requireFresh = false } = {}) {
-    if (!teacher || !state) return false;
-    try {
-      const key = workspacePrefix + teacher.id;
-      const saved = localStorage.getItem(key);
-      if (syncLibraryReset(saved)) return false;
-      if (requireFresh && saved !== workspaceSnapshot) {
-        openStoredWorkspace(saved);
-        showToast('تغيّرت المكتبة في علامة تبويب أخرى. اختر اللوحة مرة أخرى.');
-        return false;
-      }
-      const serialized = JSON.stringify(nextState);
-      localStorage.setItem(key, serialized);
-      workspaceSnapshot = serialized;
-      updateSaveStatus(false);
-      return true;
-    } catch {
-      if (!storageFailed) showToast('تعذّر الحفظ في المتصفح. احفظ نسخة من قائمة المعلّم.', true);
-      updateSaveStatus(true);
-      return false;
-    }
-  }
-
-  function updateSaveStatus(failed) {
-    storageFailed = failed;
+  function updateSaveStatus(kind, code) {
     const status = byId('save-status');
-    status.textContent = storageFailed ? 'تعذّر الحفظ' : 'تم الحفظ محليًا';
-    status.dataset.status = storageFailed ? 'error' : 'saved';
+    if (kind === 'ready') {
+      status.textContent = 'جاهز للحفظ في الحساب';
+      status.dataset.status = 'ready';
+    } else if (kind === 'saved') {
+      status.textContent = 'تم الحفظ في الحساب';
+      status.dataset.status = 'saved';
+    } else if (kind === 'pending' || kind === 'saving') {
+      status.textContent = 'جارٍ الحفظ في الحساب';
+      status.dataset.status = 'saving';
+    } else {
+      status.textContent = kind === 'conflict' ? 'تغيّرت المكتبة على جهاز آخر'
+        : code === 'workspace_too_large' ? 'المكتبة أكبر من سعة الحفظ'
+          : 'لم تُحفظ التغييرات في الحساب';
+      status.dataset.status = 'error';
+    }
   }
 
   function touchBoard(board) {
     board.updatedAt = Date.now();
-    saveWorkspace();
+    cloud?.schedule();
     const row = [...byId('board-list').children].find((item) => item.dataset.boardId === board.id);
     if (row) row.querySelector('.board-item-meta').textContent = boardDate(board);
   }
@@ -345,7 +353,7 @@
     }));
   }
 
-  function openBoard({ persist = true } = {}) {
+  function openBoard() {
     const board = activeBoard();
     engine.setScene(board.objects, board.background);
     byId('background-select').value = board.background;
@@ -353,7 +361,6 @@
     adjustInk(board.background);
     showWorkspace();
     updateHistory();
-    if (persist) saveWorkspace();
   }
 
   function updateHistory() {
@@ -527,6 +534,7 @@
     state.boards.unshift(board);
     state.activeBoardId = board.id;
     openBoard();
+    cloud.schedule();
     if (!desktop.matches) togglePanel('library', false);
     showToast('تم إنشاء اللوحة');
   }
@@ -565,7 +573,7 @@
 
     const boardId = await showDialog({
       title: 'حذف لوحة',
-      description: 'اختر اللوحة التي تريد حذفها نهائيًا من مكتبتك في هذا المتصفح.',
+      description: 'اختر اللوحة التي تريد حذفها نهائيًا من مكتبتك في الحساب.',
       controls: [label],
       accept: 'حذف اللوحة المحددة',
       danger: true,
@@ -577,7 +585,7 @@
     if (boardId) removeBoard(workspace, boardId);
   }
 
-  function removeBoard(workspace, boardId) {
+  async function removeBoard(workspace, boardId) {
     if (state !== workspace) return;
     const index = workspace.boards.findIndex(({ id }) => id === boardId);
     if (index < 0) return;
@@ -585,36 +593,30 @@
     if (!boards.length) boards.push(makeBoard(blankBoardName));
     const removedActiveBoard = workspace.activeBoardId === boardId;
     const activeBoardId = removedActiveBoard ? boards[Math.min(index, boards.length - 1)].id : workspace.activeBoardId;
-    const nextWorkspace = { ...workspace, boards, activeBoardId, libraryResetId: uid() };
-    if (!saveWorkspace(nextWorkspace, { requireFresh: true })) {
-      if (storageFailed) showToast('تعذّر حذف اللوحة من هذا المتصفح.', true);
-      return;
-    }
-    state = nextWorkspace;
-    if (removedActiveBoard) openBoard({ persist: false });
+    state = { ...workspace, boards, activeBoardId };
+    if (removedActiveBoard) openBoard();
     else showWorkspace();
-    showToast('تم حذف اللوحة');
+    const connection = cloud;
+    connection.schedule();
+    if (await connection.flush() && cloud === connection) showToast('تم حذف اللوحة من الحساب');
   }
 
   async function deleteLibrary() {
     const workspace = state;
     const confirmed = await showDialog({
       title: 'حذف جميع اللوحات',
-      description: 'سيُحذف نهائيًا محتوى مكتبتك في هذا المتصفح. يمكنك تنزيل نسخة احتياطية من قائمة المكتبة قبل الحذف.',
+      description: 'سيُحذف نهائيًا محتوى مكتبتك في الحساب. يمكنك تنزيل نسخة احتياطية من قائمة المكتبة قبل الحذف.',
       accept: 'حذف جميع اللوحات',
       danger: true,
     });
     if (!confirmed || state !== workspace) return;
 
     const blankBoard = makeBoard(blankBoardName);
-    const nextWorkspace = { version: 1, boards: [blankBoard], activeBoardId: blankBoard.id, libraryResetId: uid() };
-    if (!saveWorkspace(nextWorkspace)) {
-      if (storageFailed) showToast('تعذّر حذف مكتبة اللوحات من هذا المتصفح.', true);
-      return;
-    }
-    state = nextWorkspace;
-    openBoard({ persist: false });
-    showToast('تم حذف جميع اللوحات');
+    state = { version: 1, boards: [blankBoard], activeBoardId: blankBoard.id };
+    openBoard();
+    const connection = cloud;
+    connection.schedule();
+    if (await connection.flush() && cloud === connection) showToast('تم حذف جميع اللوحات من الحساب');
   }
 
   async function clearBoard() {
@@ -642,10 +644,41 @@
     const controls = [
       libraryOption('نسخة احتياطية', 'تنزيل لوحات مكتبتك بصيغة JSON', backupTeacher),
       libraryOption('استيراد نسخة', 'إضافة اللوحات من ملف محفوظ إلى مكتبتك', chooseBackup),
+    ];
+    if (!legacyTransfer && readLegacyWorkspace(teacher.id)) {
+      controls.push(libraryOption('نقل اللوحات القديمة', 'إضافة نسخة من اللوحات السابقة في هذا المتصفح إلى حسابك', transferLegacyBoards));
+    }
+    if (cloud.error === 'workspace_conflict') {
+      controls.push(libraryOption('تحميل المكتبة من الحساب', 'فتح النسخة المحفوظة على الجهاز الآخر', reloadFromAccount));
+    } else if (cloud.error) {
+      controls.push(libraryOption('إعادة محاولة الحفظ', 'إرسال التغييرات المعلّقة إلى حسابك', () => void cloud.flush()));
+    }
+    controls.push(
       libraryOption('حذف لوحة', 'اختر لوحة واحدة لحذفها من المكتبة', chooseBoardToDelete, { danger: true }),
       libraryOption('حذف جميع اللوحات', 'تفريغ المكتبة والبدء بلوحة فارغة', deleteLibrary, { danger: true }),
-    ];
-    return showDialog({ title: teacher.name, description: 'مكتبة لوحاتك في التحضير الذكي. يُحفظ عملك في هذا المتصفح.', controls });
+    );
+    return showDialog({ title: teacher.name, description: 'تُحفظ لوحاتك في حسابك على التحضير الذكي وتظهر عند دخولك من جهاز آخر.', controls });
+  }
+
+  async function reloadFromAccount() {
+    const connection = cloud;
+    const confirmed = await showDialog({
+      title: 'تحميل المكتبة من الحساب',
+      description: 'سيتم استبدال التغييرات غير المحفوظة بالنسخة الموجودة في حسابك. يمكنك تنزيل نسخة احتياطية قبل المتابعة.',
+      accept: 'تحميل النسخة المحفوظة',
+      danger: true,
+    });
+    if (confirmed && cloud === connection) void verifyAccess({ discardPending: true });
+  }
+
+  function transferLegacyBoards() {
+    const legacy = readLegacyWorkspace(teacher.id);
+    if (!legacy || legacyTransfer) return;
+    state.boards.unshift(...legacy.workspace.boards.map(readBackupBoard));
+    showWorkspace();
+    legacyTransfer = legacy;
+    cloud.schedule();
+    void cloud.flush();
   }
 
   function download(url, filename) {
@@ -692,7 +725,9 @@
         state.boards.unshift(...boards);
         state.activeBoardId = boards[0].id;
         openBoard();
-        if (!storageFailed) showToast('تم استيراد لوحات المعلّم');
+        const connection = cloud;
+        connection.schedule();
+        if (await connection.flush() && cloud === connection) showToast('تم استيراد اللوحات إلى الحساب');
       } catch {
         if (state === workspace) showToast('تعذّر فتح النسخة. اختر ملف JSON صادرًا من «لوح».', true);
       }
@@ -888,23 +923,37 @@
   } else {
     byId('board-access-retry').addEventListener('click', verifyAccess);
     window.addEventListener('storage', (event) => {
-      if (teacher && state && event.key === workspacePrefix + teacher.id) {
-        try { syncLibraryReset(localStorage.getItem(event.key)); } catch {}
+      if (event.key !== null && !sessionKeys.has(event.key)) return;
+      if (event.newValue === null) {
+        accessRequest?.abort();
+        accessRequest = undefined;
+        lockWorkspace();
+        showSignIn();
         return;
       }
-      if (event.key !== null && !sessionKeys.has(event.key)) return;
-      accessRequest?.abort();
-      accessRequest = undefined;
-      lockWorkspace();
-      if (event.newValue === null) showSignIn();
-      else verifyAccess();
+      // Browser session storage is only a signal to check the signed account.
+      try {
+        const hintedUserId = JSON.parse(event.newValue)?.userId;
+        if (teacher && hintedUserId && hintedUserId !== teacher.id) lockWorkspace();
+      } catch {}
+      void verifyAccess();
     });
     window.addEventListener('pageshow', (event) => {
       if (!event.persisted) return;
-      lockWorkspace();
-      verifyAccess();
+      void verifyAccess();
     });
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') verifyAccess(); });
+    window.addEventListener('online', () => {
+      if (cloud?.dirty && cloud.error !== 'workspace_conflict') void cloud.flush();
+    });
+    window.addEventListener('beforeunload', (event) => {
+      if (!cloud?.dirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void verifyAccess();
+      else if (cloud?.dirty && cloud.error !== 'workspace_conflict') void cloud.flush();
+    });
     verifyAccess();
   }
 })();
