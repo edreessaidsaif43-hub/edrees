@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1d172d">
+  <meta name="description" content="سبورة التحضير الذكي للشرح والكتابة والرسم، مع أدوات الرياضيات ومكتبة لوحات لكل معلم.">
+  <title>لوح | التحضير الذكي</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='13' fill='%23683ce3'/%3E%3Cpath d='M12 28L26 14l8 8-14 14h-8v-8zM22 18l8 8m1-10l3-3' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script src="math.js" defer></script>
+  <script src="canvas.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <symbol id="i-brand" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 19.5h15M6 13.8l8.2-8.3a1.5 1.5 0 0 1 2.1 0l2.2 2.2a1.5 1.5 0 0 1 0 2.1l-8.3 8.2H6v-4.2Z"/><path d="m12.8 7 4.2 4.2M17.8 3.4h3m-1.5-1.5v3"/></g></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3.5H6A1.5 1.5 0 0 0 4.5 5v14A1.5 1.5 0 0 0 6 20.5h12a1.5 1.5 0 0 0 1.5-1.5v-9.5z"/><path d="M13.5 3.5v6h6M8 13.5h8M8 17h5"/></g></symbol>
+      <symbol id="i-board" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="12.5" rx="2"/><path d="M12 17v4m-4 0h8M7 13l3-3 2 2 4-4"/></g></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20v-1.5a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4V20"/></g></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16m-11 0V4h6v2.5m3.5 0-.8 13h-11L5.5 6.5m4 4v5m5-5v5"/></g></symbol>
+      <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m14.5 5-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m5 9 7 7 7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11m-4-4 4 4 4-4M5 15v4.5h14V15"/></g></symbol>
+      <symbol id="i-storage" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 14h17M7.5 17h.1m3.6 0h.1"/></g></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5zm-9 9 9 5 9-5m-18 4 9 5 9-5"/></g></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 16.5 11-11a2.1 2.1 0 0 1 3 3l-11 11-3.5.5.5-3.5zM14 7l3 3m-4 10h7"/></g></symbol>
+      <symbol id="i-cursor" viewBox="0 0 24 24"><path d="m5 3 14.5 9-6.2 1.2-3.5 5.4L5 3Z" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-pen" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 19.5 6 14 16.7 3.6a1.6 1.6 0 0 1 2.2 0l1.5 1.5a1.6 1.6 0 0 1 0 2.2L10 18l-5.5 1.5zm9.8-13.7 4 4M6 14l4 4"/></g></symbol>
+      <symbol id="i-brush" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13 18.4 4a1.8 1.8 0 0 1 2.6 2.6L12.1 15M9.6 13.2a2.9 2.9 0 0 0-3.3 2.7c-.2 1.3-.7 2.8-2.8 3.1 4.8 2.7 9.5 0 8.9-3-.2-1.5-1.3-2.6-2.8-2.8z"/></g></symbol>
+      <symbol id="i-marker" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="m12 16 8-8a1.4 1.4 0 0 0 0-2l-2-2a1.4 1.4 0 0 0-2 0l-8 8 4 4zm-3.5-3.5-3 3v3h3l3-3M4 21h10M14 6l4 4"/></g></symbol>
+      <symbol id="i-eraser" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12 8-8a2 2 0 0 1 2.8 0l4.7 4.7a2 2 0 0 1 0 2.8l-7.8 7.8H8L4.5 15a2 2 0 0 1 0-3zM8 8.5l7.5 7.5M12 19.3h8.5"/></g></symbol>
+      <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 7V5h16v2M12 5v14m-4 0h8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-line" viewBox="0 0 24 24"><path d="m4.5 19.5 15-15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+      <symbol id="i-rectangle" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="13" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+      <symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+      <symbol id="i-triangle" viewBox="0 0 24 24"><path d="m12 4 8.5 15h-17L12 4Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+      <symbol id="i-hand" viewBox="0 0 24 24"><path d="M8 11V5.5a1.5 1.5 0 1 1 3 0V10 4a1.5 1.5 0 1 1 3 0v6-4.5a1.5 1.5 0 1 1 3 0V11 8a1.5 1.5 0 1 1 3 0v6.3a6.7 6.7 0 0 1-6.7 6.7h-1.1a6 6 0 0 1-4.9-2.5l-4-5.4a1.6 1.6 0 0 1 2.5-2l2.2 2.2" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-palette" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 .2 18 1.9 1.9 0 0 0 1.2-3.4 1.5 1.5 0 0 1 1-2.6h2.9a3.7 3.7 0 0 0 3.7-3.7C21 6.7 17 3 12 3z"/><path d="M7.5 10h.01m3-3h.01m4 0h.01m3 3h.01" stroke-width="2.7"/></g></symbol>
+      <symbol id="i-width" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round"><path d="M4 5h16" stroke-width="1.4"/><path d="M4 12h16" stroke-width="2.1"/><path d="M4 19h16" stroke-width="3"/></g></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="m8 5-4.5 4.5L8 14M4 9.5h10.5a5.5 5.5 0 0 1 0 11h-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-redo" viewBox="0 0 24 24"><path d="m16 5 4.5 4.5L16 14m4-4.5H9.5a5.5 5.5 0 0 0 0 11h3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><path d="M8 4v16m8-16v16M4 8h16M4 16h16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+      <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-sigma" viewBox="0 0 24 24"><path d="M18 4.5H6.5l6 7.5-6 7.5H18" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-ruler" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 15 12-12 6 6L9 21 3 15zM8 10l2 2m1-5 2 2m1-5 2 2m-11 7 2 2"/></g></symbol>
+      <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M4 4v6h6m-6 0 3-3a7.5 7.5 0 1 1-1.4 9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-protractor" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16a9 9 0 1 1 18 0v2H3v-2zm4.5 2v-2a4.5 4.5 0 1 1 9 0v2M12 7v3m-6-.4 2 1.8m10-1.8-2 1.8"/></g></symbol>
+      <symbol id="i-axes" viewBox="0 0 24 24"><path d="M4 19V4m0 15h16M2 6l2-2 2 2m12 11 2 2-2 2M7.5 15l3.5-4 3 2 4-5" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-plot" viewBox="0 0 24 24"><path d="M4 4v16h16M6.5 8c2.3 0 2.6 7.6 5.5 7.6S15.4 7 19 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-equation" viewBox="0 0 24 24"><path d="M8 6H4m2-2v4M4 17h4m6-10h6m-6 3h6m-6 6 6 5m0-5-6 5" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"/></symbol>
+      <symbol id="i-tip" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"><path d="M9 18h6m-5 3h4m1-5c0-2.8 3-3.5 3-7a6 6 0 0 0-12 0c0 3.5 3 4.2 3 7"/></g></symbol>
+      <symbol id="i-keyboard" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01m4 0h.01m4 0h.01m4 0h.01M7 14h10"/></g></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </defs>
+  </svg>
+
+  <main class="access-page" id="board-access" aria-labelledby="board-access-title" aria-describedby="board-access-message">
+    <section class="access-card">
+      <div class="access-brand">
+        <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-brand"/></svg></span>
+        <span><strong class="access-brand-name">لوح</strong><span class="access-brand-platform">التحضير الذكي</span></span>
+      </div>
+      <div class="access-content">
+        <p class="access-kicker"><svg class="icon" aria-hidden="true"><use href="#i-board"/></svg>السبورة التعليمية</p>
+        <h1 id="board-access-title">جارٍ فتح السبورة</h1>
+        <p id="board-access-message" role="status">جارٍ التحقق من حسابك واشتراكك في التحضير الذكي.</p>
+        <noscript><p class="access-noscript">فعّل JavaScript في المتصفح لتتمكن من فتح السبورة.</p></noscript>
+      </div>
+      <div class="access-actions">
+        <a class="button button-primary" id="board-access-link" href="/m.html">العودة إلى التحضير الذكي</a>
+        <button class="button" id="board-access-retry" type="button" hidden>إعادة المحاولة</button>
+      </div>
+      <p class="access-note">السبورة متاحة ضمن اشتراك التحضير الذكي.</p>
+    </section>
+  </main>
+
+  <div class="app-shell" id="board-app" hidden>
+    <aside class="sidebar" id="board-sidebar" aria-label="مساحة المعلم ومكتبة اللوحات">
+      <div class="sidebar-top">
+        <a class="brand" href="/m.html" aria-label="لوح، العودة إلى التحضير الذكي" title="العودة إلى التحضير الذكي">
+          <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-brand"/></svg></span>
+          <span><strong class="brand-name">لوح</strong><small class="brand-sub">التحضير الذكي</small></span>
+        </a>
+        <div class="teacher-control">
+          <span class="teacher-label">مساحة المعلم</span>
+          <button class="teacher-box" type="button" data-action="switch-teacher" aria-haspopup="dialog" title="خيارات مكتبة اللوحات">
+            <span class="teacher-avatar" id="teacher-avatar" aria-hidden="true">م</span>
+            <span class="teacher-copy">
+              <span id="teacher-name">المعلم</span>
+              <span class="teacher-options-label">خيارات مكتبة اللوحات</span>
+            </span>
+            <svg class="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <section class="sidebar-library" aria-labelledby="library-title">
+        <div class="sidebar-heading">
+          <h2 class="sidebar-section-title" id="library-title">مكتبة اللوحات</h2>
+          <span class="board-count" id="board-count" aria-label="عدد اللوحات">٠</span>
+        </div>
+        <nav class="board-list" id="board-list" aria-label="اللوحات المحفوظة"></nav>
+        <button class="sidebar-new" type="button" data-action="new-board" aria-label="لوحة جديدة" title="لوحة جديدة">
+          <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span>إضافة لوحة</span>
+        </button>
+      </section>
+
+      <div class="sidebar-foot">
+        <svg class="icon" aria-hidden="true"><use href="#i-storage"/></svg>
+        <span><strong>الحفظ على هذا الجهاز</strong>لكل معلم مكتبته الخاصة</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="crumbs" aria-label="الموقع الحالي">
+          <button class="button mobile-menu" type="button" data-action="toggle-library" aria-label="مكتبة اللوحات" title="مكتبة اللوحات" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg>
+          </button>
+          <svg class="icon crumb-board" aria-hidden="true"><use href="#i-board"/></svg>
+          <a class="crumb-root crumb-link" href="/m.html">التحضير الذكي</a>
+          <svg class="icon crumb-chevron" aria-hidden="true"><use href="#i-arrow-left"/></svg>
+          <strong>السبورة</strong>
+        </div>
+        <div class="top-actions">
+          <button class="button" type="button" data-action="export">
+            <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>تصدير PNG
+          </button>
+          <button class="button button-primary" type="button" data-action="new-board">
+            <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>لوحة جديدة
+          </button>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <div class="page-head">
+          <div>
+            <div class="page-label"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg>لوحة الدرس</div>
+            <h1 id="board-title">السبورة التعليمية</h1>
+            <p>مساحة للشرح والكتابة والرسم الحر</p>
+          </div>
+          <div class="board-actions">
+            <button class="button math-toggle" type="button" data-action="toggle-math" aria-controls="math-panel" aria-expanded="false" aria-label="أدوات الرياضيات" title="أدوات الرياضيات">
+              <svg class="icon" aria-hidden="true"><use href="#i-sigma"/></svg><span>أدوات الرياضيات</span>
+            </button>
+            <button class="button" type="button" data-action="rename-board" title="تعديل اسم اللوحة" aria-label="تعديل اسم اللوحة">
+              <svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg><span>تعديل الاسم</span>
+            </button>
+            <button class="button subtle-action" type="button" data-action="delete-board" title="حذف اللوحة" aria-label="حذف اللوحة">
+              <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="studio-grid">
+          <section class="studio-card board-card" aria-label="السبورة وأدوات الكتابة">
+            <div class="toolbar" role="toolbar" aria-label="أدوات الكتابة والرسم">
+              <div class="toolbar-group" role="group" aria-label="أدوات الرسم">
+                <button class="tool-button" type="button" data-tool="select" aria-pressed="false" title="تحديد" aria-label="تحديد"><svg class="icon" aria-hidden="true"><use href="#i-cursor"/></svg></button>
+                <button class="tool-button" type="button" data-tool="pen" aria-pressed="true" title="قلم" aria-label="قلم"><svg class="icon" aria-hidden="true"><use href="#i-pen"/></svg></button>
+                <button class="tool-button" type="button" data-tool="brush" aria-pressed="false" title="فرشاة" aria-label="فرشاة"><svg class="icon" aria-hidden="true"><use href="#i-brush"/></svg></button>
+                <button class="tool-button" type="button" data-tool="marker" aria-pressed="false" title="قلم تمييز" aria-label="قلم تمييز"><svg class="icon" aria-hidden="true"><use href="#i-marker"/></svg></button>
+                <button class="tool-button" type="button" data-tool="eraser" aria-pressed="false" title="ممحاة" aria-label="ممحاة"><svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg></button>
+                <button class="tool-button" type="button" data-tool="text" aria-pressed="false" title="كتابة نص" aria-label="كتابة نص"><svg class="icon" aria-hidden="true"><use href="#i-text"/></svg></button>
+                <button class="tool-button" type="button" data-tool="pan" aria-pressed="false" title="تحريك اللوحة" aria-label="تحريك اللوحة"><svg class="icon" aria-hidden="true"><use href="#i-hand"/></svg></button>
+              </div>
+
+              <div class="toolbar-group swatches" role="group" aria-label="ألوان الكتابة">
+                <button class="swatch" type="button" data-color="#21192f" style="--swatch:#21192f" aria-pressed="true" title="حبر داكن" aria-label="حبر داكن"></button>
+                <button class="swatch" type="button" data-color="#7043e8" style="--swatch:#7043e8" aria-pressed="false" title="بنفسجي" aria-label="بنفسجي"></button>
+                <button class="swatch" type="button" data-color="#3275de" style="--swatch:#3275de" aria-pressed="false" title="أزرق" aria-label="أزرق"></button>
+                <button class="swatch" type="button" data-color="#16967b" style="--swatch:#16967b" aria-pressed="false" title="أخضر" aria-label="أخضر"></button>
+                <button class="swatch" type="button" data-color="#de5778" style="--swatch:#de5778" aria-pressed="false" title="وردي" aria-label="وردي"></button>
+                <button class="swatch" type="button" data-color="#e6a13a" style="--swatch:#e6a13a" aria-pressed="false" title="برتقالي" aria-label="برتقالي"></button>
+                <label class="custom-color" title="اختيار لون مخصص">
+                  <svg class="icon" aria-hidden="true"><use href="#i-palette"/></svg>
+                  <input id="custom-color" type="color" value="#21192f" aria-label="اختيار لون مخصص">
+                </label>
+              </div>
+
+              <div class="toolbar-group stroke-control" role="group" aria-label="سماكة الخط">
+                <svg class="icon" aria-hidden="true"><use href="#i-width"/></svg>
+                <input id="stroke-width" type="range" min="1" max="24" value="4" step="1" aria-label="سماكة الخط">
+                <output id="stroke-width-value" for="stroke-width" dir="ltr">4</output>
+              </div>
+
+              <div class="toolbar-group history-tools" role="group" aria-label="تاريخ التعديلات">
+                <button class="icon-button" type="button" data-action="undo" title="تراجع" aria-label="تراجع"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg></button>
+                <button class="icon-button" type="button" data-action="redo" title="إعادة" aria-label="إعادة"><svg class="icon" aria-hidden="true"><use href="#i-redo"/></svg></button>
+                <button class="icon-button" type="button" data-action="clear" title="مسح محتوى اللوحة" aria-label="مسح محتوى اللوحة"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg></button>
+              </div>
+            </div>
+
+            <div class="paper-wrap" id="canvas-wrap" data-background="grid">
+              <canvas id="drawing-canvas" aria-label="مساحة الكتابة والرسم" tabindex="0">تحتاج إلى متصفح يدعم الرسم على اللوحة.</canvas>
+            </div>
+
+            <footer class="board-footer">
+              <div class="paper-actions">
+                <svg class="icon paper-icon" aria-hidden="true"><use href="#i-grid"/></svg>
+                <select class="paper-select" id="background-select" aria-label="خلفية اللوحة" title="خلفية اللوحة">
+                  <option value="grid" selected>شبكة مربعات</option>
+                  <option value="dots">شبكة نقاط</option>
+                  <option value="plain">خلفية بيضاء</option>
+                  <option value="dark">خلفية داكنة</option>
+                </select>
+                <span class="tool-status" id="tool-label" role="status">قلم</span>
+              </div>
+              <div class="ruler-controls" id="ruler-controls" role="group" aria-label="التحكم في المسطرة المحددة" hidden>
+                <span class="ruler-controls-label"><svg class="icon" aria-hidden="true"><use href="#i-ruler"/></svg>المسطرة</span>
+                <button class="icon-button ruler-rotate" type="button" data-action="rotate-ruler-left" title="تدوير المسطرة عكس عقارب الساعة ١٥ درجة" aria-label="تدوير المسطرة عكس عقارب الساعة ١٥ درجة"><svg class="icon" aria-hidden="true"><use href="#i-rotate"/></svg></button>
+                <button class="icon-button ruler-rotate ruler-clockwise" type="button" data-action="rotate-ruler-right" title="تدوير المسطرة مع عقارب الساعة ١٥ درجة" aria-label="تدوير المسطرة مع عقارب الساعة ١٥ درجة"><svg class="icon" aria-hidden="true"><use href="#i-rotate"/></svg></button>
+                <button class="button ruler-pen" type="button" data-action="ruler-pen" title="اختيار القلم للرسم بمحاذاة المسطرة"><svg class="icon" aria-hidden="true"><use href="#i-pen"/></svg>القلم</button>
+              </div>
+              <div class="save-indicator"><span class="save-dot" aria-hidden="true"></span><span id="save-status" role="status">تم الحفظ محليًا</span></div>
+              <div class="view-actions" role="group" aria-label="عرض اللوحة">
+                <button class="icon-button" type="button" data-action="zoom-out" title="تصغير" aria-label="تصغير"><svg class="icon" aria-hidden="true"><use href="#i-minus"/></svg></button>
+                <button class="zoom-value" id="zoom-value" type="button" data-action="zoom-reset" title="إعادة ضبط التكبير" aria-label="إعادة ضبط التكبير">100%</button>
+                <button class="icon-button" type="button" data-action="zoom-in" title="تكبير" aria-label="تكبير"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
+                <button class="icon-button" type="button" data-action="fullscreen" title="ملء الشاشة" aria-label="ملء الشاشة"><svg class="icon" aria-hidden="true"><use href="#i-fullscreen"/></svg></button>
+              </div>
+            </footer>
+          </section>
+
+          <aside class="studio-card math-panel" id="math-panel" aria-labelledby="math-title">
+            <header class="math-head">
+              <span class="math-emblem"><svg class="icon" aria-hidden="true"><use href="#i-sigma"/></svg></span>
+              <div><h2 id="math-title">أدوات الرياضيات</h2><p>الهندسة والرسم البياني</p></div>
+            </header>
+            <section class="math-section" aria-labelledby="geometry-title">
+              <h3 id="geometry-title">الهندسة والأشكال</h3>
+              <div class="math-tool-grid">
+                <button class="math-tool" type="button" data-tool="ruler" aria-pressed="false" aria-describedby="ruler-tip"><svg class="icon" aria-hidden="true"><use href="#i-ruler"/></svg>مسطرة</button>
+                <button class="math-tool" type="button" data-tool="protractor" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-protractor"/></svg>منقلة</button>
+                <button class="math-tool" type="button" data-tool="line" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-line"/></svg>خط مستقيم</button>
+                <button class="math-tool" type="button" data-tool="triangle" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-triangle"/></svg>مثلث</button>
+                <button class="math-tool" type="button" data-tool="rectangle" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-rectangle"/></svg>مستطيل</button>
+                <button class="math-tool" type="button" data-tool="ellipse" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-circle"/></svg>دائرة</button>
+              </div>
+            </section>
+            <section class="math-section" aria-labelledby="graph-title">
+              <h3 id="graph-title">الرسم البياني</h3>
+              <div class="math-tool-grid">
+                <button class="math-tool" type="button" data-action="axes"><svg class="icon" aria-hidden="true"><use href="#i-axes"/></svg>محاور</button>
+                <button class="math-tool" type="button" data-action="plot"><svg class="icon" aria-hidden="true"><use href="#i-plot"/></svg>رسم دالة</button>
+              </div>
+            </section>
+            <section class="math-section" aria-labelledby="symbol-title">
+              <h3 id="symbol-title">الرموز والتعبيرات</h3>
+              <div class="symbol-grid" aria-hidden="true">
+                <span class="symbol-tile">π</span><span class="symbol-tile">√</span><span class="symbol-tile">∞</span><span class="symbol-tile">∠</span><span class="symbol-tile">±</span>
+              </div>
+              <button class="math-wide" type="button" data-action="symbols"><span><svg class="icon" aria-hidden="true"><use href="#i-equation"/></svg>إدراج تعبير رياضي</span><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
+              <button class="math-wide math-quiet" type="button" data-action="fraction"><span><svg class="icon" aria-hidden="true"><use href="#i-line"/></svg>إدراج كسر</span></button>
+            </section>
+            <p class="math-tip" id="ruler-tip"><svg class="icon" aria-hidden="true"><use href="#i-tip"/></svg><span>اسحب لوضع المسطرة. استخدم أداة التحديد لتحريكها، وأزرار المسطرة لتدويرها. اختر القلم وارسم قرب أيٍّ من حافتيها الطويلتين.</span></p>
+          </aside>
+        </div>
+
+        <footer class="workspace-foot">
+          <button class="foot-button" type="button" data-action="shortcuts"><svg class="icon" aria-hidden="true"><use href="#i-keyboard"/></svg>اختصارات لوحة المفاتيح</button>
+          <span class="subscription-note">ضمن اشتراك التحضير الذكي</span>
+        </footer>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="app-dialog"></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+</body>
+</html>

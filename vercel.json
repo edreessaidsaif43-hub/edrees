@@ -204,6 +204,10 @@
       "destination": "/m.html"
     },
     {
+      "source": "/interactive-lessons",
+      "destination": "/m.html"
+    },
+    {
       "source": "/mash",
       "destination": "/mash/index.html"
     },

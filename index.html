@@ -933,6 +933,20 @@
             <span>تقارير</span>
           </div>
         </a>
+
+        <a href="/Board/index.html" class="home-card r3" style="--card-accent:#6d3caf;--card-soft:#f4ecff">
+          <div class="home-card-icon">11</div>
+          <h3>السبورة التفاعلية</h3>
+          <p>اكتب وارسم بألوان وفرش متعددة، واستخدم أدوات الرياضيات واحفظ لوحات دروسك.</p>
+          <div class="home-card-price">
+            <strong>مشمولة في الاشتراك</strong>
+            <span>تُفتح بحساب الاشتراك الحالي.</span>
+          </div>
+          <div class="home-card-meta">
+            <span>كتابة ورسم</span>
+            <span>أدوات الرياضيات</span>
+          </div>
+        </a>
       </div>
     </div>
   </section>
@@ -1020,6 +1034,9 @@
     }));
   }
   function logout(){
+    if (/^https?:$/.test(window.location.protocol)) {
+      fetch('/api/auth/login', {method:'DELETE',credentials:'same-origin',keepalive:true}).catch(() => {});
+    }
     localStorage.removeItem(SK);
     localStorage.removeItem(MK);
     localStorage.removeItem('lesson_platform_current_user_v1');

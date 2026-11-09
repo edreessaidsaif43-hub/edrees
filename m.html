@@ -2,6 +2,11 @@
 <html data-noor-extension-status="1" lang="ar" dir="rtl" class="h-full">
  <head>
   <meta charset="UTF-8">
+  <script>
+    if (/^\/interactive-lessons\/?$/.test(location.pathname)) {
+      document.documentElement.classList.add('interactive-lessons-page');
+    }
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="true">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -17,6 +22,9 @@
     * { font-family: 'Tajawal', sans-serif; }
     html, body { width: 100%; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
     img { max-width: 100%; height: auto; }
+    .interactive-only { display: none; }
+    .interactive-lessons-page .interactive-only { display: revert; }
+    .interactive-lessons-page .bag-only { display: none; }
     .content-preview {
       position: relative;
       width: 100%;
@@ -357,12 +365,15 @@
     <div class="flex flex-wrap items-center justify-center gap-3 mt-5">
       <button type="button" onclick="switchTab('submit')" class="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg">رفع محتوى</button>
       <button type="button" onclick="switchTab('discover')" class="px-6 py-3 rounded-xl bg-white border border-sky-300 text-sky-900 font-bold">تصفح المحتوى</button>
+      <a href="/interactive-lessons" class="bag-only px-6 py-3 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold">الدروس التفاعلية</a>
+      <a href="/m" class="interactive-only px-6 py-3 rounded-xl bg-white border border-sky-300 text-sky-900 font-bold">العودة إلى حقيبة المعلم</a>
       <button type="button" onclick="switchTab('stars')" class="px-6 py-3 rounded-xl bg-amber-100 hover:bg-amber-200 border border-amber-400 text-amber-950 font-bold">المعلمون المتميزون</button>
     </div>
    </header>
-   <div id="global-user-bar" class="hidden mb-3 max-w-6xl mx-auto card-glass rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+   <div id="global-user-bar" class="hidden mb-3 max-w-6xl mx-auto card-glass rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
     <span id="global-user-label" class="font-bold text-gray-800"></span>
-    <div class="flex items-center gap-2">
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="/Board/index.html" class="bg-violet-700 hover:bg-violet-800 text-white px-3 py-2 rounded-lg font-bold text-sm">السبورة التفاعلية</a>
       <button type="button" id="global-notify-btn" class="relative bg-amber-500 text-white px-3 py-2 rounded-lg font-bold text-sm">
         🔔 التنبيهات
         <span id="global-notify-count" class="hidden absolute -top-2 -left-2 bg-red-600 text-white text-xs font-black rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center">0</span>
@@ -378,7 +389,7 @@
     <div class="mb-6 rounded-3xl border border-sky-200/30 bg-gradient-to-br from-sky-500/15 to-teal-500/10 p-5 md:p-7">
       <h2 class="text-3xl font-black text-white mb-2">مواردك من أكثر من قسم</h2>
       <p class="text-sky-100 mb-5 leading-7">اختر قسمًا واحدًا أو أكثر، ثم حدّد الصف والمادة والفصل الدراسي. تظهر النتائج معًا هنا.</p>
-      <fieldset>
+      <fieldset class="bag-only">
         <legend class="text-white font-bold mb-3">الأقسام المطلوبة</legend>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="discover-sections">
           <label class="cursor-pointer"><input type="checkbox" value="game" checked onchange="applyDiscoverFilters()" class="peer sr-only"><span class="block text-center rounded-xl border border-white/30 text-white p-3 font-bold peer-checked:bg-sky-100 peer-checked:text-sky-950 peer-checked:border-sky-100 peer-focus-visible:ring-4 peer-focus-visible:ring-amber-300">الألعاب</span></label>
@@ -387,9 +398,9 @@
           <label class="cursor-pointer"><input type="checkbox" value="video" checked onchange="applyDiscoverFilters()" class="peer sr-only"><span class="block text-center rounded-xl border border-white/30 text-white p-3 font-bold peer-checked:bg-sky-100 peer-checked:text-sky-950 peer-checked:border-sky-100 peer-focus-visible:ring-4 peer-focus-visible:ring-amber-300">الفيديوهات</span></label>
           <label class="cursor-pointer"><input type="checkbox" value="presentation" checked onchange="applyDiscoverFilters()" class="peer sr-only"><span class="block text-center rounded-xl border border-white/30 text-white p-3 font-bold peer-checked:bg-sky-100 peer-checked:text-sky-950 peer-checked:border-sky-100 peer-focus-visible:ring-4 peer-focus-visible:ring-amber-300">العروض التقديمية</span></label>
           <label class="cursor-pointer"><input type="checkbox" value="file" checked onchange="applyDiscoverFilters()" class="peer sr-only"><span class="block text-center rounded-xl border border-white/30 text-white p-3 font-bold peer-checked:bg-sky-100 peer-checked:text-sky-950 peer-checked:border-sky-100 peer-focus-visible:ring-4 peer-focus-visible:ring-amber-300">الملفات المخزنة</span></label>
-        </div>
+        <label class="cursor-pointer"><input type="checkbox" value="interactive" checked onchange="applyDiscoverFilters()" class="peer sr-only"><span class="block text-center rounded-xl border border-white/30 text-white p-3 font-bold peer-checked:bg-sky-100 peer-checked:text-sky-950 peer-checked:border-sky-100 peer-focus-visible:ring-4 peer-focus-visible:ring-amber-300">الدروس التفاعلية</span></label></div>
       </fieldset>
-      <div class="flex flex-wrap gap-3 mt-3 mb-5"><button type="button" onclick="selectDiscoverSections(true)" class="text-sky-100 underline font-bold p-2">تحديد الكل</button><button type="button" onclick="selectDiscoverSections(false)" class="text-sky-100 underline font-bold p-2">إلغاء التحديد</button></div>
+      <div class="bag-only flex flex-wrap gap-3 mt-3 mb-5"><button type="button" onclick="selectDiscoverSections(true)" class="text-sky-100 underline font-bold p-2">تحديد الكل</button><button type="button" onclick="selectDiscoverSections(false)" class="text-sky-100 underline font-bold p-2">إلغاء التحديد</button></div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div><label for="filter-grade-discover" class="block text-sky-100 font-bold mb-2">الصف الدراسي</label><select id="filter-grade-discover" onchange="applyDiscoverFilters()" class="w-full p-3 rounded-xl bg-white text-gray-800 border-2 border-sky-200"></select></div>
         <div><label for="filter-subject-discover" class="block text-sky-100 font-bold mb-2">المادة الدراسية</label><select id="filter-subject-discover" onchange="applyDiscoverFilters()" class="w-full p-3 rounded-xl bg-white text-gray-800 border-2 border-sky-200"></select></div>
@@ -677,7 +688,7 @@
       </div>
       <form id="submit-form" class="space-y-5 hidden">
         <div><label class="block text-emerald-200 font-bold mb-2">اسم المعلم</label><input type="text" id="teacher-name" required placeholder="أدخل اسمك الكامل" class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"></div>
-        <div><label class="block text-emerald-200 font-bold mb-2">نوع المحتوى</label><fieldset id="content-type" class="grid grid-cols-1 sm:grid-cols-2 gap-2"><legend class="text-sm font-bold mb-2">اختر قسمًا واحدًا أو أكثر</legend><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="game" onchange="updateContentTypeUI()" class="w-5 h-5">الألعاب</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="image" onchange="updateContentTypeUI()" class="w-5 h-5">الصور</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="test" onchange="updateContentTypeUI()" class="w-5 h-5">الاختبارات</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="video" onchange="updateContentTypeUI()" class="w-5 h-5">الفيديوهات</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="presentation" onchange="updateContentTypeUI()" class="w-5 h-5">العروض التقديمية</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="file" onchange="updateContentTypeUI()" class="w-5 h-5">الملفات المخزنة</label></fieldset></div>
+        <div><label class="block text-emerald-200 font-bold mb-2">نوع المحتوى</label><fieldset id="content-type" class="grid grid-cols-1 sm:grid-cols-2 gap-2"><legend class="text-sm font-bold mb-2">اختر قسمًا واحدًا أو أكثر</legend><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="game" onchange="updateContentTypeUI()" class="w-5 h-5">الألعاب</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="image" onchange="updateContentTypeUI()" class="w-5 h-5">الصور</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="test" onchange="updateContentTypeUI()" class="w-5 h-5">الاختبارات</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="video" onchange="updateContentTypeUI()" class="w-5 h-5">الفيديوهات</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="presentation" onchange="updateContentTypeUI()" class="w-5 h-5">العروض التقديمية</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="file" onchange="updateContentTypeUI()" class="w-5 h-5">الملفات المخزنة</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="interactive" onchange="updateContentTypeUI()" class="w-5 h-5">الدروس التفاعلية</label></fieldset></div>
         <div><label class="block text-emerald-200 font-bold mb-2">الصفوف الدراسية</label><select id="submit-grade" multiple required class="w-full p-4 border-2 border-emerald-400 rounded-xl input-field outline-none bg-white text-gray-900 font-semibold" size="5"><option value="الصف الأول">الصف الأول</option><option value="الصف الثاني">الصف الثاني</option><option value="الصف الثالث">الصف الثالث</option><option value="الصف الرابع">الصف الرابع</option><option value="الصف الخامس">الصف الخامس</option><option value="الصف السادس">الصف السادس</option><option value="الصف السابع">الصف السابع</option><option value="الصف الثامن">الصف الثامن</option><option value="الصف التاسع">الصف التاسع</option><option value="الصف العاشر">الصف العاشر</option><option value="الصف الحادي عشر">الصف الحادي عشر</option><option value="الصف الثاني عشر">الصف الثاني عشر</option></select></div>
         <div><label class="block text-emerald-200 font-bold mb-2">المواد الدراسية</label><select id="submit-subject" multiple required class="w-full p-4 border-2 border-emerald-400 rounded-xl input-field outline-none bg-white text-gray-900 font-semibold" size="5"><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="الرياضيات">الرياضيات</option><option value="العلوم">العلوم</option><option value="الفيزياء">الفيزياء</option><option value="الكيمياء">الكيمياء</option><option value="الأحياء">الأحياء</option><option value="الدراسات الاجتماعية">الدراسات الاجتماعية</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="الحاسوب">الحاسوب</option><option value="التربية الفنية">التربية الفنية</option><option value="التربية الرياضية">التربية الرياضية</option><option value="التربية الموسيقية">التربية الموسيقية</option></select></div>
         <div><label class="block text-emerald-200 font-bold mb-2">الفصل الدراسي</label><select id="submit-semester" required class="w-full p-4 border-2 border-emerald-300 rounded-xl input-field outline-none bg-white text-gray-800 font-medium"><option value="">اختر الفصل الدراسي</option><option value="الفصل الأول">الفصل الأول</option><option value="الفصل الثاني">الفصل الثاني</option></select></div>
@@ -713,7 +724,7 @@
         <input id="edit-submission-id" type="hidden">
         <div>
           <label class="block text-gray-700 font-bold mb-2">نوع المحتوى</label>
-          <fieldset id="edit-content-type" class="grid grid-cols-1 sm:grid-cols-2 gap-2"><legend class="text-sm font-bold mb-2">اختر قسمًا واحدًا أو أكثر</legend><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="game" onchange="updateEditThumbnailUI()" class="w-5 h-5">الألعاب</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="image" onchange="updateEditThumbnailUI()" class="w-5 h-5">الصور</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="test" onchange="updateEditThumbnailUI()" class="w-5 h-5">الاختبارات</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="video" onchange="updateEditThumbnailUI()" class="w-5 h-5">الفيديوهات</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="presentation" onchange="updateEditThumbnailUI()" class="w-5 h-5">العروض التقديمية</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="file" onchange="updateEditThumbnailUI()" class="w-5 h-5">الملفات المخزنة</label></fieldset>
+          <fieldset id="edit-content-type" class="grid grid-cols-1 sm:grid-cols-2 gap-2"><legend class="text-sm font-bold mb-2">اختر قسمًا واحدًا أو أكثر</legend><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="game" onchange="updateEditThumbnailUI()" class="w-5 h-5">الألعاب</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="image" onchange="updateEditThumbnailUI()" class="w-5 h-5">الصور</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="test" onchange="updateEditThumbnailUI()" class="w-5 h-5">الاختبارات</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="video" onchange="updateEditThumbnailUI()" class="w-5 h-5">الفيديوهات</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="presentation" onchange="updateEditThumbnailUI()" class="w-5 h-5">العروض التقديمية</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="file" onchange="updateEditThumbnailUI()" class="w-5 h-5">الملفات المخزنة</label><label class="flex items-center gap-2 p-3 bg-white border border-emerald-300 rounded-xl text-gray-800 font-bold cursor-pointer"><input type="checkbox" value="interactive" onchange="updateEditThumbnailUI()" class="w-5 h-5">الدروس التفاعلية</label></fieldset>
         </div>
         <div>
           <label class="block text-gray-700 font-bold mb-2">الصفوف الدراسية</label>
@@ -1014,7 +1025,8 @@
     }
 
 
-    const CONTENT_SECTION_LABELS = {"game":"الألعاب","image":"الصور","test":"الاختبارات","video":"الفيديوهات","presentation":"العروض التقديمية","file":"الملفات المخزنة"};
+    const isInteractiveLessonsPage = document.documentElement.classList.contains('interactive-lessons-page');
+    const CONTENT_SECTION_LABELS = {"game":"الألعاب","image":"الصور","test":"الاختبارات","video":"الفيديوهات","presentation":"العروض التقديمية","file":"الملفات المخزنة","interactive":"الدروس التفاعلية"};
     function getContentTypes(item) {
       const types = Array.isArray(item.content_types) && item.content_types.length ? item.content_types : [item.content_type || 'game'];
       return [...new Set(types)].filter(type => Object.prototype.hasOwnProperty.call(CONTENT_SECTION_LABELS, type));
@@ -3008,7 +3020,7 @@
         const target = document.getElementById(`filter-${filter}-discover`);
         if (!target.options.length) target.innerHTML = document.getElementById(`filter-${filter}-games`).innerHTML;
       }
-      const sections = Array.from(document.querySelectorAll('#discover-sections input:checked')).map(input => input.value);
+      const sections = isInteractiveLessonsPage ? ['interactive'] : Array.from(document.querySelectorAll('#discover-sections input:checked')).map(input => input.value);
       const grade = document.getElementById('filter-grade-discover').value;
       const subject = document.getElementById('filter-subject-discover').value;
       const semester = normalizeSemester(document.getElementById('filter-semester-discover').value);
@@ -3030,7 +3042,7 @@
         const url = String(item.game_link || '');
         const safeUrl = /^https?:\/\//i.test(url) ? url : '';
         const primary = sections.find(type => types.includes(type)) || types[0];
-        const actions = {game: 'افتح اللعبة', image: 'عرض الصورة', test: 'ابدأ الاختبار', video: 'شاهد الفيديو', presentation: 'عرض المحتوى', file: 'فتح الملف'};
+        const actions = {interactive: 'افتح الدرس', game: 'افتح اللعبة', image: 'عرض الصورة', test: 'ابدأ الاختبار', video: 'شاهد الفيديو', presentation: 'عرض المحتوى', file: 'فتح الملف'};
         const picture = types.includes('image') ? safeUrl : types.includes('video') ? getVideoThumbnailUrl(item) : '';
         return `<article class="card-glass rounded-2xl overflow-hidden shadow-lg flex flex-col">
           ${renderContentPreview(item)}
@@ -4021,15 +4033,16 @@
       }
     }
 
-    document.getElementById('logout-btn').addEventListener('click', () => {
+    function logoutCurrentUser() {
+      if (/^https?:$/.test(window.location.protocol)) {
+        fetch('/api/auth/login', { method: 'DELETE', credentials: 'same-origin', keepalive: true }).catch(() => {});
+      }
       setCurrentUser(null);
       showToast('✅ تم تسجيل الخروج', 'success');
-    });
+    }
 
-    document.getElementById('global-logout-btn').addEventListener('click', () => {
-      setCurrentUser(null);
-      showToast('✅ تم تسجيل الخروج', 'success');
-    });
+    document.getElementById('logout-btn').addEventListener('click', logoutCurrentUser);
+    document.getElementById('global-logout-btn').addEventListener('click', logoutCurrentUser);
 
     document.getElementById('global-notify-btn').addEventListener('click', () => {
       const panel = document.getElementById('global-notify-panel');
@@ -4590,7 +4603,7 @@
           const savedWelcome = String(config.welcome_message || '').trim();
           const title = (!savedTitle || savedTitle.includes('منصة تعليمية')) ? defaultConfig.site_title : savedTitle;
           const welcome = (!savedWelcome || savedWelcome.includes('اكتشف آفاقاً')) ? defaultConfig.welcome_message : savedWelcome;
-          document.getElementById('site-title').textContent = 'حقيبة المعلم';
+          document.getElementById('site-title').textContent = isInteractiveLessonsPage ? 'الدروس التفاعلية' : 'حقيبة المعلم';
           const welcomeElement = document.getElementById('welcome-message');
           if (welcomeElement) welcomeElement.textContent = welcome;
         },
@@ -4603,6 +4616,14 @@
     }
 
     async function initApp() {
+      if (isInteractiveLessonsPage) {
+        document.title = 'الدروس التفاعلية | حقيبة المعلم';
+        document.getElementById('site-title').textContent = 'الدروس التفاعلية';
+        document.querySelector('#section-discover h2').textContent = 'تصفح الدروس التفاعلية';
+        document.querySelector('#section-discover p').textContent = 'اختر الصف والمادة والفصل الدراسي للوصول إلى الدرس المناسب.';
+        document.querySelector('#content-type input[value="interactive"]').defaultChecked = true;
+        document.querySelector('#content-type input[value="interactive"]').checked = true;
+      }
       try {
         localStorage.removeItem('lesson_platform_content_cache_v1');
         localStorage.removeItem('lesson_platform_api_get_cache_v1_getGames');
