@@ -30,7 +30,7 @@
   window.goUnifiedAuth=function(mode){
     const targetMode=mode||'login';
     const ret=window.location.protocol==='file:'?window.location.href:(window.location.pathname+window.location.search+window.location.hash||'/');
-    const auth=window.location.protocol==='file:'?projectRoot()+'enjazy/auth.html':'https://altahdir.app/enjazy/auth.html';
+    const auth=window.location.protocol==='file:'?projectRoot()+'enjazy/auth.html':'/enjazy/auth.html';
     window.location.href=auth+'?mode='+encodeURIComponent(targetMode)+'&return='+encodeURIComponent(ret);
   };
   function readSession(){
@@ -38,6 +38,9 @@
     try{const r=localStorage.getItem(SK);const p=r?JSON.parse(r):null;return p&&p.userId?{userId:p.userId}:null;}catch(e){return null;}
   }
   window.logoutUnifiedNav=function(){
+    if (/^https?:$/.test(window.location.protocol)) {
+      fetch('/api/auth/login', {method:'DELETE',credentials:'same-origin',keepalive:true}).catch(() => {});
+    }
     localStorage.removeItem(SK);localStorage.removeItem(MK);localStorage.removeItem('lesson_platform_current_user_v1');
     updateNavUser(null);
     document.getElementById('user-menu')?.remove();
