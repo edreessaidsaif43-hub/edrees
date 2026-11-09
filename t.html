@@ -607,6 +607,7 @@
     <a href="https://altahdir.app/ai/index.html" data-page="ai">التحضير بالذكاء الاصطناعي</a>
     <a href="https://altahdir.app/m" data-page="m">حقيبة المعلم</a>
     <a href="https://altahdir.app/game/" data-page="games">الألعاب</a>
+    <a href="https://altahdir.app/noor/" data-page="noor">خدمات نور</a>
     <a href="https://altahdir.app/enjazy" data-page="enjazy">ملف الإنجاز</a>
     <a href="https://altahdir.app/Motivation+/" data-page="motivation">تحفيز+</a>
     <a href="https://altahdir.app/mash/index.html" data-page="mash">مشاريع المعلمين</a>
@@ -621,6 +622,7 @@
   <a href="https://altahdir.app/ai/index.html" data-page="ai">التحضير بالذكاء الاصطناعي</a>
   <a href="https://altahdir.app/m" data-page="m">حقيبة المعلم</a>
     <a href="https://altahdir.app/game/" data-page="games">الألعاب</a>
+    <a href="https://altahdir.app/noor/" data-page="noor">خدمات نور</a>
   <a href="https://altahdir.app/enjazy" data-page="enjazy">ملف الإنجاز</a>
   <a href="https://altahdir.app/Motivation+/" data-page="motivation">تحفيز+</a>
   <a href="https://altahdir.app/mash/index.html" data-page="mash">مشاريع المعلمين</a>
@@ -868,7 +870,7 @@ function updateSubscriptionPanel() {
     text.innerHTML = stopped
       ? 'لإعادة التفعيل: اختر المادة وحوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع إيصالًا صحيحًا.'
       : 'تم رفض الإيصال. اختر المادة وحوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع إيصالًا صحيحًا.';
-    status.textContent = 'الطلب: ' + (latestBlocked.subjects?.map(formatSubscriptionSubject).join('، ') || latestBlocked.grade || '') + (latestBlocked.adminNote ? ' - ملاحظة الإدارة: ' + latestBlocked.adminNote : '');
+    status.textContent = 'الطلب: ' + (latestBlocked.subjects?.map(formatSubscriptionSubject).join('، ') || latestBlocked.grade || '') + (latestBlocked.adminNote ? ' - ملاحظة الإدارة: ' + latestBlocked.adminNote : '') + (String(latestBlocked.adminNote || '').includes('91470590') ? '' : ' - للتواصل مع الإدارة: 91470590');
   } else if (activeSubjects.length) {
     badge.textContent = 'مفعل: ' + activeSubjects.length + ' مادة';
     text.innerHTML = 'اشتراكك مفعل للمواد المحددة. لإضافة مادة: حوّل إلى <span class="transfer-number" title="رقم التحويل المفعل">91470590</span> ثم ارفع الإيصال.';
