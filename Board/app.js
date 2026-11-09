@@ -10,12 +10,15 @@
   const signInPage = '/enjazy/auth.html?mode=login&reauth=board&return=%2FBoard%2Findex.html';
   const backgrounds = new Set(['grid', 'dots', 'plain', 'dark']);
   const inkTypes = new Set(['pen', 'brush', 'marker', 'eraser']);
-  const objectTypes = new Set(['text', 'line', 'rectangle', 'ellipse', 'triangle', 'ruler', 'protractor', 'axes', 'plot', 'fraction', 'demo-label', 'demo-box', 'demo-point']);
+  const measuringTools = new Set(['ruler', 'protractor', 'set-square']);
+  const objectTypes = new Set(['text', 'line', 'rectangle', 'ellipse', 'arc', 'triangle', ...measuringTools, 'axes', 'plot', 'fraction', 'demo-label', 'demo-box', 'demo-point']);
+  const placementTools = new Set(['line', 'rectangle', 'ellipse', 'triangle', ...measuringTools, 'compass', 'compass-arc']);
   const tools = {
     select: 'تحديد وتحريك', pen: 'قلم', brush: 'فرشاة', marker: 'قلم تمييز',
     eraser: 'ممحاة', text: 'نص', line: 'خط مستقيم', rectangle: 'مستطيل',
     ellipse: 'دائرة أو شكل بيضاوي', triangle: 'مثلث', pan: 'تحريك اللوحة',
-    ruler: 'مسطرة مدرّجة', protractor: 'منقلة',
+    ruler: 'مسطرة مدرّجة', protractor: 'منقلة', 'set-square': 'مثلث الرسم',
+    compass: 'فرجار', 'compass-arc': 'قوس بالفرجار',
   };
   const symbols = ['π', '√', '∞', '±', '×', '÷', '≠', '≈', '≤', '≥', '∠', '°', '²', '³', '½', '¼', '∑', '∫', 'Δ', 'θ', 'α', 'β', '∈', '∅'];
   const defaultColor = '#21192f';
@@ -30,7 +33,8 @@
   let storageFailed = false;
   let loadFailed = false;
   let currentTool = 'pen';
-  let rulerGuideActive = false;
+  let edgeGuideActive = false;
+  let compassReady = false;
   let color = defaultColor;
   let width = Number(byId('stroke-width').value) || 4;
   let toastTimer;
@@ -53,10 +57,20 @@
       byId('zoom-value').textContent = `${Math.round(percent)}%`;
     },
     onSelection(object) {
-      byId('ruler-controls').hidden = object?.type !== 'ruler';
+      const supported = measuringTools.has(object?.type);
+      byId('ruler-controls').hidden = !supported;
+      const label = byId('guide-selection-name');
+      if (supported) {
+        if (label) label.textContent = tools[object.type];
+        byId('guide-selection-icon')?.setAttribute('href', `#i-${object.type}`);
+      }
     },
     onGuide(active) {
-      rulerGuideActive = active;
+      edgeGuideActive = active;
+      updateToolLabel();
+    },
+    onCompassPhase(ready) {
+      compassReady = ready;
       updateToolLabel();
     },
     getText() {
@@ -310,8 +324,11 @@
 
   function updateToolLabel() {
     const label = byId('tool-label');
-    label.textContent = rulerGuideActive ? 'القلم يتبع حافة المسطرة' : tools[currentTool];
-    label.classList.toggle('is-guided', rulerGuideActive);
+    const compassHint = currentTool === 'compass' ? 'اسحب من المركز لرسم دائرة'
+      : currentTool === 'compass-arc' ? (compassReady ? 'اسحب رأس القلم لرسم القوس' : 'اسحب من المركز لضبط الفرجار') : '';
+    label.textContent = edgeGuideActive ? 'القلم يتبع حافة الأداة' : compassHint || tools[currentTool];
+    label.classList.toggle('is-guided', edgeGuideActive);
+    label.classList.toggle('is-compass', Boolean(compassHint));
   }
 
   function setTool(tool) {
@@ -324,7 +341,7 @@
       button.classList.toggle('is-active', active);
     });
     updateToolLabel();
-    if (['line', 'rectangle', 'ellipse', 'triangle', 'ruler', 'protractor'].includes(tool)) revealCanvas();
+    if (placementTools.has(tool)) revealCanvas();
   }
 
   function setColor(next) {
@@ -595,6 +612,7 @@
       } else {
         if (!objectTypes.has(object.type) || !Number.isFinite(object.x) || !Number.isFinite(object.y)) throw Error();
         if (object.type === 'text' ? typeof object.text !== 'string' : ![object.w, object.h].every(Number.isFinite)) throw Error();
+        if (object.type === 'arc' && (![object.angle, object.sweep].every(Number.isFinite) || object.w <= 0 || object.h <= 0 || Math.abs(object.sweep) > Math.PI * 2 + 1e-8)) throw Error();
       }
     }
   }

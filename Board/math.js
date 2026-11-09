@@ -399,11 +399,13 @@
     }
   }
 
-  function drawProtractor(ctx, { x, y, w, h }, dark) {
-    const radius = Math.min(w / 2 - 5, h - 10);
+  function protractorGeometry({ x, y, w, h }) {
+    return { cx: x + w / 2, cy: y + h - 5, r: Math.min(w / 2 - 5, h - 10) };
+  }
+
+  function drawProtractor(ctx, object, dark) {
+    const { cx, cy, r: radius } = protractorGeometry(object);
     if (radius <= 0) return;
-    const cx = x + w / 2;
-    const cy = y + h - 5;
     ctx.beginPath();
     ctx.arc(cx, cy, radius, Math.PI, 2 * Math.PI);
     ctx.closePath();
@@ -446,6 +448,157 @@
     segment(ctx, cx - 5, cy, cx + 5, cy);
     segment(ctx, cx, cy - 6, cx, cy + 3);
     ctx.stroke();
+  }
+
+  function setSquareVertices({ x, y, w, h }) {
+    return [{ x, y }, { x: x + w, y: y + h }, { x, y: y + h }];
+  }
+
+  function tracePolygon(ctx, points) {
+    const [first, ...rest] = points;
+    ctx.moveTo(first.x, first.y);
+    for (const point of rest) ctx.lineTo(point.x, point.y);
+    ctx.closePath();
+  }
+
+  function drawSetSquare(ctx, object, dark) {
+    const { x, y, w, h } = object;
+    const bottom = y + h;
+    const vertices = setSquareVertices(object);
+    const inradius = w * h / (w + h + Math.hypot(w, h));
+    const center = { x: x + inradius, y: bottom - inradius };
+    const inset = factor => vertices.map(vertex => ({
+      x: center.x + (vertex.x - center.x) * factor,
+      y: center.y + (vertex.y - center.y) * factor,
+    }));
+    const cutout = inset(0.43);
+    const acrylic = ctx.createLinearGradient(x, y, x + w * 0.65, bottom);
+    acrylic.addColorStop(0, dark ? "rgba(142, 109, 204, .46)" : "rgba(240, 225, 255, .8)");
+    acrylic.addColorStop(0.56, dark ? "rgba(109, 78, 166, .46)" : "rgba(221, 195, 248, .57)");
+    acrylic.addColorStop(1, dark ? "rgba(139, 103, 192, .59)" : "rgba(202, 167, 241, .73)");
+
+    ctx.beginPath();
+    tracePolygon(ctx, vertices);
+    ctx.clip();
+    ctx.beginPath();
+    tracePolygon(ctx, vertices);
+    tracePolygon(ctx, cutout);
+    ctx.fillStyle = acrylic;
+    ctx.fill("evenodd");
+    ctx.strokeStyle = dark ? "#c6a9f1" : "#81629f";
+    ctx.lineWidth = 1.45;
+    ctx.lineJoin = "round";
+    ctx.stroke();
+
+    if (inradius < 10) return;
+    ctx.beginPath();
+    tracePolygon(ctx, inset(1 - 1.8 / inradius));
+    ctx.strokeStyle = dark ? "rgba(245, 225, 255, .43)" : "rgba(255, 255, 255, .79)";
+    ctx.lineWidth = 0.85;
+    ctx.stroke();
+
+    const graduationCount = 50;
+    const markInset = Math.min(13, w * 0.11, h * 0.11);
+    const usableWidth = w - markInset * 2;
+    const usableHeight = h - markInset * 2;
+    const labelColor = dark ? "#f4e7ff" : "#563773";
+    ctx.beginPath();
+    ctx.strokeStyle = dark ? "#dfc9f7" : "#70518f";
+    ctx.lineWidth = 0.75;
+    ctx.lineCap = "butt";
+    for (let mark = 0; mark <= graduationCount; mark += 1) {
+      const ratio = mark / graduationCount;
+      const length = mark % 10 === 0 ? 7 : mark % 5 === 0 ? 5 : 3;
+      const markX = x + markInset + usableWidth * ratio;
+      const markY = bottom - markInset - usableHeight * ratio;
+      segment(ctx, markX, bottom - 0.8, markX, bottom - length);
+      segment(ctx, x + 0.8, markY, x + length, markY);
+    }
+    ctx.stroke();
+
+    if (inradius < 19) return;
+    ctx.fillStyle = labelColor;
+    ctx.font = `600 8px ${uiFont}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.direction = "ltr";
+    for (let major = 1; major <= 4; major += 1) {
+      const ratio = major / 5;
+      ctx.fillText(String(major), x + markInset + usableWidth * ratio, bottom - 11.5);
+      if (h >= 125) ctx.fillText(String(major), x + 12, bottom - markInset - usableHeight * ratio);
+    }
+    ctx.strokeStyle = labelColor;
+    ctx.lineWidth = 1.15;
+    ctx.beginPath();
+    ctx.moveTo(x + 9, bottom - 18);
+    ctx.lineTo(x + 18, bottom - 18);
+    ctx.lineTo(x + 18, bottom - 9);
+    ctx.stroke();
+  }
+
+  function drawCompassPreview(ctx, object, dark) {
+    const { x, y, w: radius, angle = 0, startAngle, sweep, width, color } = object;
+    const inkColor = textColor(color || purple, dark);
+    ctx.strokeStyle = inkColor;
+    ctx.lineWidth = 1.35;
+    ctx.globalAlpha = 0.56;
+    ctx.setLineDash([5, 6]);
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    if (Number.isFinite(startAngle) && Number.isFinite(sweep) && sweep) {
+      ctx.lineWidth = Math.max(2, Math.min(width || 3.4, 12));
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(x, y, radius, startAngle, startAngle + sweep, sweep < 0);
+      ctx.stroke();
+    }
+
+    ctx.translate(x, y);
+    ctx.rotate(Number.isFinite(angle) ? angle : 0);
+    const hinge = { x: radius / 2, y: -Math.min(112, Math.max(17, radius * 0.61)) };
+    const arm = Math.max(3.8, Math.min(8, radius * 0.085));
+    const innerTip = point => ({ x: point + (hinge.x - point) * 0.15, y: hinge.y * 0.15 });
+    const needle = innerTip(0);
+    const pencil = innerTip(radius);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = dark ? "#d9c1f4" : "#786295";
+    ctx.lineWidth = arm;
+    ctx.beginPath();
+    ctx.moveTo(needle.x, needle.y);
+    ctx.lineTo(hinge.x, hinge.y);
+    ctx.lineTo(pencil.x, pencil.y);
+    ctx.stroke();
+    ctx.strokeStyle = dark ? "#f9edff" : "#e7d8f8";
+    ctx.lineWidth = arm * 0.38;
+    ctx.stroke();
+
+    ctx.lineWidth = Math.max(1.35, arm * 0.28);
+    ctx.strokeStyle = dark ? "#f1dffb" : "#624e7d";
+    ctx.beginPath();
+    segment(ctx, needle.x, needle.y, 0, 0);
+    ctx.stroke();
+    ctx.strokeStyle = inkColor;
+    ctx.beginPath();
+    segment(ctx, pencil.x, pencil.y, radius, 0);
+    ctx.stroke();
+
+    ctx.fillStyle = dark ? "#38274d" : "#f9f2ff";
+    ctx.strokeStyle = dark ? "#dec4fa" : "#7d5da1";
+    ctx.lineWidth = 1.35;
+    ctx.beginPath();
+    ctx.arc(hinge.x, hinge.y, arm * 0.73, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = inkColor;
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.4, 0, Math.PI * 2);
+    ctx.moveTo(radius + 2.4, 0);
+    ctx.arc(radius, 0, 2.4, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   function drawLabel(ctx, object, dark) {
@@ -496,6 +649,10 @@
       drawRuler(ctx, object, dark);
     } else if (object.type === "protractor") {
       drawProtractor(ctx, object, dark);
+    } else if (object.type === "set-square") {
+      drawSetSquare(ctx, object, dark);
+    } else if (object.type === "compass-preview") {
+      drawCompassPreview(ctx, object, dark);
     } else if (object.type === "fraction") {
       drawFraction(ctx, object, dark);
     } else if (object.type === "demo-label") {
@@ -556,5 +713,5 @@
     ];
   }
 
-  window.BoardMath = { compile, draw, bounds, demo };
+  window.BoardMath = { compile, draw, bounds, demo, protractorGeometry, setSquareVertices };
 }());

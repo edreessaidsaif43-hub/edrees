@@ -433,9 +433,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   font-size: 11px;
 }
 .paper-actions, .view-actions, .save-indicator { display: inline-flex; align-items: center; gap: 7px; }
+.paper-actions { min-inline-size: 0; max-inline-size: 100%; }
 .paper-icon { inline-size: 15px; block-size: 15px; color: #7d7192; }
 .tool-status { padding-inline-start: 7px; border-inline-start: 1px solid var(--line); }
-.tool-status.is-guided { display: inline-flex; align-items: center; gap: 5px; padding: 4px 6px; border: 0; border-radius: 6px; background: var(--accent-tint); color: var(--accent-dark); font-weight: 650; }
+.tool-status:is(.is-guided, .is-compass) { display: inline-flex; align-items: center; gap: 5px; min-inline-size: 0; padding: 4px 6px; border: 0; border-radius: 6px; background: var(--accent-tint); color: var(--accent-dark); font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
 .tool-status.is-guided::before { content: ''; width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--accent); }
 .ruler-controls { display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px; border: 1px solid #e6dbfb; border-radius: 8px; background: #fbf8ff; color: var(--accent-dark); }
 .ruler-controls-label { display: inline-flex; align-items: center; gap: 4px; padding-inline: 3px; font-weight: 650; }
@@ -485,9 +486,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   text-align: start;
   font-size: 10px;
   font-weight: 650;
-  white-space: nowrap;
+  line-height: 1.25;
 }
 .math-tool .icon { width: 15px; height: 15px; color: #7454ba; }
+.math-tool-arc { grid-column: 1 / -1; }
 .math-tool:hover, .math-tool:is(.active, .is-active, [aria-pressed=true], [data-active=true]) { color: var(--accent-dark); border-color: #cab6fb; background: var(--accent-tint); }
 .symbol-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; direction: ltr; }
 .symbol-button, .symbol-tile {
@@ -527,6 +529,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .math-quiet { margin-top: 5px; border-color: var(--line); background: #fff; color: #514568; }
 .math-tip { display: flex; gap: 7px; margin: 12px 0 0; padding: 9px 8px; border: 1px solid #eee9f7; border-radius: 9px; background: #faf7ff; color: #66567e; font-size: 10px; line-height: 1.55; }
 .math-tip .icon { color: #865fd3; width: 13px; height: 13px; margin-top: 1px; }
+.math-tip-copy { display: grid; gap: 6px; }
 .workspace-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; margin-top: 12px; color: var(--muted); font-size: 11px; line-height: 1.45; }
 .workspace-foot .icon { inline-size: 14px; block-size: 14px; color: #7f64b9; }
 .subscription-note { padding-inline: 3px; }

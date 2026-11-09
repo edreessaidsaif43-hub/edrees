@@ -9,13 +9,16 @@ window.BoardCanvas = (() => {
   const FONT = '"Segoe UI", Tahoma, Arial, sans-serif';
   const INK_TOOLS = new Set(['pen', 'brush', 'marker', 'eraser']);
   const GUIDE_TOOLS = new Set(['pen', 'brush', 'marker']);
-  const SHAPE_TOOLS = new Set(['line', 'rectangle', 'ellipse', 'triangle', 'ruler', 'protractor']);
+  const SHAPE_TOOLS = new Set(['line', 'rectangle', 'ellipse', 'triangle', 'ruler', 'protractor', 'set-square']);
+  const INSTRUMENTS = new Set(['ruler', 'protractor', 'set-square']);
+  const COMPASS_TOOLS = new Set(['compass', 'compass-arc']);
   const CURSORS = { select: 'default', pan: 'grab', text: 'text', eraser: 'cell' };
   const WIDTH_MULTIPLIER = { pen: 1, brush: 2, marker: 4.25, eraser: 6 };
   const GUIDE_RADIUS = 11;
   const GUIDE_END_TOLERANCE = 7;
   const ROTATION_HANDLE_OFFSET = 28;
   const ROTATION_STEP = Math.PI / 12;
+  const FULL_TURN = 2 * Math.PI;
   const BACKGROUNDS = {
     plain: { fill: '#ffffff' },
     grid: { fill: '#ffffff', line: '#eeedf4', major: '#e9e6f2' },
@@ -57,24 +60,24 @@ window.BoardCanvas = (() => {
     };
   }
 
-  function rulerFrame(ruler) {
-    const angle = Number.isFinite(ruler.angle) ? ruler.angle : 0;
+  function instrumentFrame(object) {
+    const angle = Number.isFinite(object.angle) ? object.angle : 0;
     const ux = Math.cos(angle);
     const uy = Math.sin(angle);
     return {
-      x: ruler.x + ruler.w / 2, y: ruler.y + ruler.h / 2,
-      ux, uy, nx: -uy, ny: ux, w: ruler.w, h: ruler.h,
+      x: object.x + object.w / 2, y: object.y + object.h / 2,
+      angle, ux, uy, nx: -uy, ny: ux, w: object.w, h: object.h,
     };
   }
 
-  function rulerPoint(frame, along, across) {
+  function instrumentPoint(frame, along, across) {
     return {
       x: frame.x + along * frame.ux + across * frame.nx,
       y: frame.y + along * frame.uy + across * frame.ny,
     };
   }
 
-  function rulerCoordinates(frame, point) {
+  function instrumentCoordinates(frame, point) {
     const dx = point.x - frame.x;
     const dy = point.y - frame.y;
     return {
@@ -83,40 +86,90 @@ window.BoardCanvas = (() => {
     };
   }
 
-  function clampToRuler(frame, along) {
-    return Math.max(-frame.w / 2, Math.min(frame.w / 2, along));
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
   }
 
-  function nearestRulerGuide(objects, point, scale) {
+  function circlePoint(center, radius, angle) {
+    return { x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) };
+  }
+
+  function guideLine(from, to) {
+    const length = distance(from, to);
+    const ux = (to.x - from.x) / length;
+    const uy = (to.y - from.y) / length;
+    return { kind: 'line', from, to, length, ux, uy };
+  }
+
+  function instrumentEdges(object) {
+    const frame = instrumentFrame(object);
+    if (object.type === 'ruler') {
+      const { w, h } = frame;
+      return [
+        guideLine(instrumentPoint(frame, -w / 2, -h / 2), instrumentPoint(frame, w / 2, -h / 2)),
+        guideLine(instrumentPoint(frame, w / 2, h / 2), instrumentPoint(frame, -w / 2, h / 2)),
+      ];
+    }
+    const world = (point) => instrumentPoint(frame, point.x - frame.x, point.y - frame.y);
+    if (object.type === 'protractor') {
+      const { cx, cy, r } = window.BoardMath.protractorGeometry(object);
+      if (r <= 0) return [];
+      return [
+        { kind: 'arc', center: world({ x: cx, y: cy }), radius: r, angle: frame.angle },
+        guideLine(world({ x: cx + r, y: cy }), world({ x: cx - r, y: cy })),
+      ];
+    }
+    const vertices = window.BoardMath.setSquareVertices(object).map(world);
+    return vertices.map((vertex, index) => guideLine(vertex, vertices[(index + 1) % vertices.length]));
+  }
+
+  function guideParameter(guide, point, previous) {
+    if (guide.kind === 'line') {
+      return (point.x - guide.from.x) * guide.ux + (point.y - guide.from.y) * guide.uy;
+    }
+    const dx = point.x - guide.center.x;
+    const dy = point.y - guide.center.y;
+    if (Math.hypot(dx, dy) < 0.5 && previous !== undefined) return previous;
+    const angle = normalizeAngle(Math.atan2(dy, dx) - guide.angle);
+    if (Math.abs(angle) < 1e-8) return 0;
+    if (angle > Math.PI - 1e-8) return -Math.PI;
+    if (angle <= 0) return angle;
+    return (previous ?? -angle) < -Math.PI / 2 ? -Math.PI : 0;
+  }
+
+  function guidePoint(guide, parameter, offset) {
+    if (guide.kind === 'arc') {
+      return circlePoint(guide.center, guide.radius + offset, guide.angle + parameter);
+    }
+    const along = clamp(parameter, 0, guide.length);
+    return {
+      x: guide.from.x + along * guide.ux + offset * guide.uy,
+      y: guide.from.y + along * guide.uy - offset * guide.ux,
+    };
+  }
+
+  function nearestGuide(objects, point, scale) {
     let nearest = null;
     let closest = GUIDE_RADIUS / scale;
     const endTolerance = GUIDE_END_TOLERANCE / scale;
     for (let index = objects.length - 1; index >= 0; index--) {
       const object = objects[index];
-      if (object.type !== 'ruler' || object.w <= 0 || object.h <= 0) continue;
-      const frame = rulerFrame(object);
-      const { along, across } = rulerCoordinates(frame, point);
-      const clamped = clampToRuler(frame, along);
-      if (Math.abs(along - clamped) > endTolerance) continue;
-      const side = across < 0 ? -1 : 1;
-      const acrossEdge = side * frame.h / 2;
-      const edgeDistance = Math.hypot(along - clamped, across - acrossEdge);
-      if (edgeDistance < closest) {
-        closest = edgeDistance;
-        nearest = { ruler: object, frame, side };
-      }
+      if (!INSTRUMENTS.has(object.type) || object.w <= 0 || object.h <= 0) continue;
+      instrumentEdges(object).forEach((guide, edge) => {
+        const parameter = guideParameter(guide, point);
+        if (guide.kind === 'line' && Math.abs(parameter - clamp(parameter, 0, guide.length)) > endTolerance) return;
+        const edgeDistance = distance(point, guidePoint(guide, parameter, 0));
+        if (edgeDistance < closest) {
+          closest = edgeDistance;
+          nearest = { ...guide, instrument: object, edge, parameter };
+        }
+      });
     }
     return nearest;
   }
 
-  function guidePoint(guide, point, offset) {
-    const { frame, side } = guide;
-    const { along } = rulerCoordinates(frame, point);
-    return { ...point, ...rulerPoint(frame, clampToRuler(frame, along), side * (frame.h / 2 + offset)) };
-  }
-
   function rotationHandle(frame, scale) {
-    return rulerPoint(frame, 0, -frame.h / 2 - ROTATION_HANDLE_OFFSET / scale);
+    return instrumentPoint(frame, 0, -frame.h / 2 - ROTATION_HANDLE_OFFSET / scale);
   }
 
   function normalizeAngle(angle) {
@@ -125,6 +178,31 @@ window.BoardCanvas = (() => {
 
   function snapAngle(angle) {
     return Math.round(angle / ROTATION_STEP) * ROTATION_STEP;
+  }
+
+  function hitInstrument(object, point, margin) {
+    const frame = instrumentFrame(object);
+    const { along, across } = instrumentCoordinates(frame, point);
+    if (Math.abs(along) > frame.w / 2 + margin || Math.abs(across) > frame.h / 2 + margin) return false;
+    if (object.type === 'ruler') return true;
+    const local = { x: frame.x + along, y: frame.y + across };
+    if (object.type === 'protractor') {
+      const { cx, cy, r } = window.BoardMath.protractorGeometry(object);
+      return r > 0 && local.y <= cy + margin && Math.hypot(local.x - cx, local.y - cy) <= r + margin;
+    }
+    const distanceToDiagonal = (frame.w * (local.y - object.y) - frame.h * (local.x - object.x)) / Math.hypot(frame.w, frame.h);
+    return distanceToDiagonal >= -margin;
+  }
+
+  function hitArc(object, point, margin) {
+    const center = { x: object.x + object.w / 2, y: object.y + object.h / 2 };
+    const radius = object.w / 2;
+    const tolerance = margin + (object.width || 4) / 2;
+    if (Math.abs(distance(center, point) - radius) > tolerance) return false;
+    const angle = Math.atan2(point.y - center.y, point.x - center.x);
+    const progress = (angle - object.angle) * Math.sign(object.sweep);
+    if (((progress % FULL_TURN) + FULL_TURN) % FULL_TURN <= Math.abs(object.sweep)) return true;
+    return [object.angle, object.angle + object.sweep].some(end => distance(point, circlePoint(center, radius, end)) <= tolerance);
   }
 
   function textLayout(ctx, object) {
@@ -163,13 +241,13 @@ window.BoardCanvas = (() => {
       ctx.restore();
       return { x, y: object.y, width, height: lines.length * lineHeight };
     }
-    if (object.type === 'ruler') {
-      const frame = rulerFrame(object);
+    if (INSTRUMENTS.has(object.type)) {
+      const frame = instrumentFrame(object);
       const width = Math.abs(frame.w * frame.ux) + Math.abs(frame.h * frame.nx);
       const height = Math.abs(frame.w * frame.uy) + Math.abs(frame.h * frame.ny);
       return { x: frame.x - width / 2, y: frame.y - height / 2, width, height };
     }
-    if (SHAPE_TOOLS.has(object.type)) return dimensions(object);
+    if (SHAPE_TOOLS.has(object.type) || object.type === 'arc') return dimensions(object);
     return window.BoardMath?.bounds?.(object) || dimensions(object);
   }
 
@@ -247,6 +325,11 @@ window.BoardCanvas = (() => {
       ctx.moveTo(object.x, object.y);
       ctx.lineTo(object.x + object.w, object.y + object.h);
       ctx.stroke();
+    } else if (object.type === 'arc' && object.w > 0) {
+      ctx.beginPath();
+      ctx.arc(object.x + object.w / 2, object.y + object.h / 2, object.w / 2,
+        object.angle, object.angle + object.sweep, object.sweep < 0);
+      ctx.stroke();
     } else if (object.type === 'rectangle' || object.type === 'ellipse' || object.type === 'triangle') {
       const { x, y, width, height } = dimensions(object);
       ctx.beginPath();
@@ -260,8 +343,8 @@ window.BoardCanvas = (() => {
       }
       ctx.stroke();
     } else {
-      if (object.type === 'ruler' && Number.isFinite(object.angle) && object.angle !== 0) {
-        const center = rulerFrame(object);
+      if (INSTRUMENTS.has(object.type) && Number.isFinite(object.angle) && object.angle !== 0) {
+        const center = instrumentFrame(object);
         ctx.translate(center.x, center.y);
         ctx.rotate(object.angle);
         ctx.translate(-center.x, -center.y);
@@ -411,13 +494,20 @@ window.BoardCanvas = (() => {
     let w = end.x - x;
     let h = end.y - y;
     if (fallback && distance(start, end) * scale < 5) {
-      const defaults = { line: [130, 0], rectangle: [135, 85], ellipse: [105, 105], triangle: [120, 94], protractor: [160, 80] };
+      const defaults = {
+        line: [130, 0], rectangle: [135, 85], ellipse: [105, 105], triangle: [120, 94],
+        protractor: [160, 80], 'set-square': [156, 156],
+      };
       [w, h] = defaults[type];
       x -= w / 2;
       y -= h / 2;
     } else if (type === 'protractor') {
       w = Math.sign(w || 1) * Math.max(95, Math.abs(w), Math.abs(h) * 2);
       h = Math.sign(h || 1) * Math.abs(w) / 2;
+    } else if (type === 'set-square') {
+      const side = Math.max(90, Math.abs(w), Math.abs(h));
+      w = Math.sign(w || 1) * side;
+      h = Math.sign(h || 1) * side;
     } else if (constrain && type === 'line') {
       const increment = Math.PI / 4;
       const angle = Math.round(Math.atan2(h, w) / increment) * increment;
@@ -430,7 +520,7 @@ window.BoardCanvas = (() => {
       w = Math.sign(w || 1) * side;
       h = Math.sign(h || 1) * side * ratio;
     }
-    if (type === 'protractor') {
+    if (type === 'protractor' || type === 'set-square') {
       if (w < 0) x += w;
       if (h < 0) y += h;
       w = Math.abs(w);
@@ -444,30 +534,33 @@ window.BoardCanvas = (() => {
   }
 
   function paintGuide(ctx, view, guide, active, color) {
-    const { frame, side } = guide;
-    const edge = side * frame.h / 2;
-    const from = viewPoint(view, rulerPoint(frame, -frame.w / 2, edge));
-    const to = viewPoint(view, rulerPoint(frame, frame.w / 2, edge));
     ctx.save();
     ctx.strokeStyle = color;
     ctx.globalAlpha = active ? 0.92 : 0.55;
     ctx.lineWidth = active ? 2.5 : 1.7;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
-    ctx.lineTo(to.x, to.y);
+    if (guide.kind === 'arc') {
+      const center = viewPoint(view, guide.center);
+      ctx.arc(center.x, center.y, guide.radius * view.scale, guide.angle - Math.PI, guide.angle);
+    } else {
+      const from = viewPoint(view, guide.from);
+      const to = viewPoint(view, guide.to);
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+    }
     ctx.stroke();
     ctx.restore();
   }
 
-  function paintRulerSelection(ctx, view, ruler, color, dark) {
-    const frame = rulerFrame(ruler);
+  function paintInstrumentSelection(ctx, view, instrument, color, dark) {
+    const frame = instrumentFrame(instrument);
     const padding = 5 / view.scale;
     const halfWidth = frame.w / 2 + padding;
     const halfHeight = frame.h / 2 + padding;
     const corners = [[-halfWidth, -halfHeight], [halfWidth, -halfHeight], [halfWidth, halfHeight], [-halfWidth, halfHeight]];
-    const outline = corners.map(([along, across]) => viewPoint(view, rulerPoint(frame, along, across)));
-    const center = viewPoint(view, rulerPoint(frame, 0, -halfHeight));
+    const outline = corners.map(([along, across]) => viewPoint(view, instrumentPoint(frame, along, across)));
+    const center = viewPoint(view, instrumentPoint(frame, 0, -halfHeight));
     const handle = viewPoint(view, rotationHandle(frame, view.scale));
 
     ctx.save();
@@ -503,9 +596,28 @@ window.BoardCanvas = (() => {
     ctx.restore();
   }
 
+  function compassAnchor(center, tip) {
+    return { x: center.x, y: center.y, radius: distance(center, tip), angle: Math.atan2(tip.y - center.y, tip.x - center.x) };
+  }
+
+  function compassPreview(anchor, style, sweep) {
+    const { x, y, radius, angle } = anchor;
+    return {
+      type: 'compass-preview', x, y, w: radius, h: radius, angle: angle + (sweep || 0),
+      startAngle: angle, sweep, ...style,
+    };
+  }
+
+  function compassDrawing(type, anchor, style, sweep) {
+    const { x, y, radius, angle } = anchor;
+    const shape = { type, x: x - radius, y: y - radius, w: 2 * radius, h: 2 * radius, ...style };
+    return type === 'arc' ? { ...shape, angle, sweep } : shape;
+  }
+
   return class BoardCanvas {
     constructor({
-      canvas, onChange = () => {}, onView = () => {}, onSelection = () => {}, onGuide = () => {}, getText = () => '',
+      canvas, onChange = () => {}, onView = () => {}, onSelection = () => {}, onGuide = () => {},
+      onCompassPhase = () => {}, getText = () => '',
     }) {
       this.canvas = canvas;
       this.ctx = canvas.getContext('2d');
@@ -515,6 +627,7 @@ window.BoardCanvas = (() => {
       this.onView = onView;
       this.onSelection = onSelection;
       this.onGuide = onGuide;
+      this.onCompassPhase = onCompassPhase;
       this.getText = getText;
       this.objects = [];
       this.past = [];
@@ -529,6 +642,7 @@ window.BoardCanvas = (() => {
       this.reportedSelection = null;
       this.guide = null;
       this.hoverGuide = null;
+      this.compassOpening = null;
       this.sceneVersion = 0;
       this.frame = null;
       this.canvas.style.touchAction = 'none';
@@ -592,18 +706,25 @@ window.BoardCanvas = (() => {
     }
 
     setHoverGuide(guide) {
-      if (this.hoverGuide?.ruler === guide?.ruler && this.hoverGuide?.side === guide?.side) return;
+      if (this.hoverGuide?.instrument === guide?.instrument && this.hoverGuide?.edge === guide?.edge) return;
       this.hoverGuide = guide;
       this.queueRender();
     }
 
+    setCompassOpening(opening) {
+      const wasOpen = Boolean(this.compassOpening);
+      this.compassOpening = opening;
+      if (wasOpen !== Boolean(opening)) this.onCompassPhase(Boolean(opening));
+    }
+
     cancelGesture() {
-      const active = this.gesture || this.draft || this.moving || this.guide;
+      const active = this.gesture || this.draft || this.moving || this.guide || this.compassOpening;
       this.gesture = null;
       this.draft = null;
       this.moving = null;
       this.setGuide(null);
       this.setHoverGuide(null);
+      this.setCompassOpening(null);
       this.canvas.style.cursor = CURSORS[this.tool] || 'crosshair';
       if (active) this.queueRender();
     }
@@ -612,6 +733,7 @@ window.BoardCanvas = (() => {
       if (typeof color === 'string') this.style.color = color;
       const value = Number(width);
       if (Number.isFinite(value) && value > 0) this.style.width = Math.min(60, value);
+      if (this.compassOpening) this.queueRender();
     }
 
     setBackground(background) {
@@ -694,18 +816,18 @@ window.BoardCanvas = (() => {
     }
 
     rotateSelection(degrees) {
-      const ruler = this.objects[this.selected];
-      if (ruler?.type !== 'ruler' || !Number.isFinite(degrees)) return false;
+      const instrument = this.objects[this.selected];
+      if (!INSTRUMENTS.has(instrument?.type) || !Number.isFinite(degrees)) return false;
       this.cancelGesture();
-      const angle = normalizeAngle((ruler.angle || 0) + degrees * Math.PI / 180);
-      return this.commitRulerRotation(angle);
+      const angle = normalizeAngle((instrument.angle || 0) + degrees * Math.PI / 180);
+      return this.commitRotation(angle);
     }
 
-    commitRulerRotation(angle) {
-      const ruler = this.objects[this.selected];
-      if (Math.abs(normalizeAngle(angle - (ruler.angle || 0))) < 0.0001) return false;
+    commitRotation(angle) {
+      const instrument = this.objects[this.selected];
+      if (Math.abs(normalizeAngle(angle - (instrument.angle || 0))) < 0.0001) return false;
       const objects = this.objects.slice();
-      objects[this.selected] = { ...ruler, angle };
+      objects[this.selected] = { ...instrument, angle };
       this.replace(objects, this.selected);
       return true;
     }
@@ -764,10 +886,10 @@ window.BoardCanvas = (() => {
         } else if (object.type === 'line') {
           const to = { x: object.x + object.w, y: object.y + object.h };
           if (segmentDistance(point, object, to) <= (object.width || 4) / 2 + margin) return index;
-        } else if (object.type === 'ruler') {
-          const frame = rulerFrame(object);
-          const { along, across } = rulerCoordinates(frame, point);
-          if (Math.abs(along) <= frame.w / 2 + margin && Math.abs(across) <= frame.h / 2 + margin) return index;
+        } else if (object.type === 'arc') {
+          if (hitArc(object, point, margin)) return index;
+        } else if (INSTRUMENTS.has(object.type)) {
+          if (hitInstrument(object, point, margin)) return index;
         } else {
           const bounds = objectBounds(this.ctx, object);
           if (bounds && inside(bounds, point, margin)) return index;
@@ -777,25 +899,43 @@ window.BoardCanvas = (() => {
     }
 
     rotationAt(point) {
-      const ruler = this.objects[this.selected];
-      if (this.tool !== 'select' || ruler?.type !== 'ruler') return null;
-      const frame = rulerFrame(ruler);
+      const instrument = this.objects[this.selected];
+      if (this.tool !== 'select' || !INSTRUMENTS.has(instrument?.type)) return null;
+      const frame = instrumentFrame(instrument);
       const { scale } = this.viewport();
       return distance(point, rotationHandle(frame, scale)) <= 12 / scale ? frame : null;
     }
 
     gestureAngle(point, gesture, constrain) {
-      const { frame, pointerAngle, ruler } = gesture.rotation;
-      const angle = (ruler.angle || 0) + Math.atan2(point.y - frame.y, point.x - frame.x) - pointerAngle;
+      const { frame, pointerAngle, instrument } = gesture.rotation;
+      const angle = (instrument.angle || 0) + Math.atan2(point.y - frame.y, point.x - frame.x) - pointerAngle;
       return normalizeAngle(constrain ? snapAngle(angle) : angle);
     }
 
     updateHover(point) {
       if (GUIDE_TOOLS.has(this.tool)) {
-        this.setHoverGuide(nearestRulerGuide(this.objects, point, this.viewport().scale));
+        this.setHoverGuide(nearestGuide(this.objects, point, this.viewport().scale));
       } else if (this.tool === 'select') {
         this.canvas.style.cursor = this.rotationAt(point) ? 'grab' : CURSORS.select;
+      } else if (this.tool === 'compass-arc') {
+        this.canvas.style.cursor = this.nearCompassTip(point) ? 'grab' : 'crosshair';
       }
+    }
+
+    nearCompassTip(point) {
+      const opening = this.compassOpening;
+      if (!opening) return false;
+      const tip = circlePoint(opening, opening.radius, opening.angle);
+      return distance(point, tip) * this.viewport().scale <= 24;
+    }
+
+    updateCompassSweep(gesture, point) {
+      const sweep = gesture.compass;
+      const { opening, lastAngle } = sweep;
+      if (distance(point, opening) * this.viewport().scale < 3) return;
+      const angle = Math.atan2(point.y - opening.y, point.x - opening.x);
+      sweep.angle = clamp(sweep.angle + normalizeAngle(angle - lastAngle), -FULL_TURN, FULL_TURN);
+      sweep.lastAngle = angle;
     }
 
     pointerDown(event) {
@@ -819,23 +959,30 @@ window.BoardCanvas = (() => {
       const start = this.eventPoint(event);
       const defaultTool = event.button === 1 ? 'pan' : event.button === 5 ? 'eraser' : this.tool;
       const frame = defaultTool === 'select' ? this.rotationAt(start) : null;
-      const tool = frame ? 'rotate-ruler' : defaultTool;
+      const sweeping = defaultTool === 'compass-arc' && this.nearCompassTip(start);
+      const tool = frame ? 'rotate-instrument' : sweeping ? 'compass-sweep' : defaultTool;
       this.gesture = { id: event.pointerId, tool, start, local, originalPan: { ...this.pan } };
-      if (tool === 'pan' || tool === 'rotate-ruler') this.canvas.style.cursor = 'grabbing';
+      if (tool === 'pan' || tool === 'rotate-instrument' || sweeping) this.canvas.style.cursor = 'grabbing';
       if (frame) {
         this.gesture.rotation = {
-          frame, ruler: this.objects[this.selected], pointerAngle: Math.atan2(start.y - frame.y, start.x - frame.x),
+          frame, instrument: this.objects[this.selected], pointerAngle: Math.atan2(start.y - frame.y, start.x - frame.x),
         };
       } else if (tool === 'select') {
         this.setSelection(this.hitTest(start));
+      } else if (sweeping) {
+        const opening = this.compassOpening;
+        const lastAngle = Math.atan2(start.y - opening.y, start.x - opening.x);
+        this.gesture.compass = { opening, lastAngle, angle: 0 };
+      } else if (tool === 'compass-arc') {
+        this.setCompassOpening(null);
       }
       if (INK_TOOLS.has(tool)) {
         const width = this.style.width * WIDTH_MULTIPLIER[tool];
         const { scale } = this.viewport();
-        const guide = GUIDE_TOOLS.has(tool) ? nearestRulerGuide(this.objects, start, scale) : null;
+        const guide = GUIDE_TOOLS.has(tool) ? nearestGuide(this.objects, start, scale) : null;
         if (guide) guide.offset = width / 2 + 1.2 / scale;
         this.setGuide(guide);
-        const firstPoint = guide ? guidePoint(guide, start, guide.offset) : start;
+        const firstPoint = guide ? { ...start, ...guidePoint(guide, guide.parameter, guide.offset) } : start;
         this.draft = { type: tool, points: [firstPoint], color: this.style.color, width };
       }
       this.queueRender();
@@ -859,10 +1006,18 @@ window.BoardCanvas = (() => {
         const point = this.eventPoint(event);
         if (tool === 'pan') {
           this.pan = { x: originalPan.x + local.x - this.gesture.local.x, y: originalPan.y + local.y - this.gesture.local.y };
-        } else if (tool === 'rotate-ruler') {
-          this.moving = { ...this.gesture.rotation.ruler, angle: this.gestureAngle(point, this.gesture, event.shiftKey) };
+        } else if (tool === 'rotate-instrument') {
+          this.moving = { ...this.gesture.rotation.instrument, angle: this.gestureAngle(point, this.gesture, event.shiftKey) };
         } else if (tool === 'select' && this.selected >= 0) {
           this.moving = shifted(this.objects[this.selected], point.x - start.x, point.y - start.y);
+        } else if (tool === 'compass-sweep') {
+          const coalesced = event.getCoalescedEvents?.() || [];
+          for (const sample of coalesced.length ? coalesced : [event]) this.updateCompassSweep(this.gesture, this.eventPoint(sample));
+          const { opening, angle } = this.gesture.compass;
+          this.draft = compassPreview(opening, this.style, angle);
+        } else if (COMPASS_TOOLS.has(tool)) {
+          const opening = compassAnchor(start, point);
+          this.draft = opening.radius > 0 ? compassPreview(opening, this.style) : null;
         } else if (INK_TOOLS.has(tool)) {
           const coalesced = event.getCoalescedEvents?.() || [];
           for (const sample of coalesced.length ? coalesced : [event]) this.appendPoint(this.eventPoint(sample));
@@ -877,8 +1032,29 @@ window.BoardCanvas = (() => {
 
     appendPoint(point) {
       const points = this.draft.points;
-      if (this.guide) point = guidePoint(this.guide, point, this.guide.offset);
-      if (distance(points[points.length - 1], point) > 0.8) points.push(point);
+      const last = points[points.length - 1];
+      const guide = this.guide;
+      if (!guide) {
+        if (distance(last, point) > 0.8) points.push(point);
+        return;
+      }
+      const parameter = guideParameter(guide, point, guide.parameter);
+      const position = guidePoint(guide, parameter, guide.offset);
+      if (distance(last, position) <= 0.8) return;
+      if (guide.kind === 'line') {
+        points.push({ ...point, ...position });
+      } else {
+        // Resample angular motion so a fast drag still traces a curve between events.
+        const span = parameter - guide.parameter;
+        const count = Math.max(1, Math.ceil(Math.abs(span) / (Math.PI / 36)));
+        for (let index = 1; index <= count; index++) {
+          const fraction = index / count;
+          const sample = { ...point, ...guidePoint(guide, guide.parameter + span * fraction, guide.offset) };
+          if (last.p != null && point.p != null) sample.p = last.p + (point.p - last.p) * fraction;
+          points.push(sample);
+        }
+      }
+      guide.parameter = parameter;
     }
 
     pointerUp(event, cancelled = false) {
@@ -896,6 +1072,17 @@ window.BoardCanvas = (() => {
         if (INK_TOOLS.has(tool) && this.draft) {
           this.appendPoint(point);
           this.add(this.draft);
+        } else if (tool === 'compass-sweep') {
+          this.updateCompassSweep(gesture, point);
+          const { opening, angle } = gesture.compass;
+          if (Math.abs(angle) * opening.radius * this.viewport().scale >= 2) {
+            this.setCompassOpening(null);
+            this.add(compassDrawing('arc', opening, this.style, angle));
+          }
+        } else if (COMPASS_TOOLS.has(tool) && moved >= 5) {
+          const opening = compassAnchor(start, point);
+          if (tool === 'compass-arc') this.setCompassOpening(opening);
+          else this.add(compassDrawing('ellipse', opening, this.style));
         } else if (SHAPE_TOOLS.has(tool)) {
           this.add(shapeAt(tool, start, point, this.style, {
             scale: this.viewport().scale, fallback: true, constrain: event.shiftKey,
@@ -908,8 +1095,8 @@ window.BoardCanvas = (() => {
             x: gesture.originalPan.x + local.x - gesture.local.x,
             y: gesture.originalPan.y + local.y - gesture.local.y,
           };
-        } else if (tool === 'rotate-ruler' && moved > 2) {
-          this.commitRulerRotation(this.gestureAngle(point, gesture, event.shiftKey));
+        } else if (tool === 'rotate-instrument' && moved > 2) {
+          this.commitRotation(this.gestureAngle(point, gesture, event.shiftKey));
         } else if (tool === 'select' && this.selected >= 0 && moved > 2) {
           const objects = this.objects.slice();
           objects[this.selected] = shifted(objects[this.selected], point.x - start.x, point.y - start.y);
@@ -952,7 +1139,8 @@ window.BoardCanvas = (() => {
       const { ctx } = this;
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       paintBackground(ctx, width, height, view, this.background);
-      paintScene(this.layer, this.inkLayer, width, height, ratio, view, this.objects, this.draft, this.selected, this.moving, this.background);
+      const draft = this.draft || (this.compassOpening && compassPreview(this.compassOpening, this.style));
+      paintScene(this.layer, this.inkLayer, width, height, ratio, view, this.objects, draft, this.selected, this.moving, this.background);
       ctx.drawImage(this.layer.canvas, 0, 0, width, height);
 
       const dark = this.background === 'dark';
@@ -960,8 +1148,8 @@ window.BoardCanvas = (() => {
       const guide = this.guide || this.hoverGuide;
       if (guide) paintGuide(ctx, view, guide, Boolean(this.guide), accent);
       const selectedObject = this.moving || this.objects[this.selected];
-      if (selectedObject?.type === 'ruler') {
-        paintRulerSelection(ctx, view, selectedObject, accent, dark);
+      if (INSTRUMENTS.has(selectedObject?.type)) {
+        paintInstrumentSelection(ctx, view, selectedObject, accent, dark);
       } else if (selectedObject) {
         const bounds = objectBounds(ctx, selectedObject);
         if (!bounds) return;

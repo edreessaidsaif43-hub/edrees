@@ -51,6 +51,9 @@
       <symbol id="i-ruler" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 15 12-12 6 6L9 21 3 15zM8 10l2 2m1-5 2 2m1-5 2 2m-11 7 2 2"/></g></symbol>
       <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M4 4v6h6m-6 0 3-3a7.5 7.5 0 1 1-1.4 9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-protractor" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16a9 9 0 1 1 18 0v2H3v-2zm4.5 2v-2a4.5 4.5 0 1 1 9 0v2M12 7v3m-6-.4 2 1.8m10-1.8-2 1.8"/></g></symbol>
+      <symbol id="i-set-square" viewBox="0 0 24 24"><path d="M4 4v16h16L4 4Zm4 6v6h6l-6-6ZM4 8h2m-2 4h2m-2 4h2m2 4v-2m4 2v-2m4 2v-2" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-compass" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5.5" r="2.25"/><path d="M12 3.25V2m-1.4 5.2L5 20.5m8.4-13.3L19 20.5M8.4 12.5h7.2m-3.6-1.3v2.6"/></g></symbol>
+      <symbol id="i-compass-arc" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a9 9 0 0 1 9 9m-9-9v9l6.4 6.4m2.6-9.9v3.5h-3.5"/><circle cx="11" cy="13" r="1.2" fill="currentColor" stroke="none"/></g></symbol>
       <symbol id="i-axes" viewBox="0 0 24 24"><path d="M4 19V4m0 15h16M2 6l2-2 2 2m12 11 2 2-2 2M7.5 15l3.5-4 3 2 4-5" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-plot" viewBox="0 0 24 24"><path d="M4 4v16h16M6.5 8c2.3 0 2.6 7.6 5.5 7.6S15.4 7 19 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-equation" viewBox="0 0 24 24"><path d="M8 6H4m2-2v4M4 17h4m6-10h6m-6 3h6m-6 6 6 5m0-5-6 5" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"/></symbol>
@@ -212,11 +215,11 @@
                 </select>
                 <span class="tool-status" id="tool-label" role="status">قلم</span>
               </div>
-              <div class="ruler-controls" id="ruler-controls" role="group" aria-label="التحكم في المسطرة المحددة" hidden>
-                <span class="ruler-controls-label"><svg class="icon" aria-hidden="true"><use href="#i-ruler"/></svg>المسطرة</span>
-                <button class="icon-button ruler-rotate" type="button" data-action="rotate-ruler-left" title="تدوير المسطرة عكس عقارب الساعة ١٥ درجة" aria-label="تدوير المسطرة عكس عقارب الساعة ١٥ درجة"><svg class="icon" aria-hidden="true"><use href="#i-rotate"/></svg></button>
-                <button class="icon-button ruler-rotate ruler-clockwise" type="button" data-action="rotate-ruler-right" title="تدوير المسطرة مع عقارب الساعة ١٥ درجة" aria-label="تدوير المسطرة مع عقارب الساعة ١٥ درجة"><svg class="icon" aria-hidden="true"><use href="#i-rotate"/></svg></button>
-                <button class="button ruler-pen" type="button" data-action="ruler-pen" title="اختيار القلم للرسم بمحاذاة المسطرة"><svg class="icon" aria-hidden="true"><use href="#i-pen"/></svg>القلم</button>
+              <div class="ruler-controls" id="ruler-controls" role="group" aria-label="التحكم في أداة القياس المحددة" hidden>
+                <span class="ruler-controls-label"><svg class="icon" aria-hidden="true"><use id="guide-selection-icon" href="#i-ruler"/></svg><span id="guide-selection-name">أداة القياس</span></span>
+                <button class="icon-button ruler-rotate" type="button" data-action="rotate-ruler-left" title="تدوير الأداة عكس عقارب الساعة ١٥ درجة" aria-label="تدوير الأداة عكس عقارب الساعة ١٥ درجة"><svg class="icon" aria-hidden="true"><use href="#i-rotate"/></svg></button>
+                <button class="icon-button ruler-rotate ruler-clockwise" type="button" data-action="rotate-ruler-right" title="تدوير الأداة مع عقارب الساعة ١٥ درجة" aria-label="تدوير الأداة مع عقارب الساعة ١٥ درجة"><svg class="icon" aria-hidden="true"><use href="#i-rotate"/></svg></button>
+                <button class="button ruler-pen" type="button" data-action="ruler-pen" title="اختيار القلم للرسم بمحاذاة الأداة"><svg class="icon" aria-hidden="true"><use href="#i-pen"/></svg>القلم</button>
               </div>
               <div class="save-indicator"><span class="save-dot" aria-hidden="true"></span><span id="save-status" role="status">تم الحفظ محليًا</span></div>
               <div class="view-actions" role="group" aria-label="عرض اللوحة">
@@ -236,12 +239,15 @@
             <section class="math-section" aria-labelledby="geometry-title">
               <h3 id="geometry-title">الهندسة والأشكال</h3>
               <div class="math-tool-grid">
-                <button class="math-tool" type="button" data-tool="ruler" aria-pressed="false" aria-describedby="ruler-tip"><svg class="icon" aria-hidden="true"><use href="#i-ruler"/></svg>مسطرة</button>
-                <button class="math-tool" type="button" data-tool="protractor" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-protractor"/></svg>منقلة</button>
+                <button class="math-tool" type="button" data-tool="ruler" aria-pressed="false" aria-describedby="guide-tip"><svg class="icon" aria-hidden="true"><use href="#i-ruler"/></svg>مسطرة</button>
+                <button class="math-tool" type="button" data-tool="protractor" aria-pressed="false" aria-describedby="guide-tip"><svg class="icon" aria-hidden="true"><use href="#i-protractor"/></svg>منقلة</button>
+                <button class="math-tool" type="button" data-tool="set-square" aria-pressed="false" aria-describedby="guide-tip"><svg class="icon" aria-hidden="true"><use href="#i-set-square"/></svg>مثلث الرسم</button>
+                <button class="math-tool" type="button" data-tool="compass" aria-pressed="false" aria-describedby="compass-tip"><svg class="icon" aria-hidden="true"><use href="#i-compass"/></svg>فرجار</button>
                 <button class="math-tool" type="button" data-tool="line" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-line"/></svg>خط مستقيم</button>
                 <button class="math-tool" type="button" data-tool="triangle" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-triangle"/></svg>مثلث</button>
                 <button class="math-tool" type="button" data-tool="rectangle" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-rectangle"/></svg>مستطيل</button>
                 <button class="math-tool" type="button" data-tool="ellipse" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-circle"/></svg>دائرة</button>
+                <button class="math-tool math-tool-arc" type="button" data-tool="compass-arc" aria-pressed="false" aria-describedby="compass-arc-tip"><svg class="icon" aria-hidden="true"><use href="#i-compass-arc"/></svg>قوس بالفرجار</button>
               </div>
             </section>
             <section class="math-section" aria-labelledby="graph-title">
@@ -259,7 +265,14 @@
               <button class="math-wide" type="button" data-action="symbols"><span><svg class="icon" aria-hidden="true"><use href="#i-equation"/></svg>إدراج تعبير رياضي</span><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
               <button class="math-wide math-quiet" type="button" data-action="fraction"><span><svg class="icon" aria-hidden="true"><use href="#i-line"/></svg>إدراج كسر</span></button>
             </section>
-            <p class="math-tip" id="ruler-tip"><svg class="icon" aria-hidden="true"><use href="#i-tip"/></svg><span>اسحب لوضع المسطرة. استخدم أداة التحديد لتحريكها، وأزرار المسطرة لتدويرها. اختر القلم وارسم قرب أيٍّ من حافتيها الطويلتين.</span></p>
+            <p class="math-tip">
+              <svg class="icon" aria-hidden="true"><use href="#i-tip"/></svg>
+              <span class="math-tip-copy">
+                <span id="guide-tip">اسحب لوضع أداة القياس. ابدأ الرسم بالقلم قرب الحافة المطلوبة، أو قرب قوس المنقلة أو قاعدتها. حرّك الأداة أو دوّرها بعد تحديدها.</span>
+                <span id="compass-tip">لرسم دائرة بالفرجار، اسحب من المركز إلى المحيط ثم أفلت.</span>
+                <span id="compass-arc-tip">لرسم قوس، اسحب من المركز إلى نقطة بدايته، ثم اسحب على المحيط.</span>
+              </span>
+            </p>
           </aside>
         </div>
 
