@@ -40,6 +40,7 @@
   let toastTimer;
   let state = null;
   let teacher = null;
+  let workspaceSnapshot;
   let accessRequest;
 
   const activeBoard = () => state?.boards.find(({ id }) => id === state.activeBoardId);
@@ -215,10 +216,12 @@
     } catch {}
   }
 
-  function loadWorkspace() {
+  function loadWorkspace(savedRecord, preferredBoardId) {
     let boards = [];
+    let libraryResetId;
     try {
-      const saved = localStorage.getItem(workspacePrefix + teacher.id);
+      const saved = savedRecord ?? localStorage.getItem(workspacePrefix + teacher.id);
+      workspaceSnapshot = saved;
       if (saved) {
         const data = JSON.parse(saved);
         if (data.version !== 1 || !Array.isArray(data.boards) || !data.boards.length) throw Error();
@@ -227,28 +230,64 @@
           validateBoard(board);
         }
         boards = data.boards;
+        if (typeof data.libraryResetId === 'string') libraryResetId = data.libraryResetId;
       }
     } catch {
       loadFailed = true;
     }
 
-    let blankBoard = boards.find((board) => board.name === blankBoardName && board.background === 'grid' && board.objects.length === 0);
-    if (!blankBoard) {
-      blankBoard = makeBoard(blankBoardName);
-      boards.unshift(blankBoard);
+    let board = preferredBoardId ? (boards.find(({ id }) => id === preferredBoardId) || boards[0])
+      : boards.find((item) => item.name === blankBoardName && item.background === 'grid' && item.objects.length === 0);
+    if (!board) {
+      board = makeBoard(blankBoardName);
+      boards.unshift(board);
     }
-    return { version: 1, boards, activeBoardId: blankBoard.id };
+    return { version: 1, boards, activeBoardId: board.id, libraryResetId };
   }
 
-  function saveWorkspace() {
-    if (!teacher || !state) return;
+  function openStoredWorkspace(saved) {
+    if (dialog.open) dialog.close();
+    state = loadWorkspace(saved, state.activeBoardId);
+    updateSaveStatus(false);
+    openBoard({ persist: false });
+  }
+
+  function syncLibraryReset(saved) {
+    if (!saved || saved === workspaceSnapshot) return false;
+    let libraryResetId;
+    try { ({ libraryResetId } = JSON.parse(saved)); } catch { return false; }
+    if (typeof libraryResetId !== 'string' || libraryResetId === state.libraryResetId) return false;
+
+    openStoredWorkspace(saved);
+    showToast('تم تحديث مكتبة اللوحات من علامة تبويب أخرى');
+    return true;
+  }
+
+  function saveWorkspace(nextState = state, { requireFresh = false } = {}) {
+    if (!teacher || !state) return false;
     try {
-      localStorage.setItem(workspacePrefix + teacher.id, JSON.stringify(state));
-      storageFailed = false;
+      const key = workspacePrefix + teacher.id;
+      const saved = localStorage.getItem(key);
+      if (syncLibraryReset(saved)) return false;
+      if (requireFresh && saved !== workspaceSnapshot) {
+        openStoredWorkspace(saved);
+        showToast('تغيّرت المكتبة في علامة تبويب أخرى. اختر اللوحة مرة أخرى.');
+        return false;
+      }
+      const serialized = JSON.stringify(nextState);
+      localStorage.setItem(key, serialized);
+      workspaceSnapshot = serialized;
+      updateSaveStatus(false);
+      return true;
     } catch {
       if (!storageFailed) showToast('تعذّر الحفظ في المتصفح. احفظ نسخة من قائمة المعلّم.', true);
-      storageFailed = true;
+      updateSaveStatus(true);
+      return false;
     }
+  }
+
+  function updateSaveStatus(failed) {
+    storageFailed = failed;
     const status = byId('save-status');
     status.textContent = storageFailed ? 'تعذّر الحفظ' : 'تم الحفظ محليًا';
     status.dataset.status = storageFailed ? 'error' : 'saved';
@@ -306,7 +345,7 @@
     }));
   }
 
-  function openBoard() {
+  function openBoard({ persist = true } = {}) {
     const board = activeBoard();
     engine.setScene(board.objects, board.background);
     byId('background-select').value = board.background;
@@ -314,7 +353,7 @@
     adjustInk(board.background);
     showWorkspace();
     updateHistory();
-    saveWorkspace();
+    if (persist) saveWorkspace();
   }
 
   function updateHistory() {
@@ -435,7 +474,7 @@
     dialog.setAttribute('aria-labelledby', heading.id);
     dialog.replaceChildren(form);
     dialog.showModal();
-    const input = fields.querySelector('input, textarea, button');
+    const input = fields.querySelector('input, textarea, select, button');
     (input || close).focus();
     if (input?.select && input.value) input.select();
 
@@ -503,14 +542,79 @@
   }
 
   async function deleteBoard() {
+    const workspace = state;
     const board = activeBoard();
     const confirmed = await showDialog({ title: 'حذف اللوحة', description: `سيُحذف محتوى «${board.name}» من مكتبة المعلّم.`, accept: 'حذف اللوحة', danger: true });
-    if (!confirmed || activeBoard() !== board) return;
-    state.boards = state.boards.filter(({ id }) => id !== board.id);
-    if (!state.boards.length) state.boards.push(makeBoard('سبورتي الأولى'));
-    state.activeBoardId = state.boards[0].id;
-    openBoard();
+    if (confirmed) removeBoard(workspace, board.id);
+  }
+
+  async function chooseBoardToDelete() {
+    const workspace = state;
+    const label = element('label', 'dialog-field');
+    const select = element('select');
+    const placeholder = element('option', '', 'اختر لوحة من مكتبتك');
+    placeholder.value = '';
+    select.append(placeholder);
+    workspace.boards.forEach((board, index) => {
+      const current = board.id === workspace.activeBoardId ? ' (المفتوحة الآن)' : '';
+      const option = element('option', '', `${number.format(index + 1)}. ${board.name}${current}`);
+      option.value = board.id;
+      select.append(option);
+    });
+    label.append(element('span', '', 'اللوحة المراد حذفها'), select);
+
+    const boardId = await showDialog({
+      title: 'حذف لوحة',
+      description: 'اختر اللوحة التي تريد حذفها نهائيًا من مكتبتك في هذا المتصفح.',
+      controls: [label],
+      accept: 'حذف اللوحة المحددة',
+      danger: true,
+      validate() {
+        if (!select.value) throw Error('اختر لوحة أولًا.');
+        return select.value;
+      },
+    });
+    if (boardId) removeBoard(workspace, boardId);
+  }
+
+  function removeBoard(workspace, boardId) {
+    if (state !== workspace) return;
+    const index = workspace.boards.findIndex(({ id }) => id === boardId);
+    if (index < 0) return;
+    const boards = workspace.boards.filter(({ id }) => id !== boardId);
+    if (!boards.length) boards.push(makeBoard(blankBoardName));
+    const removedActiveBoard = workspace.activeBoardId === boardId;
+    const activeBoardId = removedActiveBoard ? boards[Math.min(index, boards.length - 1)].id : workspace.activeBoardId;
+    const nextWorkspace = { ...workspace, boards, activeBoardId, libraryResetId: uid() };
+    if (!saveWorkspace(nextWorkspace, { requireFresh: true })) {
+      if (storageFailed) showToast('تعذّر حذف اللوحة من هذا المتصفح.', true);
+      return;
+    }
+    state = nextWorkspace;
+    if (removedActiveBoard) openBoard({ persist: false });
+    else showWorkspace();
     showToast('تم حذف اللوحة');
+  }
+
+  async function deleteLibrary() {
+    const workspace = state;
+    const confirmed = await showDialog({
+      title: 'حذف جميع اللوحات',
+      description: 'سيُحذف نهائيًا محتوى مكتبتك في هذا المتصفح. يمكنك تنزيل نسخة احتياطية من قائمة المكتبة قبل الحذف.',
+      accept: 'حذف جميع اللوحات',
+      danger: true,
+    });
+    if (!confirmed || state !== workspace) return;
+
+    const blankBoard = makeBoard(blankBoardName);
+    const nextWorkspace = { version: 1, boards: [blankBoard], activeBoardId: blankBoard.id, libraryResetId: uid() };
+    if (!saveWorkspace(nextWorkspace)) {
+      if (storageFailed) showToast('تعذّر حذف مكتبة اللوحات من هذا المتصفح.', true);
+      return;
+    }
+    state = nextWorkspace;
+    openBoard({ persist: false });
+    showToast('تم حذف جميع اللوحات');
   }
 
   async function clearBoard() {
@@ -520,12 +624,12 @@
     if (confirmed && activeBoard() === board) engine.clear();
   }
 
-  function libraryOption(title, detail, handler) {
-    const option = element('button', 'dialog-option');
+  function libraryOption(title, detail, handler, { danger = false } = {}) {
+    const option = element('button', danger ? 'dialog-option is-danger' : 'dialog-option');
     option.type = 'button';
     const copy = element('span', 'dialog-option-copy');
     copy.append(element('strong', '', title), element('small', '', detail));
-    option.append(icon('file'), copy);
+    option.append(icon(danger ? 'trash' : 'file'), copy);
     option.addEventListener('click', () => {
       const workspace = state;
       dialog.addEventListener('close', () => { if (state === workspace) handler(); }, { once: true });
@@ -538,6 +642,8 @@
     const controls = [
       libraryOption('نسخة احتياطية', 'تنزيل لوحات مكتبتك بصيغة JSON', backupTeacher),
       libraryOption('استيراد نسخة', 'إضافة اللوحات من ملف محفوظ إلى مكتبتك', chooseBackup),
+      libraryOption('حذف لوحة', 'اختر لوحة واحدة لحذفها من المكتبة', chooseBoardToDelete, { danger: true }),
+      libraryOption('حذف جميع اللوحات', 'تفريغ المكتبة والبدء بلوحة فارغة', deleteLibrary, { danger: true }),
     ];
     return showDialog({ title: teacher.name, description: 'مكتبة لوحاتك في التحضير الذكي. يُحفظ عملك في هذا المتصفح.', controls });
   }
@@ -782,6 +888,10 @@
   } else {
     byId('board-access-retry').addEventListener('click', verifyAccess);
     window.addEventListener('storage', (event) => {
+      if (teacher && state && event.key === workspacePrefix + teacher.id) {
+        try { syncLibraryReset(localStorage.getItem(event.key)); } catch {}
+        return;
+      }
       if (event.key !== null && !sessionKeys.has(event.key)) return;
       accessRequest?.abort();
       accessRequest = undefined;

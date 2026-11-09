@@ -599,6 +599,9 @@ dialog textarea { resize: vertical; }
 .dialog-option-copy { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; line-height: 1.4; }
 .dialog-option-copy small { color: var(--muted); font-size: 11px; }
 .dialog-option:is(.is-active, [aria-current=true]) { border-color: #dbcafc; background: var(--accent-tint); color: var(--accent-dark); }
+.dialog-option.is-danger { color: #a92d53; }
+.dialog-option.is-danger > svg { color: currentColor; }
+.dialog-option.is-danger:is(:hover, :focus-visible) { border-color: #f1c8d6; background: #fff8fb; }
 .dialog-error { color: #a92d53; font-size: 11px; }
 .symbol-picker { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; margin-top: 10px; direction: ltr; }
 .shortcuts-list { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 7px 12px; margin: 8px 0; font-size: 12px; }
