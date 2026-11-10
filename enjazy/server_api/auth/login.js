@@ -4,8 +4,9 @@ import { clearTeacherSession, isTeacherSessionOrigin, readTeacherSession, setTea
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "private, no-store");
   if (req.method === "GET") {
-    const authenticated = Boolean(readTeacherSession(req));
-    res.status(authenticated ? 200 : 401).json({ authenticated });
+    const userId = readTeacherSession(req);
+    if (userId) res.status(200).json({ authenticated: true, userId });
+    else res.status(401).json({ authenticated: false });
     return;
   }
   if (req.method === "DELETE") {

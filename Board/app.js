@@ -302,8 +302,18 @@
     byId('toast').hidden = true;
   }
 
-  function showSignIn() {
-    showAccess('سجّل الدخول إلى التحضير الذكي', 'استخدم حساب المعلّم المسجّل لفتح السبورة المشمولة في اشتراكك.', signInPage, 'تسجيل الدخول');
+  function showSignIn(expired = false) {
+    const title = expired ? 'انتهت جلسة الدخول' : 'سجّل الدخول إلى التحضير الذكي';
+    const message = expired ? 'سجّل الدخول من البوابة الموحدة لاستئناف العمل على لوحاتك.'
+      : 'استخدم حساب المعلّم المسجّل لفتح السبورة المشمولة في اشتراكك.';
+    showAccess(title, message, signInPage, 'تسجيل الدخول');
+  }
+
+  function hadPortalSession() {
+    return [...sessionKeys].some((key) => {
+      try { return Boolean(JSON.parse(localStorage.getItem(key))?.userId); }
+      catch { return false; }
+    });
   }
 
   async function verifyAccess({ discardPending = false } = {}) {
@@ -319,8 +329,9 @@
       });
       if (accessRequest !== request) return;
       if (response.status === 401) {
+        const expired = Boolean(teacher) || hadPortalSession();
         lockWorkspace();
-        showSignIn();
+        showSignIn(expired);
         return;
       }
       const data = await response.json();
