@@ -741,6 +741,9 @@ async function submitProject(ev) {
 }
 async function teacherLogout() {
   try { if (state.token) await api('/api/logout', { method: 'POST' }); } catch {}
+  if (/^https?:$/.test(window.location.protocol)) {
+    fetch('/api/auth/login', { method: 'DELETE', credentials: 'same-origin', keepalive: true }).catch(() => {});
+  }
   localStorage.removeItem('tp_token');
   localStorage.removeItem('tp_user');
   localStorage.removeItem(UNIFIED_SESSION_KEY);

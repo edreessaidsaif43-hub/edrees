@@ -1680,7 +1680,8 @@ function renderMotivationSubscriptionStatus() {
     const item = motivationSubscriptionState.blocked;
     const label = item.status === "rejected" ? "تم رفض الإيصال" : "تم إيقاف اشتراك تحفيز+";
     const reason = String(item.adminNote || "").trim();
-    status.textContent = reason ? `${label}. السبب: ${reason}` : `${label}. يرجى التواصل مع الإدارة.`;
+    const contact = reason.includes("91470590") ? "" : " للتواصل مع الإدارة: 91470590";
+    status.textContent = reason ? `${label}. السبب: ${reason}${contact}` : `${label}. للتواصل مع الإدارة: 91470590`;
     status.style.color = "#991b1b";
     return;
   }
@@ -5129,6 +5130,9 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   if (btn) btn.disabled = true;
   const saved = await flushRemoteSaveNow();
   savePublicStateCache(state);
+  if (/^https?:$/.test(window.location.protocol)) {
+    fetch('/api/auth/login', { method: 'DELETE', credentials: 'same-origin', keepalive: true }).catch(() => {});
+  }
   clearUnifiedSession();
   setSession("");
   currentTeacher = null;
