@@ -28,3 +28,16 @@
 .nav-auth-btn{white-space:nowrap}
 @media(max-width:520px){#nav{gap:8px;padding:0 10px}#nav .nb{gap:6px;min-width:0}#nav .nb-name{font-size:11px;white-space:normal;max-width:140px;line-height:1.5}#nav .nb img{width:32px;height:32px}#nav .nav-auth-btn,#nav .nav-user-pill{padding:7px 9px;font-size:11px}}
 html{scroll-padding-top:82px}
+
+/* Shared layout for pages that also ship their own app styles. */
+#nav.site-navbar{direction:rtl;gap:10px;padding-inline:16px}
+#nav.site-navbar .nl{min-width:0;overflow-x:auto;scrollbar-width:none}
+#nav.site-navbar .nl a{padding-inline:7px;font-family:Tajawal,sans-serif;line-height:1.4}
+#nav.site-navbar .nb-name{letter-spacing:0}
+#nav.site-navbar #nav-user-area{flex-shrink:0}
+#nmob.site-navbar-menu{direction:rtl;overscroll-behavior:contain;max-height:calc(100vh - 62px);max-height:calc(100dvh - 62px)}
+#nmob.site-navbar-menu a{display:block;font-family:Tajawal,sans-serif;line-height:1.4;letter-spacing:0}
+#nav.site-navbar a:focus-visible,#nav.site-navbar button:focus-visible,#nmob.site-navbar-menu a:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+@media(min-width:1401px){#nmob.site-navbar-menu{display:none}}
+@media(max-width:1400px){#nav.site-navbar .nl{display:none}#nav.site-navbar #ntog{display:flex}}
+@media(max-width:520px){#nav.site-navbar{gap:6px;padding-inline:10px}#nav.site-navbar .nb{flex-shrink:1}#nav.site-navbar .nb-name{overflow-wrap:anywhere}}

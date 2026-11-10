@@ -10,22 +10,97 @@
     b.classList.toggle('o');m.classList.toggle('o');
     b.setAttribute('aria-expanded',String(m.classList.contains('o')));
   };
-  function addNoorLinks(){
-    document.querySelectorAll('#nav .nl,#nmob').forEach(function(menu){
-      const games=menu.querySelector('[data-page="games"]');
-      if(!games)return;
-      let noor=menu.querySelector('[data-page="noor"]');
-      if(!noor){noor=document.createElement('a');noor.setAttribute('data-page','noor');noor.textContent='خدمات نور';}
-      noor.href=new URL(location.protocol==='file:'?'noor/index.html':'noor/',siteRoot).href;
-      games.insertAdjacentElement('afterend',noor);
+  const routes = [
+    ['home', '', 'index.html', 'الرئيسية'],
+    ['t', 't', 't.html', 'تحضير الدروس'],
+    ['ai', 'ai/index.html', 'ai/index.html', 'التحضير بالذكاء الاصطناعي'],
+    ['m', 'm', 'm.html', 'حقيبة المعلم'],
+    ['games', 'game/', 'game/index.html', 'الألعاب'],
+    ['noor', 'noor/', 'noor/index.html', 'خدمات نور'],
+    ['board', 'Board/index.html', 'Board/index.html', 'السبورة البيضاء'],
+    ['enjazy', 'enjazy', 'enjazy/index.html', 'ملف الإنجاز'],
+    ['motivation', 'Motivation+/', 'Motivation+/index.html', 'تحفيز+'],
+    ['mash', 'mash/index.html', 'mash/index.html', 'مشاريع المعلمين'],
+    ['attendance', 'https://gyab-xi.vercel.app/', 'https://gyab-xi.vercel.app/', 'الحضور والتسرب']
+  ];
+  function mountNavigation(){
+    let nav = document.getElementById('nav');
+    if (!nav) {
+      nav = document.createElement('nav');
+      nav.id = 'nav';
+      document.body.prepend(nav);
+    }
+    nav.classList.add('site-navbar');
+    nav.setAttribute('dir', 'rtl');
+    nav.setAttribute('aria-label', 'التنقل الرئيسي');
+    let brand = nav.querySelector('.nb');
+    if (!brand) {
+      brand = document.createElement('a');
+      brand.className = 'nb';
+      nav.prepend(brand);
+    }
+    const local = location.protocol === 'file:';
+    brand.href = new URL(local ? 'index.html' : '', siteRoot).href;
+    brand.replaceChildren();
+    const logo = document.createElement('img');
+    logo.src = new URL('assets/site-navbar-logo.png', siteRoot).href;
+    logo.alt = '';
+    const name = document.createElement('span');
+    name.className = 'nb-name';
+    name.textContent = 'التحضير الذكي للمعلم العماني';
+    brand.append(logo, name);
+    let desktop = nav.querySelector('.nl');
+    if (!desktop) {
+      desktop = document.createElement('div');
+      desktop.className = 'nl';
+      brand.after(desktop);
+    }
+    let user = document.getElementById('nav-user-area');
+    if (!user) {
+      user = document.createElement('div');
+      user.id = 'nav-user-area';
+      desktop.after(user);
+    }
+    let toggle = document.getElementById('ntog');
+    if (!toggle) {
+      toggle = document.createElement('button');
+      toggle.id = 'ntog';
+      toggle.innerHTML = '<span></span><span></span><span></span>';
+      nav.append(toggle);
+    }
+    toggle.type = 'button';
+    toggle.setAttribute('aria-label', 'فتح القائمة');
+    toggle.setAttribute('aria-controls', 'nmob');
+    toggle.setAttribute('aria-expanded', 'false');
+    if (!document.getElementById('board-nav-auth')) toggle.onclick = window.tNav;
+    let mobile = document.getElementById('nmob');
+    if (!mobile) {
+      mobile = document.createElement('nav');
+      mobile.id = 'nmob';
+      nav.after(mobile);
+    }
+    mobile.classList.add('site-navbar-menu');
+    mobile.setAttribute('dir', 'rtl');
+    mobile.setAttribute('aria-label', 'التنقل على الهاتف');
+    [desktop, mobile].forEach(menu => {
+      for (const link of menu.querySelectorAll('a[data-page]')) link.remove();
+      const links = document.createDocumentFragment();
+      routes.forEach(([id, url, localUrl, label]) => {
+        const link = document.createElement('a');
+        link.dataset.page = id;
+        link.href = new URL(local ? localUrl : url, siteRoot).href;
+        link.textContent = label;
+        if (id === 'attendance') {
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+        }
+        links.append(link);
+      });
+      menu.prepend(links);
     });
   }
   function projectRoot(){
-    const href=window.location.href;
-    const marker='/New%20project2/';
-    const i=href.indexOf(marker);
-    if(i>-1)return href.slice(0,i+marker.length);
-    return new URL('./',href).href;
+    return siteRoot.href;
   }
   window.goUnifiedAuth=function(mode){
     const targetMode=mode||'login';
@@ -35,9 +110,36 @@
   };
   function readSession(){
     try{const r=localStorage.getItem(MK);if(r)return JSON.parse(r);}catch(e){}
-    try{const r=localStorage.getItem(SK);const p=r?JSON.parse(r):null;return p&&p.userId?{userId:p.userId}:null;}catch(e){return null;}
+    try{const r=localStorage.getItem(SK);const p=r?JSON.parse(r):null;return p&&p.userId?p:null;}catch(e){return null;}
+  }
+  let sessionCheck;
+  async function syncNavUser(){
+    if (location.protocol === 'file:') return updateNavUser(readSession());
+    const previous=readSession();
+    sessionCheck?.abort();
+    const controller=new AbortController();
+    sessionCheck=controller;
+    const timer=setTimeout(()=>controller.abort(),5000);
+    try{
+      const response=await fetch('/api/auth/login',{credentials:'same-origin',cache:'no-store',signal:controller.signal});
+      if (!response.ok && response.status!==401) return;
+      const verified=response.ok?await response.json():null;
+      const stored=readSession();
+      if (controller.signal.aborted || previous?.userId!==stored?.userId || previous?.savedAt!==stored?.savedAt) return;
+      if (verified?.authenticated===true) {
+        updateNavUser(verified.userId && stored?.userId===verified.userId ? stored : {full_name:'المعلم'});
+      } else if (response.status===401) {
+        updateNavUser(null);
+      }
+    } catch(e) {
+      // Leave the current header alone if the server could not verify the session.
+    } finally {
+      clearTimeout(timer);
+      if (sessionCheck===controller) sessionCheck=undefined;
+    }
   }
   window.logoutUnifiedNav=function(){
+    sessionCheck?.abort();
     if (/^https?:$/.test(window.location.protocol)) {
       fetch('/api/auth/login', {method:'DELETE',credentials:'same-origin',keepalive:true}).catch(() => {});
     }
@@ -67,15 +169,17 @@
   }
   function markActive(){
     const p=decodeURIComponent(location.pathname).toLowerCase();
-    let page='home';
-    if(p.includes('/game/'))page='games';
+    const rootPath = decodeURIComponent(siteRoot.pathname).toLowerCase();
+    let page=p===rootPath || p===rootPath+'index.html' ? 'home' : '';
+    if(/\/game(?:\/|$)/.test(p))page='games';
     if(p.endsWith('/t')||p.endsWith('/t.html'))page='t';
     else if(p.endsWith('/m')||p.endsWith('/m.html'))page='m';
     else if(p.includes('/ai/'))page='ai';
     else if(p.includes('/enjazy'))page='enjazy';
     else if(p.includes('/mash'))page='mash';
     else if(p.includes('/motivation+/'))page='motivation';
-    else if(/\/noor(?:\/|$)/.test(p))page='noor';
+    else if(/\/board(?:\/|$)/.test(p))page='board';
+    else if(/\/noor(?:\/|$)|\/noor-guide\.html$/.test(p))page='noor';
     document.querySelectorAll('#nav [data-page],#nmob [data-page]').forEach(function(a){
       const active=a.getAttribute('data-page')===page;
       a.classList.toggle('on',active);
@@ -87,5 +191,17 @@
     if(m&&b&&m.classList.contains('o')&&!m.contains(e.target)&&!b.contains(e.target)){m.classList.remove('o');b.classList.remove('o');b.setAttribute('aria-expanded','false');}
   });
   window.addEventListener('scroll',function(){const n=document.getElementById('nav');if(n)n.classList.toggle('sc',scrollY>10);});
-  addNoorLinks();markActive();updateNavUser(readSession());
+  mountNavigation();markActive();
+  if (!document.getElementById('board-nav-auth')) {
+    void syncNavUser();
+    window.addEventListener('pageshow',event=>{if(event.persisted) void syncNavUser();});
+    window.addEventListener('storage',event=>{
+      if (event.key!==SK && event.key!==MK && event.key!==null) return;
+      if (event.newValue===null) {
+        sessionCheck?.abort();
+        updateNavUser(null);
+        document.getElementById('user-menu')?.remove();
+      } else void syncNavUser();
+    });
+  }
 })();
