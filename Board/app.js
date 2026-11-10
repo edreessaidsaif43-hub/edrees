@@ -42,6 +42,7 @@
   let cloud = null;
   let legacyTransfer;
   let accessRequest;
+  let signingOut = false;
 
   const activeBoard = () => state?.boards.find(({ id }) => id === state.activeBoardId);
 
@@ -113,6 +114,126 @@
     return { id: uid(), name, background: 'grid', updatedAt: Date.now(), objects };
   }
 
+  function showPortalAccount(name, signedIn = Boolean(name)) {
+    const account = byId('board-nav-account');
+    if (!account) return;
+    account.hidden = !signedIn;
+    byId('board-nav-auth').hidden = signedIn;
+    byId('board-nav-mobile-auth').hidden = signedIn;
+    const nameParts = name?.trim().split(/\s+/) ?? [];
+    const shortName = /^[أد]\.$/u.test(nameParts[0]) ? nameParts.slice(0, 2).join(' ') : nameParts[0];
+    byId('board-nav-name').textContent = signedIn ? shortName || 'حسابي' : '';
+    byId('board-nav-account-toggle').setAttribute('aria-label', name ? `خيارات حساب ${name}` : 'خيارات الحساب');
+    if (!signedIn) setAccountMenu(false);
+  }
+
+  function setAccountMenu(open) {
+    const panel = byId('board-nav-account-menu');
+    if (!panel) return;
+    panel.hidden = !open;
+    byId('board-nav-account-toggle').setAttribute('aria-expanded', String(open));
+  }
+
+  function setupPortalNavigation() {
+    const mobileToggle = byId('ntog');
+    const mobileMenu = byId('nmob');
+    const accountToggle = byId('board-nav-account-toggle');
+    const accountMenu = byId('board-nav-account-menu');
+    if (!mobileToggle || !mobileMenu || !accountToggle || !accountMenu) return;
+
+    function setMobileMenu(open) {
+      mobileToggle.classList.toggle('o', open);
+      mobileMenu.classList.toggle('o', open);
+      mobileToggle.setAttribute('aria-expanded', String(open));
+      mobileToggle.setAttribute('aria-label', open ? 'إغلاق القائمة' : 'فتح القائمة');
+    }
+
+    mobileToggle.addEventListener('click', () => {
+      setAccountMenu(false);
+      setMobileMenu(!mobileMenu.classList.contains('o'));
+    });
+    accountToggle.addEventListener('click', () => {
+      setMobileMenu(false);
+      setAccountMenu(accountMenu.hidden);
+    });
+    byId('board-nav-logout').addEventListener('click', signOutFromBoard);
+
+    document.addEventListener('click', (event) => {
+      if (!mobileMenu.contains(event.target) && !mobileToggle.contains(event.target)) setMobileMenu(false);
+      if (!accountMenu.contains(event.target) && !accountToggle.contains(event.target)) setAccountMenu(false);
+    });
+    mobileMenu.addEventListener('click', (event) => { if (event.target.closest('a')) setMobileMenu(false); });
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || dialog.open) return;
+      if (!accountMenu.hidden) {
+        setAccountMenu(false);
+        accountToggle.focus();
+      } else if (mobileMenu.classList.contains('o')) {
+        setMobileMenu(false);
+        mobileToggle.focus();
+      } else return;
+      event.preventDefault();
+    }, true);
+    const compactNav = window.matchMedia('(max-width: 1400px)');
+    compactNav.addEventListener('change', ({ matches }) => { if (!matches) setMobileMenu(false); });
+    const updateNavShadow = () => byId('nav').classList.toggle('sc', window.scrollY > 10);
+    window.addEventListener('scroll', updateNavShadow, { passive: true });
+    updateNavShadow();
+
+    if (location.protocol === 'file:') {
+      document.querySelectorAll('#nav a[href^="/"], #nmob a[href^="/"]').forEach((link) => {
+        link.href = new URL(link.getAttribute('href'), 'https://altahdir.app/').href;
+      });
+    }
+  }
+
+  async function signOutFromBoard() {
+    if (signingOut) return;
+    signingOut = true;
+    const connection = cloud;
+    const button = byId('board-nav-logout');
+    button.disabled = true;
+    app.inert = true;
+    setAccountMenu(false);
+    let timeout;
+    try {
+      if (connection?.dirty && !(await connection.flush())) {
+        if (cloud !== connection) return;
+        const leave = await showDialog({
+          title: 'تسجيل الخروج',
+          description: 'هناك تغييرات لم تُحفظ في حسابك. يمكنك تنزيل نسخة احتياطية من مساحة المعلّم قبل الخروج.',
+          accept: 'تسجيل الخروج دون حفظ',
+          danger: true,
+        });
+        if (!leave) return;
+      }
+      if (cloud !== connection) return;
+
+      accessRequest?.abort();
+      accessRequest = undefined;
+      const request = new AbortController();
+      timeout = setTimeout(() => request.abort(), 9000);
+      const response = await fetch('/api/auth/login', {
+        method: 'DELETE', credentials: 'same-origin', cache: 'no-store', signal: request.signal,
+      });
+      if (!response.ok && response.status !== 401) throw Error();
+      lockWorkspace();
+      try {
+        sessionKeys.forEach((key) => localStorage.removeItem(key));
+        localStorage.removeItem('lesson_platform_current_user_v1');
+      } catch {}
+      showSignIn();
+      byId('board-nav-auth').focus();
+    } catch {
+      showToast('تعذّر تسجيل الخروج. حاول مرة أخرى.', true);
+    } finally {
+      clearTimeout(timeout);
+      button.disabled = false;
+      app.inert = false;
+      signingOut = false;
+    }
+  }
+
   function showAccess(title, message, href, label, retry = false) {
     app.hidden = true;
     accessPanel.hidden = false;
@@ -126,6 +247,7 @@
   }
 
   function lockWorkspace() {
+    showPortalAccount(null);
     if (!teacher) return;
     cloud?.dispose();
     cloud = null;
@@ -151,6 +273,7 @@
   }
 
   async function verifyAccess({ discardPending = false } = {}) {
+    if (signingOut) return;
     accessRequest?.abort();
     const request = new AbortController();
     accessRequest = request;
@@ -170,6 +293,7 @@
       if (accessRequest !== request) return;
       if (response.status === 403 && ['account_stopped', 'subscription_required'].includes(data.error)) {
         lockWorkspace();
+        showPortalAccount(null, true);
         if (data.error === 'account_stopped') {
           showAccess('الحساب موقوف', 'راجع حالة حسابك في التحضير الذكي لتتمكن من فتح السبورة.', subscriptionPage, 'عرض حالة الحساب');
         } else {
@@ -332,6 +456,7 @@
 
   function showWorkspace() {
     const board = activeBoard();
+    showPortalAccount(teacher.name);
     byId('teacher-name').textContent = teacher.name;
     if (byId('teacher-avatar')) byId('teacher-avatar').textContent = Array.from(teacher.name.trim().replace(/^ال(?=.)/u, ''))[0] || 'م';
     if (byId('board-count')) byId('board-count').textContent = number.format(state.boards.length);
@@ -874,7 +999,7 @@
   });
 
   document.addEventListener('keydown', (event) => {
-    if (!state || dialog.open || event.target.matches?.('input, textarea, select, [contenteditable]') || event.altKey) return;
+    if (event.defaultPrevented || signingOut || !state || dialog.open || event.target.matches?.('input, textarea, select, [contenteditable]') || event.altKey) return;
     if (event.key === 'Escape' && !desktop.matches) {
       togglePanel('math', false);
       togglePanel('library', false);
@@ -913,6 +1038,7 @@
     togglePanel('math', matches);
   });
 
+  setupPortalNavigation();
   setWidth(width);
   setColor(color);
   setTool(currentTool);
