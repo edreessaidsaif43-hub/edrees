@@ -19,6 +19,9 @@ window.BoardCanvas = (() => {
   const ROTATION_HANDLE_OFFSET = 28;
   const ROTATION_STEP = Math.PI / 12;
   const FULL_TURN = 2 * Math.PI;
+  const IMAGE_HANDLE_RADIUS = 13;
+  const MAX_IMAGE_DIMENSION = 4096;
+  const RASTER_DATA_URL = /^data:image\/(?:png|jpeg|webp);base64,/;
   const BACKGROUNDS = {
     plain: { fill: '#ffffff' },
     grid: { fill: '#ffffff', line: '#eeedf4', major: '#e9e6f2' },
@@ -248,7 +251,7 @@ window.BoardCanvas = (() => {
       const height = Math.abs(frame.w * frame.uy) + Math.abs(frame.h * frame.ny);
       return { x: frame.x - width / 2, y: frame.y - height / 2, width, height };
     }
-    if (SHAPE_TOOLS.has(object.type) || object.type === 'arc') return dimensions(object);
+    if (SHAPE_TOOLS.has(object.type) || object.type === 'arc' || object.type === 'image') return dimensions(object);
     return window.BoardMath?.bounds?.(object) || dimensions(object);
   }
 
@@ -307,7 +310,55 @@ window.BoardCanvas = (() => {
     ctx.stroke();
   }
 
-  function drawObject(ctx, object, background) {
+  async function decodeRaster(source) {
+    if (typeof source !== 'string' || !RASTER_DATA_URL.test(source)) return null;
+    const image = new Image();
+    image.decoding = 'async';
+    try {
+      if (typeof image.decode === 'function') {
+        image.src = source;
+        await image.decode();
+      } else {
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = reject;
+          image.src = source;
+        });
+      }
+      return image.naturalWidth > 0 && image.naturalHeight > 0 ? image : null;
+    } catch {
+      return null;
+    } finally {
+      image.onload = image.onerror = null;
+    }
+  }
+
+  function drawRaster(ctx, object, background, asset) {
+    const { x, y, w, h } = object;
+    if (![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) return;
+    if (asset?.image) {
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(asset.image, x, y, w, h);
+      return;
+    }
+    const dark = background === 'dark';
+    ctx.fillStyle = dark ? '#332942' : '#f2eef8';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = dark ? '#ad99c4' : '#a291b6';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(x, y, w, h);
+    if (asset?.failed && w >= 65 && h >= 36) {
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.direction = 'rtl';
+      ctx.font = `13px ${FONT}`;
+      ctx.fillText('تعذّر تحميل الصورة', x + w / 2, y + h / 2, w - 8);
+    }
+  }
+
+  function drawObject(ctx, object, background, imageFor) {
     const color = visibleColor(object.color || '#432664', background);
     ctx.save();
     ctx.strokeStyle = color;
@@ -318,6 +369,8 @@ window.BoardCanvas = (() => {
 
     if (INK_TOOLS.has(object.type)) {
       drawInk(ctx, object);
+    } else if (object.type === 'image') {
+      drawRaster(ctx, object, background, imageFor?.(object.src));
     } else if (object.type === 'text') {
       const { lines, lineHeight } = textLayout(ctx, object);
       lines.forEach((line, index) => ctx.fillText(line, object.x, object.y + index * lineHeight));
@@ -457,13 +510,13 @@ window.BoardCanvas = (() => {
     return ctx;
   }
 
-  function paintScene(layer, inkLayer, width, height, ratio, view, objects, draft, selected, moving, background) {
+  function paintScene(layer, inkLayer, width, height, ratio, view, objects, draft, selected, moving, background, imageFor) {
     const ctx = prepareLayer(layer, width, height, ratio, view);
     const scene = moving ? objects.map((object, index) => index === selected ? moving : object) : objects;
     const commands = draft ? [...scene, draft] : scene;
     const erasers = commands.filter((object) => object.type === 'eraser');
     if (!erasers.length) {
-      commands.forEach((object) => drawObject(ctx, object, background));
+      commands.forEach((object) => drawObject(ctx, object, background, imageFor));
       return;
     }
 
@@ -473,7 +526,7 @@ window.BoardCanvas = (() => {
     for (let start = 0; start < commands.length;) {
       const object = commands[start];
       if (!INK_TOOLS.has(object.type)) {
-        drawObject(ctx, object, background);
+        drawObject(ctx, object, background, imageFor);
         start++;
         continue;
       }
@@ -567,6 +620,40 @@ window.BoardCanvas = (() => {
     return { x: view.x + point.x * view.scale, y: view.y + point.y * view.scale };
   }
 
+  function imageCorner(object) {
+    return { x: object.x + object.w, y: object.y + object.h };
+  }
+
+  function paintImageSelection(ctx, view, object, color, dark) {
+    const origin = viewPoint(view, object);
+    const handle = viewPoint(view, imageCorner(object));
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.3;
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(origin.x, origin.y, handle.x - origin.x, handle.y - origin.y);
+    ctx.setLineDash([]);
+    ctx.fillStyle = dark ? '#302440' : '#ffffff';
+    ctx.fillRect(handle.x - 6, handle.y - 6, 12, 12);
+    ctx.strokeRect(handle.x - 6, handle.y - 6, 12, 12);
+    ctx.beginPath();
+    ctx.moveTo(handle.x - 3, handle.y + 3);
+    ctx.lineTo(handle.x + 3, handle.y - 3);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function resizedImage({ start, resize }, point) {
+    const { object, minimum } = resize;
+    const { w, h } = object;
+    // Project pointer movement onto the image's diagonal to preserve its aspect ratio.
+    const adjustment = ((point.x - start.x) * w + (point.y - start.y) * h) / (w * w + h * h);
+    const maximum = MAX_IMAGE_DIMENSION / Math.max(w, h);
+    const ratio = Math.min(maximum, Math.max(minimum, 1 + adjustment));
+    if (!Number.isFinite(ratio) || Math.abs(ratio - 1) < 0.0001) return object;
+    return { ...object, w: Math.min(w * ratio, MAX_IMAGE_DIMENSION), h: Math.min(h * ratio, MAX_IMAGE_DIMENSION) };
+  }
+
   function paintGuide(ctx, view, guide, active, color) {
     ctx.save();
     ctx.strokeStyle = color;
@@ -657,6 +744,8 @@ window.BoardCanvas = (() => {
       this.ctx = canvas.getContext('2d');
       this.layer = transparentCanvas();
       this.inkLayer = transparentCanvas();
+      this.imageAssets = new Map();
+      this.imageFor = (source) => this.getImageAsset(source);
       this.onChange = onChange;
       this.onView = onView;
       this.onSelection = onSelection;
@@ -708,6 +797,7 @@ window.BoardCanvas = (() => {
       this.cancelGesture();
       this.sceneVersion++;
       this.objects = Array.isArray(objects) ? objects.slice() : [];
+      this.pruneImageAssets();
       this.past = [];
       this.future = [];
       this.setSelection(-1);
@@ -809,9 +899,9 @@ window.BoardCanvas = (() => {
       this.pan.y += anchor.y - (world.y * view.scale + view.y);
     }
 
-    add(object) {
+    add(object, { select = false } = {}) {
       if (!object || typeof object.type !== 'string') return;
-      this.replace([...this.objects, object]);
+      this.replace([...this.objects, object], select ? this.objects.length : -1);
     }
 
     clear() {
@@ -877,8 +967,30 @@ window.BoardCanvas = (() => {
     }
 
     changed() {
+      this.pruneImageAssets();
       this.queueRender();
       this.onChange(this.objects);
+    }
+
+    getImageAsset(source) {
+      const cached = this.imageAssets.get(source);
+      if (cached) return cached;
+      const asset = { image: null, failed: false };
+      this.imageAssets.set(source, asset);
+      asset.ready = decodeRaster(source).then((image) => {
+        asset.image = image;
+        asset.failed = !image;
+        if (this.imageAssets.get(source) === asset) this.queueRender();
+      });
+      return asset;
+    }
+
+    pruneImageAssets() {
+      if (!this.imageAssets.size) return;
+      const visibleSources = new Set(this.objects.filter((object) => object.type === 'image').map(({ src }) => src));
+      for (const source of this.imageAssets.keys()) {
+        if (!visibleSources.has(source)) this.imageAssets.delete(source);
+      }
     }
 
     viewport() {
@@ -940,6 +1052,15 @@ window.BoardCanvas = (() => {
       return distance(point, rotationHandle(frame, scale)) <= 12 / scale ? frame : null;
     }
 
+    imageResizeAt(point) {
+      const object = this.objects[this.selected];
+      if (this.tool !== 'select' || object?.type !== 'image') return null;
+      const { scale } = this.viewport();
+      if (distance(point, imageCorner(object)) * scale > IMAGE_HANDLE_RADIUS) return null;
+      const minimum = Math.min(1, 26 / (Math.hypot(object.w, object.h) * scale));
+      return { object, minimum };
+    }
+
     gestureAngle(point, gesture, constrain) {
       const { frame, pointerAngle, instrument } = gesture.rotation;
       const angle = (instrument.angle || 0) + Math.atan2(point.y - frame.y, point.x - frame.x) - pointerAngle;
@@ -950,7 +1071,8 @@ window.BoardCanvas = (() => {
       if (GUIDE_TOOLS.has(this.tool)) {
         this.setHoverGuide(nearestGuide(this.objects, point, this.viewport().scale));
       } else if (this.tool === 'select') {
-        this.canvas.style.cursor = this.rotationAt(point) ? 'grab' : CURSORS.select;
+        if (this.imageResizeAt(point)) this.canvas.style.cursor = 'nwse-resize';
+        else this.canvas.style.cursor = this.rotationAt(point) ? 'grab' : CURSORS.select;
       } else if (this.tool === 'compass-arc') {
         this.canvas.style.cursor = this.nearCompassTip(point) ? 'grab' : 'crosshair';
       }
@@ -993,11 +1115,15 @@ window.BoardCanvas = (() => {
       const start = this.eventPoint(event);
       const defaultTool = event.button === 1 ? 'pan' : event.button === 5 ? 'eraser' : this.tool;
       const frame = defaultTool === 'select' ? this.rotationAt(start) : null;
+      const resize = defaultTool === 'select' ? this.imageResizeAt(start) : null;
       const sweeping = defaultTool === 'compass-arc' && this.nearCompassTip(start);
-      const tool = frame ? 'rotate-instrument' : sweeping ? 'compass-sweep' : defaultTool;
+      const tool = resize ? 'resize-image' : frame ? 'rotate-instrument' : sweeping ? 'compass-sweep' : defaultTool;
       this.gesture = { id: event.pointerId, tool, start, local, originalPan: { ...this.pan } };
       if (tool === 'pan' || tool === 'rotate-instrument' || sweeping) this.canvas.style.cursor = 'grabbing';
-      if (frame) {
+      if (resize) {
+        this.gesture.resize = resize;
+        this.canvas.style.cursor = 'nwse-resize';
+      } else if (frame) {
         this.gesture.rotation = {
           frame, instrument: this.objects[this.selected], pointerAngle: Math.atan2(start.y - frame.y, start.x - frame.x),
         };
@@ -1042,6 +1168,8 @@ window.BoardCanvas = (() => {
           this.pan = { x: originalPan.x + local.x - this.gesture.local.x, y: originalPan.y + local.y - this.gesture.local.y };
         } else if (tool === 'rotate-instrument') {
           this.moving = { ...this.gesture.rotation.instrument, angle: this.gestureAngle(point, this.gesture, event.shiftKey) };
+        } else if (tool === 'resize-image') {
+          this.moving = resizedImage(this.gesture, point);
         } else if (tool === 'select' && this.selected >= 0) {
           this.moving = shifted(this.objects[this.selected], point.x - start.x, point.y - start.y);
         } else if (tool === 'compass-sweep') {
@@ -1131,6 +1259,13 @@ window.BoardCanvas = (() => {
           };
         } else if (tool === 'rotate-instrument' && moved > 2) {
           this.commitRotation(this.gestureAngle(point, gesture, event.shiftKey));
+        } else if (tool === 'resize-image' && moved > 2) {
+          const object = resizedImage(gesture, point);
+          if (object !== gesture.resize.object) {
+            const objects = this.objects.slice();
+            objects[this.selected] = object;
+            this.replace(objects, this.selected);
+          }
         } else if (tool === 'select' && this.selected >= 0 && moved > 2) {
           const objects = this.objects.slice();
           objects[this.selected] = shifted(objects[this.selected], point.x - start.x, point.y - start.y);
@@ -1174,7 +1309,8 @@ window.BoardCanvas = (() => {
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       paintBackground(ctx, width, height, view, this.background);
       const draft = this.draft || (this.compassOpening && compassPreview(this.compassOpening, this.style));
-      paintScene(this.layer, this.inkLayer, width, height, ratio, view, this.objects, draft, this.selected, this.moving, this.background);
+      paintScene(this.layer, this.inkLayer, width, height, ratio, view, this.objects, draft, this.selected, this.moving,
+        this.background, this.imageFor);
       ctx.drawImage(this.layer.canvas, 0, 0, width, height);
 
       const dark = this.background === 'dark';
@@ -1184,6 +1320,8 @@ window.BoardCanvas = (() => {
       const selectedObject = this.moving || this.objects[this.selected];
       if (INSTRUMENTS.has(selectedObject?.type)) {
         paintInstrumentSelection(ctx, view, selectedObject, accent, dark);
+      } else if (selectedObject?.type === 'image') {
+        paintImageSelection(ctx, view, selectedObject, accent, dark);
       } else if (selectedObject) {
         const bounds = objectBounds(ctx, selectedObject);
         if (!bounds) return;
@@ -1199,11 +1337,23 @@ window.BoardCanvas = (() => {
     }
 
     exportPng() {
+      const objects = this.objects;
+      const background = this.background;
+      const images = new Map();
+      for (const object of objects) {
+        if (object.type === 'image' && !images.has(object.src)) images.set(object.src, this.getImageAsset(object.src));
+      }
+      if (!images.size) return this.exportScene(objects, background);
+      return Promise.all([...images.values()].map(({ ready }) => ready))
+        .then(() => this.exportScene(objects, background, (source) => images.get(source)));
+    }
+
+    exportScene(objects, background, imageFor) {
       let x = 0;
       let y = 0;
       let right = BOARD_WIDTH;
       let bottom = BOARD_HEIGHT;
-      for (const object of this.objects) {
+      for (const object of objects) {
         if (object.type === 'eraser') continue;
         const bounds = objectBounds(this.ctx, object);
         if (!bounds) continue;
@@ -1217,12 +1367,12 @@ window.BoardCanvas = (() => {
       const ratio = Math.min(2, 4096 / Math.max(width, height));
       const view = { x: -x, y: -y, scale: 1 };
       const layer = transparentCanvas();
-      paintScene(layer, transparentCanvas(), width, height, ratio, view, this.objects, null, -1, null, this.background);
+      paintScene(layer, transparentCanvas(), width, height, ratio, view, objects, null, -1, null, background, imageFor);
       const output = transparentCanvas();
       output.canvas.width = layer.canvas.width;
       output.canvas.height = layer.canvas.height;
       output.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-      paintBackground(output.ctx, width, height, view, this.background);
+      paintBackground(output.ctx, width, height, view, background);
       output.ctx.drawImage(layer.canvas, 0, 0, width, height);
       return output.canvas.toDataURL('image/png');
     }

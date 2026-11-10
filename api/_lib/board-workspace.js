@@ -1,4 +1,7 @@
 const maximumBodyBytes = 3 * 1024 * 1024;
+const maximumImageSourceLength = 650 * 1024;
+const maximumImageDimension = 4096;
+const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const backgrounds = new Set(["grid", "dots", "notebook", "plain", "dark"]);
 const inkTypes = new Set(["pen", "brush", "marker", "eraser"]);
 const geometryTypes = new Set([
@@ -11,6 +14,19 @@ const isRecord = value => value !== null && typeof value === "object" && !Array.
 const isId = value => typeof value === "string" && value.trim().length > 0 && value.length <= 256;
 const isPoint = point => isRecord(point) && Number.isFinite(point.x) && Number.isFinite(point.y);
 
+function isImageSource(src) {
+  if (typeof src !== "string" || src.length > maximumImageSourceLength) return false;
+  const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(src);
+  if (!match || match[0].length !== src.length || match[2].length % 4 !== 0) return false;
+  const [, format, base64] = match;
+  const bytes = Buffer.from(base64, "base64");
+  if (bytes.toString("base64") !== base64) return false;
+
+  if (format === "png") return bytes.subarray(0, pngSignature.length).equals(pngSignature);
+  if (format === "jpeg") return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  return bytes.toString("latin1", 0, 4) === "RIFF" && bytes.toString("latin1", 8, 12) === "WEBP";
+}
+
 function isDrawing(object) {
   if (!isRecord(object)) return false;
   if (inkTypes.has(object.type)) {
@@ -18,6 +34,10 @@ function isDrawing(object) {
   }
   if (!isPoint(object)) return false;
   if (object.type === "text") return typeof object.text === "string";
+  if (object.type === "image") {
+    return [object.w, object.h].every(size => Number.isFinite(size) && size > 0 && size <= maximumImageDimension)
+      && isImageSource(object.src);
+  }
   if (!geometryTypes.has(object.type) || ![object.w, object.h].every(Number.isFinite)) return false;
   if (object.type !== "arc") return true;
   return object.w > 0 && object.h > 0 && Number.isFinite(object.angle)

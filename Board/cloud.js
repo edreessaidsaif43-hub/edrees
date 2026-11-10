@@ -19,6 +19,8 @@ window.BoardCloud = (() => {
   }
 
   return class BoardCloud {
+    static get maxBodyBytes() { return maxBytes; }
+
     constructor({ teacherId, revision, readWorkspace, onStatus = () => {}, onAccessLost = () => {} }) {
       if (!validRevision(revision)) throw new TypeError('Invalid workspace revision');
       this.teacherId = teacherId;

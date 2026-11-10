@@ -12,8 +12,12 @@
   const backgrounds = new Set(['grid', 'dots', 'notebook', 'plain', 'dark']);
   const inkTypes = new Set(['pen', 'brush', 'marker', 'eraser']);
   const measuringTools = new Set(['ruler', 'protractor', 'set-square']);
-  const objectTypes = new Set(['text', 'line', 'rectangle', 'ellipse', 'arc', 'triangle', ...measuringTools, 'axes', 'plot', 'fraction', 'demo-label', 'demo-box', 'demo-point']);
+  const objectTypes = new Set(['text', 'image', 'line', 'rectangle', 'ellipse', 'arc', 'triangle', ...measuringTools, 'axes', 'plot', 'fraction', 'demo-label', 'demo-box', 'demo-point']);
   const placementTools = new Set(['line', 'rectangle', 'ellipse', 'triangle', ...measuringTools, 'compass', 'compass-arc']);
+  const maxImageFileBytes = 20 * 1024 * 1024;
+  const maxImageSourceLength = 650 * 1024;
+  const maxImageDimension = 4096;
+  const drawingHeadroomBytes = 64 * 1024;
   const tools = {
     select: 'تحديد وتحريك', pen: 'قلم', brush: 'فرشاة', marker: 'قلم تمييز',
     eraser: 'ممحاة', text: 'نص', line: 'خط مستقيم', rectangle: 'مستطيل',
@@ -51,6 +55,8 @@
   const desktop = window.matchMedia('(min-width: 1100px)');
   const dialog = byId('app-dialog');
   const canvas = byId('drawing-canvas');
+  const imagePicker = byId('board-image-input');
+  const imageButton = document.querySelector('[data-action="add-image"]');
   const deleteSelectionButton = byId('delete-selection');
   const app = byId('board-app');
   const accessPanel = byId('board-access');
@@ -66,6 +72,7 @@
   let legacyTransfer;
   let accessRequest;
   let signingOut = false;
+  let imageTarget;
 
   const activeBoard = () => state?.boards.find(({ id }) => id === state.activeBoardId);
 
@@ -109,6 +116,7 @@
     'rename-board': renameBoard,
     'delete-board': deleteBoard,
     'switch-teacher': showLibraryMenu,
+    'add-image': chooseImage,
     export: exportImage,
     undo: () => engine.undo(),
     redo: () => engine.redo(),
@@ -913,8 +921,117 @@
       } else {
         if (!objectTypes.has(object.type) || !Number.isFinite(object.x) || !Number.isFinite(object.y)) throw Error();
         if (object.type === 'text' ? typeof object.text !== 'string' : ![object.w, object.h].every(Number.isFinite)) throw Error();
+        if (object.type === 'image' && !validBoardImage(object)) throw Error();
         if (object.type === 'arc' && (![object.angle, object.sweep].every(Number.isFinite) || object.w <= 0 || object.h <= 0 || Math.abs(object.sweep) > Math.PI * 2 + 1e-8)) throw Error();
       }
+    }
+  }
+
+  function rasterMime(header) {
+    if (header.startsWith('\x89PNG\r\n\x1a\n')) return 'image/png';
+    if (header.startsWith('\xff\xd8\xff')) return 'image/jpeg';
+    if (header.startsWith('RIFF') && header.slice(8, 12) === 'WEBP') return 'image/webp';
+    return null;
+  }
+
+  function validBoardImage({ w, h, src }) {
+    if (w <= 0 || h <= 0 || w > maxImageDimension || h > maxImageDimension
+      || typeof src !== 'string' || src.length > maxImageSourceLength) return false;
+    const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(src);
+    if (!match || match[0].length !== src.length) return false;
+    const [, mime, encoded] = match;
+    if (encoded.length < 16 || encoded.length % 4) return false;
+    const tail = encoded.slice(-4);
+    return btoa(atob(tail)) === tail && rasterMime(atob(encoded.slice(0, 16))) === mime;
+  }
+
+  function imageBudget() {
+    const workspaceBytes = new TextEncoder().encode(JSON.stringify(state)).byteLength;
+    // Leave room for the save request envelope and the next ink strokes.
+    const available = BoardCloud.maxBodyBytes - drawingHeadroomBytes - 512 - workspaceBytes;
+    return Math.min(maxImageSourceLength, available);
+  }
+
+  async function prepareImage(file, mime, budget) {
+    const url = URL.createObjectURL(file.slice(0, file.size, mime));
+    try {
+      const image = new Image();
+      image.src = url;
+      await image.decode();
+      if (!image.naturalWidth || !image.naturalHeight) throw Error();
+
+      const output = element('canvas');
+      const ctx = output.getContext('2d');
+      let scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+      const encode = (type, quality) => new Promise(resolve => output.toBlob(resolve, type, quality));
+      for (let attempt = 0; attempt < 7; attempt++) {
+        output.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        output.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(image, 0, 0, output.width, output.height);
+        let blob = await encode(mime, 0.86);
+        const fits = candidate => candidate && 4 * Math.ceil(candidate.size / 3) + 32 <= budget;
+        if (!fits(blob) && mime !== 'image/webp') blob = await encode('image/webp', 0.84);
+        if (fits(blob)) {
+          const src = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+          });
+          return { src, width: output.width, height: output.height };
+        }
+        scale *= 0.72;
+      }
+      return null;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  function chooseImage() {
+    if (signingOut || imageButton.disabled) return;
+    imageTarget = activeBoard();
+    if (imageTarget) imagePicker.click();
+  }
+
+  async function insertImage() {
+    const file = imagePicker.files[0];
+    const board = imageTarget;
+    imageTarget = undefined;
+    imagePicker.value = '';
+    if (!file || !board || activeBoard() !== board || signingOut || imageButton.disabled) return;
+    if (file.size > maxImageFileBytes) return showToast('حجم الصورة يتجاوز ٢٠ ميغابايت.', true);
+
+    imageButton.disabled = true;
+    try {
+      const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+      const mime = rasterMime(String.fromCharCode(...header));
+      if (!mime) return showToast('اختر صورة بصيغة PNG أو JPEG أو WebP.', true);
+      if (activeBoard() !== board || signingOut) return;
+      const budget = imageBudget();
+      const full = () => showToast('مساحة الحفظ المتبقية لا تكفي للصورة. احذف محتوى غير مطلوب ثم حاول مجددًا.', true);
+      if (budget < 4096) return full();
+      const prepared = await prepareImage(file, mime, budget);
+      if (activeBoard() !== board || signingOut) return;
+      if (!prepared || prepared.src.length > imageBudget()) return full();
+
+      setTool('select');
+      revealCanvas();
+      const view = engine.viewport();
+      const maxWidth = Math.min(620, view.width / view.scale * 0.68);
+      const maxHeight = Math.min(440, view.height / view.scale * 0.68);
+      const scale = Math.min(maxWidth / prepared.width, maxHeight / prepared.height);
+      const w = prepared.width * scale;
+      const h = prepared.height * scale;
+      const x = (view.width / 2 - view.x) / view.scale - w / 2;
+      const y = (view.height / 2 - view.y) / view.scale - h / 2;
+      engine.add({ type: 'image', src: prepared.src, x, y, w, h }, { select: true });
+      showToast('تم إدراج الصورة. اسحب مقبض الزاوية لتغيير حجمها.');
+    } catch {
+      if (activeBoard() === board && !signingOut) showToast('تعذّر قراءة الصورة. جرّب ملفًا آخر.', true);
+    } finally {
+      imageButton.disabled = false;
     }
   }
 
@@ -1080,6 +1197,7 @@
 
   byId('custom-color').addEventListener('input', (event) => setColor(event.target.value));
   byId('stroke-width').addEventListener('input', (event) => setWidth(Number(event.target.value)));
+  imagePicker.addEventListener('change', insertImage);
   byId('background-select').addEventListener('change', (event) => {
     const background = event.target.value;
     const board = activeBoard();

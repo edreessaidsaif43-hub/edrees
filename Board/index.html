@@ -7,12 +7,13 @@
   <meta name="description" content="سبورة التحضير الذكي للشرح والكتابة والرسم، مع أدوات الرياضيات ومكتبة لوحات لكل معلم.">
   <title>لوح | التحضير الذكي</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='13' fill='%23683ce3'/%3E%3Cpath d='M12 28L26 14l8 8-14 14h-8v-8zM22 18l8 8m1-10l3-3' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="../assets/site-navbar.css?v=1">
+  
   <link rel="stylesheet" href="styles.css">
   <script src="math.js" defer></script>
   <script src="canvas.js" defer></script>
   <script src="cloud.js" defer></script>
   <script src="app.js" defer></script>
+<link rel="stylesheet" href="../assets/site-navbar.css?v=2">
 </head>
 <body>
   <nav id="nav" aria-label="التنقل الرئيسي">
@@ -81,6 +82,7 @@
       <symbol id="i-marker" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="m12 16 8-8a1.4 1.4 0 0 0 0-2l-2-2a1.4 1.4 0 0 0-2 0l-8 8 4 4zm-3.5-3.5-3 3v3h3l3-3M4 21h10M14 6l4 4"/></g></symbol>
       <symbol id="i-eraser" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12 8-8a2 2 0 0 1 2.8 0l4.7 4.7a2 2 0 0 1 0 2.8l-7.8 7.8H8L4.5 15a2 2 0 0 1 0-3zM8 8.5l7.5 7.5M12 19.3h8.5"/></g></symbol>
       <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 7V5h16v2M12 5v14m-4 0h8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-image" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="8.25" cy="9" r="1.25"/><path d="m3.5 16.5 4.2-4.2 3.3 3.3 4.8-5.1 4.7 4.7"/></g></symbol>
       <symbol id="i-line" viewBox="0 0 24 24"><path d="m4.5 19.5 15-15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
       <symbol id="i-rectangle" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="13" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
       <symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
@@ -233,10 +235,14 @@
                 <button class="icon-button" type="button" data-action="redo" title="إعادة" aria-label="إعادة"><svg class="icon" aria-hidden="true"><use href="#i-redo"/></svg></button>
                 <button class="icon-button" type="button" data-action="clear" title="مسح محتوى اللوحة" aria-label="مسح محتوى اللوحة"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg></button>
               </div>
+              <button class="button image-insert" type="button" data-action="add-image" title="إدراج صورة من جهازك">
+                <svg class="icon" aria-hidden="true"><use href="#i-image"/></svg>إدراج صورة
+              </button>
               <button class="button button-danger selection-delete" id="delete-selection" type="button" data-action="delete-selection" title="حذف العنصر المحدد" aria-label="حذف العنصر المحدد" disabled>
                 <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>حذف المحدد
               </button>
             </div>
+            <input id="board-image-input" type="file" accept="image/png,image/jpeg,image/webp" hidden>
 
             <div class="paper-wrap" id="canvas-wrap" data-background="grid">
               <canvas id="drawing-canvas" aria-label="مساحة الكتابة والرسم" tabindex="0">تحتاج إلى متصفح يدعم الرسم على اللوحة.</canvas>
@@ -326,5 +332,6 @@
 
   <dialog id="app-dialog"></dialog>
   <div class="toast" id="toast" role="status" hidden></div>
+<script src="../assets/site-navbar.js?v=2"></script>
 </body>
 </html>

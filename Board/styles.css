@@ -394,7 +394,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .toolbar-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 3px; min-width: 0; }
 .toolbar-group + .toolbar-group { padding-inline-start: 8px; border-inline-start: 1px solid var(--line); }
-.toolbar .selection-delete { min-height: 32px; padding: 4px 7px; font-size: 11px; }
+.toolbar :is(.image-insert, .selection-delete) { min-height: 32px; padding: 4px 7px; font-size: 11px; }
+.toolbar .image-insert { color: var(--accent-dark); }
 .toolbar .selection-delete:disabled { color: var(--muted); border-color: var(--line); }
 .toolbar .selection-delete:hover:not(:disabled) { color: #a92d53; border-color: #f1c8d6; background: #fff8fb; }
 .icon-button, .tool-button {
