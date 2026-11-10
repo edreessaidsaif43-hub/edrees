@@ -1,5 +1,5 @@
 const maximumBodyBytes = 3 * 1024 * 1024;
-const backgrounds = new Set(["grid", "dots", "plain", "dark"]);
+const backgrounds = new Set(["grid", "dots", "notebook", "plain", "dark"]);
 const inkTypes = new Set(["pen", "brush", "marker", "eraser"]);
 const geometryTypes = new Set([
   "line", "rectangle", "ellipse", "arc", "triangle", "ruler", "protractor", "set-square",

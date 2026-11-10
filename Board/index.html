@@ -102,6 +102,7 @@
       <symbol id="i-axes" viewBox="0 0 24 24"><path d="M4 19V4m0 15h16M2 6l2-2 2 2m12 11 2 2-2 2M7.5 15l3.5-4 3 2 4-5" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-plot" viewBox="0 0 24 24"><path d="M4 4v16h16M6.5 8c2.3 0 2.6 7.6 5.5 7.6S15.4 7 19 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-equation" viewBox="0 0 24 24"><path d="M8 6H4m2-2v4M4 17h4m6-10h6m-6 3h6m-6 6 6 5m0-5-6 5" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"/></symbol>
+      <symbol id="i-physics" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="12" rx="9" ry="3.5"/><ellipse cx="12" cy="12" rx="9" ry="3.5" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.5" transform="rotate(-60 12 12)"/></g><circle cx="12" cy="12" r="1.2" fill="currentColor"/></symbol>
       <symbol id="i-tip" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"><path d="M9 18h6m-5 3h4m1-5c0-2.8 3-3.5 3-7a6 6 0 0 0-12 0c0 3.5 3 4.2 3 7"/></g></symbol>
       <symbol id="i-keyboard" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01m4 0h.01m4 0h.01m4 0h.01M7 14h10"/></g></symbol>
       <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -148,7 +149,7 @@
         </div>
       </div>
 
-      <section class="sidebar-library" aria-labelledby="library-title">
+      <section class="sidebar-library" id="board-library" aria-labelledby="library-title">
         <div class="sidebar-heading">
           <h2 class="sidebar-section-title" id="library-title">مكتبة اللوحات</h2>
           <span class="board-count" id="board-count" aria-label="عدد اللوحات">٠</span>
@@ -166,26 +167,6 @@
     </aside>
 
     <main class="main">
-      <header class="topbar">
-        <div class="crumbs" aria-label="الموقع الحالي">
-          <button class="button mobile-menu" type="button" data-action="toggle-library" aria-label="مكتبة اللوحات" title="مكتبة اللوحات" aria-expanded="false">
-            <svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg>
-          </button>
-          <svg class="icon crumb-board" aria-hidden="true"><use href="#i-board"/></svg>
-          <a class="crumb-root crumb-link" href="/m.html">التحضير الذكي</a>
-          <svg class="icon crumb-chevron" aria-hidden="true"><use href="#i-arrow-left"/></svg>
-          <strong>السبورة</strong>
-        </div>
-        <div class="top-actions">
-          <button class="button" type="button" data-action="export">
-            <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>تصدير PNG
-          </button>
-          <button class="button button-primary" type="button" data-action="new-board">
-            <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>لوحة جديدة
-          </button>
-        </div>
-      </header>
-
       <div class="workspace">
         <div class="page-head">
           <div>
@@ -194,6 +175,9 @@
             <p>مساحة للشرح والكتابة والرسم الحر</p>
           </div>
           <div class="board-actions">
+            <button class="button mobile-menu" type="button" data-action="toggle-library" aria-label="مكتبة اللوحات" title="مكتبة اللوحات" aria-controls="board-library" aria-expanded="false">
+              <svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg>
+            </button>
             <button class="button math-toggle" type="button" data-action="toggle-math" aria-controls="math-panel" aria-expanded="false" aria-label="أدوات الرياضيات" title="أدوات الرياضيات">
               <svg class="icon" aria-hidden="true"><use href="#i-sigma"/></svg><span>أدوات الرياضيات</span>
             </button>
@@ -202,6 +186,12 @@
             </button>
             <button class="button subtle-action" type="button" data-action="delete-board" title="حذف اللوحة" aria-label="حذف اللوحة">
               <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
+            </button>
+            <button class="button" type="button" data-action="export" title="تصدير PNG" aria-label="تصدير PNG">
+              <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span>تصدير PNG</span>
+            </button>
+            <button class="button button-primary" type="button" data-action="new-board" title="لوحة جديدة" aria-label="لوحة جديدة">
+              <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span>لوحة جديدة</span>
             </button>
           </div>
         </div>
@@ -243,6 +233,9 @@
                 <button class="icon-button" type="button" data-action="redo" title="إعادة" aria-label="إعادة"><svg class="icon" aria-hidden="true"><use href="#i-redo"/></svg></button>
                 <button class="icon-button" type="button" data-action="clear" title="مسح محتوى اللوحة" aria-label="مسح محتوى اللوحة"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg></button>
               </div>
+              <button class="button button-danger selection-delete" id="delete-selection" type="button" data-action="delete-selection" title="حذف العنصر المحدد" aria-label="حذف العنصر المحدد" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>حذف المحدد
+              </button>
             </div>
 
             <div class="paper-wrap" id="canvas-wrap" data-background="grid">
@@ -255,6 +248,7 @@
                 <select class="paper-select" id="background-select" aria-label="خلفية اللوحة" title="خلفية اللوحة">
                   <option value="grid" selected>شبكة مربعات</option>
                   <option value="dots">شبكة نقاط</option>
+                  <option value="notebook">دفتر مدرسي مسطّر</option>
                   <option value="plain">خلفية بيضاء</option>
                   <option value="dark">خلفية داكنة</option>
                 </select>
@@ -309,11 +303,12 @@
               </div>
               <button class="math-wide" type="button" data-action="symbols"><span><svg class="icon" aria-hidden="true"><use href="#i-equation"/></svg>إدراج تعبير رياضي</span><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
               <button class="math-wide math-quiet" type="button" data-action="fraction"><span><svg class="icon" aria-hidden="true"><use href="#i-line"/></svg>إدراج كسر</span></button>
+              <button class="math-wide math-quiet" type="button" data-action="physics-symbols" aria-haspopup="dialog"><span><svg class="icon" aria-hidden="true"><use href="#i-physics"/></svg>رموز الفيزياء</span><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
             </section>
             <p class="math-tip">
               <svg class="icon" aria-hidden="true"><use href="#i-tip"/></svg>
               <span class="math-tip-copy">
-                <span id="guide-tip">اسحب لوضع أداة القياس. ابدأ الرسم بالقلم قرب الحافة المطلوبة، أو قرب قوس المنقلة أو قاعدتها. حرّك الأداة أو دوّرها بعد تحديدها.</span>
+                <span id="guide-tip">اسحب لوضع أداة القياس. ابدأ الرسم بالقلم قرب الحافة المطلوبة، أو قرب قوس المنقلة أو قاعدتها. بعد تحديد الأداة يمكنك تحريكها أو تدويرها أو الضغط على «حذف المحدد».</span>
                 <span id="compass-tip">لرسم دائرة بالفرجار، اسحب من المركز إلى المحيط ثم أفلت.</span>
                 <span id="compass-arc-tip">لرسم قوس، اسحب من المركز إلى نقطة بدايته، ثم اسحب على المحيط.</span>
               </span>

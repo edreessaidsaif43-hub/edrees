@@ -9,7 +9,7 @@
   const workspaceApi = '/api/subscriptions?action=board_workspace';
   const subscriptionPage = '/t#subscription-section-title';
   const signInPage = '/enjazy/auth.html?mode=login&reauth=board&return=%2FBoard%2Findex.html';
-  const backgrounds = new Set(['grid', 'dots', 'plain', 'dark']);
+  const backgrounds = new Set(['grid', 'dots', 'notebook', 'plain', 'dark']);
   const inkTypes = new Set(['pen', 'brush', 'marker', 'eraser']);
   const measuringTools = new Set(['ruler', 'protractor', 'set-square']);
   const objectTypes = new Set(['text', 'line', 'rectangle', 'ellipse', 'arc', 'triangle', ...measuringTools, 'axes', 'plot', 'fraction', 'demo-label', 'demo-box', 'demo-point']);
@@ -22,6 +22,28 @@
     compass: 'فرجار', 'compass-arc': 'قوس بالفرجار',
   };
   const symbols = ['π', '√', '∞', '±', '×', '÷', '≠', '≈', '≤', '≥', '∠', '°', '²', '³', '½', '¼', '∑', '∫', 'Δ', 'θ', 'α', 'β', '∈', '∅'];
+  const physicsSymbolGroups = [
+    { title: 'الحركة والقوى', entries: [
+      ['Δx', 'الإزاحة على المحور الأفقي'], ['Δt', 'الفترة الزمنية'], ['v', 'السرعة المتجهة'], ['a', 'التسارع'],
+      ['m', 'الكتلة'], ['F', 'القوة'], ['p', 'الزخم الخطي'], ['g', 'تسارع الجاذبية'],
+    ] },
+    { title: 'الطاقة والموجات', entries: [
+      ['E', 'الطاقة'], ['W', 'الشغل'], ['P', 'القدرة'], ['f', 'التردد'],
+      ['T', 'الزمن الدوري'], ['λ', 'الطول الموجي'], ['A', 'سعة الاهتزاز'], ['c', 'سرعة الضوء في الفراغ'],
+    ] },
+    { title: 'الكهرباء والمغناطيسية', entries: [
+      ['V', 'فرق الجهد الكهربائي'], ['I', 'شدة التيار الكهربائي'], ['R', 'المقاومة الكهربائية'], ['Ω', 'الأوم، وحدة المقاومة'],
+      ['q', 'الشحنة الكهربائية'], ['C', 'السعة الكهربائية'], ['B', 'كثافة الفيض المغناطيسي'], ['Φ', 'الفيض المغناطيسي'],
+    ] },
+    { title: 'المادة والحرارة', entries: [
+      ['ρ', 'الكثافة'], ['V', 'الحجم'], ['p', 'الضغط'], ['Pa', 'الباسكال، وحدة الضغط'],
+      ['T', 'درجة الحرارة المطلقة'], ['ΔT', 'التغيّر في درجة الحرارة'], ['Q', 'كمية الحرارة'], ['K', 'الكلفن، وحدة درجة الحرارة'],
+    ] },
+    { title: 'علاقات شائعة', formulas: true, entries: [
+      ['v = Δx/Δt', 'متوسط السرعة المتجهة'], ['F = m·a', 'قانون نيوتن الثاني'], ['Eₖ = ½mv²', 'طاقة الحركة'],
+      ['v = f·λ', 'سرعة الموجة'], ['V = I·R', 'قانون أوم'], ['ρ = m/V', 'قانون الكثافة'],
+    ] },
+  ];
   const defaultColor = '#21192f';
   const lightInk = '#e9e1ff';
   const number = new Intl.NumberFormat('ar', { maximumFractionDigits: 0 });
@@ -29,6 +51,7 @@
   const desktop = window.matchMedia('(min-width: 1100px)');
   const dialog = byId('app-dialog');
   const canvas = byId('drawing-canvas');
+  const deleteSelectionButton = byId('delete-selection');
   const app = byId('board-app');
   const accessPanel = byId('board-access');
   let currentTool = 'pen';
@@ -59,6 +82,7 @@
       byId('zoom-value').textContent = `${Math.round(percent)}%`;
     },
     onSelection(object) {
+      deleteSelectionButton.disabled = !object;
       const supported = measuringTools.has(object?.type);
       byId('ruler-controls').hidden = !supported;
       const label = byId('guide-selection-name');
@@ -88,6 +112,7 @@
     export: exportImage,
     undo: () => engine.undo(),
     redo: () => engine.redo(),
+    'delete-selection': deleteSelectedObject,
     clear: clearBoard,
     'zoom-in': () => engine.setZoom(engine.getZoom() + 10),
     'zoom-out': () => engine.setZoom(engine.getZoom() - 10),
@@ -103,6 +128,7 @@
     'graph-template': () => addMath('axes'),
     plot: showPlot,
     symbols: showSymbols,
+    'physics-symbols': () => showSymbols('physics'),
     fraction: showFraction,
   };
 
@@ -493,6 +519,15 @@
     document.querySelectorAll('[data-action="redo"]').forEach((button) => { button.disabled = !engine.canRedo(); });
   }
 
+  function deleteSelectedObject() {
+    if (!state || signingOut) return false;
+    const restoreFocus = document.activeElement === deleteSelectionButton;
+    if (!engine.deleteSelection()) return false;
+    if (restoreFocus) canvas.focus({ preventScroll: true });
+    showToast('تم حذف العنصر المحدد');
+    return true;
+  }
+
   function updateToolLabel() {
     const label = byId('tool-label');
     const compassHint = currentTool === 'compass' ? 'اسحب من المركز لرسم دائرة'
@@ -644,9 +679,9 @@
     return value;
   }
 
-  function textDialog(title, description, value, accept, math = false) {
-    const { wrapper, input } = field('النص', value, { multiline: true, max: 600, dir: math ? 'ltr' : 'auto', placeholder: 'اكتب هنا…' });
-    const controls = math ? [wrapper, symbolPicker(input)] : [wrapper];
+  function textDialog(title, description, value, accept, symbolMode) {
+    const { wrapper, input } = field('النص', value, { multiline: true, max: 600, dir: symbolMode ? 'ltr' : 'auto', placeholder: 'اكتب هنا…' });
+    const controls = symbolMode ? [wrapper, symbolPicker(input, symbolMode)] : [wrapper];
     return showDialog({ title, description, controls, accept, validate: () => required(input) });
   }
 
@@ -919,13 +954,20 @@
     if (expression && activeBoard() === board) addMath('plot', expression);
   }
 
-  function symbolPicker(input) {
-    const row = element('div', 'symbol-picker');
-    for (const symbol of symbols) {
+  function symbolGrid(input, entries, formulas = false) {
+    const row = element('div', formulas ? 'symbol-picker symbol-picker-formulas' : 'symbol-picker');
+    for (const [symbol, label] of entries) {
       const button = element('button', 'symbol-button', symbol);
       button.type = 'button';
+      if (label) {
+        button.title = label;
+        button.setAttribute('aria-label', `${label} (${symbol})`);
+      }
       button.addEventListener('click', () => {
-        input.setRangeText(symbol, input.selectionStart, input.selectionEnd, 'end');
+        const { selectionStart, selectionEnd } = input;
+        if (input.value.length - (selectionEnd - selectionStart) + symbol.length <= input.maxLength) {
+          input.setRangeText(symbol, selectionStart, selectionEnd, 'end');
+        }
         input.focus();
       });
       row.append(button);
@@ -933,16 +975,32 @@
     return row;
   }
 
-  function addMathText(text) {
+  function symbolPicker(input, mode) {
+    if (mode !== 'physics') return symbolGrid(input, symbols.map(symbol => [symbol]));
+    const groups = element('div', 'symbol-groups');
+    for (const { title, entries, formulas } of physicsSymbolGroups) {
+      const group = element('div', 'symbol-group');
+      group.setAttribute('role', 'group');
+      group.setAttribute('aria-label', title);
+      group.append(element('h3', 'symbol-group-label', title), symbolGrid(input, entries, formulas));
+      groups.append(group);
+    }
+    return groups;
+  }
+
+  function addExpression(text) {
     engine.add({ type: 'text', text, x: 365, y: 274, color, width, fontSize: 34, direction: 'ltr', align: 'left' });
     setTool('select');
     revealCanvas();
   }
 
-  async function showSymbols() {
+  async function showSymbols(mode = 'math') {
     const board = activeBoard();
-    const text = await textDialog('رموز رياضية', 'اختر رمزًا أو اكتب معادلة لإضافتها إلى السبورة.', '', 'إضافة للوحة', true);
-    if (text && activeBoard() === board) addMathText(text);
+    const [title, description] = mode === 'physics'
+      ? ['رموز فيزيائية', 'اختر رمزًا أو علاقة فيزيائية، ويمكنك تعديل النص قبل إضافته إلى السبورة.']
+      : ['رموز رياضية', 'اختر رمزًا أو اكتب معادلة لإضافتها إلى السبورة.'];
+    const text = await textDialog(title, description, '', 'إضافة للوحة', mode);
+    if (text && activeBoard() === board) addExpression(text);
   }
 
   async function showFraction() {
@@ -1013,7 +1071,7 @@
       return;
     }
     if (event.key === 'Delete' && currentTool === 'select') {
-      engine.deleteSelection?.();
+      if (deleteSelectedObject()) event.preventDefault();
       return;
     }
     const shortcuts = { KeyP: 'pen', KeyB: 'brush', KeyM: 'marker', KeyE: 'eraser', KeyV: 'select', KeyT: 'text', KeyH: 'pan' };

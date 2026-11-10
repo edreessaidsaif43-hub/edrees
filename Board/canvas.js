@@ -23,6 +23,7 @@ window.BoardCanvas = (() => {
     plain: { fill: '#ffffff' },
     grid: { fill: '#ffffff', line: '#eeedf4', major: '#e9e6f2' },
     dots: { fill: '#ffffff', line: '#dcd6e8' },
+    notebook: { fill: '#fffdfa', line: '#d2e0ef', margin: '#e5a5b2' },
     dark: { fill: '#211c2e', line: '#302a40', major: '#3b334e' },
   };
 
@@ -356,11 +357,44 @@ window.BoardCanvas = (() => {
     ctx.restore();
   }
 
+  function paintNotebook(ctx, width, height, view, palette) {
+    const limit = 240;
+    const naturalStep = 30 * view.scale;
+    const density = Math.max(1, height / (naturalStep * limit));
+    const step = naturalStep * 2 ** Math.ceil(Math.log2(density));
+    const firstRule = ((view.y % step) + step) % step;
+
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = palette.line;
+    ctx.beginPath();
+    for (let index = 0; index <= limit; index++) {
+      const position = firstRule + index * step;
+      if (position >= height) break;
+      const y = Math.round(position) + 0.5;
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+    }
+    ctx.stroke();
+
+    // Notebook margins stay with the paper as the viewport zooms and pans.
+    const margin = Math.round(view.x + (BOARD_WIDTH - 84) * view.scale) + 0.5;
+    if (margin < 0 || margin >= width) return;
+    ctx.strokeStyle = palette.margin;
+    ctx.beginPath();
+    ctx.moveTo(margin, 0);
+    ctx.lineTo(margin, height);
+    ctx.stroke();
+  }
+
   function paintBackground(ctx, width, height, view, background) {
     const palette = BACKGROUNDS[background];
     ctx.fillStyle = palette.fill;
     ctx.fillRect(0, 0, width, height);
     if (!palette.line) return;
+    if (background === 'notebook') {
+      paintNotebook(ctx, width, height, view, palette);
+      return;
+    }
 
     const regularStep = 24 * view.scale;
     const density = Math.max(1, Math.max(width, height) / (regularStep * 240));
