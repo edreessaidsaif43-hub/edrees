@@ -1044,7 +1044,8 @@
       savedAt:Date.now()
     }));
   }
-  function logout(){
+  async function logout(){
+    if (window.endPortalSession) return window.endPortalSession();
     if (/^https?:$/.test(window.location.protocol)) {
       fetch('/api/auth/login', {method:'DELETE',credentials:'same-origin',keepalive:true}).catch(() => {});
     }
@@ -1167,7 +1168,7 @@
 
 
 
-<script src="assets/site-navbar.js?v=2"></script>
+<script src="assets/site-navbar.js?v=4"></script>
 </body>
 </html>
 

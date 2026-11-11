@@ -32,7 +32,14 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (action !== "update_profile") setTeacherSession(req, res, out.data.userId);
+  if (action !== "update_profile") {
+    try {
+      await setTeacherSession(req, res, out.data.userId, String(payload.password || ""));
+    } catch {
+      res.status(503).json({ error: "session_unavailable", message: "تم إنشاء الحساب. سجّل الدخول لاستئناف العمل." });
+      return;
+    }
+  }
   res.status(action === "update_profile" ? 200 : 201).json({
     userId: out.data.userId,
     profile: out.data.profile || {},

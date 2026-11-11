@@ -139,7 +139,7 @@ async function ensureSchema() {
           id BIGSERIAL PRIMARY KEY,
           lesson_id BIGINT NOT NULL REFERENCES ai_lessons(id) ON DELETE CASCADE,
           source_hash TEXT NOT NULL DEFAULT '',
-          slot SMALLINT NOT NULL CHECK (slot BETWEEN 1 AND 5),
+          slot SMALLINT NOT NULL CHECK (slot BETWEEN 1 AND 2),
           result JSONB NOT NULL DEFAULT '{}'::jsonb,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
@@ -1673,7 +1673,7 @@ async function extractFullAttachmentTextWithGemini(attachment, target = {}) {
   return normalizeExtractedText(parts.join("\n\n"));
 }
 
-const PREPARATION_LIBRARY_LIMIT = 5;
+const PREPARATION_LIBRARY_LIMIT = 2;
 
 async function getLessonSourceHash(lessonId) {
   const rows = await sql`

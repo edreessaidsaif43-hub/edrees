@@ -4034,10 +4034,8 @@
       }
     }
 
-    function logoutCurrentUser() {
-      if (/^https?:$/.test(window.location.protocol)) {
-        fetch('/api/auth/login', { method: 'DELETE', credentials: 'same-origin', keepalive: true }).catch(() => {});
-      }
+    async function logoutCurrentUser() {
+      if (!(await window.endPortalSession())) return;
       setCurrentUser(null);
       showToast('✅ تم تسجيل الخروج', 'success');
     }
@@ -4638,14 +4636,16 @@
         document.documentElement.classList.add('ios-safari-fast');
         document.body.classList.add('ios-safari-fast');
       }
-      const persistedUser = loadPersistedCurrentUser();
-      if (persistedUser) {
+      const session = await window.portalSessionReady;
+      const cachedUser = loadPersistedCurrentUser();
+      const persistedUser = session?.userId && String(cachedUser?.user_id) !== session.userId ? null : cachedUser;
+      if (persistedUser && session?.authenticated !== false) {
         setCurrentUser(persistedUser);
       } else {
         applyLanguagePreference('ar');
         applyBackgroundPreference('classic');
       }
-      await tryRestoreFromSharedBackendSession();
+      if (session?.authenticated !== false) await tryRestoreFromSharedBackendSession();
       updateSubmitAccessUI();
       updateHomeAuthState();
 
@@ -4689,14 +4689,14 @@
       startNotificationPolling();
     }
 
-    initApp();
+    document.addEventListener('DOMContentLoaded', initApp, { once: true });
   </script>
 
 
 
 
 <script src="/assets/noor-extension-status.js?v=8"></script>
-<script src="assets/site-navbar.js?v=2"></script>
+<script src="assets/site-navbar.js?v=4"></script>
 </body>
 </html>
 

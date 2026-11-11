@@ -586,6 +586,12 @@
           return;
         }
         if (result?.authenticated !== true) return;
+        if (result.userId && result.profile) {
+          let session;
+          try { session = persistSession(result); } catch {}
+          redirectAfterAuth(session || { userId: result.userId });
+          return;
+        }
         const profile = readBackendSessionProfile();
         const userId = typeof result.userId === "string" ? result.userId : "";
         redirectAfterAuth(profile.userId === userId && userId
@@ -794,6 +800,7 @@
         else if (reason.includes("not_found")) showMessage("الحساب غير موجود. أنشئ حسابًا جديدًا.", false);
         else if (reason.includes("db_not_configured")) showMessage("قاعدة البيانات غير مهيأة على الخادم.", false);
         else if (reason.includes("endpoint_not_found")) showMessage("مسار API غير موجود في النشر الحالي.", false);
+        else if (reason.startsWith("session_unavailable::")) showMessage("تعذّر حفظ جلسة الدخول. حاول مجددًا.", false);
         else showMessage("تعذر تسجيل الدخول الآن.", false);
       }
     });
@@ -810,6 +817,10 @@
         else if (reason.includes("invalid_payload")) showMessage("البيانات المدخلة غير مكتملة أو غير صحيحة.", false);
         else if (reason.includes("db_not_configured")) showMessage("قاعدة البيانات غير مهيأة على الخادم.", false);
         else if (reason.includes("endpoint_not_found")) showMessage("مسار API غير موجود في النشر الحالي.", false);
+        else if (reason.startsWith("session_unavailable::")) {
+          setMode("login");
+          showMessage("تم إنشاء الحساب. سجّل الدخول لاستئناف العمل.", true);
+        }
         else showMessage("تعذر تنفيذ الطلب الآن.", false);
       }
     });
@@ -879,7 +890,7 @@
       else if (!isBoardReauth) autoRedirectIfLoggedIn();
     }
   </script>
-<script src="../assets/site-navbar.js?v=3"></script>
+<script src="../assets/site-navbar.js?v=4"></script>
 </body>
 </html>
 

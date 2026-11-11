@@ -866,6 +866,15 @@
 
 <!-- ===== NAVBAR COPIED FROM INDEX END ===== -->
 
+  <div id="portfolioSessionRetry" class="login-overlay" hidden>
+    <section class="login-box" aria-labelledby="portfolioSessionTitle">
+      <div class="login-head">
+        <h2 id="portfolioSessionTitle">تعذّر فتح ملف الإنجاز</h2>
+        <p>تحقّق من الاتصال ثم أعد المحاولة.</p>
+        <button class="btn btn-primary" id="portfolioSessionRetryButton" type="button">إعادة المحاولة</button>
+      </div>
+    </section>
+  </div>
   <div id="loginOverlay" class="login-overlay" hidden>
     <div class="login-box">
       <div class="login-head">
@@ -2376,29 +2385,42 @@
     async function init() {
       if (await maybeLoadSharedPortfolio()) return;
 
+      const retry = document.getElementById("portfolioSessionRetry");
+      retry.hidden = true;
+      const session = await window.portalSessionReady;
+      const onlinePage = /^https?:$/.test(window.location.protocol);
+      if (onlinePage && !session) {
+        retry.hidden = false;
+        return;
+      }
+      if (session?.authenticated === false) {
+        redirectToStandaloneAuth("login");
+        return;
+      }
       try {
-        const raw = localStorage.getItem(SESSION_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw || "{}");
-          const savedUserId = String(parsed?.userId || "");
-          if (savedUserId) {
-            const out = await apiJson(`/api/portfolio/load?userId=${encodeURIComponent(savedUserId)}`, {
-              method: "GET"
-            });
-            appState.userId = out.userId || savedUserId;
-            appState.profile = out.profile || null;
-            appState.entries = Array.isArray(out.entries) ? out.entries : [];
-            if (appState.profile) {
-              if (maybeRedirectAfterAuth()) return;
-              openDashboard();
-              return;
-            }
+        const savedUserId = String(session?.userId || JSON.parse(localStorage.getItem(SESSION_KEY) || "{}").userId || "");
+        if (savedUserId) {
+          const out = await apiJson(`/api/portfolio/load?userId=${encodeURIComponent(savedUserId)}`, {
+            method: "GET"
+          });
+          appState.userId = out.userId || savedUserId;
+          appState.profile = out.profile || null;
+          appState.entries = Array.isArray(out.entries) ? out.entries : [];
+          if (appState.profile) {
+            if (maybeRedirectAfterAuth()) return;
+            openDashboard();
+            return;
           }
         }
       } catch (e) {
-        clearSession();
+        retry.hidden = false;
+        return;
       }
 
+      if (session?.authenticated === true) {
+        retry.hidden = false;
+        return;
+      }
       if (await tryBridgeLoginFromMPlatform()) return;
 
       appState.isSharedView = false;
@@ -2774,9 +2796,7 @@
     el.logoutBtn.addEventListener("click", async () => {
       const ok = confirm("هل تريد تسجيل الخروج من هذا الجهاز؟");
       if (!ok) return;
-      if (/^https?:$/.test(window.location.protocol)) {
-        fetch('/api/auth/login', { method: 'DELETE', credentials: 'same-origin', keepalive: true }).catch(() => {});
-      }
+      if (!(await window.endPortalSession())) return;
       clearSession();
       appState.userId = "";
       appState.profile = null;
@@ -2951,10 +2971,11 @@
       }
     });
 
-    init();
+    document.getElementById("portfolioSessionRetryButton").addEventListener("click", () => location.reload());
+    document.addEventListener("DOMContentLoaded", init, { once: true });
   </script>
 
-<script src="../assets/site-navbar.js?v=2"></script>
+<script src="../assets/site-navbar.js?v=4"></script>
 </body>
 </html>
 

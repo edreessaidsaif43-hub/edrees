@@ -723,12 +723,13 @@ async function boardAccess(req, res, workspace = false) {
     res.setHeader("Allow", workspace ? "GET, POST" : "GET");
     return send(res, 405, { error: "method_not_allowed" });
   }
-  const userId = readTeacherSession(req);
-  if (!userId) return send(res, 401, { error: "sign_in_required" });
   const unavailable = () => send(res, 503, { error: "subscription_check_unavailable" });
-  if (!sql) return unavailable();
 
   try {
+    const session = await readTeacherSession(req, res);
+    if (!session) return send(res, 401, { error: "sign_in_required" });
+    const userId = session.userId;
+    if (!sql) return unavailable();
     await ensureAccountStopSchema();
     const rows = await sql`
       SELECT u.id, COALESCE(NULLIF(BTRIM(u.profile->>'name'), ''),
