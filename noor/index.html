@@ -111,7 +111,7 @@
 
     <div class="role-picker" id="noor-role-picker" role="group" aria-label="اختر دورك في خدمات نور">
       <button type="button" data-role="teacher" aria-pressed="true" aria-controls="noor-service-attendance">معلم</button>
-      <button type="button" data-role="senior-teacher" aria-pressed="false" aria-controls="noor-service-attendance">معلم أول</button>
+      <button type="button" data-role="senior-teacher" aria-pressed="false" aria-controls="noor-service-attendance noor-service-senior">معلم أول</button>
     </div>
 
     <!-- تملؤه الإضافة: مثبتة أم لا، ورقم الإصدار -->
@@ -150,12 +150,23 @@
       const button = document.getElementById('noor-att-go');
       const attendance = document.getElementById('noor-service-attendance');
       const roleButtons = document.querySelectorAll('#noor-role-picker button');
+      const roleKey = 'noorServicesRole';
+
+      function selectRole(role) {
+        attendance.dataset.noorRole = role;
+        for (const option of roleButtons) {
+          option.setAttribute('aria-pressed', String(option.dataset.role === role));
+        }
+      }
+
+      try {
+        if (localStorage.getItem(roleKey) === 'senior-teacher') selectRole('senior-teacher');
+      } catch (error) {}
       for (const roleButton of roleButtons) {
         roleButton.addEventListener('click', function () {
-          attendance.dataset.noorRole = roleButton.dataset.role;
-          for (const option of roleButtons) {
-            option.setAttribute('aria-pressed', String(option === roleButton));
-          }
+          const role = roleButton.dataset.role;
+          selectRole(role);
+          try { localStorage.setItem(roleKey, role); } catch (error) {}
         });
       }
 
@@ -285,5 +296,6 @@
 
 <script src="/assets/noor-extension-status.js?v=8"></script>
 <script src="../assets/site-navbar.js?v=2"></script>
+<script src="/assets/noor-senior.js?v=1" defer></script>
 </body>
 </html>
