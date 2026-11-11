@@ -27,6 +27,12 @@
     .hero h1 { margin: 0; font-size: clamp(28px, 6vw, 40px); font-weight: 800; text-wrap: balance; }
     .hero p { margin: 0; font-size: 17px; color: var(--muted); }
 
+    .role-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 5px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+    .role-picker button { min-height: 44px; padding: 8px 12px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--ink); font-size: 16px; font-weight: 800; cursor: pointer; }
+    .role-picker button:hover { border-color: var(--brand); }
+    .role-picker button[aria-pressed="true"] { background: var(--brand); color: #fff; }
+    .role-picker button:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
+
     .status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 14px; border: 1px solid #fcd34d; background: var(--warn-bg); color: var(--warn); font-weight: 700; }
     .status[data-state="ready"] { border-color: #a7f3d0; background: var(--ok-bg); color: var(--ok); }
     .status a { color: inherit; }
@@ -103,6 +109,11 @@
       <p>خدمات تعمل داخل منصة نور مباشرة عن طريق إضافة التحضير الذكي.</p>
     </header>
 
+    <div class="role-picker" id="noor-role-picker" role="group" aria-label="اختر دورك في خدمات نور">
+      <button type="button" data-role="teacher" aria-pressed="true" aria-controls="noor-service-attendance">معلم</button>
+      <button type="button" data-role="senior-teacher" aria-pressed="false" aria-controls="noor-service-attendance">معلم أول</button>
+    </div>
+
     <!-- تملؤه الإضافة: مثبتة أم لا، ورقم الإصدار -->
     <div class="status" id="noor-ext-status" data-state="checking" role="status">
       <span>جارٍ التحقق من إضافة التحضير الذكي…</span>
@@ -110,7 +121,7 @@
       <a href="#" id="noor-ext-install">تثبيت الإضافة</a>
     </div>
 
-    <section class="service" id="noor-service-attendance" aria-labelledby="att-title">
+    <section class="service" id="noor-service-attendance" data-noor-role="teacher" aria-labelledby="att-title">
       <div class="service-head">
         <div class="service-icon" aria-hidden="true">📋</div>
         <div>
@@ -137,6 +148,17 @@
   <script>
     (function () {
       const button = document.getElementById('noor-att-go');
+      const attendance = document.getElementById('noor-service-attendance');
+      const roleButtons = document.querySelectorAll('#noor-role-picker button');
+      for (const roleButton of roleButtons) {
+        roleButton.addEventListener('click', function () {
+          attendance.dataset.noorRole = roleButton.dataset.role;
+          for (const option of roleButtons) {
+            option.setAttribute('aria-pressed', String(option === roleButton));
+          }
+        });
+      }
+
       const sessionKeys = ['lesson_platform_backend_session_v1', 'enjazy_session_v1', 'lesson_platform_current_user_v1'];
       let allowed = false;
       let verifiedIdentity = '';
