@@ -2,6 +2,7 @@
 (function(){
   const SK='enjazy_session_v1';
   const MK='lesson_platform_backend_session_v1';
+  const logoutKey='altahdir_logout_v1';
   const scriptUrl=document.currentScript&&document.currentScript.src;
   const siteRoot=scriptUrl?new URL('../',scriptUrl):new URL('./',location.href);
   window.tNav=function(){
@@ -113,8 +114,27 @@
     try{const r=localStorage.getItem(SK);const p=r?JSON.parse(r):null;return p&&p.userId?p:null;}catch(e){return null;}
   }
   let sessionCheck;
+  let logoutRequest;
+
+  function restoreSession(verified, stored){
+    const {userId,profile}=verified;
+    if (!userId || !profile) return userId && stored?.userId===userId ? stored : {full_name:'المعلم'};
+    const full_name=String(profile.name || '').trim();
+    const email=String(profile.contact || '').trim();
+    const session={userId,full_name,email,savedAt:stored?.userId===userId ? (stored.savedAt || Date.now()) : Date.now()};
+    try{
+      if (stored?.userId && stored.userId!==userId) localStorage.removeItem('lesson_platform_current_user_v1');
+      const backend=JSON.stringify(session);
+      const front=JSON.stringify({userId,full_name,contact:email,savedAt:session.savedAt});
+      if (localStorage.getItem(MK)!==backend) localStorage.setItem(MK,backend);
+      if (localStorage.getItem(SK)!==front) localStorage.setItem(SK,front);
+    } catch(e) {}
+    return session;
+  }
+
   async function syncNavUser(){
     if (location.protocol === 'file:') return updateNavUser(readSession());
+    if (logoutRequest) return;
     const previous=readSession();
     sessionCheck?.abort();
     const controller=new AbortController();
@@ -123,13 +143,16 @@
     try{
       const response=await fetch('/api/auth/login',{credentials:'same-origin',cache:'no-store',signal:controller.signal});
       if (!response.ok && response.status!==401) return;
-      const verified=response.ok?await response.json():null;
+      const verified=await response.json();
       const stored=readSession();
       if (controller.signal.aborted || previous?.userId!==stored?.userId || previous?.savedAt!==stored?.savedAt) return;
-      if (verified?.authenticated===true) {
-        updateNavUser(verified.userId && stored?.userId===verified.userId ? stored : {full_name:'المعلم'});
-      } else if (response.status===401) {
+      if (response.ok && verified?.authenticated===true) {
+        updateNavUser(restoreSession(verified,stored));
+        return verified;
+      } else if (response.status===401 && verified?.authenticated===false) {
         updateNavUser(null);
+        document.getElementById('user-menu')?.remove();
+        return {authenticated:false};
       }
     } catch(e) {
       // Leave the current header alone if the server could not verify the session.
@@ -138,14 +161,31 @@
       if (sessionCheck===controller) sessionCheck=undefined;
     }
   }
-  window.logoutUnifiedNav=function(){
+  window.endPortalSession=function(){
+    if (logoutRequest) return logoutRequest;
     sessionCheck?.abort();
-    if (/^https?:$/.test(window.location.protocol)) {
-      fetch('/api/auth/login', {method:'DELETE',credentials:'same-origin',keepalive:true}).catch(() => {});
-    }
-    localStorage.removeItem(SK);localStorage.removeItem(MK);localStorage.removeItem('lesson_platform_current_user_v1');
-    updateNavUser(null);
-    document.getElementById('user-menu')?.remove();
+    logoutRequest=(async()=>{
+      if (/^https?:$/.test(window.location.protocol)) {
+        const response=await fetch('/api/auth/login',{method:'DELETE',credentials:'same-origin',keepalive:true});
+        if (!response.ok) throw Error();
+      }
+      try {
+        localStorage.removeItem(SK);
+        localStorage.removeItem(MK);
+        localStorage.removeItem('lesson_platform_current_user_v1');
+        localStorage.setItem(logoutKey,String(Date.now()));
+      } catch(e) {}
+      updateNavUser(null);
+      document.getElementById('user-menu')?.remove();
+      return true;
+    })().catch(()=>{
+      alert('تعذّر تسجيل الخروج. حاول مجددًا.');
+      return false;
+    }).finally(()=>{logoutRequest=undefined;});
+    return logoutRequest;
+  };
+  window.logoutUnifiedNav=async function(){
+    if (await window.endPortalSession()) location.reload();
   };
   window.showUnifiedUserMenu=function(el){
     const old=document.getElementById('user-menu');
@@ -193,15 +233,11 @@
   window.addEventListener('scroll',function(){const n=document.getElementById('nav');if(n)n.classList.toggle('sc',scrollY>10);});
   mountNavigation();markActive();
   if (!document.getElementById('board-nav-auth')) {
-    void syncNavUser();
+    window.portalSessionReady=syncNavUser();
     window.addEventListener('pageshow',event=>{if(event.persisted) void syncNavUser();});
+    window.addEventListener('online',()=>void syncNavUser());
     window.addEventListener('storage',event=>{
-      if (event.key!==SK && event.key!==MK && event.key!==null) return;
-      if (event.newValue===null) {
-        sessionCheck?.abort();
-        updateNavUser(null);
-        document.getElementById('user-menu')?.remove();
-      } else void syncNavUser();
+      if (event.key===SK || event.key===MK || event.key===logoutKey || event.key===null) void syncNavUser();
     });
   }
 })();
