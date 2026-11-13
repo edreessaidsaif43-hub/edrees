@@ -1,6 +1,47 @@
+function readGameRoster(currentKey, legacyKey) {
+  try {
+    const value = localStorage.getItem(currentKey);
+    if (value !== null) {
+      const data = JSON.parse(value);
+      return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+    }
+    const legacy = JSON.parse(localStorage.getItem(legacyKey) || '[]');
+    return Array.isArray(legacy) && legacy.length ? { 'القائمة السابقة': legacy } : {};
+  } catch {
+    return {};
+  }
+}
+
 window.GameRosters={
  key(user,grade,subject){return 'games-rosters:v3:'+user+':'+grade+':'+normalizeSubscriptionSubject(subject);},
- read(user,grade,subject){try{const value=localStorage.getItem(this.key(user,grade,subject));if(value){const parsed=JSON.parse(value);return parsed&&typeof parsed==='object'&&!Array.isArray(parsed)?parsed:{};}const old=JSON.parse(localStorage.getItem('games-roster:v2:'+user+':'+grade+':'+normalizeSubscriptionSubject(subject))||'[]');return Array.isArray(old)&&old.length?{'القائمة السابقة':old}:{};}catch{return {};}},
+ read(user, grade, subject) {
+   const context = `${user}:${grade}:${normalizeSubscriptionSubject(subject)}`;
+   return readGameRoster(`games-rosters:v3:${context}`, `games-roster:v2:${context}`);
+ },
+ list(user) {
+   if (typeof user !== 'string' || !user) return [];
+   const currentPrefix = `games-rosters:v3:${user}:`;
+   const legacyPrefix = `games-roster:v2:${user}:`;
+   const contexts = new Set();
+   try {
+     for (let index = 0; index < localStorage.length; index++) {
+       const key = localStorage.key(index);
+       const prefix = key?.startsWith(currentPrefix) ? currentPrefix : legacyPrefix;
+       if (!key?.startsWith(prefix)) continue;
+       const context = key.slice(prefix.length);
+       if (/^g\d{2}:[^:]+$/.test(context)) contexts.add(context);
+     }
+   } catch {
+     return [];
+   }
+   return [...contexts].sort().flatMap(context => {
+     const [gradeId, subject] = context.split(':');
+     const data = readGameRoster(currentPrefix + context, legacyPrefix + context);
+     return Object.entries(data)
+       .filter(([section, names]) => section.trim() && Array.isArray(names))
+       .map(([section, names]) => ({ gradeId, subject, section, names: names.filter(name => typeof name === 'string' && name.trim()) }));
+   });
+ },
  save(user,grade,subject,data){localStorage.setItem(this.key(user,grade,subject),JSON.stringify(data));},
  names(data,section){return Object.hasOwn(data,section)&&Array.isArray(data[section])?data[section]:[];},
  picker(grade,subject,inputIds=[],config={}){
