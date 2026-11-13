@@ -1730,16 +1730,14 @@
       renderAdminDetails();
     }
 
-    async function savePortfolioRemote() {
+    async function savePortfolioRemote({ profileOnly = false } = {}) {
       if (!appState.userId || !appState.profile) return;
+      const payload = { userId: appState.userId, profile: appState.profile };
+      if (!profileOnly) payload.entries = appState.entries;
       await apiJson("/api/portfolio/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: appState.userId,
-          profile: appState.profile,
-          entries: appState.entries
-        })
+        body: JSON.stringify(payload)
       });
     }
 
@@ -2774,7 +2772,7 @@
       appState.profile = nextProfile;
       updateHeader();
       try {
-        await savePortfolioRemote();
+        await savePortfolioRemote({ profileOnly: true });
         saveSession();
         alert("تم حفظ إعدادات الملف الشخصي والثيم بنجاح.");
       } catch (error) {

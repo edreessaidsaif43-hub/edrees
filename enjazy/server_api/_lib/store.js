@@ -435,6 +435,10 @@ export async function saveTeacherPortfolio(payload) {
   try {
     const userId = String(payload?.userId || "");
     if (!userId) return { error: "invalid_payload", message: "Missing userId." };
+    const hasEntries = Object.hasOwn(payload, "entries");
+    if (hasEntries && !Array.isArray(payload.entries)) {
+      return { error: "invalid_payload", message: "Entries must be an array." };
+    }
 
     const user = await getUserById(userId);
     if (!user) return { error: "not_found", message: "User not found." };
@@ -449,14 +453,14 @@ export async function saveTeacherPortfolio(payload) {
       shareTheme: String(incomingProfile.shareTheme || user?.profile?.shareTheme || "classic"),
     };
     const contactNorm = normalizeContact(profile.contact);
-    const entries = Array.isArray(payload?.entries) ? payload.entries : [];
+    const entries = hasEntries ? JSON.stringify(payload.entries) : null;
 
     await sql`
       UPDATE teacher_users
       SET
         contact_norm = ${contactNorm},
         profile = ${JSON.stringify(profile)}::jsonb,
-        entries = ${JSON.stringify(entries)}::jsonb,
+        entries = COALESCE(${entries}::jsonb, entries),
         updated_at = NOW()
       WHERE id = ${user.id};
     `;

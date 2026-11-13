@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { requireAdmin } from "../enjazy/server_api/_lib/admin-auth.js";
 import { readTeacherSession } from "../enjazy/server_api/_lib/teacher-session.js";
 import { createBoardWorkspaceHandler } from "./_lib/board-workspace.js";
+import { createCertificateStudioHandler } from "./_lib/certificate-studio.js";
 
 export const config = {
   api: {
@@ -31,6 +32,7 @@ function sqlClient() {
 
 const sql = sqlClient();
 const boardWorkspace = createBoardWorkspaceHandler(sql, readBodyBuffer);
+const certificateStudio = createCertificateStudioHandler(sql, readBodyBuffer);
 let schemaPromise = null;
 let accountStopSchemaPromise = null;
 let receiptHashSchemaPromise = null;
@@ -753,6 +755,52 @@ async function boardAccess(req, res, workspace = false) {
   }
 }
 
+// استوديو شهادات التقدير الذكي: ميزة مشمولة في الاشتراك الحالي دون رسوم إضافية.
+// يكفي اشتراك فعّال واحد في أي مادة (القاعدة نفسها المعتمدة للسبورة، وتشمل الاشتراكات
+// المفتوحة دون تاريخ انتهاء وما يمنحه مدير المنصة). كل طلب يُتحقق منه هنا على الخادم.
+const certificateActions = new Set(["certificates_access", "certificates_project", "certificates_export"]);
+
+async function certificatesAccess(req, res, action) {
+  res.setHeader("Cache-Control", "private, no-store");
+  const allowed = action === "certificates_project" ? ["GET", "POST", "DELETE"]
+    : action === "certificates_export" ? ["POST"] : ["GET"];
+  if (!allowed.includes(req.method)) {
+    res.setHeader("Allow", allowed.join(", "));
+    return send(res, 405, { error: "method_not_allowed" });
+  }
+  const unavailable = () => send(res, 503, { error: "subscription_check_unavailable" });
+  let teacher;
+  try {
+    const session = await readTeacherSession(req, res);
+    if (!session) return send(res, 401, { error: "sign_in_required" });
+    if (!sql) return unavailable();
+    await ensureAccountStopSchema();
+    const rows = await sql`
+      SELECT u.id, COALESCE(NULLIF(BTRIM(u.profile->>'name'), ''),
+        NULLIF(BTRIM(u.profile->>'full_name'), ''), NULLIF(BTRIM(u.profile->>'fullName'), ''), '') AS name,
+        s.status, s.account_stopped, s.grade, s.grades, s.subjects
+      FROM teacher_users u
+      LEFT JOIN teacher_subscriptions s ON s.user_id = u.id OR (
+        STRPOS(u.contact_norm, '@') > 0 AND LOWER(s.user_id) = LOWER(u.contact_norm)
+        AND NOT EXISTS (SELECT 1 FROM teacher_users owner WHERE owner.id = s.user_id AND owner.id <> u.id)
+      )
+      WHERE u.id = ${session.userId};
+    `;
+    if (!rows.length) return send(res, 401, { error: "sign_in_required" });
+    teacher = { id: rows[0].id, name: rows[0].name };
+    if (rows.some(row => row.account_stopped)) return send(res, 403, { error: "account_stopped" });
+    const now = Date.now();
+    if (!rows.some(row => boardSubscriptionActive(row, now))) {
+      // المشاريع لا تُحذف عند انتهاء الاشتراك؛ نُعلم المعلّم بعددها فقط دون فتحها.
+      const savedProjects = action === "certificates_access" ? await certificateStudio.savedProjectCount(teacher.id) : 0;
+      return send(res, 403, { error: "subscription_required", savedProjects });
+    }
+  } catch {
+    return unavailable();
+  }
+  return certificateStudio.handle(action, req, res, teacher);
+}
+
 async function requestSubscription(req, res) {
   if (!(await dbReady(res))) return;
   const body = await readBodyBuffer(req);
@@ -1260,6 +1308,7 @@ export default async function handler(req, res) {
     const action = String(req.query?.action || "status");
     if (action === "board_access") return await boardAccess(req, res);
     if (action === "board_workspace") return await boardAccess(req, res, true);
+    if (certificateActions.has(action)) return await certificatesAccess(req, res, action);
     if (req.method === "GET" && action === "status") return await getStatus(req, res);
     if (req.method === "POST" && action === "request") return await requestSubscription(req, res);
     if (req.method === "GET" && action === "admin_list") return await adminList(req, res);
