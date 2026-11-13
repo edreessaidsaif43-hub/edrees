@@ -156,6 +156,45 @@
           "value": "no-store, no-cache, must-revalidate, max-age=0"
         }
       ]
+    },
+    {
+      "source": "/certificates",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/html; charset=UTF-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/certificates/",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/html; charset=UTF-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/certificates/index.html",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/html; charset=UTF-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, max-age=0"
+        }
+      ]
     }
   ],
   "rewrites": [
@@ -222,6 +261,10 @@
     {
       "source": "/enjazy/:path*",
       "destination": "/enjazy/:path*"
+    },
+    {
+      "source": "/certificates",
+      "destination": "/certificates/index.html"
     },
     {
       "source": "/",
