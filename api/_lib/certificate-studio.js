@@ -122,7 +122,9 @@ const fieldLimits = {
 };
 
 const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-const cleanText = (value, max) => (typeof value === "string" && !invalidText.test(value) ? value.trim().slice(0, max) : "");
+const cleanText = (value, max) => typeof value === "string" && !invalidText.test(value)
+  ? value.trim().slice(0, max).replace(/[\uD800-\uDBFF]$/, "")
+  : "";
 
 function send(res, status, payload) {
   return res.status(status).json(payload);
@@ -230,15 +232,23 @@ export function createCertificateStudioHandler(sql, readBodyBuffer) {
       send(res, 415, { error: "invalid_content_type" });
       return undefined;
     }
+    const tooLarge = () => send(res, 413, { error: "project_too_large", maxBytes: maximumBodyBytes });
     if (Number(req.headers?.["content-length"]) > maximumBodyBytes) {
-      send(res, 413, { error: "project_too_large", maxBytes: maximumBodyBytes });
+      tooLarge();
       return undefined;
     }
     try {
-      const buffer = await readBodyBuffer(req, maximumBodyBytes);
-      return JSON.parse(buffer.toString("utf8"));
+      const body = req.body;
+      const raw = body === undefined ? await readBodyBuffer(req, maximumBodyBytes) : body;
+      const text = Buffer.isBuffer(raw) ? raw.toString("utf8")
+        : typeof raw === "string" ? raw : JSON.stringify(raw);
+      if (Buffer.byteLength(text, "utf8") > maximumBodyBytes) {
+        tooLarge();
+        return undefined;
+      }
+      return typeof raw === "string" || Buffer.isBuffer(raw) ? JSON.parse(text) : raw;
     } catch (error) {
-      if (error?.statusCode === 413) send(res, 413, { error: "project_too_large", maxBytes: maximumBodyBytes });
+      if (error?.statusCode === 413) tooLarge();
       else send(res, 400, { error: "invalid_project" });
       return undefined;
     }
@@ -267,6 +277,9 @@ export function createCertificateStudioHandler(sql, readBodyBuffer) {
       return send(res, 200, { id: row.id, project: row.project, updatedAt: row.updated_at });
     }
     if (req.method === "DELETE") {
+      if (req.query?.teacherId != null && req.query.teacherId !== teacher.id) {
+        return send(res, 409, { error: "account_changed" });
+      }
       const id = String(req.query?.id || "");
       if (!projectIdPattern.test(id)) return send(res, 400, { error: "invalid_project_id" });
       const [row] = await sql`
@@ -281,6 +294,9 @@ export function createCertificateStudioHandler(sql, readBodyBuffer) {
     const payload = await readJson(req, res);
     if (payload === undefined) return undefined;
     if (!isRecord(payload)) return send(res, 400, { error: "invalid_project" });
+    if (payload.teacherId != null && payload.teacherId !== teacher.id) {
+      return send(res, 409, { error: "account_changed" });
+    }
     const normalized = normalizeCertificateProject(payload.project);
     if (!normalized) return send(res, 400, { error: "invalid_project" });
     const serialized = JSON.stringify(normalized);
@@ -299,13 +315,26 @@ export function createCertificateStudioHandler(sql, readBodyBuffer) {
       if (!updated) return send(res, 404, { error: "project_not_found" });
       return send(res, 200, { id: updated.id, updatedAt: updated.updated_at });
     }
-    const id = randomUUID().replace(/-/g, "");
+    const createId = payload.createId ?? "";
+    if (createId !== "" && (typeof createId !== "string" || !projectIdPattern.test(createId))) {
+      return send(res, 400, { error: "invalid_project_id" });
+    }
+    const id = createId || randomUUID().replace(/-/g, "");
     const [created] = await sql`
       INSERT INTO teacher_certificate_projects (id, teacher_id, title, template_id, project, recipient_count)
       VALUES (${id}, ${teacher.id}, ${normalized.title}, ${normalized.templateId}, ${serialized}::jsonb, ${normalized.recipients.length})
+      ON CONFLICT (id) DO NOTHING
       RETURNING id, updated_at;
     `;
-    return send(res, 201, { id: created.id, updatedAt: created.updated_at });
+    if (created) return send(res, 201, { id: created.id, updatedAt: created.updated_at });
+
+    const [existing] = await sql`
+      SELECT id, updated_at, project = ${serialized}::jsonb AS same_project
+      FROM teacher_certificate_projects WHERE id = ${id} AND teacher_id = ${teacher.id};
+    `;
+    if (!existing) return send(res, 409, { error: "project_id_conflict" });
+    if (!existing.same_project) return send(res, 409, { error: "project_already_created", id: existing.id });
+    return send(res, 200, { id: existing.id, updatedAt: existing.updated_at });
   }
 
   // إذن التصدير يصدر من الخادم بعد التحقق من الاشتراك؛ الواجهة لا تُصدّر دونه.
@@ -316,6 +345,9 @@ export function createCertificateStudioHandler(sql, readBodyBuffer) {
     }
     const payload = await readJson(req, res);
     if (payload === undefined) return undefined;
+    if (payload?.teacherId != null && payload.teacherId !== teacher.id) {
+      return send(res, 409, { error: "account_changed" });
+    }
     const count = Number(payload?.count);
     if (!Number.isInteger(count) || count < 1 || count > maximumRecipients) return send(res, 400, { error: "invalid_export" });
     const projectId = typeof payload?.projectId === "string" && projectIdPattern.test(payload.projectId) ? payload.projectId : "";
