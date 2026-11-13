@@ -32,8 +32,10 @@ button,input,select,textarea{font:inherit}
 .btn.wide{width:100%}
 
 /* الاستوديو */
-.studio{display:grid;grid-template-columns:400px 1fr;gap:18px;padding:96px 18px 24px;max-width:1600px;margin:0 auto}
+.studio{display:grid;grid-template-columns:400px 1fr;align-items:start;gap:18px;padding:96px 18px 24px;max-width:1600px;margin:0 auto}
 .panel{background:var(--white);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:16px;max-height:calc(100vh - 120px);overflow:auto;position:sticky;top:96px}
+.browsing-templates .panel{position:static;max-height:none;overflow:visible}
+.browsing-templates .panel-controls{position:sticky;top:62px;z-index:2;background:var(--white);padding:8px 0;margin-top:-8px}
 .panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .panel-head strong{display:block;color:var(--navy);font-size:1.05rem}
 .panel-head small{color:var(--muted);font-size:.8rem}
@@ -46,8 +48,11 @@ button,input,select,textarea{font:inherit}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
 .chip{border:1px solid var(--line);background:var(--white);border-radius:999px;padding:4px 12px;font-size:.8rem;font-weight:800;color:var(--muted);cursor:pointer}
 .chip.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.template-gallery-meta{display:flex;justify-content:space-between;align-items:baseline;gap:8px;color:var(--muted);font-size:.82rem;font-weight:800}
+.template-gallery-meta a{color:var(--navy);text-underline-offset:3px}
 .template-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .tpl{border:2px solid transparent;border-radius:12px;padding:4px;background:var(--soft);cursor:pointer;text-align:center}
+.tpl,#template-options{scroll-margin-top:190px}
 .tpl canvas{width:100%;display:block;border-radius:8px;aspect-ratio:1000/707}
 .tpl span{display:block;font-size:.78rem;font-weight:800;padding:4px 0 2px;color:#33465f}
 .tpl.active{border-color:var(--gold);background:#fffaf0}
@@ -101,6 +106,10 @@ textarea{resize:vertical;line-height:1.8}
 .spinner{width:38px;height:38px;border-radius:50%;border:4px solid #e7edf5;border-top-color:var(--gold);margin:0 auto 12px;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+@media(min-width:1001px) and (min-height:600px){
+  .browsing-templates .stage{position:sticky;top:78px}
+  .browsing-templates #preview{width:auto;max-width:100%;max-height:calc(100dvh - 220px);margin-inline:auto}
+}
 @media(max-width:1000px){
   .studio{grid-template-columns:1fr;padding-top:86px}
   .panel{position:static;max-height:none;order:2}

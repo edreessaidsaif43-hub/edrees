@@ -27,6 +27,7 @@
   const backgrounds = new Map();
   const stages = [['all', 'كل المراحل'], ['1-4', 'الصفوف 1–4'], ['5-8', 'الصفوف 5–8'], ['9-12', 'الصفوف 9–12'], ['tahfeez', '⭐ تحفيز+']];
   let renderQueued = false;
+  let templatePreviewObserver;
   let busy = false;
   let gameRosters = new Map();
   let excelReaderPromise;
@@ -213,6 +214,7 @@
   }
 
   const thumbs = new Map();
+  const backgroundLoads = new Map();
   const brandLogos = new Map();
   const brandFiles = { tahfeez: '/certificates/brand/tahfeez-plus.png' };
   async function loadBrands() {
@@ -226,22 +228,28 @@
   });
   // الصور المصغّرة لمعرض القوالب من ملف واحد مجمّع؛ الصورة الكاملة تُحمَّل عند اختيار القالب أو التصدير
   async function loadThumbs() {
-    if (!catalog.templates.some((t) => Number.isInteger(t.thumb))) return;
+    const indexedTemplates = catalog.templates.filter((t) => Number.isInteger(t.thumb) && t.thumb >= 0);
+    if (!indexedTemplates.length) return;
+    const columns = 6, width = 420, height = 280;
+    const rows = Math.ceil((Math.max(...indexedTemplates.map((t) => t.thumb)) + 1) / columns);
     const sheet = await loadImage('/certificates/backgrounds/thumbs.jpg?v=2');
-    if (!sheet) return;
-    for (const t of catalog.templates) {
-      if (!Number.isInteger(t.thumb)) continue;
+    if (!sheet || sheet.naturalWidth !== columns * width || sheet.naturalHeight !== rows * height) return;
+    for (const t of indexedTemplates) {
       const canvas = document.createElement('canvas');
-      canvas.width = 420; canvas.height = 280;
-      canvas.getContext('2d').drawImage(sheet, (t.thumb % 6) * 420, Math.floor(t.thumb / 6) * 280, 420, 280, 0, 0, 420, 280);
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(sheet, (t.thumb % columns) * width, Math.floor(t.thumb / columns) * height, width, height, 0, 0, width, height);
       thumbs.set(t.id, canvas);
     }
   }
   async function ensureBackground(id) {
     const template = templateById(id);
     if (!template.image || backgrounds.has(template.id)) return;
-    const image = await loadImage(template.image);
-    if (image) backgrounds.set(template.id, image);
+    if (!backgroundLoads.has(template.id)) {
+      backgroundLoads.set(template.id, loadImage(template.image).then((image) => {
+        if (image) backgrounds.set(template.id, image);
+      }).finally(() => backgroundLoads.delete(template.id)));
+    }
+    await backgroundLoads.get(template.id);
   }
 
   // ---------- الرسم ----------
@@ -284,42 +292,87 @@
   // ---------- واجهة القوالب ----------
   function renderTemplates() {
     const filters = byId('template-filters');
-    filters.replaceChildren(...stages.map(([key, label]) => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = `chip${key === filter ? ' active' : ''}`;
-      chip.textContent = label;
-      chip.onclick = () => { filter = key; renderTemplates(); };
-      return chip;
-    }));
+    if (!filters.childElementCount) {
+      filters.replaceChildren(...stages.map(([key, label]) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip';
+        chip.dataset.filter = key;
+        chip.textContent = label;
+        chip.onclick = () => {
+          if (filter === key) return;
+          filter = key;
+          const panel = filters.closest('.panel');
+          if (panel.getBoundingClientRect().top < 62) panel.scrollIntoView({ block: 'start' });
+          renderTemplates();
+        };
+        return chip;
+      }));
+    }
+    for (const chip of filters.children) {
+      const active = chip.dataset.filter === filter;
+      chip.classList.toggle('active', active);
+      chip.setAttribute('aria-pressed', String(active));
+    }
+    const templates = catalog.templates.filter((template) => filter === 'all' || template.stage === filter);
+    byId('template-count').textContent = filter === 'all' ? `${templates.length} قالبًا` : `${templates.length} من ${catalog.templates.length} قالبًا`;
     const grid = byId('template-grid');
+    templatePreviewObserver?.disconnect();
+    const pendingPreviews = new Map();
     const sample = { heading: 'شهادة تقدير', subtitle: 'CERTIFICATE OF APPRECIATION', intro: 'تتقدم المدرسة بالشكر إلى الطالب', name: 'اسم الطالب', note: '',
       phrase: 'تقديرًا لتفوقه وتميّزه، متمنين له دوام النجاح.', extra: '', teacherTitle: 'المعلم', teacherName: '',
       principalTitle: 'المدير', principalName: '', date: '' };
-    grid.replaceChildren(...catalog.templates.filter((t) => filter === 'all' || t.stage === filter).map((template) => {
+    grid.replaceChildren(...templates.map((template) => {
       const button = document.createElement('button');
       button.type = 'button';
+      button.dataset.templateId = template.id;
       button.className = `tpl${template.id === project.templateId ? ' active' : ''}`;
       const canvas = document.createElement('canvas');
       canvas.width = 360; canvas.height = 255;
-      R.draw(canvas.getContext('2d'), 360, 255, template, sample, { seed: 11, background: thumbs.get(template.id) || backgrounds.get(template.id), brandLogo: template.brand ? brandLogos.get(template.brand) : null });
+      const drawPreview = () => R.draw(canvas.getContext('2d'), canvas.width, canvas.height, template, sample, {
+        seed: 11, background: thumbs.get(template.id) || backgrounds.get(template.id), brandLogo: template.brand ? brandLogos.get(template.brand) : null,
+      });
+      drawPreview();
+      if (template.image && !thumbs.has(template.id) && !backgrounds.has(template.id)) {
+        pendingPreviews.set(button, async () => {
+          await ensureBackground(template.id);
+          if (canvas.isConnected && backgrounds.has(template.id)) drawPreview();
+        });
+      }
       const label = document.createElement('span');
       label.textContent = template.name;
       button.append(canvas, label);
       button.onclick = async () => {
+        const selectedProject = project;
         project.templateId = template.id;
         project.colors = { primary: '', accent: '' };
         if (template.occasion && project.phraseIndex >= 0 && catalog.phrases.some((g) => g.id === template.occasion)) {
           project.occasion = template.occasion; project.phraseIndex = 0;
           byId('occasion-select').value = project.occasion; syncPhraseBox();
         }
-        await Promise.all([ensureFonts(fontsOf(template)), ensureBackground(template.id)]);
         syncColorInputs();
-        renderTemplates();
+        for (const card of grid.children) card.classList.toggle('active', card === button);
         markDirty();
+        await Promise.all([ensureFonts(fontsOf(template)), ensureBackground(template.id)]);
+        if (project === selectedProject && project.templateId === template.id) scheduleRender();
       };
       return button;
     }));
+    if (!pendingPreviews.size) return;
+    if (!('IntersectionObserver' in window)) {
+      for (const loadPreview of pendingPreviews.values()) loadPreview();
+      return;
+    }
+    templatePreviewObserver = new IntersectionObserver((entries, observer) => {
+      for (const { isIntersecting, target } of entries) {
+        if (!isIntersecting || !pendingPreviews.has(target)) continue;
+        observer.unobserve(target);
+        const loadPreview = pendingPreviews.get(target);
+        pendingPreviews.delete(target);
+        loadPreview();
+      }
+    }, { rootMargin: '240px 0px' });
+    for (const button of pendingPreviews.keys()) templatePreviewObserver.observe(button);
   }
 
   function syncColorInputs() {
@@ -836,6 +889,13 @@
     wired = true;
     document.querySelectorAll('.tab').forEach((tab) => {
       tab.onclick = () => {
+        const browsingTemplates = tab.dataset.tab === 'templates';
+        const panel = tab.closest('.panel');
+        if (byId('studio').classList.contains('browsing-templates') && !browsingTemplates && panel.getBoundingClientRect().top < 62) {
+          panel.scrollIntoView({ block: 'start' });
+        }
+        byId('studio').classList.toggle('browsing-templates', browsingTemplates);
+        byId('template-gallery-controls').hidden = !browsingTemplates;
         document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === tab));
         document.querySelectorAll('.tab-panel').forEach((panel) => { panel.hidden = panel.dataset.panel !== tab.dataset.tab; });
         if (tab.dataset.tab === 'students') refreshGameRosters();
