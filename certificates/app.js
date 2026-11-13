@@ -5,6 +5,8 @@
   const subscriptionPage = '/t#subscription-section-title';
   const signInPage = '/enjazy/auth.html?mode=login&return=%2Fcertificates%2F';
   const pdfChunk = 60;
+  const maximumRecipients = 300;
+  const maximumExcelSize = 10 * 1024 * 1024;
   const byId = (id) => document.getElementById(id);
   const R = window.CertificateRenderer;
 
@@ -15,15 +17,22 @@
   let teacher = null;
   let projects = [];
   let projectId = null;
+  let projectCreateId = null;
   let project = null;
   let current = 0;
   let dirty = false;
+  let editRevision = 0;
   let logoImage = null;
   let filter = 'all';
   const backgrounds = new Map();
   const stages = [['all', 'كل المراحل'], ['1-4', 'الصفوف 1–4'], ['5-8', 'الصفوف 5–8'], ['9-12', 'الصفوف 9–12'], ['tahfeez', '⭐ تحفيز+']];
   let renderQueued = false;
   let busy = false;
+  let gameRosters = new Map();
+  let excelReaderPromise;
+  let excelWorkbook = null;
+  let excelNames = [];
+  let excelLoadId = 0;
 
   // ---------- طلبات الخادم ----------
   async function request(action, { method = 'GET', body, query = '' } = {}) {
@@ -38,6 +47,10 @@
       const data = await response.json().catch(() => ({}));
       if (response.status === 401 || response.status === 403) {
         lockStudio(response.status, data);
+        return { ok: false, denied: true, status: response.status, data };
+      }
+      if (response.status === 409 && data.error === 'account_changed') {
+        toast('تغيّر الحساب. ارجع إلى الحساب الذي بدأت فيه المشروع قبل محاولة الحفظ مرة أخرى.', true);
         return { ok: false, denied: true, status: response.status, data };
       }
       return { ok: response.ok, status: response.status, data };
@@ -253,6 +266,7 @@
   }
 
   function markDirty() {
+    editRevision++;
     dirty = true;
     const state = byId('save-state');
     state.textContent = 'تغييرات غير محفوظة';
@@ -342,6 +356,169 @@
   }
 
   // ---------- الطلبة ----------
+  const recipientName = (value) => value.trim().slice(0, 90).replace(/[\uD800-\uDBFF]$/, '');
+  const rosterName = (value) => recipientName(value.replace(/\s+/g, ' '));
+  const hasPlaceholder = () => project.recipients.length === 1 && ['اسم الطالب', ''].includes(project.recipients[0].name.trim());
+
+  function newRosterNames(names) {
+    const existing = new Set(hasPlaceholder() ? [] : project.recipients.map(({ name }) => rosterName(name)));
+    return [...new Set(names)].filter((name) => !existing.has(name));
+  }
+
+  function addRecipients(names) {
+    const placeholder = hasPlaceholder();
+    const room = maximumRecipients - (placeholder ? 0 : project.recipients.length);
+    const added = names.slice(0, room);
+    if (added.length) {
+      if (placeholder) project.recipients = [];
+      for (const name of added) project.recipients.push({ name, gender: project.gender, note: '' });
+      selectRecipient(0);
+      markDirty();
+    }
+    if (names.length > room) toast('الحد الأقصى 300 شهادة في المشروع الواحد.', true);
+    return added.length;
+  }
+
+  function loadExcelReader() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    excelReaderPromise ??= new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      const fail = () => {
+        script.remove();
+        reject(new Error('تعذّر تحميل قارئ Excel. تحقق من الاتصال ثم اختر الملف مرة أخرى.'));
+      };
+      const timeout = setTimeout(fail, 15000);
+      script.onload = () => {
+        clearTimeout(timeout);
+        if (window.XLSX) resolve(window.XLSX);
+        else fail();
+      };
+      script.onerror = () => { clearTimeout(timeout); fail(); };
+      script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+      document.head.append(script);
+    }).catch((error) => {
+      excelReaderPromise = undefined;
+      throw error;
+    });
+    return excelReaderPromise;
+  }
+
+  function setExcelStatus(message) {
+    const status = byId('excel-status');
+    status.textContent = message;
+    status.hidden = !message;
+  }
+
+  function readExcelSheet() {
+    const sheet = excelWorkbook?.Sheets[byId('excel-sheet').value];
+    excelNames = [];
+    if (sheet?.['!ref']) {
+      const reader = window.XLSX;
+      const range = reader.utils.decode_range(sheet['!ref']);
+      range.s.c = range.e.c = 0;
+      if (byId('excel-header').checked) range.s.r++;
+      if (range.s.r <= range.e.r) {
+        const rows = reader.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, blankrows: false, range });
+        excelNames = [...new Set(rows.map(([name]) => rosterName(String(name ?? ''))).filter(Boolean))];
+      }
+    }
+    byId('excel-import').disabled = !excelNames.length;
+    setExcelStatus(excelNames.length ? `الأسماء في العمود (A): ${excelNames.length}` : 'لا توجد أسماء في العمود الأول (A) من ورقة العمل المختارة.');
+  }
+
+  async function openExcelFile() {
+    const loadId = ++excelLoadId;
+    const input = byId('excel-file');
+    const select = byId('excel-sheet');
+    const file = input.files[0];
+    excelWorkbook = null;
+    excelNames = [];
+    select.replaceChildren();
+    select.disabled = true;
+    byId('excel-import').disabled = true;
+    setExcelStatus('');
+    if (!file) return;
+    try {
+      if (file.size > maximumExcelSize) throw new Error('الحد الأقصى للملف 10 ميجابايت.');
+      if (!/\.(xlsx|xls|csv)$/i.test(file.name)) throw new Error('اختر ملفًا بصيغة XLSX أو XLS أو CSV.');
+      setExcelStatus('جارٍ قراءة الملف…');
+      const reader = await loadExcelReader();
+      const data = await file.arrayBuffer();
+      if (loadId !== excelLoadId) return;
+      try {
+        excelWorkbook = /\.csv$/i.test(file.name)
+          ? reader.read(data, { type: 'array', codepage: 65001, raw: true })
+          : reader.read(data, { type: 'array' });
+        if (!excelWorkbook.SheetNames.length) throw new Error();
+        select.replaceChildren(...excelWorkbook.SheetNames.map((name) => new Option(name, name)));
+        select.disabled = false;
+        readExcelSheet();
+      } catch {
+        excelWorkbook = null;
+        select.replaceChildren();
+        select.disabled = true;
+        throw new Error('تعذّرت قراءة ورقة العمل. تحقق من صيغة الملف ثم حاول مرة أخرى.');
+      }
+    } catch (error) {
+      if (loadId !== excelLoadId) return;
+      input.value = '';
+      setExcelStatus(error.message || 'تعذّرت قراءة الملف.');
+    }
+  }
+
+  function importExcelRecipients() {
+    const names = newRosterNames(excelNames);
+    if (!names.length) { setExcelStatus('أسماء هذه الورقة مضافة إلى المشروع بالفعل.'); return; }
+    const added = addRecipients(names);
+    setExcelStatus(added ? `تمت إضافة ${added} من الأسماء. اضغط «حفظ» لحفظ المشروع.` : 'المشروع يحتوي على الحد الأقصى وهو 300 شهادة.');
+  }
+
+  function refreshGameRosters() {
+    if (!teacher) return;
+    const select = byId('game-roster');
+    const previous = select.value;
+    const rosters = window.GameRosters?.list(teacher.id) || [];
+    const bank = window.__BANK?.index || [];
+    gameRosters = new Map(rosters.map((roster) => {
+      const { gradeId, subject, section } = roster;
+      const grade = bank.find((item) => item.id === gradeId);
+      const gradeName = grades[Number(gradeId.slice(1))] || grade?.n || gradeId;
+      const subjects = [...(grade?.subjects || []), ...catalog.subjects];
+      const subjectName = subjects.find((name) => typeof normalizeSubscriptionSubject === 'function' && normalizeSubscriptionSubject(name) === subject) || subject;
+      const key = JSON.stringify([gradeId, subject, section]);
+      return [key, { label: `${gradeName} · ${subjectName} · الشعبة ${section}`, names: [...new Set(roster.names.map(rosterName).filter(Boolean))] }];
+    }));
+    select.replaceChildren(new Option('اختر الصف والمادة والشعبة', ''),
+      ...Array.from(gameRosters, ([key, roster]) => new Option(roster.label, key)));
+    select.disabled = !gameRosters.size;
+    if (gameRosters.has(previous)) select.value = previous;
+    renderGameStudents();
+  }
+
+  function renderGameStudents() {
+    const roster = gameRosters.get(byId('game-roster').value);
+    const names = roster?.names || [];
+    const select = byId('game-student');
+    const previous = select.value;
+    select.replaceChildren(new Option('كل الأسماء', ''), ...names.map((name) => new Option(name, name)));
+    if (names.includes(previous)) select.value = previous;
+    select.disabled = !names.length;
+    byId('game-student-field').hidden = !names.length;
+    byId('game-roster-add').disabled = !names.length;
+    byId('game-roster-status').textContent = !gameRosters.size ? 'لا توجد قوائم ألعاب محفوظة لهذا الحساب في هذا المتصفح.'
+      : roster && !names.length ? 'هذه الشعبة لا تحتوي على أسماء.' : '';
+  }
+
+  function importGameRecipients() {
+    const roster = gameRosters.get(byId('game-roster').value);
+    if (!roster?.names.length) return;
+    const chosen = byId('game-student').value;
+    const names = newRosterNames(chosen ? [chosen] : roster.names);
+    if (!names.length) { toast('الأسماء المحددة مضافة إلى المشروع بالفعل.'); return; }
+    const added = addRecipients(names);
+    if (added === names.length) toast(`تمت إضافة ${added} من أسماء الطلبة.`);
+  }
+
   function renderRecipients() {
     const list = byId('recipients');
     byId('recipient-count').textContent = `${project.recipients.length} شهادة`;
@@ -429,6 +606,7 @@
   async function applyProject(next, id) {
     project = next;
     projectId = id;
+    projectCreateId = null;
     current = 0;
     await Promise.all([loadLogo(), ensureFonts([...fontsOf(templateById(project.templateId)), project.font]), ensureBackground(project.templateId)]);
     renderTemplates();
@@ -440,39 +618,70 @@
   }
 
   async function loadProject(id) {
+    if (busy) return;
     if (dirty && !confirm('لديك تغييرات غير محفوظة. هل تريد فتح المشروع دون حفظها؟')) return;
-    const result = await request('certificates_project', { query: `&id=${encodeURIComponent(id)}` });
-    if (result.denied) return;
-    if (!result.ok || !result.data?.project) { toast('تعذّر فتح المشروع.', true); return; }
-    await applyProject(result.data.project, result.data.id);
-    markSaved();
-    toast('تم فتح المشروع.');
+    busy = true;
+    try {
+      const result = await request('certificates_project', { query: `&id=${encodeURIComponent(id)}` });
+      if (result.denied) return;
+      if (!result.ok || !result.data?.project) { toast('تعذّر فتح المشروع.', true); return; }
+      await applyProject(result.data.project, result.data.id);
+      markSaved();
+      toast('تم فتح المشروع.');
+    } finally {
+      busy = false;
+    }
   }
 
   async function deleteProject(item) {
+    if (busy) return;
     if (!confirm(`حذف مشروع «${item.title}» نهائيًا؟`)) return;
-    const result = await request('certificates_project', { method: 'DELETE', query: `&id=${encodeURIComponent(item.id)}` });
-    if (result.denied) return;
-    if (!result.ok && result.status !== 404) { toast('تعذّر حذف المشروع.', true); return; }
-    projects = projects.filter((p) => p.id !== item.id);
-    if (projectId === item.id) { projectId = null; markDirty(); }
-    renderProjects();
-    toast('تم حذف المشروع.');
+    busy = true;
+    try {
+      const query = `&id=${encodeURIComponent(item.id)}&teacherId=${encodeURIComponent(teacher.id)}`;
+      const result = await request('certificates_project', { method: 'DELETE', query });
+      if (result.denied) return;
+      if (!result.ok && result.status !== 404) { toast('تعذّر حذف المشروع.', true); return; }
+      projects = projects.filter((p) => p.id !== item.id);
+      if (projectId === item.id) { projectId = null; projectCreateId = null; markDirty(); }
+      renderProjects();
+      toast('تم حذف المشروع.');
+    } finally {
+      busy = false;
+    }
   }
 
   async function saveProject() {
-    if (busy) return false;
+    if (busy || !project) return false;
     busy = true;
-    byId('save-btn').disabled = true;
+    const button = byId('save-btn');
+    const buttonLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = 'جارٍ الحفظ…';
     try {
-      const payloadProject = { ...project, title: project.title || 'شهادة تقدير' };
-      let result = await request('certificates_project', { method: 'POST', body: { id: projectId, project: payloadProject } });
+      const revision = editRevision;
+      const snapshot = structuredClone(project);
+      snapshot.title = snapshot.title.trim() || 'شهادة تقدير';
+      const save = (id) => {
+        if (!id) projectCreateId ??= window.crypto?.randomUUID?.() ?? null;
+        return request('certificates_project', {
+          method: 'POST', body: { id, createId: id ? null : projectCreateId, teacherId: teacher.id, project: snapshot },
+        });
+      };
+      let result = await save(projectId);
       if (result.denied) return false;
-      if (result.status === 404 && projectId) {
-        result = await request('certificates_project', { method: 'POST', body: { id: null, project: payloadProject } });
-        if (result.denied) return false;
+      if (projectId && result.status === 404 && result.data.error === 'project_not_found') {
+        projectId = null;
+        projectCreateId = null;
+        result = await save(null);
       }
-      if (!result.ok) {
+      if (projectCreateId && result.status === 409 && result.data.error === 'project_already_created' && result.data.id === projectCreateId) {
+        projectId = result.data.id;
+        result = await save(projectId);
+      }
+      if (result.denied) return false;
+      if (result.data.error === 'project_id_conflict') projectCreateId = null;
+      if (!result.ok || !result.data.id) {
         const message = result.data?.error === 'project_too_large' ? 'حجم المشروع كبير — جرّب شعارًا أصغر.'
           : result.data?.error === 'invalid_project' ? 'تحقّق من وجود اسم واحد على الأقل وصحة البيانات.'
           : 'تعذّر الحفظ. تأكد من الاتصال ثم حاول مرة أخرى.';
@@ -480,22 +689,28 @@
         return false;
       }
       projectId = result.data.id;
-      const meta = { id: projectId, title: payloadProject.title, templateId: project.templateId,
-        recipientCount: project.recipients.filter((r) => r.name.trim()).length, updatedAt: result.data.updatedAt };
+      projectCreateId = null;
+      const meta = { id: projectId, title: snapshot.title, templateId: snapshot.templateId,
+        recipientCount: snapshot.recipients.filter((r) => r.name.trim()).length, updatedAt: result.data.updatedAt };
       projects = [meta, ...projects.filter((p) => p.id !== projectId)];
       renderProjects();
-      markSaved();
-      toast('تم حفظ التصميم في حسابك.');
+      if (revision === editRevision) {
+        markSaved();
+        toast('تم حفظ التصميم في حسابك.');
+      } else {
+        toast('تم حفظ التصميم. لديك تغييرات أحدث تحتاج إلى حفظ.');
+      }
       return true;
     } finally {
       busy = false;
-      byId('save-btn').disabled = false;
+      button.disabled = false;
+      button.textContent = buttonLabel;
     }
   }
 
   // ---------- التصدير (يتطلب إذنًا من الخادم في كل مرة) ----------
   async function exportPermit(count) {
-    const result = await request('certificates_export', { method: 'POST', body: { projectId, count } });
+    const result = await request('certificates_export', { method: 'POST', body: { projectId, count, teacherId: teacher.id } });
     if (result.denied) return false;
     if (!result.ok) { toast('تعذّر التحقق من الاشتراك قبل التصدير. حاول مرة أخرى.', true); return false; }
     return true;
@@ -623,6 +838,7 @@
       tab.onclick = () => {
         document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === tab));
         document.querySelectorAll('.tab-panel').forEach((panel) => { panel.hidden = panel.dataset.panel !== tab.dataset.tab; });
+        if (tab.dataset.tab === 'students') refreshGameRosters();
       };
     });
     byId('font-select').onchange = async (event) => {
@@ -662,20 +878,26 @@
     };
 
     byId('default-gender').onchange = (event) => { project.gender = event.target.value; markDirty(); };
+    byId('excel-file').onchange = openExcelFile;
+    byId('excel-sheet').onchange = readExcelSheet;
+    byId('excel-header').onchange = () => { if (excelWorkbook) readExcelSheet(); };
+    byId('excel-import').onclick = importExcelRecipients;
+    byId('game-roster').onchange = () => {
+      byId('game-student').value = '';
+      renderGameStudents();
+    };
+    byId('game-roster-add').onclick = importGameRecipients;
+    window.addEventListener('storage', (event) => {
+      if (!event.key || /^games-rosters?:/.test(event.key)) refreshGameRosters();
+    });
     byId('bulk-add').onclick = () => {
-      const names = byId('bulk-names').value.split(/\r?\n/).map((n) => n.trim()).filter(Boolean);
+      const names = byId('bulk-names').value.split(/\r?\n/).map(recipientName).filter(Boolean);
       if (!names.length) { toast('اكتب الأسماء أولًا، اسمًا في كل سطر.', true); return; }
-      const placeholder = project.recipients.length === 1 && ['اسم الطالب', ''].includes(project.recipients[0].name.trim());
-      if (placeholder) project.recipients = [];
-      const room = 300 - project.recipients.length;
-      names.slice(0, room).forEach((name) => project.recipients.push({ name: name.slice(0, 90), gender: project.gender, note: '' }));
-      if (names.length > room) toast('الحد الأقصى 300 شهادة في المشروع الواحد.', true);
+      addRecipients(names);
       byId('bulk-names').value = '';
-      current = 0;
-      renderRecipients(); syncPhraseBox(); markDirty();
     };
     byId('add-row').onclick = () => {
-      if (project.recipients.length >= 300) { toast('الحد الأقصى 300 شهادة في المشروع الواحد.', true); return; }
+      if (project.recipients.length >= maximumRecipients) { toast('الحد الأقصى 300 شهادة في المشروع الواحد.', true); return; }
       project.recipients.push({ name: '', gender: project.gender, note: '' });
       selectRecipient(project.recipients.length - 1);
       markDirty();
@@ -686,11 +908,17 @@
       current = 0; renderRecipients(); syncPhraseBox(); markDirty();
     };
     byId('new-project').onclick = async () => {
+      if (busy) return;
       if (dirty && !confirm('لديك تغييرات غير محفوظة. هل تريد بدء مشروع جديد دون حفظها؟')) return;
-      await applyProject(newProject(), null);
-      dirty = false;
-      byId('save-state').textContent = 'مشروع جديد';
-      byId('save-state').className = 'save-state';
+      busy = true;
+      try {
+        await applyProject(newProject(), null);
+        dirty = false;
+        byId('save-state').textContent = 'مشروع جديد';
+        byId('save-state').className = 'save-state';
+      } finally {
+        busy = false;
+      }
     };
     byId('rec-prev').onclick = () => selectRecipient((current - 1 + project.recipients.length) % project.recipients.length);
     byId('rec-next').onclick = () => selectRecipient((current + 1) % project.recipients.length);
@@ -710,6 +938,7 @@
     byId('grades-list').replaceChildren(...grades.map((g) => Object.assign(document.createElement('option'), { value: g })));
     byId('occasion-select').replaceChildren(...catalog.phrases.map((g) => Object.assign(document.createElement('option'), { value: g.id, textContent: g.label })));
     await Promise.all([ensureFonts([...new Set(catalog.templates.flatMap(fontsOf))]), loadThumbs(), loadBrands()]);
+    refreshGameRosters();
     byId('gate').hidden = true;
     byId('studio').hidden = false;
     await applyProject(newProject(), null);
