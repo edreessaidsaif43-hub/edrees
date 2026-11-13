@@ -2,6 +2,8 @@
 // يُستدعى فقط بعد أن يتحقق api/subscriptions.js من جلسة المعلّم ومن وجود اشتراك فعّال،
 // لذلك لا تصل القوالب ولا العبارات ولا المشاريع ولا إذن التصدير إلى غير المشتركين.
 import { randomUUID } from "node:crypto";
+import { GENERATED_TEMPLATES } from "./certificate-templates-generated.js";
+import { TAHFEEZ_TEMPLATES } from "./certificate-templates-tahfeez.js";
 
 const maximumBodyBytes = 1536 * 1024;
 const maximumLogoLength = 420 * 1024;
@@ -13,22 +15,22 @@ const fonts = new Set(["Amiri", "Cairo", "Tajawal", "Reem Kufi", "Noto Naskh Ara
 
 export const CERTIFICATE_TEMPLATES = [
   // خلفيات صممها ChatGPT لكل مرحلة دراسية؛ المحتوى يُرسم داخل المساحة الآمنة safe.
-  { id: "kids-rainbow", stage: "1-4", name: "قوس قزح المرح", category: "الصفوف الأولى", style: "image", image: "/certificates/backgrounds/kids-rainbow.jpg",
+  { id: "kids-rainbow", thumb: 10, stage: "1-4", name: "قوس قزح المرح", category: "الصفوف الأولى", style: "image", image: "/certificates/backgrounds/kids-rainbow.jpg",
     safe: [0.15, 0.1, 0.85, 0.9], seal: "fun-star", fonts: { heading: "Changa", name: "Changa", body: "Tajawal" },
     palette: { bg: "#fffbf0", bg2: "#fff4d9", primary: "#1f6fb2", accent: "#f4a300", accentText: "#e07b00", text: "#2d2f45", muted: "#5e6a7d" } },
-  { id: "kids-space", stage: "1-4", name: "رحلة الفضاء", category: "الصفوف الأولى", style: "image", image: "/certificates/backgrounds/kids-space.jpg",
+  { id: "kids-space", thumb: 11, stage: "1-4", name: "رحلة الفضاء", category: "الصفوف الأولى", style: "image", image: "/certificates/backgrounds/kids-space.jpg",
     safe: [0.09, 0.12, 0.91, 0.88], seal: "fun-star", fonts: { heading: "Changa", name: "Changa", body: "Tajawal" },
     palette: { bg: "#fffdf7", bg2: "#efe9ff", primary: "#4b2e9e", accent: "#e6a817", accentText: "#c98a00", text: "#2a2440", muted: "#6a6385" } },
-  { id: "middle-achievement", stage: "5-8", name: "منصة الإنجاز", category: "عصري", style: "image", image: "/certificates/backgrounds/middle-achievement.jpg",
+  { id: "middle-achievement", thumb: 12, stage: "5-8", name: "منصة الإنجاز", category: "عصري", style: "image", image: "/certificates/backgrounds/middle-achievement.jpg",
     safe: [0.12, 0.08, 0.92, 0.84], seal: "none", fonts: { heading: "El Messiri", name: "El Messiri", body: "Cairo" },
     palette: { bg: "#ffffff", bg2: "#f4f0ff", primary: "#4a1f8f", accent: "#c9971f", text: "#22163a", muted: "#625a7a" } },
-  { id: "middle-learning", stage: "5-8", name: "شغف التعلّم", category: "عصري", style: "image", image: "/certificates/backgrounds/middle-learning.jpg",
+  { id: "middle-learning", thumb: 13, stage: "5-8", name: "شغف التعلّم", category: "عصري", style: "image", image: "/certificates/backgrounds/middle-learning.jpg",
     safe: [0.14, 0.12, 0.86, 0.86], seal: "medal", fonts: { heading: "El Messiri", name: "El Messiri", body: "Cairo" },
     palette: { bg: "#ffffff", bg2: "#eef7f8", primary: "#0d4f7a", accent: "#e08a1a", text: "#14263d", muted: "#55708f" } },
-  { id: "high-marble", stage: "9-12", name: "الرخام الزمردي", category: "فاخر", style: "image", image: "/certificates/backgrounds/high-marble.jpg",
+  { id: "high-marble", thumb: 14, stage: "9-12", name: "الرخام الزمردي", category: "فاخر", style: "image", image: "/certificates/backgrounds/high-marble.jpg",
     safe: [0.12, 0.1, 0.88, 0.9], seal: "rosette", fonts: { heading: "Aref Ruqaa", name: "Aref Ruqaa", body: "Cairo" },
     palette: { bg: "#ffffff", bg2: "#f2f2ee", primary: "#0f5541", accent: "#b98a2c", text: "#14281f", muted: "#55695f" } },
-  { id: "high-royal", stage: "9-12", name: "الإطار الملكي الإسلامي", category: "فاخر", style: "image", image: "/certificates/backgrounds/high-royal.jpg",
+  { id: "high-royal", thumb: 15, stage: "9-12", name: "الإطار الملكي الإسلامي", category: "فاخر", style: "image", image: "/certificates/backgrounds/high-royal.jpg",
     safe: [0.14, 0.16, 0.86, 0.86], seal: "rosette", fonts: { heading: "Aref Ruqaa", name: "Aref Ruqaa", body: "Cairo" },
     palette: { bg: "#fffaf0", bg2: "#f3ead6", primary: "#0d2a4d", accent: "#b98a2c", text: "#1d2a3a", muted: "#5d6a7a" } },
   { id: "royal-gold", stage: "9-12", name: "الذهبي الفاخر", category: "فاخر", style: "luxe-dark", seal: "rosette", metalText: true,
@@ -72,6 +74,31 @@ export const CERTIFICATE_TEMPLATES = [
 
 // العبارات تحمل صيغة المذكر والمؤنث. {subject} و{grade} تُستبدل تلقائيًا في الواجهة.
 export const CERTIFICATE_PHRASES = [
+  { id: "star-week", label: "تحفيز+ · نجم الأسبوع", items: [
+    { m: "لتميّزه وتألقه هذا الأسبوع، فقد استحق لقب نجم الأسبوع بجدارة في برنامج تحفيز+.", f: "لتميّزها وتألقها هذا الأسبوع، فقد استحقت لقب نجمة الأسبوع بجدارة في برنامج تحفيز+." },
+    { m: "لحصوله على أعلى النقاط هذا الأسبوع في برنامج تحفيز+، استمر يا بطل!", f: "لحصولها على أعلى النقاط هذا الأسبوع في برنامج تحفيز+، استمري يا بطلة!" },
+  ] },
+  { id: "discipline", label: "تحفيز+ · الانضباط الصفي", items: [
+    { m: "تقديرًا لانضباطه الصفي وهدوئه والتزامه بقواعد الصف، فهو قدوة لزملائه.", f: "تقديرًا لانضباطها الصفي وهدوئها والتزامها بقواعد الصف، فهي قدوة لزميلاتها." },
+    { m: "لالتزامه بالنظام واحترامه لوقت التعلّم، مما جعل صفنا بيئة منظمة وممتعة.", f: "لالتزامها بالنظام واحترامها لوقت التعلّم، مما جعل صفنا بيئة منظمة وممتعة." },
+  ] },
+  { id: "teamwork", label: "تحفيز+ · أفضل مجموعة", items: [
+    { m: "تقديرًا لروح الفريق والتعاون المتميّز، فقد كان مثالًا للعمل الجماعي الناجح.", f: "تقديرًا لروح الفريق والتعاون المتميّز، فقد كانت مثالًا للعمل الجماعي الناجح." },
+    { m: "لفوز مجموعته بلقب أفضل مجموعة في برنامج تحفيز+ بفضل التعاون والالتزام.", f: "لفوز مجموعتها بلقب أفضل مجموعة في برنامج تحفيز+ بفضل التعاون والالتزام." },
+  ] },
+  { id: "points", label: "تحفيز+ · جمع النقاط", items: [
+    { m: "لتحقيقه أعلى رصيد من نقاط التميّز في برنامج تحفيز+، فخورون بك!", f: "لتحقيقها أعلى رصيد من نقاط التميّز في برنامج تحفيز+، فخورون بكِ!" },
+    { m: "لوصوله إلى مستوى متقدم في برنامج تحفيز+ بفضل سلوكه الإيجابي ومشاركته الفاعلة.", f: "لوصولها إلى مستوى متقدم في برنامج تحفيز+ بفضل سلوكها الإيجابي ومشاركتها الفاعلة." },
+  ] },
+  { id: "helping", label: "تحفيز+ · مساعدة الآخرين", items: [
+    { m: "تقديرًا لأخلاقه الطيبة ومبادرته الدائمة لمساعدة زملائه.", f: "تقديرًا لأخلاقها الطيبة ومبادرتها الدائمة لمساعدة زميلاتها." },
+  ] },
+  { id: "leader", label: "تحفيز+ · قائد الصف", items: [
+    { m: "تقديرًا لقيادته المسؤولة لزملائه وحرصه على نظام الصف وتعاونه مع معلمه.", f: "تقديرًا لقيادتها المسؤولة لزميلاتها وحرصها على نظام الصف وتعاونها مع معلمتها." },
+  ] },
+  { id: "tidy", label: "تحفيز+ · النظام والنظافة", items: [
+    { m: "لحرصه على نظافة مكانه وترتيب أدواته، فالنظام سرّ النجاح.", f: "لحرصها على نظافة مكانها وترتيب أدواتها، فالنظام سرّ النجاح." },
+  ] },
   { id: "excellence", label: "تفوق دراسي", items: [
     { m: "تقديرًا لتفوقه الدراسي وتميّزه في مادة {subject}، متمنين له دوام النجاح والتألق.", f: "تقديرًا لتفوقها الدراسي وتميّزها في مادة {subject}، متمنين لها دوام النجاح والتألق." },
     { m: "لحصوله على مستوى متقدم في مادة {subject}، فهو مثال للطالب المجتهد الطموح.", f: "لحصولها على مستوى متقدم في مادة {subject}، فهي مثال للطالبة المجتهدة الطموحة." },
@@ -113,6 +140,9 @@ export const CERTIFICATE_SUBJECTS = [
   "تقنية المعلومات", "المهارات الحياتية", "الفنون التشكيلية", "المهارات الموسيقية", "الرياضة المدرسية",
   "ريادة الأعمال", "الاقتصاد", "الحاسوب", "القرآن الكريم",
 ];
+
+CERTIFICATE_TEMPLATES.unshift(...TAHFEEZ_TEMPLATES);
+CERTIFICATE_TEMPLATES.push(...GENERATED_TEMPLATES);
 
 const templateIds = new Set(CERTIFICATE_TEMPLATES.map((template) => template.id));
 const phraseIds = new Set(CERTIFICATE_PHRASES.map((group) => group.id));
