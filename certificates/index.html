@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b2a4a">
+  <meta name="description" content="استوديو شهادات التقدير الذكي — صمّم شهادات تقدير احترافية لطلابك وطالباتك، ميزة مشمولة في اشتراك التحضير الذكي.">
+  <title>استوديو شهادات التقدير الذكي | التحضير الذكي</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='13' fill='%230b2a4a'/%3E%3Ctext x='24' y='33' font-size='26' text-anchor='middle'%3E🏆%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Aref+Ruqaa:wght@400;700&family=Changa:wght@500;700&family=El+Messiri:wght@500;700&family=Cairo:wght@500;700;900&family=Noto+Naskh+Arabic:wght@500;700&family=Reem+Kufi:wght@500;700&family=Tajawal:wght@500;700&display=swap">
+  <link rel="stylesheet" href="../assets/site-navbar.css?v=2">
+  <link rel="stylesheet" href="styles.css?v=1">
+  <script src="render.js?v=3" defer></script>
+  <script src="app.js?v=3" defer></script>
+</head>
+<body>
+  <!-- بوابة الوصول: تظهر دائمًا أولًا، ولا يُفتح الاستوديو إلا بعد موافقة الخادم -->
+  <main class="gate" id="gate" aria-live="polite">
+    <section class="gate-card">
+      <div class="gate-trophy" aria-hidden="true">🏆</div>
+      <h1 id="gate-title">استوديو شهادات التقدير الذكي</h1>
+      <div id="gate-body">
+        <p>جارٍ التحقق من حسابك واشتراكك…</p>
+      </div>
+      <div class="gate-actions">
+        <a class="btn btn-gold" id="gate-link" href="/t#subscription-section-title" hidden>اشترك الآن</a>
+        <button class="btn" id="gate-retry" type="button" hidden>إعادة المحاولة</button>
+      </div>
+      <p class="gate-note" id="gate-note" hidden></p>
+    </section>
+  </main>
+
+  <div class="studio" id="studio" hidden>
+    <aside class="panel" aria-label="أدوات التصميم">
+      <header class="panel-head">
+        <div>
+          <strong>🏆 استوديو الشهادات</strong>
+          <small id="teacher-label"></small>
+        </div>
+        <span class="save-state" id="save-state">جاهز</span>
+      </header>
+
+      <nav class="tabs" role="tablist">
+        <button role="tab" class="tab active" data-tab="templates">القوالب</button>
+        <button role="tab" class="tab" data-tab="texts">النصوص</button>
+        <button role="tab" class="tab" data-tab="students">الطلبة</button>
+        <button role="tab" class="tab" data-tab="projects">مشاريعي</button>
+      </nav>
+
+      <section class="tab-panel" data-panel="templates">
+        <div class="chips" id="template-filters"></div>
+        <div class="template-grid" id="template-grid"></div>
+        <div class="field-row">
+          <label>الخط
+            <select id="font-select">
+              <option value="">خط القالب</option>
+              <option value="Aref Ruqaa">رقعة (عارف)</option>
+              <option value="El Messiri">المسيري</option>
+              <option value="Amiri">أميري</option>
+              <option value="Changa">تشانغا</option>
+              <option value="Cairo">القاهرة</option>
+              <option value="Tajawal">تجوّل</option>
+              <option value="Reem Kufi">ريم كوفي</option>
+              <option value="Noto Naskh Arabic">نسخ</option>
+            </select>
+          </label>
+        </div>
+        <div class="field-row two">
+          <label>اللون الرئيسي <input type="color" id="color-primary"></label>
+          <label>لون الزينة <input type="color" id="color-accent"></label>
+        </div>
+        <button class="btn small ghost" id="reset-colors" type="button">استعادة ألوان القالب</button>
+        <div class="field">
+          <span class="label">شعار المدرسة (اختياري)</span>
+          <div class="logo-row">
+            <label class="btn small" for="logo-input">رفع شعار</label>
+            <input type="file" id="logo-input" accept="image/png,image/jpeg,image/webp" hidden>
+            <button class="btn small ghost" id="logo-remove" type="button" hidden>إزالة</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" data-panel="texts" hidden>
+        <label class="field">اسم المشروع <input id="f-title" maxlength="90" placeholder="مثال: متفوقو الفصل الأول"></label>
+        <label class="field">عنوان الشهادة <input id="f-heading" maxlength="60"></label>
+        <label class="field">عنوان فرعي بالإنجليزية (اختياري) <input id="f-subtitle" maxlength="60" dir="ltr" placeholder="CERTIFICATE OF APPRECIATION"></label>
+        <label class="field">اسم المدرسة <input id="f-schoolName" maxlength="120" placeholder="مدرسة ..."></label>
+        <label class="field">عبارة التقديم <textarea id="f-intro" rows="2" maxlength="220"></textarea>
+          <small>يمكن استخدام: {المدرسة} {اللقب} — اللقب يتحول تلقائيًا إلى «الطالب» أو «الطالبة».</small></label>
+        <div class="field-row two">
+          <label>المادة <input id="f-subject" list="subjects-list" maxlength="80"></label>
+          <label>الصف <input id="f-grade" list="grades-list" maxlength="60"></label>
+        </div>
+        <datalist id="subjects-list"></datalist>
+        <datalist id="grades-list"></datalist>
+        <div class="smart-box">
+          <div class="smart-head">
+            <strong>✨ عبارات التكريم الذكية</strong>
+            <select id="occasion-select"></select>
+          </div>
+          <div class="smart-actions">
+            <button class="btn small" id="phrase-next" type="button">اقترح عبارة أخرى</button>
+            <button class="btn small ghost" id="phrase-auto" type="button">العودة للعبارة الذكية</button>
+          </div>
+          <textarea id="f-phrase" rows="4" maxlength="420"></textarea>
+          <small id="phrase-mode"></small>
+        </div>
+        <label class="field">سطر إضافي (اختياري) <input id="f-extra" maxlength="160" placeholder="مثال: للعام الدراسي 2026/2027"></label>
+        <div class="field-row two">
+          <label>صفة المعلم <input id="f-teacherTitle" maxlength="40"></label>
+          <label>اسم المعلم <input id="f-teacherName" maxlength="80"></label>
+        </div>
+        <div class="field-row two">
+          <label>صفة المدير <input id="f-principalTitle" maxlength="40"></label>
+          <label>اسم المدير <input id="f-principalName" maxlength="80"></label>
+        </div>
+        <label class="field">التاريخ <input id="f-date" maxlength="40"></label>
+      </section>
+
+      <section class="tab-panel" data-panel="students" hidden>
+        <div class="field-row two">
+          <label>الفئة الافتراضية
+            <select id="default-gender">
+              <option value="m">طلاب</option>
+              <option value="f">طالبات</option>
+            </select>
+          </label>
+          <span class="count-pill" id="recipient-count"></span>
+        </div>
+        <label class="field">إضافة أسماء دفعة واحدة (اسم في كل سطر)
+          <textarea id="bulk-names" rows="5" placeholder="أحمد بن سالم البلوشي&#10;مريم بنت خالد الحارثية"></textarea>
+        </label>
+        <div class="row-actions">
+          <button class="btn small" id="bulk-add" type="button">إضافة الأسماء</button>
+          <button class="btn small ghost" id="add-row" type="button">إضافة صف</button>
+          <button class="btn small ghost danger" id="clear-rows" type="button">مسح الكل</button>
+        </div>
+        <div class="recipients" id="recipients"></div>
+      </section>
+
+      <section class="tab-panel" data-panel="projects" hidden>
+        <button class="btn btn-gold wide" id="new-project" type="button">＋ مشروع جديد</button>
+        <div class="projects" id="projects"></div>
+      </section>
+    </aside>
+
+    <main class="stage">
+      <div class="stage-bar">
+        <div class="nav-rec">
+          <button class="icon-btn" id="rec-prev" type="button" aria-label="الشهادة السابقة">‹</button>
+          <span id="rec-index">1 / 1</span>
+          <button class="icon-btn" id="rec-next" type="button" aria-label="الشهادة التالية">›</button>
+        </div>
+        <div class="stage-actions">
+          <button class="btn" id="save-btn" type="button">💾 حفظ</button>
+          <button class="btn" id="export-png" type="button">⬇️ صورة عالية الدقة</button>
+          <button class="btn btn-gold" id="export-pdf" type="button">📄 PDF لجميع الشهادات</button>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="preview" width="1754" height="1240" aria-label="معاينة الشهادة"></canvas>
+      </div>
+      <p class="stage-hint">التصدير بدقة A4 (300 نقطة/بوصة للصورة) — الشهادات الجماعية تُجمع في ملف PDF واحد.</p>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+  <div class="busy" id="busy" hidden><div class="busy-card"><div class="spinner"></div><p id="busy-text">جارٍ التصدير…</p></div></div>
+
+  <script src="../assets/site-navbar.js?v=4"></script>
+</body>
+</html>
