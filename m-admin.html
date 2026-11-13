@@ -969,8 +969,50 @@
       return getContentTypes(item).map(type => CONTENT_SECTION_LABELS[type]).join('، ');
     }
 
+    let pointsIdentityAliases = new Map();
+    let pointsTeacherNames = new Map();
+
+    function rebuildPointsIdentities(items) {
+      const parents = new Map();
+      const counts = new Map();
+      function root(key) {
+        if (!parents.has(key)) return key;
+        const parent = root(parents.get(key));
+        parents.set(key, parent);
+        return parent;
+      }
+      for (const item of items) {
+        const key = getTeacherKey(item);
+        if (key.startsWith('account:')) counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      // Prefer the established account when the same contact has multiple IDs.
+      const sorted = [...items].sort((a,b) => (counts.get(getTeacherKey(b)) || 0) - (counts.get(getTeacherKey(a)) || 0));
+      for (const item of sorted) {
+        const key = getTeacherKey(item);
+        const contact = normalizeEmail(item.teacher_email || item.teacher_username || '');
+        if (!key.startsWith('account:') || !contact) continue;
+        const contactKey = 'email:' + contact;
+        const owner = root(contactKey);
+        const account = root(key);
+        if (owner === contactKey) parents.set(contactKey, account);
+        else if (owner !== account) parents.set(account, owner);
+      }
+      pointsIdentityAliases = new Map([...parents.keys()].map(key => [key, root(key)]));
+      pointsTeacherNames = new Map();
+      for (const item of sorted) {
+        const key = getPointsTeacherKey(item);
+        if (key && !pointsTeacherNames.has(key)) pointsTeacherNames.set(key, findTeacherAccount(item)?.full_name || item.teacher_name);
+      }
+    }
+
+    function getPointsTeacherKey(item) {
+      const key = getTeacherKey(item);
+      return pointsIdentityAliases.get(key) || key;
+    }
+
     function rebuildContentIndexes() {
       approvedGames = allGames.filter(g => g.status === 'approved');
+      rebuildPointsIdentities(approvedGames);
       approvedByType = {
         game: approvedGames.filter(g => getContentTypes(g).includes('game')),
         image: approvedGames.filter(g => getContentTypes(g).includes('image')),
@@ -983,12 +1025,12 @@
       const stats = {};
       approvedGames.forEach(game => {
         game.teacher_name = findTeacherAccount(game)?.full_name || game.teacher_name;
-        const key = getTeacherKey(game);
+        const key = getPointsTeacherKey(game);
         if (!key) return;
         if (!stats[key]) {
           stats[key] = {
             key,
-            name: game.teacher_name || 'معلم غير معروف',
+            name: pointsTeacherNames.get(key) || game.teacher_name || 'معلم غير معروف',
             count: 0,
             byType: { game: 0, image: 0, test: 0, video: 0, presentation: 0, file: 0 },
             items: []
@@ -2384,9 +2426,10 @@
     function getMemberStats(email, fullName, userId = '') {
       const normalizedEmail = normalizeEmail(email || '');
       const statsUser = { email: normalizedEmail, full_name: fullName || '', user_id: String(userId || '').trim() };
+      const accountKey = getPointsTeacherKey({ teacher_user_id: statsUser.user_id, teacher_email: normalizedEmail });
       const approved = allGames.filter(g =>
         g.status === 'approved' &&
-        isSubmissionOwnedByUser(g, statsUser)
+        (isSubmissionOwnedByUser(g, statsUser) || (accountKey && getPointsTeacherKey(g) === accountKey))
       );
       let commentsCount = 0;
       Object.values(contentComments).forEach(list => {
@@ -2711,9 +2754,9 @@
       approvedGames.forEach(item => {
         item.teacher_name = findTeacherAccount(item)?.full_name || item.teacher_name;
         if (getApprovedSeasonKey(item) !== selectedStarSeasonKey) return;
-        const key = getTeacherKey(item);
+        const key = getPointsTeacherKey(item);
         if (!key) return;
-        if (!stats[key]) stats[key] = { key, name: item.teacher_name || 'معلم غير معروف', count: 0, byType: { game: 0, image: 0, test: 0, video: 0, presentation: 0, file: 0 }, items: [] };
+        if (!stats[key]) stats[key] = { key, name: pointsTeacherNames.get(key) || item.teacher_name || 'معلم غير معروف', count: 0, byType: { game: 0, image: 0, test: 0, video: 0, presentation: 0, file: 0 }, items: [] };
         stats[key].count += 1;
         getContentTypes(item).forEach(type => { if (stats[key].byType[type] != null) stats[key].byType[type] += 1; });
         stats[key].items.push(item);
@@ -2871,7 +2914,7 @@
       const pageItems = gamesOnly.slice(start, start + ITEMS_PER_PAGE);
 
       grid.innerHTML = pageItems.map(game => {
-        const teacherPoints = teacherStatsByKey[getTeacherKey(game)]?.count || 0;
+        const teacherPoints = teacherStatsByKey[getPointsTeacherKey(game)]?.count || 0;
         const contentId = getContentId(game);
         const teacherImage = getTeacherProfileImage(game);
         const grades = parseMultiValues(game.grade);
