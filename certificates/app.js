@@ -27,7 +27,6 @@
   const backgrounds = new Map();
   const stages = [['all', 'كل المراحل'], ['1-4', 'الصفوف 1–4'], ['5-8', 'الصفوف 5–8'], ['9-12', 'الصفوف 9–12'], ['tahfeez', '⭐ تحفيز+']];
   let renderQueued = false;
-  let templatePreviewObserver;
   let busy = false;
   let gameRosters = new Map();
   let excelReaderPromise;
@@ -213,7 +212,7 @@
     return { font: project.font, colors: project.colors, logo: logoImage, seed: 11, background: backgrounds.get(project.templateId), brandLogo: template.brand ? brandLogos.get(template.brand) : null };
   }
 
-  const thumbs = new Map();
+  const illustratedPreviews = new Map();
   const backgroundLoads = new Map();
   const brandLogos = new Map();
   const brandFiles = { tahfeez: '/certificates/brand/tahfeez-plus.png' };
@@ -226,21 +225,6 @@
     image.onerror = () => resolve(null);
     image.src = src;
   });
-  // الصور المصغّرة لمعرض القوالب من ملف واحد مجمّع؛ الصورة الكاملة تُحمَّل عند اختيار القالب أو التصدير
-  async function loadThumbs() {
-    const indexedTemplates = catalog.templates.filter((t) => Number.isInteger(t.thumb) && t.thumb >= 0);
-    if (!indexedTemplates.length) return;
-    const columns = 6, width = 420, height = 280;
-    const rows = Math.ceil((Math.max(...indexedTemplates.map((t) => t.thumb)) + 1) / columns);
-    const sheet = await loadImage('/certificates/backgrounds/thumbs.jpg?v=2');
-    if (!sheet || sheet.naturalWidth !== columns * width || sheet.naturalHeight !== rows * height) return;
-    for (const t of indexedTemplates) {
-      const canvas = document.createElement('canvas');
-      canvas.width = width; canvas.height = height;
-      canvas.getContext('2d').drawImage(sheet, (t.thumb % columns) * width, Math.floor(t.thumb / columns) * height, width, height, 0, 0, width, height);
-      thumbs.set(t.id, canvas);
-    }
-  }
   async function ensureBackground(id) {
     const template = templateById(id);
     if (!template.image || backgrounds.has(template.id)) return;
@@ -268,8 +252,9 @@
       if (!project) return;
       const canvas = byId('preview');
       const recipient = project.recipients[current] || project.recipients[0];
-      R.draw(canvas.getContext('2d'), canvas.width, canvas.height, templateById(project.templateId), certificateData(recipient), drawOptions());
       byId('rec-index').textContent = `${current + 1} من ${project.recipients.length}`;
+      const ctx = canvas.getContext('2d');
+      if (ctx) R.draw(ctx, canvas.width, canvas.height, templateById(project.templateId), certificateData(recipient), drawOptions());
     });
   }
 
@@ -290,6 +275,41 @@
   }
 
   // ---------- واجهة القوالب ----------
+  const templateSample = {
+    heading: 'شهادة تقدير', subtitle: 'CERTIFICATE OF APPRECIATION', intro: 'تتقدم المدرسة بالشكر إلى الطالب',
+    name: 'اسم الطالب', note: '', phrase: 'تقديرًا لتفوقه وتميّزه، متمنين له دوام النجاح.',
+    extra: '', teacherTitle: 'المعلم', teacherName: '', principalTitle: 'المدير', principalName: '', date: '',
+  };
+
+  function fillTemplatePreview(preview, template, src, spriteRows) {
+    const showPlaceholder = () => {
+      preview.textContent = 'شهادة تقدير';
+      preview.style.setProperty('--template-bg', template.palette.bg);
+      preview.style.setProperty('--template-ink', template.palette.primary);
+      preview.style.setProperty('--template-accent', template.palette.accent);
+      preview.classList.add('tpl-placeholder');
+    };
+    if (!src) { showPlaceholder(); return; }
+
+    const image = document.createElement('img');
+    image.alt = '';
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    image.width = 360;
+    image.height = 240;
+    image.onerror = () => {
+      image.remove();
+      if (!template.image || !Number.isInteger(template.thumb) || template.thumb < 0) { showPlaceholder(); return; }
+      const column = template.thumb % 6;
+      const row = Math.floor(template.thumb / 6);
+      preview.style.backgroundImage = 'url(/certificates/backgrounds/thumbs.jpg?v=2)';
+      preview.style.backgroundSize = `600% ${spriteRows * 100}%`;
+      preview.style.backgroundPosition = `${column * 20}% ${spriteRows > 1 ? row * 100 / (spriteRows - 1) : 0}%`;
+    };
+    image.src = src;
+    preview.append(image);
+  }
+
   function renderTemplates() {
     const filters = byId('template-filters');
     if (!filters.childElementCount) {
@@ -315,33 +335,28 @@
       chip.setAttribute('aria-pressed', String(active));
     }
     const templates = catalog.templates.filter((template) => filter === 'all' || template.stage === filter);
-    byId('template-count').textContent = filter === 'all' ? `${templates.length} قالبًا` : `${templates.length} من ${catalog.templates.length} قالبًا`;
+    const lastThumbnail = Math.max(-1, ...catalog.templates.map((template) => template.thumb ?? -1));
+    const spriteRows = Math.ceil((lastThumbnail + 1) / 6);
     const grid = byId('template-grid');
-    templatePreviewObserver?.disconnect();
-    const pendingPreviews = new Map();
-    const sample = { heading: 'شهادة تقدير', subtitle: 'CERTIFICATE OF APPRECIATION', intro: 'تتقدم المدرسة بالشكر إلى الطالب', name: 'اسم الطالب', note: '',
-      phrase: 'تقديرًا لتفوقه وتميّزه، متمنين له دوام النجاح.', extra: '', teacherTitle: 'المعلم', teacherName: '',
-      principalTitle: 'المدير', principalName: '', date: '' };
-    grid.replaceChildren(...templates.map((template) => {
+    const cards = document.createDocumentFragment();
+    const pendingIllustrations = [];
+    for (const template of templates) {
       const button = document.createElement('button');
       button.type = 'button';
       button.dataset.templateId = template.id;
-      button.className = `tpl${template.id === project.templateId ? ' active' : ''}`;
-      const canvas = document.createElement('canvas');
-      canvas.width = 360; canvas.height = 255;
-      const drawPreview = () => R.draw(canvas.getContext('2d'), canvas.width, canvas.height, template, sample, {
-        seed: 11, background: thumbs.get(template.id) || backgrounds.get(template.id), brandLogo: template.brand ? brandLogos.get(template.brand) : null,
-      });
-      drawPreview();
-      if (template.image && !thumbs.has(template.id) && !backgrounds.has(template.id)) {
-        pendingPreviews.set(button, async () => {
-          await ensureBackground(template.id);
-          if (canvas.isConnected && backgrounds.has(template.id)) drawPreview();
-        });
-      }
+      const active = template.id === project.templateId;
+      button.className = `tpl${active ? ' active' : ''}`;
+      button.setAttribute('aria-pressed', String(active));
+      const preview = document.createElement('span');
+      preview.className = 'tpl-preview';
+      preview.setAttribute('aria-hidden', 'true');
+      const src = template.image || illustratedPreviews.get(template.id);
+      if (src) fillTemplatePreview(preview, template, src, spriteRows);
+      else pendingIllustrations.push({ preview, template });
       const label = document.createElement('span');
+      label.className = 'tpl-name';
       label.textContent = template.name;
-      button.append(canvas, label);
+      button.append(preview, label);
       button.onclick = async () => {
         const selectedProject = project;
         project.templateId = template.id;
@@ -351,28 +366,41 @@
           byId('occasion-select').value = project.occasion; syncPhraseBox();
         }
         syncColorInputs();
-        for (const card of grid.children) card.classList.toggle('active', card === button);
+        for (const card of grid.children) {
+          card.classList.toggle('active', card === button);
+          card.setAttribute('aria-pressed', String(card === button));
+        }
         markDirty();
         await Promise.all([ensureFonts(fontsOf(template)), ensureBackground(template.id)]);
         if (project === selectedProject && project.templateId === template.id) scheduleRender();
       };
-      return button;
-    }));
-    if (!pendingPreviews.size) return;
-    if (!('IntersectionObserver' in window)) {
-      for (const loadPreview of pendingPreviews.values()) loadPreview();
-      return;
+      cards.append(button);
     }
-    templatePreviewObserver = new IntersectionObserver((entries, observer) => {
-      for (const { isIntersecting, target } of entries) {
-        if (!isIntersecting || !pendingPreviews.has(target)) continue;
-        observer.unobserve(target);
-        const loadPreview = pendingPreviews.get(target);
-        pendingPreviews.delete(target);
-        loadPreview();
+    grid.replaceChildren(cards);
+    byId('template-count').textContent = filter === 'all' ? `${templates.length} قالبًا` : `${templates.length} من ${catalog.templates.length} قالبًا`;
+    if (!pendingIllustrations.length) return;
+
+    // القوالب المرسومة برمجيًا تُعايَن بلوحة رسم واحدة مشتركة.
+    const canvas = document.createElement('canvas');
+    canvas.width = 360;
+    canvas.height = 255;
+    let ctx;
+    try { ctx = canvas.getContext('2d'); } catch { ctx = null; }
+    for (const { preview, template } of pendingIllustrations) {
+      let src;
+      try {
+        if (ctx) {
+          ctx.reset?.();
+          R.draw(ctx, canvas.width, canvas.height, template, templateSample, { seed: 11 });
+          src = canvas.toDataURL('image/jpeg', 0.85);
+          if (src === 'data:,') src = undefined;
+          if (src) illustratedPreviews.set(template.id, src);
+        }
+      } catch {
+        // يبقى اختيار القالب متاحًا حتى إذا تعذّر رسم معاينته.
       }
-    }, { rootMargin: '240px 0px' });
-    for (const button of pendingPreviews.keys()) templatePreviewObserver.observe(button);
+      fillTemplatePreview(preview, template, src, spriteRows);
+    }
   }
 
   function syncColorInputs() {
@@ -997,7 +1025,7 @@
     byId('subjects-list').replaceChildren(...catalog.subjects.map((s) => Object.assign(document.createElement('option'), { value: s })));
     byId('grades-list').replaceChildren(...grades.map((g) => Object.assign(document.createElement('option'), { value: g })));
     byId('occasion-select').replaceChildren(...catalog.phrases.map((g) => Object.assign(document.createElement('option'), { value: g.id, textContent: g.label })));
-    await Promise.all([ensureFonts([...new Set(catalog.templates.flatMap(fontsOf))]), loadThumbs(), loadBrands()]);
+    await Promise.all([ensureFonts([...new Set(catalog.templates.flatMap(fontsOf))]), loadBrands()]);
     refreshGameRosters();
     byId('gate').hidden = true;
     byId('studio').hidden = false;
