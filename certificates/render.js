@@ -512,6 +512,13 @@ window.CertificateRenderer = (() => {
       else { ctx.drawImage(image, cx - w / 2, 62 + top, w, h); top += h + 4; }
     }
 
+    if (options.brandLogo) {
+      // شعار برنامج تحفيز+ في الزاوية العليا
+      const size = 128;
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.18)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
+      ctx.drawImage(options.brandLogo, side ? 60 : 118, (template.style === 'islamic' ? 66 : 52), size, size);
+      ctx.restore();
+    }
     text(ctx, data.heading, cx, 140 + top, 64, headingFill, fonts.heading, 700, maxW - 80);
     if (data.subtitle) latin(ctx, data.subtitle, cx, 177 + top, 12, p.accentText || p.accent, 6);
     divider(ctx, cx, (data.subtitle ? 194 : 172) + top, p.accent, 130);

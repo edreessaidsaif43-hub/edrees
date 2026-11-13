@@ -5,7 +5,6 @@
   const subscriptionPage = '/t#subscription-section-title';
   const signInPage = '/enjazy/auth.html?mode=login&return=%2Fcertificates%2F';
   const pdfChunk = 60;
-  const maximumRecipients = 300;
   const byId = (id) => document.getElementById(id);
   const R = window.CertificateRenderer;
 
@@ -16,18 +15,15 @@
   let teacher = null;
   let projects = [];
   let projectId = null;
-  let projectCreateId = null;
   let project = null;
   let current = 0;
   let dirty = false;
-  let editRevision = 0;
   let logoImage = null;
   let filter = 'all';
   const backgrounds = new Map();
-  const stages = [['all', 'كل المراحل'], ['1-4', 'الصفوف 1–4'], ['5-8', 'الصفوف 5–8'], ['9-12', 'الصفوف 9–12']];
+  const stages = [['all', 'كل المراحل'], ['1-4', 'الصفوف 1–4'], ['5-8', 'الصفوف 5–8'], ['9-12', 'الصفوف 9–12'], ['tahfeez', '⭐ تحفيز+']];
   let renderQueued = false;
   let busy = false;
-  let gameRosters = new Map();
 
   // ---------- طلبات الخادم ----------
   async function request(action, { method = 'GET', body, query = '' } = {}) {
@@ -42,10 +38,6 @@
       const data = await response.json().catch(() => ({}));
       if (response.status === 401 || response.status === 403) {
         lockStudio(response.status, data);
-        return { ok: false, denied: true, status: response.status, data };
-      }
-      if (response.status === 409 && data.error === 'account_changed') {
-        toast('تغيّر الحساب. ارجع إلى الحساب الذي بدأت فيه المشروع قبل محاولة الحفظ مرة أخرى.', true);
         return { ok: false, denied: true, status: response.status, data };
       }
       return { ok: response.ok, status: response.status, data };
@@ -203,16 +195,40 @@
   }
 
   function drawOptions() {
-    return { font: project.font, colors: project.colors, logo: logoImage, seed: 11, background: backgrounds.get(project.templateId) };
+    const template = templateById(project.templateId);
+    return { font: project.font, colors: project.colors, logo: logoImage, seed: 11, background: backgrounds.get(project.templateId), brandLogo: template.brand ? brandLogos.get(template.brand) : null };
   }
 
-  function loadBackgrounds() {
-    return Promise.all(catalog.templates.filter((t) => t.image && !backgrounds.has(t.id)).map((t) => new Promise((resolve) => {
-      const image = new Image();
-      image.onload = () => { backgrounds.set(t.id, image); resolve(); };
-      image.onerror = resolve;
-      image.src = t.image;
-    })));
+  const thumbs = new Map();
+  const brandLogos = new Map();
+  const brandFiles = { tahfeez: '/certificates/brand/tahfeez-plus.png' };
+  async function loadBrands() {
+    await Promise.all(Object.entries(brandFiles).map(async ([key, src]) => { const image = await loadImage(src); if (image) brandLogos.set(key, image); }));
+  }
+  const loadImage = (src) => new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = src;
+  });
+  // الصور المصغّرة لمعرض القوالب من ملف واحد مجمّع؛ الصورة الكاملة تُحمَّل عند اختيار القالب أو التصدير
+  async function loadThumbs() {
+    if (!catalog.templates.some((t) => Number.isInteger(t.thumb))) return;
+    const sheet = await loadImage('/certificates/backgrounds/thumbs.jpg?v=2');
+    if (!sheet) return;
+    for (const t of catalog.templates) {
+      if (!Number.isInteger(t.thumb)) continue;
+      const canvas = document.createElement('canvas');
+      canvas.width = 420; canvas.height = 280;
+      canvas.getContext('2d').drawImage(sheet, (t.thumb % 6) * 420, Math.floor(t.thumb / 6) * 280, 420, 280, 0, 0, 420, 280);
+      thumbs.set(t.id, canvas);
+    }
+  }
+  async function ensureBackground(id) {
+    const template = templateById(id);
+    if (!template.image || backgrounds.has(template.id)) return;
+    const image = await loadImage(template.image);
+    if (image) backgrounds.set(template.id, image);
   }
 
   // ---------- الرسم ----------
@@ -237,7 +253,6 @@
   }
 
   function markDirty() {
-    editRevision++;
     dirty = true;
     const state = byId('save-state');
     state.textContent = 'تغييرات غير محفوظة';
@@ -273,14 +288,18 @@
       button.className = `tpl${template.id === project.templateId ? ' active' : ''}`;
       const canvas = document.createElement('canvas');
       canvas.width = 360; canvas.height = 255;
-      R.draw(canvas.getContext('2d'), 360, 255, template, sample, { seed: 11, background: backgrounds.get(template.id) });
+      R.draw(canvas.getContext('2d'), 360, 255, template, sample, { seed: 11, background: thumbs.get(template.id) || backgrounds.get(template.id), brandLogo: template.brand ? brandLogos.get(template.brand) : null });
       const label = document.createElement('span');
       label.textContent = template.name;
       button.append(canvas, label);
       button.onclick = async () => {
         project.templateId = template.id;
         project.colors = { primary: '', accent: '' };
-        await ensureFonts(fontsOf(template));
+        if (template.occasion && project.phraseIndex >= 0 && catalog.phrases.some((g) => g.id === template.occasion)) {
+          project.occasion = template.occasion; project.phraseIndex = 0;
+          byId('occasion-select').value = project.occasion; syncPhraseBox();
+        }
+        await Promise.all([ensureFonts(fontsOf(template)), ensureBackground(template.id)]);
         syncColorInputs();
         renderTemplates();
         markDirty();
@@ -323,71 +342,6 @@
   }
 
   // ---------- الطلبة ----------
-  const recipientName = (value) => value.trim().slice(0, 90).replace(/[\uD800-\uDBFF]$/, '');
-
-  function addRecipients(names) {
-    const [first] = project.recipients;
-    const placeholder = project.recipients.length === 1 && ['اسم الطالب', ''].includes(first.name.trim());
-    const room = maximumRecipients - (placeholder ? 0 : project.recipients.length);
-    const added = names.slice(0, room);
-    if (added.length) {
-      if (placeholder) project.recipients = [];
-      for (const name of added) project.recipients.push({ name, gender: project.gender, note: '' });
-      selectRecipient(0);
-      markDirty();
-    }
-    if (names.length > room) toast('الحد الأقصى 300 شهادة في المشروع الواحد.', true);
-    return added.length;
-  }
-
-  function refreshGameRosters() {
-    if (!teacher) return;
-    const select = byId('game-roster');
-    const previous = select.value;
-    const rosters = window.GameRosters?.list(teacher.id) || [];
-    const bank = window.__BANK?.index || [];
-    gameRosters = new Map(rosters.map((roster) => {
-      const { gradeId, subject, section } = roster;
-      const grade = bank.find((item) => item.id === gradeId);
-      const gradeName = grades[Number(gradeId.slice(1))] || grade?.n || gradeId;
-      const subjects = [...(grade?.subjects || []), ...catalog.subjects];
-      const subjectName = subjects.find((name) => typeof normalizeSubscriptionSubject === 'function' && normalizeSubscriptionSubject(name) === subject) || subject;
-      const key = JSON.stringify([gradeId, subject, section]);
-      return [key, { label: `${gradeName} · ${subjectName} · الشعبة ${section}`, names: [...new Set(roster.names.map(recipientName).filter(Boolean))] }];
-    }));
-    select.replaceChildren(new Option('اختر الصف والمادة والشعبة', ''),
-      ...Array.from(gameRosters, ([key, roster]) => new Option(roster.label, key)));
-    select.disabled = !gameRosters.size;
-    if (gameRosters.has(previous)) select.value = previous;
-    renderGameStudents();
-  }
-
-  function renderGameStudents() {
-    const roster = gameRosters.get(byId('game-roster').value);
-    const names = roster?.names || [];
-    const select = byId('game-student');
-    const previous = select.value;
-    select.replaceChildren(new Option('كل الأسماء', ''), ...names.map((name) => new Option(name, name)));
-    if (names.includes(previous)) select.value = previous;
-    select.disabled = !names.length;
-    byId('game-student-field').hidden = !names.length;
-    byId('game-roster-add').disabled = !names.length;
-    byId('game-roster-status').textContent = !gameRosters.size ? 'لا توجد قوائم ألعاب محفوظة لهذا الحساب في هذا المتصفح.'
-      : roster && !names.length ? 'هذه الشعبة لا تحتوي على أسماء.' : '';
-  }
-
-  function importGameRecipients() {
-    const roster = gameRosters.get(byId('game-roster').value);
-    if (!roster?.names.length) return;
-    const chosen = byId('game-student').value;
-    const existing = new Set(project.recipients.map(({ name }) => recipientName(name)));
-    if (project.recipients.length === 1) existing.delete('اسم الطالب');
-    const names = roster.names.filter((name) => (!chosen || name === chosen) && !existing.has(name));
-    if (!names.length) { toast('الأسماء المحددة مضافة إلى المشروع بالفعل.'); return; }
-    const added = addRecipients(names);
-    if (added === names.length) toast(`تمت إضافة ${added} من أسماء الطلبة.`);
-  }
-
   function renderRecipients() {
     const list = byId('recipients');
     byId('recipient-count').textContent = `${project.recipients.length} شهادة`;
@@ -475,9 +429,8 @@
   async function applyProject(next, id) {
     project = next;
     projectId = id;
-    projectCreateId = null;
     current = 0;
-    await Promise.all([loadLogo(), ensureFonts([...fontsOf(templateById(project.templateId)), project.font])]);
+    await Promise.all([loadLogo(), ensureFonts([...fontsOf(templateById(project.templateId)), project.font]), ensureBackground(project.templateId)]);
     renderTemplates();
     syncColorInputs();
     syncTexts();
@@ -487,70 +440,39 @@
   }
 
   async function loadProject(id) {
-    if (busy) return;
     if (dirty && !confirm('لديك تغييرات غير محفوظة. هل تريد فتح المشروع دون حفظها؟')) return;
-    busy = true;
-    try {
-      const result = await request('certificates_project', { query: `&id=${encodeURIComponent(id)}` });
-      if (result.denied) return;
-      if (!result.ok || !result.data?.project) { toast('تعذّر فتح المشروع.', true); return; }
-      await applyProject(result.data.project, result.data.id);
-      markSaved();
-      toast('تم فتح المشروع.');
-    } finally {
-      busy = false;
-    }
+    const result = await request('certificates_project', { query: `&id=${encodeURIComponent(id)}` });
+    if (result.denied) return;
+    if (!result.ok || !result.data?.project) { toast('تعذّر فتح المشروع.', true); return; }
+    await applyProject(result.data.project, result.data.id);
+    markSaved();
+    toast('تم فتح المشروع.');
   }
 
   async function deleteProject(item) {
-    if (busy) return;
     if (!confirm(`حذف مشروع «${item.title}» نهائيًا؟`)) return;
-    busy = true;
-    try {
-      const query = `&id=${encodeURIComponent(item.id)}&teacherId=${encodeURIComponent(teacher.id)}`;
-      const result = await request('certificates_project', { method: 'DELETE', query });
-      if (result.denied) return;
-      if (!result.ok && result.status !== 404) { toast('تعذّر حذف المشروع.', true); return; }
-      projects = projects.filter((p) => p.id !== item.id);
-      if (projectId === item.id) { projectId = null; projectCreateId = null; markDirty(); }
-      renderProjects();
-      toast('تم حذف المشروع.');
-    } finally {
-      busy = false;
-    }
+    const result = await request('certificates_project', { method: 'DELETE', query: `&id=${encodeURIComponent(item.id)}` });
+    if (result.denied) return;
+    if (!result.ok && result.status !== 404) { toast('تعذّر حذف المشروع.', true); return; }
+    projects = projects.filter((p) => p.id !== item.id);
+    if (projectId === item.id) { projectId = null; markDirty(); }
+    renderProjects();
+    toast('تم حذف المشروع.');
   }
 
   async function saveProject() {
-    if (busy || !project) return false;
+    if (busy) return false;
     busy = true;
-    const button = byId('save-btn');
-    const buttonLabel = button.textContent;
-    button.disabled = true;
-    button.textContent = 'جارٍ الحفظ…';
+    byId('save-btn').disabled = true;
     try {
-      const revision = editRevision;
-      const snapshot = structuredClone(project);
-      snapshot.title = snapshot.title.trim() || 'شهادة تقدير';
-      const save = (id) => {
-        if (!id) projectCreateId ??= window.crypto?.randomUUID?.() ?? null;
-        return request('certificates_project', {
-          method: 'POST', body: { id, createId: id ? null : projectCreateId, teacherId: teacher.id, project: snapshot },
-        });
-      };
-      let result = await save(projectId);
+      const payloadProject = { ...project, title: project.title || 'شهادة تقدير' };
+      let result = await request('certificates_project', { method: 'POST', body: { id: projectId, project: payloadProject } });
       if (result.denied) return false;
-      if (projectId && result.status === 404 && result.data.error === 'project_not_found') {
-        projectId = null;
-        projectCreateId = null;
-        result = await save(null);
+      if (result.status === 404 && projectId) {
+        result = await request('certificates_project', { method: 'POST', body: { id: null, project: payloadProject } });
+        if (result.denied) return false;
       }
-      if (projectCreateId && result.status === 409 && result.data.error === 'project_already_created' && result.data.id === projectCreateId) {
-        projectId = result.data.id;
-        result = await save(projectId);
-      }
-      if (result.denied) return false;
-      if (result.data.error === 'project_id_conflict') projectCreateId = null;
-      if (!result.ok || !result.data.id) {
+      if (!result.ok) {
         const message = result.data?.error === 'project_too_large' ? 'حجم المشروع كبير — جرّب شعارًا أصغر.'
           : result.data?.error === 'invalid_project' ? 'تحقّق من وجود اسم واحد على الأقل وصحة البيانات.'
           : 'تعذّر الحفظ. تأكد من الاتصال ثم حاول مرة أخرى.';
@@ -558,28 +480,22 @@
         return false;
       }
       projectId = result.data.id;
-      projectCreateId = null;
-      const meta = { id: projectId, title: snapshot.title, templateId: snapshot.templateId,
-        recipientCount: snapshot.recipients.filter((r) => r.name.trim()).length, updatedAt: result.data.updatedAt };
+      const meta = { id: projectId, title: payloadProject.title, templateId: project.templateId,
+        recipientCount: project.recipients.filter((r) => r.name.trim()).length, updatedAt: result.data.updatedAt };
       projects = [meta, ...projects.filter((p) => p.id !== projectId)];
       renderProjects();
-      if (revision === editRevision) {
-        markSaved();
-        toast('تم حفظ التصميم في حسابك.');
-      } else {
-        toast('تم حفظ التصميم. لديك تغييرات أحدث تحتاج إلى حفظ.');
-      }
+      markSaved();
+      toast('تم حفظ التصميم في حسابك.');
       return true;
     } finally {
       busy = false;
-      button.disabled = false;
-      button.textContent = buttonLabel;
+      byId('save-btn').disabled = false;
     }
   }
 
   // ---------- التصدير (يتطلب إذنًا من الخادم في كل مرة) ----------
   async function exportPermit(count) {
-    const result = await request('certificates_export', { method: 'POST', body: { projectId, count, teacherId: teacher.id } });
+    const result = await request('certificates_export', { method: 'POST', body: { projectId, count } });
     if (result.denied) return false;
     if (!result.ok) { toast('تعذّر التحقق من الاشتراك قبل التصدير. حاول مرة أخرى.', true); return false; }
     return true;
@@ -610,6 +526,7 @@
       setBusy('جارٍ التحقق من الاشتراك…');
       if (!(await exportPermit(1))) return;
       setBusy('جارٍ تجهيز الصورة بدقة عالية…');
+      await ensureBackground(project.templateId);
       await pause();
       const canvas = document.createElement('canvas');
       canvas.width = 3508; canvas.height = 2480;
@@ -631,6 +548,7 @@
     try {
       setBusy('جارٍ التحقق من الاشتراك…');
       if (!(await exportPermit(recipients.length))) return;
+      await ensureBackground(project.templateId);
       const canvas = document.createElement('canvas');
       canvas.width = 2339; canvas.height = 1654;
       const ctx = canvas.getContext('2d');
@@ -705,7 +623,6 @@
       tab.onclick = () => {
         document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === tab));
         document.querySelectorAll('.tab-panel').forEach((panel) => { panel.hidden = panel.dataset.panel !== tab.dataset.tab; });
-        if (tab.dataset.tab === 'students') refreshGameRosters();
       };
     });
     byId('font-select').onchange = async (event) => {
@@ -745,22 +662,20 @@
     };
 
     byId('default-gender').onchange = (event) => { project.gender = event.target.value; markDirty(); };
-    byId('game-roster').onchange = () => {
-      byId('game-student').value = '';
-      renderGameStudents();
-    };
-    byId('game-roster-add').onclick = importGameRecipients;
-    window.addEventListener('storage', (event) => {
-      if (!event.key || /^games-rosters?:/.test(event.key)) refreshGameRosters();
-    });
     byId('bulk-add').onclick = () => {
-      const names = byId('bulk-names').value.split(/\r?\n/).map(recipientName).filter(Boolean);
+      const names = byId('bulk-names').value.split(/\r?\n/).map((n) => n.trim()).filter(Boolean);
       if (!names.length) { toast('اكتب الأسماء أولًا، اسمًا في كل سطر.', true); return; }
-      addRecipients(names);
+      const placeholder = project.recipients.length === 1 && ['اسم الطالب', ''].includes(project.recipients[0].name.trim());
+      if (placeholder) project.recipients = [];
+      const room = 300 - project.recipients.length;
+      names.slice(0, room).forEach((name) => project.recipients.push({ name: name.slice(0, 90), gender: project.gender, note: '' }));
+      if (names.length > room) toast('الحد الأقصى 300 شهادة في المشروع الواحد.', true);
       byId('bulk-names').value = '';
+      current = 0;
+      renderRecipients(); syncPhraseBox(); markDirty();
     };
     byId('add-row').onclick = () => {
-      if (project.recipients.length >= maximumRecipients) { toast('الحد الأقصى 300 شهادة في المشروع الواحد.', true); return; }
+      if (project.recipients.length >= 300) { toast('الحد الأقصى 300 شهادة في المشروع الواحد.', true); return; }
       project.recipients.push({ name: '', gender: project.gender, note: '' });
       selectRecipient(project.recipients.length - 1);
       markDirty();
@@ -771,17 +686,11 @@
       current = 0; renderRecipients(); syncPhraseBox(); markDirty();
     };
     byId('new-project').onclick = async () => {
-      if (busy) return;
       if (dirty && !confirm('لديك تغييرات غير محفوظة. هل تريد بدء مشروع جديد دون حفظها؟')) return;
-      busy = true;
-      try {
-        await applyProject(newProject(), null);
-        dirty = false;
-        byId('save-state').textContent = 'مشروع جديد';
-        byId('save-state').className = 'save-state';
-      } finally {
-        busy = false;
-      }
+      await applyProject(newProject(), null);
+      dirty = false;
+      byId('save-state').textContent = 'مشروع جديد';
+      byId('save-state').className = 'save-state';
     };
     byId('rec-prev').onclick = () => selectRecipient((current - 1 + project.recipients.length) % project.recipients.length);
     byId('rec-next').onclick = () => selectRecipient((current + 1) % project.recipients.length);
@@ -800,8 +709,7 @@
     byId('subjects-list').replaceChildren(...catalog.subjects.map((s) => Object.assign(document.createElement('option'), { value: s })));
     byId('grades-list').replaceChildren(...grades.map((g) => Object.assign(document.createElement('option'), { value: g })));
     byId('occasion-select').replaceChildren(...catalog.phrases.map((g) => Object.assign(document.createElement('option'), { value: g.id, textContent: g.label })));
-    await Promise.all([ensureFonts([...new Set(catalog.templates.flatMap(fontsOf))]), loadBackgrounds()]);
-    refreshGameRosters();
+    await Promise.all([ensureFonts([...new Set(catalog.templates.flatMap(fontsOf))]), loadThumbs(), loadBrands()]);
     byId('gate').hidden = true;
     byId('studio').hidden = false;
     await applyProject(newProject(), null);
