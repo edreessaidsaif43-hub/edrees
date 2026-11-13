@@ -2655,6 +2655,11 @@
       return '';
     }
 
+    function getApprovedSeasonKey(item) {
+      const approvedAt = item.reviewed_at;
+      return getSubmissionSeasonKey(approvedAt && getSchoolDateParts(approvedAt) ? approvedAt : item.created_at);
+    }
+
     function getCurrentStarSeasonKey() {
       const { year, month } = getSchoolDateParts(new Date());
       if (month >= 9) return `${year}-1`;
@@ -2684,7 +2689,7 @@
       const seasonKeys = new Set([currentKey]);
       approvedGames.forEach(item => {
         item.teacher_name = findTeacherAccount(item)?.full_name || item.teacher_name;
-        const key = getSubmissionSeasonKey(item.created_at);
+        const key = getApprovedSeasonKey(item);
         if (key) seasonKeys.add(key);
       });
       const orderedKeys = [...seasonKeys].sort((a, b) => {
@@ -2705,7 +2710,7 @@
       const stats = {};
       approvedGames.forEach(item => {
         item.teacher_name = findTeacherAccount(item)?.full_name || item.teacher_name;
-        if (getSubmissionSeasonKey(item.created_at) !== selectedStarSeasonKey) return;
+        if (getApprovedSeasonKey(item) !== selectedStarSeasonKey) return;
         const key = getTeacherKey(item);
         if (!key) return;
         if (!stats[key]) stats[key] = { key, name: item.teacher_name || 'معلم غير معروف', count: 0, byType: { game: 0, image: 0, test: 0, video: 0, presentation: 0, file: 0 }, items: [] };

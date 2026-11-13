@@ -2675,6 +2675,10 @@
       return getShieldInfo(shields + 1);
     }
 
+    function refreshPointTotals() {
+      return loadDataFromVercelDatabase({ preferCache: false, resetPages: false, silent: true });
+    }
+
     function switchTab(tab) {
       if (tab === 'submit' && !getCurrentUser()) {
         goToUnifiedAuth('login');
@@ -2699,9 +2703,11 @@
       }
       if (tab === 'account') {
         loadMySubmissions(true);
+        void refreshPointTotals();
       }
       if (tab === 'stars') {
         calculateStarTeachers();
+        void refreshPointTotals();
       }
     }
 
@@ -2724,6 +2730,11 @@
       if (month === 1 && day <= 30) return `${year - 1}-1`;
       if (month >= 2 && (month < 6 || (month === 6 && day <= 10))) return `${year - 1}-2`;
       return '';
+    }
+
+    function getApprovedSeasonKey(item) {
+      const approvedAt = item.reviewed_at;
+      return getSubmissionSeasonKey(approvedAt && getSchoolDateParts(approvedAt) ? approvedAt : item.created_at);
     }
 
     function getCurrentStarSeasonKey() {
@@ -2755,7 +2766,7 @@
       const seasonKeys = new Set([currentKey]);
       approvedGames.forEach(item => {
         item.teacher_name = findTeacherAccount(item)?.full_name || item.teacher_name;
-        const key = getSubmissionSeasonKey(item.created_at);
+        const key = getApprovedSeasonKey(item);
         if (key) seasonKeys.add(key);
       });
       const orderedKeys = [...seasonKeys].sort((a, b) => {
@@ -2776,7 +2787,7 @@
       const stats = {};
       approvedGames.forEach(item => {
         item.teacher_name = findTeacherAccount(item)?.full_name || item.teacher_name;
-        if (getSubmissionSeasonKey(item.created_at) !== selectedStarSeasonKey) return;
+        if (getApprovedSeasonKey(item) !== selectedStarSeasonKey) return;
         const key = getTeacherKey(item);
         if (!key) return;
         if (!stats[key]) stats[key] = { key, name: item.teacher_name || 'معلم غير معروف', count: 0, byType: { game: 0, image: 0, test: 0, video: 0, presentation: 0, file: 0 }, items: [] };
@@ -3350,6 +3361,11 @@
       }
 
       rebuildContentIndexes();
+      const contributionCount = document.getElementById('profile-contrib-count');
+      const currentUser = getCurrentUser();
+      if (contributionCount && currentUser) {
+        contributionCount.textContent = getMemberStats(currentUser.email, currentUser.full_name, currentUser.user_id).approvedCount;
+      }
       if (resetPages) {
         setPage('discover', 1);
         setPage('game', 1);
@@ -3386,13 +3402,13 @@
         const data = await apiGet('getGames', 25000, { useCache: false });
 
         if (data.success && Array.isArray(data.data)) {
-          applyLoadedContentData(data.data, { persistCache: true, resetPages: !renderedFromLocalCache });
+          applyLoadedContentData(data.data, { persistCache: true, resetPages: options.resetPages ?? !renderedFromLocalCache });
         } else {
-          if (!renderedFromLocalCache) showToast('⚠️ تعذر جلب البيانات من الخادم', 'error');
+          if (!renderedFromLocalCache && !options.silent) showToast('⚠️ تعذر جلب البيانات من الخادم', 'error');
         }
       } catch (error) {
         console.error(error);
-        if (!renderedFromLocalCache) {
+        if (!renderedFromLocalCache && !options.silent) {
           showToast('❌ تعذر جلب البيانات: ' + (error.message || 'خطأ غير معروف'), 'error');
         }
       } finally {
