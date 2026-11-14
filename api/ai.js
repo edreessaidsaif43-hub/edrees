@@ -30,7 +30,6 @@ const OPENROUTER_FILE_PARSER_MAX_BYTES = 5 * 1024 * 1024;
 const OPENROUTER_INLINE_PDF_MAX_BYTES = 3 * 1024 * 1024;
 const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_PDF_MODEL = "google/gemini-2.5-flash";
-const OPENROUTER_FIXED_API_KEY = "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";
 const OPENROUTER_PDF_STRATEGIES = [
   { model: OPENROUTER_DEFAULT_MODEL, engine: "cloudflare-ai" },
   { model: OPENROUTER_PDF_MODEL, engine: "cloudflare-ai" },
@@ -411,7 +410,7 @@ function hasUsableExtractedText(text) {
 }
 
 function getOpenRouterApiKey() {
-  return OPENROUTER_FIXED_API_KEY;
+  return String(process.env.OPENROUTER_API_KEY || "").trim();
 }
 
 function isCompleteExtractedText(text) {
