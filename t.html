@@ -592,7 +592,7 @@
 
 
 <link rel="stylesheet" href="/assets/noor-extension-status.css?v=8">
-<link rel="stylesheet" href="assets/site-navbar.css?v=2">
+<link rel="stylesheet" href="assets/site-navbar.css?v=3">
 </head>
  <body style="padding: 8px; padding-bottom: 100px; overflow-x: hidden;">
 <!-- ===== NAVBAR COPIED FROM INDEX START ===== -->
@@ -750,6 +750,76 @@
   </div>
   <script>
     let D = [];
+    let manualVersion = '';
+    let searchSequence = 0;
+
+    async function manualLessonRequest(action, params = {}) {
+      const query = new URLSearchParams({action, ...params});
+      const response = await fetchWithTimeout(subscriptionApiUrl('/api/edu?' + query), 12000);
+      let data;
+      try { data = await response.json(); } catch { throw Error('تعذر قراءة بيانات التحضير.'); }
+      if (!response.ok || !data.success) {
+        if (action === 'manualLessonCatalog' && data.error === 'unknown_action') return {version: null};
+        throw Error(data.message || 'تعذر تحميل بيانات التحضير.');
+      }
+      return data;
+    }
+
+    async function loadManualCatalog() {
+      const first = await manualLessonRequest('manualLessonCatalog');
+      if (!first.version) return false;
+      const rows = [...first.rows];
+      let next = first.next;
+      while (next != null) {
+        const result = await manualLessonRequest('manualLessonCatalog', {version: first.version, offset: next});
+        rows.push(...result.rows);
+        next = result.next;
+      }
+      populateLessonCatalog(rows.map(row => ({...Object.fromEntries(row.cells.map((cell, i) => [i + 1, cell])), position: row.position})));
+      manualVersion = first.version;
+      return true;
+    }
+
+    async function loadManualSubject(grade, subject) {
+      const missing = D.filter(row => row.position != null && !row.fullLesson &&
+        isSameSubscriptionGrade(row["1"], grade) && isSameSubscriptionSubject(row["2"], subject));
+      const positions = new Map(missing.map(row => [row.position, row]));
+      for (let i = 0; i < missing.length; i += 25) {
+        const ids = missing.slice(i, i + 25).map(row => row.position);
+        const data = await manualLessonRequest('manualLessonRows', {version: manualVersion, ids: ids.join(',')});
+        if (data.rows.length !== ids.length) throw Error('تغيّرت بيانات الدروس. أعد تحميل الصفحة.');
+        for (const {position, cells} of data.rows) {
+          Object.assign(positions.get(position), Object.fromEntries(cells.map((cell, i) => [i + 1, cell])), {fullLesson: true});
+        }
+      }
+    }
+
+    function importedLessonText(text) {
+      const input = document.createElement('template');
+      const output = document.createElement('div');
+      input.innerHTML = String(text);
+      const allowed = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'P', 'UL', 'OL', 'LI', 'A']);
+      function append(node, target) {
+        if (node.nodeType === 3) {
+          target.append(document.createTextNode(node.textContent));
+          return;
+        }
+        if (node.nodeType !== 1 || ['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'TEMPLATE'].includes(node.tagName)) return;
+        const child = allowed.has(node.tagName) ? document.createElement(node.tagName.toLowerCase()) : target;
+        if (node.tagName === 'A') {
+          const href = node.getAttribute('href') || '';
+          if (/^https?:\/\//i.test(href.trim())) {
+            child.href = href.trim();
+            child.target = '_blank';
+            child.rel = 'noopener noreferrer';
+          }
+        }
+        for (const item of node.childNodes) append(item, child);
+        if (child !== target) target.append(child);
+      }
+      for (const item of input.content.childNodes) append(item, output);
+      return output.innerHTML;
+    }
     const CSV_CACHE_KEY = 'lesson_system_csv_cache_v2';
     const CSV_CACHE_TTL_MS = 1000 * 60 * 60 * 8;
 
@@ -1325,6 +1395,10 @@ function getCachedCsv() {
           parsed.push(obj);
         }
       }
+      populateLessonCatalog(parsed);
+    }
+
+    function populateLessonCatalog(parsed) {
       if (parsed.length === 0) throw new Error('لا توجد بيانات صحيحة');
       D = parsed;
 
@@ -1434,6 +1508,14 @@ function getCachedCsv() {
       updateLoadingProgress(isLiteMode ? 30 : 10);
       
       try {
+        if (await loadManualCatalog()) {
+          await refreshSubscriptionStatus();
+          applySubscriptionToGrades();
+          updateLoadingProgress(100);
+          hideLoadingScreen();
+          updateConnectionStatus('online', 'جاهز - ' + D.length + ' درس');
+          return;
+        }
         const urls = [
           "https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ/export?format=csv&gid=0",
           "https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ/export?format=csv",
@@ -1680,7 +1762,8 @@ function getCachedCsv() {
       window.location.href = authPath + '?return=' + encodeURIComponent(returnPath || '/t');
     }
 
-    function searchLesson() {
+    async function searchLesson() {
+      const sequence = ++searchSequence;
       const grade = document.getElementById('grade').value;
       const subject = document.getElementById('subject').value;
       const semester = document.getElementById('semester').value;
@@ -1712,6 +1795,20 @@ function getCachedCsv() {
         return;
       }
       
+      if (manualVersion) {
+        const button = document.querySelector('button[onclick="searchLesson()"]');
+        if (button) button.disabled = true;
+        try {
+          await loadManualSubject(lessonData["1"], lessonData["2"]);
+        } catch (error) {
+          showMessage(error.message || 'تعذر تحميل نص الدرس.', 'error');
+          return;
+        } finally {
+          if (button) button.disabled = false;
+        }
+        if (sequence !== searchSequence || [['grade', grade], ['subject', subject], ['semester', semester], ['unit', unit], ['lesson', lesson]]
+          .some(([id, value]) => document.getElementById(id).value !== value)) return;
+      }
       displayLesson(lessonData);
       scrollToResults();
     }
@@ -1734,16 +1831,17 @@ function getCachedCsv() {
     }
     
     function displayLesson(data) {
-      const lessonTitle = data["5"] || 'درس';
+      const lessonTitle = data.fullLesson ? importedLessonText(data["5"] || 'درس') : data["5"] || 'درس';
       const contents = [];
       for (let i = 6; i <= 21; i++) {
-        contents.push(data[i.toString()] || 'غير محدد');
+        const content = data[i.toString()] || 'غير محدد';
+        contents.push(data.fullLesson ? importedLessonText(content) : content);
       }
       
       document.getElementById('result').innerHTML = `
         <div style="background:linear-gradient(135deg,#1e293b,#334155);color:white;padding:12px;border-radius:10px;text-align:center;margin-bottom:16px;">
           <h2 style="font-weight:700;margin:0;font-size:14px">📖 ${lessonTitle}</h2>
-          <p style="margin:4px 0 0;opacity:0.9;font-size:10px">${data["1"]} - ${data["2"]}</p>
+          <p style="margin:4px 0 0;opacity:0.9;font-size:10px">${data.fullLesson ? importedLessonText(data["1"]) : data["1"]} - ${data.fullLesson ? importedLessonText(data["2"]) : data["2"]}</p>
         </div>
         
         <div style="display:grid;gap:10px;margin-bottom:16px">

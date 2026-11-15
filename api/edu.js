@@ -1,3 +1,4 @@
+import { createManualLessonHandler } from './_lib/manual-lesson-store.js';
 import { createEduAdminAuth } from './_lib/edu-admin-auth.js';
 import { neon } from "@neondatabase/serverless";
 import { loginTeacher } from "../enjazy/server_api/_lib/store.js";
@@ -22,6 +23,7 @@ const MIGRATION_TOKEN = process.env.EDU_MIGRATION_TOKEN || "";
 
 const sql = DATABASE_URL ? neon(DATABASE_URL) : null;
 let schemaPromise = null;
+const manualLessons = sql ? createManualLessonHandler(sql) : null;
 
 function send(res, status, payload) {
   res.status(status).json(payload);
@@ -371,6 +373,7 @@ export default async function handler(req, res) {
     const isAdmin = adminAuth.valid(req);
     if (action === 'updateGame' && !isAdmin && !body.ownerPassword) return send(res, 401, {success:false,error:'admin_or_owner_session_required'});
     if (!sql) return dbUnavailable(res);
+    if (action.startsWith('manualLesson')) return await manualLessons(req, res, action, body, isAdmin);
 
     if (req.method === "GET") {
       if (action === "getGames") {

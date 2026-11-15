@@ -706,36 +706,9 @@
     .r3.v{opacity:1;transform:none}
   </style>
 
-<link rel="stylesheet" href="assets/site-navbar.css?v=2">
+<link rel="stylesheet" href="assets/site-navbar.css?v=3">
 <style>
-  body.home-page{--home-nav-height:64px;padding-top:var(--home-nav-height)!important}
-  html:has(.home-page){scroll-padding-top:calc(16px + var(--home-header-offset,64px))}
-  .home-page #nav{direction:rtl;height:var(--home-nav-height);padding-inline:clamp(12px,3vw,40px);gap:10px;background:#fff;border-bottom-color:#dbe5ee}
-  .home-page #nav .nb{flex:1;min-width:0;gap:8px}
-  .home-page #nav .nb img{flex:none}
-  .home-page #nav .nb-name{max-width:none;white-space:normal;line-height:1.45;overflow-wrap:anywhere;color:#183252}
-  .home-page #nav-user-area{min-width:0;flex:none}
-  .home-page #nav .nav-user-pill{display:block;max-width:min(24vw,200px);overflow:hidden;text-overflow:ellipsis}
-  .home-page #nav .nav-auth-btn{color:#fff;background:#1958ae}
-  .home-page #nav #ntog{display:flex;border-color:#dbe5ee}
-  .home-page #nav .nl{display:none}
-  .home-page #nmob{direction:rtl;top:var(--home-nav-height);max-height:calc(100vh - var(--home-nav-height));max-height:calc(100dvh - var(--home-nav-height));overflow-y:auto}
-  .home-page #nmob.o{display:flex}
-  .home-page #nmob a{min-height:42px}
-  .home-page #nav a:focus-visible,.home-page #nav button:focus-visible,.home-page #nmob a:focus-visible{outline:2px solid #1958ae;outline-offset:2px}
-  .home-page #user-menu{top:calc(var(--home-nav-height) + 4px)!important}
   .home-page .cards-only-home{padding-top:36px}
-  @media(min-width:1120px){
-    body.home-page{--home-nav-height:110px}
-    html:has(.home-page){--home-header-offset:110px}
-    .home-page #nav{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:60px 49px;gap:0 12px}
-    .home-page #nav .nb{grid-column:1;grid-row:1;justify-self:start}
-    .home-page #nav-user-area{grid-column:2;grid-row:1}
-    .home-page #nav .nl{display:flex;grid-column:1/-1;grid-row:2;justify-content:space-evenly;gap:2px;height:100%;overflow:visible;border-top:1px solid #e7edf4}
-    .home-page #nav .nl a{padding:6px 7px;font-size:12px;line-height:1.45;color:#354d69}
-    .home-page #nav .nl a.on,.home-page #nmob a.on{color:#144e9b;background:#eaf2fc}
-    .home-page #nav #ntog,.home-page #nmob.o{display:none}
-  }
 </style>
 </head>
 <body class="home-page">

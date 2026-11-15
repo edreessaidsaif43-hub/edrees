@@ -187,7 +187,7 @@
     #section-admin > div { margin-top: 1rem; }
   </style>
 
-<link rel="stylesheet" href="assets/site-navbar.css?v=2">
+<link rel="stylesheet" href="assets/site-navbar.css?v=3">
 </head>
 <body>
 <!-- ===== NAVBAR COPIED FROM INDEX START ===== -->
@@ -613,6 +613,14 @@
       </div>
 
       <div id="admin-panel-box" class="hidden space-y-4">
+        <form id="manual-lesson-import" class="bg-white/10 rounded-xl p-4 space-y-3">
+          <h3 class="text-white font-black">استيراد دروس التحضير اليدوي</h3>
+          <label class="block text-red-100" for="manual-sheet-url">رابط Google Sheets</label>
+          <input id="manual-sheet-url" type="url" required class="w-full p-3 rounded-lg bg-white text-gray-800" placeholder="https://docs.google.com/spreadsheets/...">
+          <p class="text-red-100 text-sm">استخدم رابطًا يسمح بالعرض، مع صف للعناوين ثم أعمدة A إلى P بترتيب ملف التحضير الحالي. يُستبدل بنك التحضير اليدوي بعد اكتمال الاستيراد.</p>
+          <button class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold" type="submit">استيراد ونشر الدروس</button>
+          <p id="manual-import-status" class="text-white text-sm" role="status"></p>
+        </form>
         <div class="bg-white/10 rounded-xl p-4 text-red-100 font-bold">
           تم تسجيل الدخول بنجاح إلى لوحة المدير.
         </div>
@@ -4650,6 +4658,32 @@
   </script>
 
 <script src="assets/site-navbar.js?v=2"></script>
+<script>
+(() => {
+  const form = document.getElementById('manual-lesson-import');
+  const status = document.getElementById('manual-import-status');
+  const button = form.querySelector('button');
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!confirm('هل تريد نشر دروس هذه الورقة بدل بنك التحضير اليدوي الحالي؟')) return;
+    button.disabled = true;
+    status.textContent = 'جارٍ استيراد الدروس وحفظها...';
+    try {
+      const response = await fetch('/api/edu?action=manualLessonImport', {
+        method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url: document.getElementById('manual-sheet-url').value.trim()})
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw Error(result.message || 'تعذر استيراد الدروس. تحقق من جلسة الإدارة.');
+      status.textContent = 'تم نشر ' + result.total + ' درس في صفحة التحضير اليدوي.';
+    } catch (error) {
+      status.textContent = error.message || 'تعذر استيراد الدروس.';
+    } finally {
+      button.disabled = false;
+    }
+  });
+})();
+</script>
 </body>
 </html>
 
