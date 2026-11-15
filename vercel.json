@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "functions": { "api/edu.js": { "maxDuration": 60 } },
   "headers": [
     {
       "source": "/enjazy/auth.html",
