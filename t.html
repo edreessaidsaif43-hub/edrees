@@ -106,9 +106,8 @@
     }
 
     .connection-status {
-      position: fixed;
-      top: 8px;
-      left: 8px;
+      display: inline-block;
+      margin: 0 0 12px;
       padding: 6px 8px;
       border-radius: 20px;
       font-size: 10px;
@@ -202,177 +201,6 @@
       input, textarea, select, button {
         -webkit-user-select: text;
       }
-    }
-
-    .loading-screen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-      flex-direction: column;
-      gap: 30px;
-      overflow: hidden;
-    }
-
-    .loading-screen::before {
-      content: '';
-      position: absolute;
-      width: 400px;
-      height: 400px;
-      background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
-      border-radius: 50%;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      filter: blur(40px);
-      animation: pulseGlow 3s ease-in-out infinite;
-    }
-
-    @keyframes pulseGlow {
-      0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
-      50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
-    }
-
-    .loading-circle {
-      width: 120px;
-      height: 120px;
-      position: relative;
-      z-index: 10;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .loading-dots {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .dot {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #8b5cf6, #ec4899);
-      animation: bounce 1.4s ease-in-out infinite;
-      box-shadow: 0 0 20px rgba(139, 92, 246, 0.8);
-    }
-
-    .dot:nth-child(1) { animation-delay: 0s; }
-    .dot:nth-child(2) { animation-delay: 0.2s; }
-    .dot:nth-child(3) { animation-delay: 0.4s; }
-    .dot:nth-child(4) { animation-delay: 0.6s; }
-    .dot:nth-child(5) { animation-delay: 0.8s; }
-
-    @keyframes bounce {
-      0%, 80%, 100% { 
-        transform: scale(1) translateY(0);
-        opacity: 0.7;
-      }
-      40% { 
-        transform: scale(1.3) translateY(-20px);
-        opacity: 1;
-      }
-    }
-
-    .percentage-text {
-      font-size: 32px;
-      font-weight: 700;
-      color: white;
-      text-shadow: 
-        0 0 20px rgba(139, 92, 246, 0.8),
-        0 0 40px rgba(236, 72, 153, 0.6);
-      font-family: 'Courier New', monospace;
-      letter-spacing: 1px;
-      line-height: 1;
-      animation: fadeInOut 2s ease-in-out infinite;
-      font-variant-numeric: tabular-nums;
-      margin-top: 20px;
-    }
-
-    @keyframes fadeInOut {
-      0%, 100% { opacity: 0.6; }
-      50% { opacity: 1; }
-    }
-
-    .loading-label {
-      font-size: 18px;
-      color: rgba(255, 255, 255, 1);
-      text-align: center;
-      max-width: 280px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      animation: textGlow 2s ease-in-out infinite;
-      z-index: 10;
-      text-transform: uppercase;
-      background: linear-gradient(90deg, #8b5cf6, #ec4899, #3b82f6);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    @keyframes textGlow {
-      0%, 100% { 
-        opacity: 1;
-        filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.5));
-      }
-      50% { 
-        opacity: 0.8;
-        filter: drop-shadow(0 0 16px rgba(236, 72, 153, 0.8));
-      }
-    }
-
-    .performance-hint {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(16, 185, 129, 0.95);
-      color: white;
-      padding: 10px 16px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-      z-index: 10000;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      animation: slideUp 0.5s ease-out;
-    }
-
-    @keyframes slideUp {
-      from { transform: translateX(-50%) translateY(100px); opacity: 0; }
-      to { transform: translateX(-50%) translateY(0); opacity: 1; }
-    }
-
-    .stars-effect {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      top: 0;
-      left: 0;
-    }
-
-    .star {
-      position: absolute;
-      width: 3px;
-      height: 3px;
-      background: white;
-      border-radius: 50%;
-      animation: twinkle 1.5s infinite;
-    }
-
-    @keyframes twinkle {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 1; }
     }
 
     @media (max-width: 640px) {
@@ -489,21 +317,6 @@
     }
 
     /* Performance mode for iPhone/Safari and constrained devices */
-    .lite-mode .loading-screen::before,
-    .lite-mode .dot,
-    .lite-mode .star,
-    .lite-mode .percentage-text,
-    .lite-mode .loading-label {
-      animation: none !important;
-      filter: none !important;
-      text-shadow: none !important;
-      box-shadow: none !important;
-    }
-
-    .lite-mode .stars-effect {
-      display: none !important;
-    }
-
     .lite-mode .glass-effect,
     .lite-mode .result-card,
     .lite-mode #site-navbar,
@@ -518,15 +331,6 @@
       box-shadow: none !important;
     }
 
-    @media (max-width: 768px) {
-      .loading-screen::before {
-        display: none;
-      }
-      .dot {
-        width: 10px;
-        height: 10px;
-      }
-    }
   </style>
   <script src="https://cdn.tailwindcss.com/3.4.17" type="text/javascript"></script>
   <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
@@ -641,37 +445,13 @@
 
 
 <!-- ===== NAVBAR COPIED FROM INDEX END ===== -->
-  <div id="loadingScreen" class="loading-screen">
-   <div class="loading-circle">
-    <div class="stars-effect" id="starsContainer"></div>
-    <div style="display:flex;flex-direction:column;align-items:center;">
-     <div class="loading-dots">
-      <div class="dot"></div>
-      <div class="dot"></div>
-      <div class="dot"></div>
-      <div class="dot"></div>
-      <div class="dot"></div>
-     </div>
-     <div class="percentage-text" id="percentageText">
-      0%
-     </div>
-    </div>
-   </div>
-   <div class="loading-label" id="loadingLabel">
-    جاري تحميل البيانات...
-   </div>
-  </div>
-  <div class="performance-hint" id="performanceHint">
-   💡 استخدم Google Chrome للحصول على أفضل أداء!
-  </div>
-  <div id="connectionStatus" class="connection-status status-loading"><span class="loading"></span> جاري التحميل...
-  </div>
   <div class="max-w-4xl mx-auto">
    <header class="text-center mb-6 fade-in">
     <h1 class="text-2xl md:text-5xl font-bold text-white mb-2">📚 تحضير الدروس</h1>
     <p class="text-xs md:text-lg text-white/90">نظام متطور للتخطيط التعليمي</p>
    </header>
    <main class="glass-effect rounded-2xl p-3 md:p-8 mb-6 fade-in">
+    <p id="connectionStatus" class="connection-status status-loading" role="status">جارٍ جلب الدروس...</p>
 
     <section class="subscription-section" aria-labelledby="subscription-section-title">
       <div class="page-section-label" id="subscription-section-title"><span>💳</span> الاشتراك وتفعيل المواد</div>
@@ -1451,68 +1231,18 @@ function getCachedCsv() {
     function updateConnectionStatus(status, message) {
       const statusElement = document.getElementById('connectionStatus');
       statusElement.className = `connection-status status-${status}`;
-      statusElement.innerHTML = message;
-    }
-    
-    function updateLoadingProgress(percentage) {
-      const percentageText = document.getElementById('percentageText');
-      percentageText.textContent = percentage + '%';
-      
-      const messages = [
-        '🚀 جاري تحميل البيانات...',
-        '📊 جاري تحليل الملفات...',
-        '⚙️ جاري معالجة المعلومات...',
-        '✨ تقريباً انتهينا...',
-        '🎮 يكاد ينتهي التحميل...',
-        '🏁 النهاية قريبة جداً...'
-      ];
-      
-      let messageIndex = Math.floor((percentage / 100) * (messages.length - 1));
-      document.getElementById('loadingLabel').textContent = messages[messageIndex];
-    }
-    
-    function createStarEffect() {
-      if (isLiteMode) return;
-      const container = document.getElementById('starsContainer');
-      if (!container) return;
-      
-      container.innerHTML = '';
-      for (let i = 0; i < 12; i++) {
-        const star = document.createElement('div');
-        star.className = 'star';
-        star.style.left = Math.random() * 100 + '%';
-        star.style.top = Math.random() * 100 + '%';
-        star.style.animationDelay = Math.random() * 1.5 + 's';
-        container.appendChild(star);
-      }
-    }
-    
-    function hideLoadingScreen() {
-      const loadingScreen = document.getElementById('loadingScreen');
-      const performanceHint = document.getElementById('performanceHint');
-      loadingScreen.style.opacity = '0';
-      loadingScreen.style.transition = isLiteMode ? 'opacity 0.2s ease-out' : 'opacity 0.5s ease-out';
-      if (performanceHint) {
-        performanceHint.style.opacity = '0';
-        performanceHint.style.transition = isLiteMode ? 'opacity 0.2s ease-out' : 'opacity 0.5s ease-out';
-      }
-      setTimeout(() => {
-        loadingScreen.style.display = 'none';
-        if (performanceHint) performanceHint.style.display = 'none';
-      }, isLiteMode ? 200 : 500);
+      statusElement.textContent = message;
     }
     
     async function loadData() {
-      createStarEffect();
-      updateConnectionStatus('loading', '<span class="loading"></span> جاري...');
-      updateLoadingProgress(isLiteMode ? 30 : 10);
+      updateConnectionStatus('loading', 'جارٍ جلب الدروس...');
       
       try {
         if (await loadManualCatalog()) {
           await refreshSubscriptionStatus();
           applySubscriptionToGrades();
-          updateLoadingProgress(100);
-          hideLoadingScreen();
+
+
           updateConnectionStatus('online', 'جاهز - ' + D.length + ' درس');
           return;
         }
@@ -1528,8 +1258,8 @@ function getCachedCsv() {
             hydrateDataFromCsv(cachedCsv);
             await refreshSubscriptionStatus();
             applySubscriptionToGrades();
-            updateLoadingProgress(100);
-            hideLoadingScreen();
+
+
             updateConnectionStatus('online', `✅ جاهز - ${D.length} درس`);
 
             // Refresh cache in background without blocking initial render.
@@ -1560,8 +1290,7 @@ function getCachedCsv() {
             console.log('محاولة:', url);
           }
         }
-        
-        updateLoadingProgress(isLiteMode ? 55 : 10);
+
         
         if ((!csvText || csvText.length < 100) && cachedCsv) {
           csvText = cachedCsv;
@@ -1571,22 +1300,16 @@ function getCachedCsv() {
           throw new Error('فشل التحميل - تأكد من الاتصال');
         }
 
-        updateLoadingProgress(isLiteMode ? 78 : 50);
         hydrateDataFromCsv(csvText);
         setCachedCsv(csvText);
         await refreshSubscriptionStatus();
         applySubscriptionToGrades();
-        
-        updateLoadingProgress(100);
-        setTimeout(() => {
-          hideLoadingScreen();
-          updateConnectionStatus('online', `✅ جاهز - ${D.length} درس`);
-          showMessage(`🎉 تم تحميل ${D.length} درس بنجاح!`, 'success');
-        }, 500);
+
+        updateConnectionStatus('online', 'جاهز - ' + D.length + ' درس');
         
       } catch (error) {
-        hideLoadingScreen();
-        updateConnectionStatus('offline', '❌ خطأ');
+
+        updateConnectionStatus('offline', 'تعذّر جلب الدروس. حدّث الصفحة للمحاولة مجددًا.');
         showMessage('خطأ: ' + error.message, 'error');
       }
     }
