@@ -41,3 +41,30 @@ html{scroll-padding-top:82px}
 @media(min-width:1401px){#nmob.site-navbar-menu{display:none}}
 @media(max-width:1400px){#nav.site-navbar .nl{display:none}#nav.site-navbar #ntog{display:flex}}
 @media(max-width:520px){#nav.site-navbar{gap:6px;padding-inline:10px}#nav.site-navbar .nb{flex-shrink:1}#nav.site-navbar .nb-name{overflow-wrap:anywhere}}
+
+  :root{--portal-nav-height:64px;--site-nav-height:var(--portal-nav-height);scroll-padding-top:calc(var(--portal-nav-height) + 16px)}
+  body{padding-top:var(--portal-nav-height)!important}
+  #nav.site-navbar{direction:rtl;height:var(--portal-nav-height);padding-inline:clamp(12px,3vw,40px);gap:10px;background:#fff;border-bottom-color:#dbe5ee}
+  #nav.site-navbar .nb{flex:1;min-width:0;gap:8px}
+  #nav.site-navbar .nb img{flex:none}
+  #nav.site-navbar .nb-name{max-width:none;white-space:normal;line-height:1.45;overflow-wrap:anywhere;color:#183252}
+  #nav.site-navbar #nav-user-area{min-width:0;flex:none}
+  #nav.site-navbar .nav-user-pill{display:block;max-width:min(24vw,200px);overflow:hidden;text-overflow:ellipsis}
+  #nav.site-navbar .nav-auth-btn{color:#fff;background:#1958ae}
+  #nav.site-navbar #ntog{display:flex;width:38px;min-width:38px;max-width:38px;height:38px;min-height:38px;padding:0;margin:0;flex:0 0 38px;border-color:#dbe5ee}
+  #nav.site-navbar .nl{display:none}
+  #nmob.site-navbar-menu{direction:rtl;top:var(--portal-nav-height);max-height:calc(100vh - var(--portal-nav-height));max-height:calc(100dvh - var(--portal-nav-height));overflow-y:auto}
+  #nmob.site-navbar-menu.o{display:flex}
+  #nmob.site-navbar-menu a{min-height:42px}
+  #nav.site-navbar a:focus-visible,#nav.site-navbar button:focus-visible,#nmob.site-navbar-menu a:focus-visible{outline:2px solid #1958ae;outline-offset:2px}
+  #user-menu{top:calc(var(--portal-nav-height) + 4px)!important}
+  @media(min-width:1120px){
+    :root{--portal-nav-height:110px}
+    #nav.site-navbar{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:60px 49px;gap:0 12px}
+    #nav.site-navbar .nb{grid-column:1;grid-row:1;justify-self:start}
+    #nav.site-navbar #nav-user-area{grid-column:2;grid-row:1}
+    #nav.site-navbar .nl{display:flex;grid-column:1/-1;grid-row:2;justify-content:space-evenly;gap:2px;height:100%;overflow:visible;border-top:1px solid #e7edf4}
+    #nav.site-navbar .nl a{padding:6px 7px;font-size:12px;line-height:1.45;color:#354d69}
+    #nav.site-navbar .nl a.on,#nmob.site-navbar-menu a.on{color:#144e9b;background:#eaf2fc}
+    #nav.site-navbar #ntog,#nmob.site-navbar-menu.o{display:none}
+  }
