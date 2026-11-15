@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --bg: #f8fafc;
   --ink: #102a43;
   --brand: #0ea5a4;
@@ -6290,5 +6290,22 @@ body.feature-fullscreen #feature-countdown.fullscreen-feature > .field-row {
     margin: 0 !important;
     padding: 0 !important;
     transform: none !important;
+  }
+}
+
+/* Align the app header below the shared site navigation. */
+.topbar {
+  top: var(--portal-nav-height, 64px) !important;
+}
+
+@media (min-width: 1120px) {
+  html body {
+    padding-top: calc(var(--portal-nav-height, 110px) + 66px) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    top: 0 !important;
   }
 }
