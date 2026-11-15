@@ -613,6 +613,33 @@
       </div>
 
       <div id="admin-panel-box" class="hidden space-y-4">
+        <details class="bg-white/10 rounded-xl p-4">
+          <summary class="cursor-pointer text-white font-black">إضافة درس يدويًا</summary>
+          <form id="manual-lesson-add" class="mt-4 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label class="block text-red-100">الصف<input name="cell0" required maxlength="350" class="w-full p-2 rounded-lg bg-white text-gray-800"></label>
+              <label class="block text-red-100">المادة<input name="cell1" required maxlength="350" class="w-full p-2 rounded-lg bg-white text-gray-800"></label>
+              <label class="block text-red-100">الفصل الدراسي<input name="cell2" required maxlength="350" class="w-full p-2 rounded-lg bg-white text-gray-800"></label>
+              <label class="block text-red-100">الوحدة<input name="cell3" required maxlength="350" class="w-full p-2 rounded-lg bg-white text-gray-800"></label>
+              <label class="block text-red-100">اسم الدرس<input name="cell4" required maxlength="350" class="w-full p-2 rounded-lg bg-white text-gray-800"></label>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label class="block text-red-100">أهداف الدرس<textarea name="cell5" rows="3" class="w-full p-2 rounded-lg bg-white text-gray-800"></textarea></label>
+              <label class="block text-red-100">المفاهيم<textarea name="cell6" rows="3" class="w-full p-2 rounded-lg bg-white text-gray-800"></textarea></label>
+              <label class="block text-red-100">التمهيد<textarea name="cell7" rows="3" class="w-full p-2 rounded-lg bg-white text-gray-800"></textarea></label>
+              <label class="block text-red-100">إجراءات التنفيذ<textarea name="cell8" rows="3" class="w-full p-2 rounded-lg bg-white text-gray-800"></textarea></label>
+              <label class="block text-red-100">التقويم التكويني<textarea name="cell9" rows="3" class="w-full p-2 rounded-lg bg-white text-gray-800"></textarea></label>
+              <label class="block text-red-100">التقويم الختامي<textarea name="cell10" rows="3" class="w-full p-2 rounded-lg bg-white text-gray-800"></textarea></label>
+              <label class="block text-red-100">ملاحظات ولي الأمر<textarea name="cell11" rows="3" class="w-full p-2 rounded-lg bg-white text-gray-800"></textarea></label>
+              <label class="block text-red-100">المرفقات<textarea name="cell12" rows="3" class="w-full p-2 rounded-lg bg-white text-gray-800"></textarea></label>
+              <label class="block text-red-100">الواجبات<textarea name="cell13" rows="3" class="w-full p-2 rounded-lg bg-white text-gray-800"></textarea></label>
+              <label class="block text-red-100">سؤال النقاش<textarea name="cell14" rows="3" class="w-full p-2 rounded-lg bg-white text-gray-800"></textarea></label>
+              <label class="block text-red-100">اختبار الوحدة<textarea name="cell15" rows="3" class="w-full p-2 rounded-lg bg-white text-gray-800"></textarea></label>
+            </div>
+            <button type="submit" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">حفظ الدرس ونشره</button>
+            <p id="manual-add-status" class="text-white text-sm" role="status"></p>
+          </form>
+        </details>
         <form id="manual-lesson-import" class="bg-white/10 rounded-xl p-4 space-y-3">
           <h3 class="text-white font-black">استيراد دروس التحضير اليدوي</h3>
           <label class="block text-red-100" for="manual-sheet-url">رابط Google Sheets</label>
@@ -621,6 +648,11 @@
           <input id="manual-sheet-file" type="file" accept=".csv,text/csv" class="w-full p-3 rounded-lg bg-white text-gray-800">
           <p class="text-red-100 text-sm">من Google Sheets اختر ملف ← تنزيل ← CSV للورقة الحالية. اختر الملف أو أدخل رابطًا يسمح بالعرض. استخدم صف عناوين وأعمدة A إلى P بترتيب ملف التحضير. تُنشر النسخة الجديدة بعد اكتمال الحفظ.</p>
           <button class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold" type="submit">استيراد ونشر الدروس</button>
+          <label class="block text-red-100" for="manual-file-mode">طريقة حفظ ملف CSV</label>
+          <select id="manual-file-mode" class="w-full p-2 rounded-lg bg-white text-gray-800">
+            <option value="append">إضافة إلى الدروس الحالية</option>
+            <option value="replace">استبدال بنك الدروس بالكامل</option>
+          </select>
           <p id="manual-import-status" class="text-white text-sm" role="status"></p>
         </form>
         <div class="bg-white/10 rounded-xl p-4 text-red-100 font-bold">
@@ -4680,6 +4712,27 @@ async function request(action, body) {
   return result;
 }
 
+const lessonForm = document.getElementById('manual-lesson-add');
+const lessonStatus = document.getElementById('manual-add-status');
+lessonForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const save = lessonForm.querySelector('button');
+  if (save.disabled) return;
+  const data = new FormData(lessonForm);
+  const cells = Array.from({length: 16}, (_, index) => String(data.get('cell' + index) || '').trim());
+  save.disabled = true;
+  lessonStatus.textContent = 'جارٍ حفظ الدرس...';
+  try {
+    await request('manualLessonAdd', {cells});
+    lessonForm.reset();
+    lessonStatus.textContent = 'تم حفظ الدرس ونشره في صفحة التحضير اليدوي.';
+  } catch (error) {
+    lessonStatus.textContent = error.message || 'تعذّر حفظ الدرس.';
+  } finally {
+    save.disabled = false;
+  }
+});
+
 async function* fileChunks(file) {
   const decoder = new TextDecoder('utf-8', {fatal: true});
   for (let offset = 0; offset < file.size; offset += 262144) {
@@ -4688,7 +4741,7 @@ async function* fileChunks(file) {
   yield decoder.decode();
 }
 
-async function upload(file) {
+async function upload(file, append) {
   if (!/\.csv$/i.test(file.name) || !file.size) throw Error('اختر ملف CSV صالحًا.');
   if (file.size > MAX_BYTES) throw Error('حجم الملف أكبر من 128 ميغابايت.');
   const {version} = await request('manualUploadBegin', {});
@@ -4708,7 +4761,7 @@ async function upload(file) {
     }
     await flush();
     status.textContent = 'جارٍ نشر الدروس...';
-    return await request('manualUploadCommit', {version, total: offset});
+    return await request(append ? 'manualUploadAppend' : 'manualUploadCommit', {version, total: offset});
   } catch (error) {
     await request('manualUploadCancel', {version}).catch(() => {});
     throw error;
@@ -4721,12 +4774,15 @@ form.addEventListener('submit', async event => {
   const url = document.getElementById('manual-sheet-url').value.trim();
   const file = document.getElementById('manual-sheet-file').files[0];
   if (Boolean(url) === Boolean(file)) { status.textContent = 'اختر مصدرًا واحدًا: رابط Google Sheets أو ملف CSV.'; return; }
-  if (!confirm('هل تريد نشر هذه الدروس بدل بنك التحضير اليدوي الحالي؟')) return;
+  const append = Boolean(file && document.getElementById('manual-file-mode').value === 'append');
+  if (!confirm(append ? 'هل تريد إضافة الدروس الجديدة من هذا الملف إلى البنك الحالي؟' : 'هل تريد نشر هذه الدروس بدل بنك التحضير اليدوي الحالي؟')) return;
   button.disabled = true;
   status.textContent = 'جارٍ استيراد الدروس وحفظها...';
   try {
-    const result = file ? await upload(file) : await request('manualLessonImport', {url});
-    status.textContent = 'تم نشر ' + result.total + ' درس في صفحة التحضير اليدوي.';
+    const result = file ? await upload(file, append) : await request('manualLessonImport', {url});
+    status.textContent = append
+      ? 'تمت إضافة ' + result.added + ' درس. عدد الدروس المطابقة التي تم تجاوزها: ' + result.skipped + '.'
+      : 'تم نشر ' + result.total + ' درس في صفحة التحضير اليدوي.';
     form.reset();
   } catch (error) {
     status.textContent = error.message || 'تعذر استيراد الدروس.';

@@ -66,11 +66,44 @@ export function createManualLessonHandler(sql, fetcher = fetch) {
   return async (req, res, action, body, isAdmin) => {
     const fail = (status, message) => res.status(status).json({ success: false, message });
     res.setHeader('Cache-Control', 'no-store');
-    const upload = ['manualUploadBegin','manualUploadBatch','manualUploadCommit','manualUploadCancel'].includes(action);
-    if (!upload && !['manualLessonImport','manualLessonInfo','manualLessonCatalog','manualLessonRows'].includes(action)) return fail(404, 'العملية غير متاحة.');
-    if ((upload || action === 'manualLessonImport' || action === 'manualLessonInfo') && !isAdmin) return fail(401, 'سجّل الدخول إلى لوحة الإدارة أولًا.');
-    if (req.method !== (upload || action === 'manualLessonImport' ? 'POST' : 'GET')) return fail(405, 'العملية غير متاحة.');
+    const add = action === 'manualLessonAdd';
+    const upload = ['manualUploadBegin','manualUploadBatch','manualUploadCommit','manualUploadAppend','manualUploadCancel'].includes(action);
+    if (!upload && !add && !['manualLessonImport','manualLessonInfo','manualLessonCatalog','manualLessonRows'].includes(action)) return fail(404, 'العملية غير متاحة.');
+    if ((upload || add || action === 'manualLessonImport' || action === 'manualLessonInfo') && !isAdmin) return fail(401, 'سجّل الدخول إلى لوحة الإدارة أولًا.');
+    if (req.method !== (upload || add || action === 'manualLessonImport' ? 'POST' : 'GET')) return fail(405, 'العملية غير متاحة.');
     await ensure();
+    if (action === 'manualLessonAdd') {
+      if (!Array.isArray(body.cells) || body.cells.length !== 16 || body.cells.some(cell => typeof cell !== 'string')) {
+        return fail(400, 'بيانات الدرس غير صحيحة.');
+      }
+      const cells = body.cells.map(cell => cell.trim());
+      const payload = JSON.stringify(cells);
+      if (cells.slice(0, 5).some(cell => !cell || cell.length > 350 || /^[-–—−]+$/.test(cell))) {
+        return fail(400, 'أكمل الصف والمادة والفصل والوحدة واسم الدرس.');
+      }
+      if (Buffer.byteLength(payload) > MAX_ROW_BYTES || cells.some(cell => cell.includes('\0'))) {
+        return fail(400, 'يتجاوز محتوى الدرس الحد المدعوم أو يحتوي على محرف غير صالح.');
+      }
+      const key = JSON.stringify(cells.slice(0, 5));
+      const [row] = await sql`WITH next_row AS (
+        UPDATE manual_lesson_source AS source
+        SET total = total + 1, published_at = NOW()
+        WHERE singleton AND total < 20000 AND NOT EXISTS (
+          SELECT 1 FROM manual_lesson_rows AS existing WHERE existing.version = source.version
+            AND jsonb_build_array(cells->0, cells->1, cells->2, cells->3, cells->4) = ${key}::jsonb
+        )
+        RETURNING version, total
+      )
+      INSERT INTO manual_lesson_rows (version, position, cells)
+      SELECT version, total - 1, ${payload}::jsonb FROM next_row RETURNING position`;
+      if (!row) {
+        const [source] = await sql`SELECT total FROM manual_lesson_source WHERE singleton`;
+        if (!source) return fail(409, 'استورد بنك الدروس الحالي أولًا ثم أضف الدرس.');
+        if (Number(source.total) >= 20000) return fail(409, 'بلغ بنك الدروس الحد الأقصى: 20 ألف درس.');
+        return fail(409, 'يوجد درس بالاسم نفسه في هذا الصف والمادة والفصل والوحدة.');
+      }
+      return res.status(201).json({ success: true });
+    }
     if (action === 'manualUploadBegin') {
       const version = randomUUID();
       await sql`INSERT INTO manual_lesson_uploads (version) VALUES (${version}::uuid)`;
@@ -111,6 +144,49 @@ export function createManualLessonHandler(sql, fetcher = fetch) {
       }
       const total = body.total;
       if (!Number.isInteger(total) || total < 1 || total > 20000) return fail(400, 'عدد الدروس غير صحيح.');
+      if (action === 'manualUploadAppend') {
+        const [result] = await sql`WITH bank AS (
+          SELECT version, total FROM manual_lesson_source WHERE singleton
+        ), incoming AS (
+          SELECT rows.position, rows.cells,
+            jsonb_build_array(rows.cells->0,rows.cells->1,rows.cells->2,rows.cells->3,rows.cells->4) AS lesson_key
+          FROM manual_lesson_rows rows JOIN manual_lesson_uploads draft ON draft.version = rows.version
+          WHERE draft.version = ${version}::uuid AND draft.received = ${total}
+        ), unique_rows AS (
+          SELECT DISTINCT ON (lesson_key) position, cells, lesson_key FROM incoming ORDER BY lesson_key, position
+        ), candidates AS (
+          SELECT candidate.position, candidate.cells FROM unique_rows candidate
+          WHERE NOT EXISTS (
+            SELECT 1 FROM manual_lesson_rows existing JOIN bank ON existing.version = bank.version
+            WHERE jsonb_build_array(existing.cells->0,existing.cells->1,existing.cells->2,existing.cells->3,existing.cells->4) = candidate.lesson_key
+          )
+        ), counts AS (
+          SELECT (SELECT count(*)::integer FROM incoming) AS received,
+                 (SELECT count(*)::integer FROM candidates) AS added
+        ), updated AS (
+          UPDATE manual_lesson_source source SET total = source.total + counts.added, published_at = NOW()
+          FROM bank, counts
+          WHERE source.singleton AND source.version = bank.version AND source.total = bank.total
+            AND counts.received = ${total} AND source.total + counts.added <= 20000
+          RETURNING source.version, bank.total AS previous_total
+        ), inserted AS (
+          INSERT INTO manual_lesson_rows (version, position, cells)
+          SELECT updated.version, (updated.previous_total + row_number() OVER (ORDER BY candidates.position) - 1)::integer, candidates.cells
+          FROM updated CROSS JOIN candidates RETURNING position
+        ), finished AS (
+          DELETE FROM manual_lesson_uploads WHERE version = ${version}::uuid AND EXISTS (SELECT 1 FROM updated)
+          RETURNING version
+        ), cleaned AS (
+          DELETE FROM manual_lesson_rows WHERE version IN (SELECT version FROM finished)
+        )
+        SELECT EXISTS (SELECT 1 FROM updated) AS ok, (SELECT count(*)::integer FROM inserted) AS added`;
+        if (!result?.ok) {
+          const [source] = await sql`SELECT total FROM manual_lesson_source WHERE singleton`;
+          if (!source) return fail(409, 'استورد بنك الدروس الحالي أولًا قبل إضافة ملف جديد.');
+          return fail(409, 'تعذّرت إضافة الدفعة: تحقق من اكتمال الرفع أو من حد 20 ألف درس، ثم أعد المحاولة.');
+        }
+        return res.status(200).json({ success: true, added: result.added, skipped: total - result.added });
+      }
       const [published] = await sql`WITH ready AS (
         DELETE FROM manual_lesson_uploads WHERE version = ${version}::uuid AND received = ${total}
         RETURNING version, received
