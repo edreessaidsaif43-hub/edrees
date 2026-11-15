@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1e88e5">
+<title>طيّار المعرفة 3D</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- شاشة إعداد المعلم -->
+<section id="setup" class="screen active" aria-label="إعداد المعلم">
+  <div class="setup-wrap">
+    <header class="brand">
+      <div class="logo-mark" aria-hidden="true"><span>✈️</span></div>
+      <div>
+        <h1>طيّار المعرفة 3D</h1>
+        <p>حلّق فوق ساحل مسقط من الشروق إلى الغروب: طِر عبر حلقة الإجابة الصحيحة، واجمع النجوم، وانتبه للوقود، ثم اهبط في مطار مسقط. اختر الصف ثم المادة ثم الفصل ثم الوحدة ثم الدروس.</p>
+      </div>
+    </header>
+
+    <ol class="steps">
+      <li class="step" id="step-grade"><h2><b>1</b> الصف</h2><div class="chips" id="grades"><span class="muted">جارٍ التحميل…</span></div></li>
+      <li class="step locked" id="step-subject"><h2><b>2</b> المادة</h2><div class="chips" id="subjects"></div></li>
+      <li class="step locked" id="step-sem"><h2><b>3</b> الفصل الدراسي</h2><div class="chips" id="sems"></div></li>
+      <li class="step locked" id="step-unit"><h2><b>4</b> الوحدة</h2><div class="chips" id="units"></div></li>
+      <li class="step locked" id="step-lessons">
+        <h2><b>5</b> الدروس <small>أسئلة الدروس المختارة تظهر على حلقات السماء</small></h2>
+        <div class="lesson-tools"><button class="link" id="selAll">تحديد الكل</button><button class="link" id="selNone">إلغاء التحديد</button></div>
+        <div id="lessons" class="lesson-list"></div>
+      </li>
+    </ol>
+
+    <details class="teacher-box">
+      <summary>بيانات المعلم (اختياري)</summary>
+      <div class="teacher-fields">
+        <label>اسم المعلم<input id="tName" type="text" maxlength="40" placeholder="مثال: أ. محمد"></label>
+        <label>حساب Instagram<input id="tIg" type="text" maxlength="30" dir="ltr" placeholder="username"></label>
+      </div>
+    </details>
+
+    <div class="setup-actions">
+      <button class="btn primary big" id="buildBtn" disabled>التالي: اختر الطائرة ▶</button>
+      <button class="btn ghost" id="linkBtn" disabled>تحميل SCORM ↓</button>
+      <span id="setupNote" class="muted"></span>
+    </div>
+  </div>
+</section>
+
+<!-- اختيار الطائرة والطيار -->
+<section id="home" class="screen fl-home" aria-label="اختر الطائرة">
+  <div class="om-wrap">
+    <div class="duo-top">
+      <button class="icon-btn" id="backSetup" title="تغيير الدروس">⚙</button>
+      <div class="teacher-badge" id="teacherHome"></div>
+      <button class="icon-btn sound-btn" title="تشغيل/كتم الصوت">🔊</button>
+    </div>
+    <header class="om-head">
+      <p class="om-kicker" id="homeSub"></p>
+      <h1>طيّار <span>المعرفة</span> <b class="fl-3d">3D</b></h1>
+      <p class="om-subj" id="homeTitle"></p>
+    </header>
+    <div class="fl-pick">
+      <div class="tcard fl-card"><span class="pick-lbl">الطائرة</span><div class="fl-planes" id="planePick"></div></div>
+      <div class="tcard fl-card"><span class="pick-lbl">الطيّار</span><div class="pchars" id="charPick"></div>
+        <label class="pname fl-name">اسم الطالب (اختياري)<input id="stName" type="text" maxlength="24" placeholder="اكتب اسمك"></label></div>
+    </div>
+    <div class="es-scroll fl-route"><b>مسار الرحلة:</b> 🏰 قلعتا الجلالي والميراني ← 🏺 مطرح ومبخرة ريام ← 🎭 دار الأوبرا السلطانية ← 🕌 جامع السلطان قابوس الأكبر ← 🛬 مطار مسقط</div>
+    <div class="bt-opts fl-opts">
+      <div class="om-count"><span>الإجابات للهبوط في المطار</span><div class="chips" id="optGoal"></div></div>
+      <div class="om-count"><span>وقت الوصول إلى الحلقات</span><div class="chips" id="optTime"></div></div>
+      <div class="om-count"><span>السرعة</span><div class="chips" id="optSpeed"></div></div>
+      <div class="om-count"><span>جودة الرسوم</span><div class="chips" id="optQuality"></div></div>
+    </div>
+    <button class="btn primary huge" id="startGame">أقلِع الآن ✈️</button>
+    <p class="fl-note" id="glNote"></p>
+    <p class="es-best" id="best"></p>
+    <details class="rules">
+      <summary>القواعد وطريقة التحكم</summary>
+      <ul>
+        <li><b>التحكم:</b> الأسهم (↑ ↓ ← →) لتوجيه الطائرة. على الهاتف أو السبورة: اسحب بإصبعك أو بالفأرة في أي مكان من الشاشة. زر 🎥 يبدّل الكاميرا (خلف الطائرة / داخل القمرة).</li>
+        <li>يظهر السؤال وتقترب حلقات ذهبية على كل منها خيار: <b>طِر عبر حلقة الإجابة الصحيحة</b>.</li>
+        <li><b>الإجابة الصحيحة:</b> دفعة نفاثة ووقود إضافي، ويتقدّم مسار الرحلة.</li>
+        <li><b>الإجابة الخاطئة:</b> مطبّات هوائية وينقص الوقود. لا تظهر الإجابة الصحيحة، ويعود السؤال لاحقًا.</li>
+        <li>اجمع النجوم الذهبية، وتجنّب المناطيد وأسراب النوارس (الاصطدام ينقص الوقود قليلًا).</li>
+        <li>إذا نفد الوقود تهبط الطائرة اضطراريًا في البحر وتعيد المحاولة.</li>
+      </ul>
+    </details>
+  </div>
+</section>
+
+<!-- الرحلة -->
+<section id="play" class="screen fl-screen" aria-label="الرحلة">
+  <div class="fl-stage" id="flStage"></div>
+  <div class="fl-cloud" id="cloudFx"></div>
+  <div class="fl-lines" id="speedLines"></div>
+  <div class="fl-hud">
+    <div class="fl-top">
+      <div class="fl-glass fl-logo"><i>✈️</i><div><b>طيّار المعرفة</b><small id="hSubj"></small></div></div>
+      <div class="fl-glass fl-route2"><div class="rail"><i class="fill" id="rFill"></i></div>
+        <span class="st" style="right:4%">🏰<small>الجلالي</small></span><span class="st" style="right:27%">🏺<small>مطرح</small></span><span class="st" style="right:50%">🎭<small>الأوبرا</small></span><span class="st" style="right:72%">🕌<small>الجامع</small></span><span class="st" style="right:96%">🛬<small>المطار</small></span>
+        <span class="me" id="rMe">✈️</span></div>
+      <div class="fl-glass fl-stat">⭐ <b id="hStars">0</b></div>
+      <div class="fl-glass fl-stat fl-qn">السؤال <b id="hQ">0</b></div>
+      <span class="teacher-mini" id="teacherHud"></span>
+      <div class="fl-btns"><button class="icon-btn" id="camBtn" title="تبديل الكاميرا">🎥</button><button class="icon-btn sound-btn" title="تشغيل/كتم الصوت">🔊</button><button class="icon-btn" id="exitBtn" title="الخروج">✕</button></div>
+    </div>
+    <div class="fl-glass fl-qc" id="qc">
+      <small id="qcTag">طِر عبر حلقة الإجابة الصحيحة</small>
+      <p id="qcText" dir="auto"></p>
+      <div class="ops" id="qcOps"></div>
+      <div class="bar"><i id="qcBar"></i></div>
+    </div>
+    <div class="fl-glass fl-fuel" id="fuelBox">⛽<div class="tank"><i id="fuelBar"></i></div><b id="fuelPct">100%</b><small>الوقود</small></div>
+    <div class="fl-glass fl-alt"><small>الارتفاع</small><b id="hAlt">50 م</b><small>السرعة</small><b id="hSpd">0</b><small>كم/س</small></div>
+    <div class="fl-joy" id="joy"><i id="joyKnob"></i></div>
+    <div class="fl-glass fl-hint" id="hint"><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> وجّه الطائرة • أو اسحب بإصبعك</div>
+    <div class="fl-banner" id="banner"></div>
+    <div class="fl-pop" id="pop"></div>
+    <div class="fl-load" id="flLoad"><div><i></i><p>جارٍ تجهيز سماء مسقط…</p></div></div>
+  </div>
+  <div class="modal" id="qModal" role="dialog" aria-modal="true" aria-labelledby="qText">
+    <div class="qcard om-q" id="qCard">
+      <div class="qhead">
+        <span class="team-tag" id="qTeam"></span>
+        <span class="qtype" id="qType"></span>
+        <div class="timer" id="timer" aria-label="الوقت المتبقي"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" class="tr-bg"></circle><circle cx="22" cy="22" r="19" class="tr-fg" id="timerArc"></circle></svg><b id="timerNum">30</b></div>
+      </div>
+      <p class="qtext" id="qText" dir="auto"></p>
+      <div class="qopts" id="qOpts"></div>
+      <div class="qfeedback" id="qFeedback" aria-live="assertive"></div>
+      <button class="btn primary big" id="qConfirm" disabled>تأكيد الإجابة</button>
+      <div class="qfoot"><span id="qRef"></span><span class="teacher-mini" id="teacherQ"></span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="rModal" role="dialog" aria-modal="true">
+    <div class="rcard om-result">
+      <div class="winner-art" id="winArt"></div>
+      <h2 id="rTitle"></h2>
+      <p class="rlesson" id="rLesson"></p>
+      <div class="vs-table" id="rTable"></div>
+      <div class="ractions" id="rActions"></div>
+      <div class="teacher-mini center" id="teacherR"></div>
+    </div>
+  </div>
+
+</section>
+
+<script src="js/config.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/questions.js"></script>
+<script src="/game/subscriptions.js?v=startup2"></script>
+<script src="/game/rosters.js?v=2"></script>
+<script src="/game/access.js?v=startup2"></script>
+<script src="/game/question-bank.js?v=3"></script>
+<script src="/game/publish.js?v=8"></script>
+<script src="js/race-chars.js"></script>
+<script src="js/fly-engine.js"></script>
+<script src="js/flight.js?v=library1"></script>
+</body>
+</html>
