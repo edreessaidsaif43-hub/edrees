@@ -1,5 +1,5 @@
 export const MAX_BYTES = 128 * 1024 * 1024;
-export const MAX_ROW_BYTES = 48 * 1024;
+export const MAX_ROW_BYTES = 128 * 1024;
 export class SheetError extends Error {}
 const encoder = new TextEncoder();
 
