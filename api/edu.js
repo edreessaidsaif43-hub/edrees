@@ -373,7 +373,7 @@ export default async function handler(req, res) {
     const isAdmin = adminAuth.valid(req);
     if (action === 'updateGame' && !isAdmin && !body.ownerPassword) return send(res, 401, {success:false,error:'admin_or_owner_session_required'});
     if (!sql) return dbUnavailable(res);
-    if (action.startsWith('manualLesson')) return await manualLessons(req, res, action, body, isAdmin);
+    if (action.startsWith('manualLesson') || action.startsWith('manualUpload')) return await manualLessons(req, res, action, body, isAdmin);
 
     if (req.method === "GET") {
       if (action === "getGames") {

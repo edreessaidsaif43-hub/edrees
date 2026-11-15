@@ -1,8 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-const MAX_BYTES = 128 * 1024 * 1024;
-class SheetError extends Error {}
-const MAX_ROW_BYTES = 48 * 1024;
+import { MAX_BYTES, MAX_ROW_BYTES, SheetError, parseManualLessonCsv } from '../../assets/manual-lesson-csv.js';
 
 export function sheetCsvUrl(value) {
   let url;
@@ -48,51 +46,6 @@ async function* sheetChunks(url, fetcher) {
   }
 }
 
-export async function* parseManualLessonCsv(chunks) {
-  let row = [], cell = '', state = 'plain', first = true, skipLf = false, count = 0, length = 0;
-  function pushCell() { row.push(cell.trim()); cell = ''; state = 'plain'; }
-  function pushRow() {
-    pushCell();
-    const values = row;
-    row = []; length = 0;
-    if (!values.some(Boolean)) return;
-    if (first) { first = false; return; }
-    if (values.length < 5 || values.slice(0,5).some(value => !value || value.length > 350)) {
-      throw new SheetError('تحقق من أعمدة الصف والمادة والفصل والوحدة والدرس في السجل رقم ' + (count + 2) + '.');
-    }
-    const cells = Array.from({length:16}, (_, i) => values[i] || '');
-    if (Buffer.byteLength(JSON.stringify(cells)) > MAX_ROW_BYTES) throw new SheetError('يوجد درس يتجاوز حجم النص المدعوم.');
-    if (++count > 20000) throw new SheetError('الحد الأقصى للملف 20 ألف درس.');
-    return cells;
-  }
-  for await (const chunk of chunks) {
-    for (const char of chunk) {
-      if (skipLf) { skipLf = false; if (char === '\n') continue; }
-      if (++length > 256 * 1024) throw new SheetError('يوجد صف يتجاوز الحجم المدعوم.');
-      if (state === 'quoted') {
-        if (char === '"') state = 'quote'; else cell += char;
-        continue;
-      }
-      if (state === 'quote' && char === '"') { cell += char; state = 'quoted'; continue; }
-      if (state === 'quote') state = 'closed';
-      if (char === ',') pushCell();
-      else if (char === '\r' || char === '\n') {
-        skipLf = char === '\r';
-        const cells = pushRow();
-        if (cells) yield cells;
-      } else if (char === '"' && !cell && state === 'plain') state = 'quoted';
-      else if (state === 'plain') cell += char;
-      else if (!/\s/.test(char)) throw new SheetError('تنسيق CSV غير صحيح.');
-    }
-  }
-  if (state === 'quoted') throw new SheetError('لم يكتمل نص إحدى خلايا الملف.');
-  if (cell || row.length || state !== 'plain') {
-    const cells = pushRow();
-    if (cells) yield cells;
-  }
-  if (!count) throw new SheetError('الورقة لا تحتوي على دروس بعد صف العناوين.');
-}
-
 export function createManualLessonHandler(sql, fetcher = fetch) {
   let schema;
   function ensure() {
@@ -105,15 +58,70 @@ export function createManualLessonHandler(sql, fetcher = fetch) {
         singleton BOOLEAN PRIMARY KEY CHECK (singleton), version UUID NOT NULL,
         total INTEGER NOT NULL, published_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`;
+      await sql`CREATE TABLE IF NOT EXISTS manual_lesson_uploads (
+        version UUID PRIMARY KEY, received INTEGER NOT NULL DEFAULT 0, bytes INTEGER NOT NULL DEFAULT 0
+      )`;
     })().catch(error => { schema = null; throw error; });
   }
   return async (req, res, action, body, isAdmin) => {
     const fail = (status, message) => res.status(status).json({ success: false, message });
     res.setHeader('Cache-Control', 'no-store');
-    if (!['manualLessonImport','manualLessonInfo','manualLessonCatalog','manualLessonRows'].includes(action)) return fail(404, 'العملية غير متاحة.');
-    if ((action === 'manualLessonImport' || action === 'manualLessonInfo') && !isAdmin) return fail(401, 'سجّل الدخول إلى لوحة الإدارة أولًا.');
-    if (req.method !== (action === 'manualLessonImport' ? 'POST' : 'GET')) return fail(405, 'العملية غير متاحة.');
+    const upload = ['manualUploadBegin','manualUploadBatch','manualUploadCommit','manualUploadCancel'].includes(action);
+    if (!upload && !['manualLessonImport','manualLessonInfo','manualLessonCatalog','manualLessonRows'].includes(action)) return fail(404, 'العملية غير متاحة.');
+    if ((upload || action === 'manualLessonImport' || action === 'manualLessonInfo') && !isAdmin) return fail(401, 'سجّل الدخول إلى لوحة الإدارة أولًا.');
+    if (req.method !== (upload || action === 'manualLessonImport' ? 'POST' : 'GET')) return fail(405, 'العملية غير متاحة.');
     await ensure();
+    if (action === 'manualUploadBegin') {
+      const version = randomUUID();
+      await sql`INSERT INTO manual_lesson_uploads (version) VALUES (${version}::uuid)`;
+      return res.status(201).json({ success: true, version });
+    }
+    if (action.startsWith('manualUpload')) {
+      const version = String(body.version || '');
+      if (!/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(version)) return fail(400, 'معرّف الرفع غير صحيح.');
+      if (action === 'manualUploadBatch') {
+        const { offset, rows } = body;
+        if (!Number.isInteger(offset) || offset < 0 || !Array.isArray(rows) || !rows.length || rows.length > 250 || offset + rows.length > 20000) return fail(400, 'دفعة الدروس غير صحيحة.');
+        if (rows.some(row => !Array.isArray(row) || row.length !== 16 || row.some(cell => typeof cell !== 'string') ||
+          row.slice(0, 5).some(cell => !cell.trim() || cell.length > 350) || Buffer.byteLength(JSON.stringify(row)) > MAX_ROW_BYTES)) {
+          return fail(400, 'تحقق من أعمدة الصف والمادة والفصل والوحدة والدرس وحجم النص.');
+        }
+        const payload = JSON.stringify(rows);
+        const bytes = Buffer.byteLength(payload);
+        if (bytes > 750000) return fail(413, 'تجاوزت دفعة الدروس الحجم المدعوم.');
+        // Advancing the cursor and inserting its rows must succeed together.
+        const [result] = await sql`WITH claimed AS (
+          UPDATE manual_lesson_uploads SET received = received + ${rows.length}, bytes = bytes + ${bytes}
+          WHERE version = ${version}::uuid AND received = ${offset} AND bytes + ${bytes} <= ${MAX_BYTES}
+          RETURNING version
+        ), saved AS (
+          INSERT INTO manual_lesson_rows (version, position, cells)
+          SELECT claimed.version, (${offset}::integer + item.ordinality - 1)::integer, item.cells
+          FROM claimed CROSS JOIN jsonb_array_elements(${payload}::jsonb) WITH ORDINALITY AS item(cells, ordinality)
+          RETURNING position
+        ) SELECT count(*) AS count FROM saved`;
+        if (Number(result.count) !== rows.length) return fail(409, 'تعذّر اعتماد الدفعة أو تجاوز الملف الحد. أعد رفع الملف.');
+        return res.status(200).json({ success: true });
+      }
+      if (action === 'manualUploadCancel') {
+        await sql`WITH cancelled AS (
+          DELETE FROM manual_lesson_uploads WHERE version = ${version}::uuid RETURNING version
+        ) DELETE FROM manual_lesson_rows WHERE version IN (SELECT version FROM cancelled)`;
+        return res.status(200).json({ success: true });
+      }
+      const total = body.total;
+      if (!Number.isInteger(total) || total < 1 || total > 20000) return fail(400, 'عدد الدروس غير صحيح.');
+      const [published] = await sql`WITH ready AS (
+        DELETE FROM manual_lesson_uploads WHERE version = ${version}::uuid AND received = ${total}
+        RETURNING version, received
+      )
+      INSERT INTO manual_lesson_source (singleton, version, total)
+      SELECT true, version, received FROM ready
+      ON CONFLICT (singleton) DO UPDATE SET version = EXCLUDED.version, total = EXCLUDED.total, published_at = NOW()
+      RETURNING total`;
+      if (!published) return fail(409, 'لم يكتمل رفع الدروس. النسخة الحالية لم تتغير.');
+      return res.status(200).json({ success: true, total: published.total });
+    }
     if (action === 'manualLessonImport') {
       let url;
       try { url = sheetCsvUrl(body.url); }
