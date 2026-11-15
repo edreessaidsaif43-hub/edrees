@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
-const MAX_BYTES = 24 * 1024 * 1024;
+const MAX_BYTES = 128 * 1024 * 1024;
+class SheetError extends Error {}
 const MAX_ROW_BYTES = 48 * 1024;
 
 export function sheetCsvUrl(value) {
@@ -14,64 +15,82 @@ export function sheetCsvUrl(value) {
     (sheet[1] ? '/pub?single=true&output=csv&gid=' : '/export?format=csv&gid=') + gid;
 }
 
-export function parseManualLessonCsv(text) {
-  const rows = [];
-  let row = [], cell = '', quoted = false, closed = false, first = true;
-  function pushCell() { row.push(cell.trim()); cell = ''; closed = false; }
-  function pushRow() {
-    pushCell();
-    if (row.some(Boolean)) {
-      if (first) first = false;
-      else {
-        if (row.length < 5 || row.slice(0, 5).some(value => !value || value.length > 350)) {
-          throw Error('تحقق من أعمدة الصف والمادة والفصل والوحدة والدرس في السجل رقم ' + (rows.length + 2) + '.');
-        }
-        const cells = Array.from({ length: 16 }, (_, i) => row[i] || '');
-        if (Buffer.byteLength(JSON.stringify(cells)) > MAX_ROW_BYTES) throw Error('يوجد درس يتجاوز حجم النص المدعوم.');
-        rows.push(cells);
-        if (rows.length > 20000) throw Error('الحد الأقصى للملف 20 ألف درس.');
-      }
+async function* sheetChunks(url, fetcher) {
+  try {
+    const response = await fetcher(url, { signal: AbortSignal.timeout(48000) });
+    if (!response.ok || !response.body || /text\/html/i.test(response.headers.get('content-type') || '')) {
+      throw new SheetError('تعذر تنزيل الورقة. تحقق من الرابط وصلاحية العرض.');
     }
-    row = [];
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let size = 0;
+    let started = false;
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > MAX_BYTES) throw new SheetError('حجم الورقة أكبر من 128 ميغابايت.');
+        let chunk = decoder.decode(value, { stream: true });
+        if (!started) {
+          chunk = chunk.trimStart();
+          if (!chunk) continue;
+          if (chunk.startsWith('<')) throw new SheetError('الرابط لم يُرجع بيانات CSV. تحقق من إتاحة العرض.');
+          started = true;
+        }
+        yield chunk;
+      }
+      yield decoder.decode();
+    } finally { await reader.cancel().catch(() => {}); }
+  } catch (error) {
+    if (error instanceof SheetError) throw error;
+    throw new SheetError(error.name === 'TimeoutError' || error.name === 'AbortError' ? 'انتهت مهلة تنزيل الورقة.' : 'انقطع تنزيل الورقة. أعد المحاولة.');
   }
-  text = text.replace(/^\uFEFF/, '');
-  if (/^\s*</.test(text)) throw Error('تعذر قراءة الورقة. تأكد أن الرابط يسمح بعرض البيانات.');
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    if (quoted) {
-      if (char !== '"') cell += char;
-      else if (text[i + 1] === '"') { cell += '"'; i++; }
-      else { quoted = false; closed = true; }
-    } else if (char === ',') pushCell();
-    else if (char === '\r' || char === '\n') {
-      pushRow();
-      if (char === '\r' && text[i + 1] === '\n') i++;
-    } else if (char === '"' && !cell && !closed) quoted = true;
-    else if (!closed) cell += char;
-    else if (!/\s/.test(char)) throw Error('تنسيق CSV غير صحيح.');
-  }
-  if (quoted) throw Error('لم يكتمل نص إحدى خلايا الملف.');
-  if (cell || row.length || closed) pushRow();
-  if (!rows.length) throw Error('الورقة لا تحتوي على دروس بعد صف العناوين.');
-  return rows;
 }
 
-async function downloadSheet(url, fetcher) {
-  const response = await fetcher(url, { signal: AbortSignal.timeout(20000) });
-  if (!response.ok || !response.body) throw Error('تعذر تنزيل الورقة. تحقق من الرابط وصلاحية العرض.');
-  const reader = response.body.getReader();
-  const chunks = [];
-  let size = 0;
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > MAX_BYTES) throw Error('حجم الورقة أكبر من 24 ميغابايت.');
-      chunks.push(value);
+export async function* parseManualLessonCsv(chunks) {
+  let row = [], cell = '', state = 'plain', first = true, skipLf = false, count = 0, length = 0;
+  function pushCell() { row.push(cell.trim()); cell = ''; state = 'plain'; }
+  function pushRow() {
+    pushCell();
+    const values = row;
+    row = []; length = 0;
+    if (!values.some(Boolean)) return;
+    if (first) { first = false; return; }
+    if (values.length < 5 || values.slice(0,5).some(value => !value || value.length > 350)) {
+      throw new SheetError('تحقق من أعمدة الصف والمادة والفصل والوحدة والدرس في السجل رقم ' + (count + 2) + '.');
     }
-  } finally { await reader.cancel().catch(() => {}); }
-  return Buffer.concat(chunks).toString('utf8');
+    const cells = Array.from({length:16}, (_, i) => values[i] || '');
+    if (Buffer.byteLength(JSON.stringify(cells)) > MAX_ROW_BYTES) throw new SheetError('يوجد درس يتجاوز حجم النص المدعوم.');
+    if (++count > 20000) throw new SheetError('الحد الأقصى للملف 20 ألف درس.');
+    return cells;
+  }
+  for await (const chunk of chunks) {
+    for (const char of chunk) {
+      if (skipLf) { skipLf = false; if (char === '\n') continue; }
+      if (++length > 256 * 1024) throw new SheetError('يوجد صف يتجاوز الحجم المدعوم.');
+      if (state === 'quoted') {
+        if (char === '"') state = 'quote'; else cell += char;
+        continue;
+      }
+      if (state === 'quote' && char === '"') { cell += char; state = 'quoted'; continue; }
+      if (state === 'quote') state = 'closed';
+      if (char === ',') pushCell();
+      else if (char === '\r' || char === '\n') {
+        skipLf = char === '\r';
+        const cells = pushRow();
+        if (cells) yield cells;
+      } else if (char === '"' && !cell && state === 'plain') state = 'quoted';
+      else if (state === 'plain') cell += char;
+      else if (!/\s/.test(char)) throw new SheetError('تنسيق CSV غير صحيح.');
+    }
+  }
+  if (state === 'quoted') throw new SheetError('لم يكتمل نص إحدى خلايا الملف.');
+  if (cell || row.length || state !== 'plain') {
+    const cells = pushRow();
+    if (cells) yield cells;
+  }
+  if (!count) throw new SheetError('الورقة لا تحتوي على دروس بعد صف العناوين.');
 }
 
 export function createManualLessonHandler(sql, fetcher = fetch) {
@@ -96,9 +115,10 @@ export function createManualLessonHandler(sql, fetcher = fetch) {
     if (req.method !== (action === 'manualLessonImport' ? 'POST' : 'GET')) return fail(405, 'العملية غير متاحة.');
     await ensure();
     if (action === 'manualLessonImport') {
-      let rows;
-      try { rows = parseManualLessonCsv(await downloadSheet(sheetCsvUrl(body.url), fetcher)); }
-      catch (error) { return fail(400, error.name === 'TimeoutError' ? 'انتهت مهلة تنزيل الورقة.' : error.message); }
+      let url;
+      try { url = sheetCsvUrl(body.url); }
+      catch (error) { return fail(400, error.message); }
+      let total = 0;
       const version = randomUUID();
       try {
         let batch = [], bytes = 0;
@@ -109,8 +129,8 @@ export function createManualLessonHandler(sql, fetcher = fetch) {
             FROM jsonb_to_recordset(${JSON.stringify(batch)}::jsonb) AS data(position integer, cells jsonb)`;
           batch = []; bytes = 0;
         }
-        for (const [position, cells] of rows.entries()) {
-          const record = { position, cells };
+        for await (const cells of parseManualLessonCsv(sheetChunks(url, fetcher))) {
+          const record = { position: total++, cells };
           const length = Buffer.byteLength(JSON.stringify(record));
           if (bytes + length > 750000) await save();
           batch.push(record); bytes += length;
@@ -118,13 +138,14 @@ export function createManualLessonHandler(sql, fetcher = fetch) {
         await save();
       } catch (error) {
         await sql`DELETE FROM manual_lesson_rows WHERE version = ${version}::uuid`.catch(() => {});
+        if (error instanceof SheetError) return fail(400, error.message);
         throw error;
       }
       // Readers switch to the new version only after every row has been saved.
       await sql`INSERT INTO manual_lesson_source (singleton, version, total)
-        VALUES (true, ${version}::uuid, ${rows.length})
+        VALUES (true, ${version}::uuid, ${total})
         ON CONFLICT (singleton) DO UPDATE SET version = EXCLUDED.version, total = EXCLUDED.total, published_at = NOW()`;
-      return res.status(200).json({ success: true, total: rows.length });
+      return res.status(200).json({ success: true, total });
     }
     if (action === 'manualLessonInfo') {
       const [source] = await sql`SELECT total, published_at FROM manual_lesson_source WHERE singleton`;
