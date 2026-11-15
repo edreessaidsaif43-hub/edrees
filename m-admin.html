@@ -616,8 +616,10 @@
         <form id="manual-lesson-import" class="bg-white/10 rounded-xl p-4 space-y-3">
           <h3 class="text-white font-black">استيراد دروس التحضير اليدوي</h3>
           <label class="block text-red-100" for="manual-sheet-url">رابط Google Sheets</label>
-          <input id="manual-sheet-url" type="url" required class="w-full p-3 rounded-lg bg-white text-gray-800" placeholder="https://docs.google.com/spreadsheets/...">
-          <p class="text-red-100 text-sm">استخدم رابطًا يسمح بالعرض، مع صف للعناوين ثم أعمدة A إلى P بترتيب ملف التحضير الحالي. يُستبدل بنك التحضير اليدوي بعد اكتمال الاستيراد.</p>
+          <input id="manual-sheet-url" type="url" class="w-full p-3 rounded-lg bg-white text-gray-800" placeholder="https://docs.google.com/spreadsheets/...">
+          <label class="block text-red-100" for="manual-sheet-file">أو ارفع ملف CSV</label>
+          <input id="manual-sheet-file" type="file" accept=".csv,text/csv" class="w-full p-3 rounded-lg bg-white text-gray-800">
+          <p class="text-red-100 text-sm">من Google Sheets اختر ملف ← تنزيل ← CSV للورقة الحالية. اختر الملف أو أدخل رابطًا يسمح بالعرض. استخدم صف عناوين وأعمدة A إلى P بترتيب ملف التحضير. تُنشر النسخة الجديدة بعد اكتمال الحفظ.</p>
           <button class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold" type="submit">استيراد ونشر الدروس</button>
           <p id="manual-import-status" class="text-white text-sm" role="status"></p>
         </form>
@@ -4658,31 +4660,80 @@
   </script>
 
 <script src="assets/site-navbar.js?v=2"></script>
-<script>
-(() => {
-  const form = document.getElementById('manual-lesson-import');
-  const status = document.getElementById('manual-import-status');
-  const button = form.querySelector('button');
-  form.addEventListener('submit', async event => {
-    event.preventDefault();
-    if (!confirm('هل تريد نشر دروس هذه الورقة بدل بنك التحضير اليدوي الحالي؟')) return;
-    button.disabled = true;
-    status.textContent = 'جارٍ استيراد الدروس وحفظها...';
-    try {
-      const response = await fetch('/api/edu?action=manualLessonImport', {
-        method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({url: document.getElementById('manual-sheet-url').value.trim()})
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success) throw Error(result.message || 'تعذر استيراد الدروس. تحقق من جلسة الإدارة.');
-      status.textContent = 'تم نشر ' + result.total + ' درس في صفحة التحضير اليدوي.';
-    } catch (error) {
-      status.textContent = error.message || 'تعذر استيراد الدروس.';
-    } finally {
-      button.disabled = false;
-    }
+<script type="module">
+import { MAX_BYTES, parseManualLessonCsv } from './assets/manual-lesson-csv.js';
+
+const form = document.getElementById('manual-lesson-import');
+const status = document.getElementById('manual-import-status');
+const button = form.querySelector('button');
+const encoder = new TextEncoder();
+
+async function request(action, body) {
+  const response = await fetch('/api/edu?action=' + action, {
+    method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
   });
-})();
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.success) {
+    throw Error(result.message || (response.status === 401 ? 'سجّل دخول الإدارة مرة أخرى.' : 'تعذّر تنفيذ الاستيراد. أعد المحاولة.'));
+  }
+  return result;
+}
+
+async function* fileChunks(file) {
+  const decoder = new TextDecoder('utf-8', {fatal: true});
+  for (let offset = 0; offset < file.size; offset += 262144) {
+    yield decoder.decode(await file.slice(offset, offset + 262144).arrayBuffer(), {stream: true});
+  }
+  yield decoder.decode();
+}
+
+async function upload(file) {
+  if (!/\.csv$/i.test(file.name) || !file.size) throw Error('اختر ملف CSV صالحًا.');
+  if (file.size > MAX_BYTES) throw Error('حجم الملف أكبر من 128 ميغابايت.');
+  const {version} = await request('manualUploadBegin', {});
+  let batch = [], offset = 0, bytes = 2;
+  async function flush() {
+    if (!batch.length) return;
+    await request('manualUploadBatch', {version, offset, rows: batch});
+    offset += batch.length;
+    batch = []; bytes = 2;
+    status.textContent = 'جارٍ الرفع: حُفظ ' + offset + ' درس.';
+  }
+  try {
+    for await (const row of parseManualLessonCsv(fileChunks(file))) {
+      const size = encoder.encode(JSON.stringify(row)).length + 1;
+      if (batch.length >= 250 || bytes + size > 700000) await flush();
+      batch.push(row); bytes += size;
+    }
+    await flush();
+    status.textContent = 'جارٍ نشر الدروس...';
+    return await request('manualUploadCommit', {version, total: offset});
+  } catch (error) {
+    await request('manualUploadCancel', {version}).catch(() => {});
+    throw error;
+  }
+}
+
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (button.disabled) return;
+  const url = document.getElementById('manual-sheet-url').value.trim();
+  const file = document.getElementById('manual-sheet-file').files[0];
+  if (Boolean(url) === Boolean(file)) { status.textContent = 'اختر مصدرًا واحدًا: رابط Google Sheets أو ملف CSV.'; return; }
+  if (!confirm('هل تريد نشر هذه الدروس بدل بنك التحضير اليدوي الحالي؟')) return;
+  button.disabled = true;
+  status.textContent = 'جارٍ استيراد الدروس وحفظها...';
+  try {
+    const result = file ? await upload(file) : await request('manualLessonImport', {url});
+    status.textContent = 'تم نشر ' + result.total + ' درس في صفحة التحضير اليدوي.';
+    form.reset();
+  } catch (error) {
+    status.textContent = error.message || 'تعذر استيراد الدروس.';
+  } finally {
+    button.disabled = false;
+  }
+});
 </script>
 </body>
 </html>
