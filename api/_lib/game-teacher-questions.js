@@ -1,8 +1,16 @@
-import {createHmac,timingSafeEqual,randomBytes} from 'node:crypto';
+import {createHash,createHmac,timingSafeEqual,randomBytes} from 'node:crypto';
 import {validateQuestion,adminQuestion,publicQuestion} from './game-question-model.js';
 
-const COOKIE='game_teacher_session',TTL=8*60*60,MAX_ID=9223372036854775807n;
+const COOKIE='game_teacher_session',TTL=8*60*60,MAX_ID=9223372036854775807n,MAX_IMPORT_BYTES=900_000;
 const validId=id=>/^\d{1,19}$/.test(id)&&BigInt(id)>0n&&BigInt(id)<=MAX_ID;
+
+function importRow(question){
+ const {gradeId,subject,semester,unit,lesson,type,text,options,answer,reference}=validateQuestion(question);
+ // References can vary with the question's position in a file.
+ const content=[gradeId,subject,semester,unit,lesson,type,text,options,answer];
+ const fingerprint=createHash('sha256').update(JSON.stringify(content)).digest('hex');
+ return {grade_id:gradeId,subject,semester,unit,lesson,type,text,options,answer,reference,import_fingerprint:fingerprint};
+}
 export function createTeacherQuestionHandler(database,login,secret=''){
  const key=String(secret),sign=value=>createHmac('sha256',key).update('game-teacher-questions:'+value).digest('base64url');
  let schema;
@@ -14,11 +22,16 @@ export function createTeacherQuestionHandler(database,login,secret=''){
   await database`CREATE INDEX IF NOT EXISTS game_teacher_questions_grade_id_idx ON game_teacher_questions(grade_id,id DESC)`;
   await database`CREATE INDEX IF NOT EXISTS game_teacher_questions_owner_idx ON game_teacher_questions(owner_user_id,id DESC)`;
  })().catch(error=>{schema=null;throw error;}));
+ let importSchema;
+ const ensureImport=()=>importSchema||(importSchema=(async()=>{
+  await database`ALTER TABLE game_teacher_questions ADD COLUMN IF NOT EXISTS import_fingerprint TEXT`;
+  await database`CREATE UNIQUE INDEX IF NOT EXISTS game_teacher_questions_import_idx ON game_teacher_questions(owner_user_id,import_fingerprint) WHERE deleted_at IS NULL AND import_fingerprint IS NOT NULL`;
+ })().catch(error=>{importSchema=null;throw error;}));
  function browseQuestion(row,user){return {...adminQuestion(row),authorName:row.author_name,source:'teacher',canEdit:!!user&&row.owner_user_id===user.userId};}
  function gameQuestion(row){const item=publicQuestion(row);item.source='teacher';item.q.gqid='teacher:'+row.id;item.q.ref=row.reference||'مشاركة معلم';return item;}
  return async function(req,res){
   const fail=(status,message)=>res.status(status).json({message}),action=String(req.query?.action||''),user=identity(req);
-  if(!['teacher_login','teacher_logout','teacher_session','teacher_bank','teacher_list','teacher_save','teacher_delete'].includes(action))return fail(405,'العملية غير متاحة.');
+  if(!['teacher_login','teacher_logout','teacher_session','teacher_bank','teacher_list','teacher_save','teacher_delete','teacher_import'].includes(action))return fail(405,'العملية غير متاحة.');
   const read=['teacher_session','teacher_bank','teacher_list'].includes(action);
   if(req.method!==(read?'GET':'POST'))return fail(405,'العملية غير متاحة.');
   if(!read&&!sameOrigin(req))return fail(403,'افتح مكتبة الأسئلة من الموقع نفسه.');
@@ -32,7 +45,7 @@ export function createTeacherQuestionHandler(database,login,secret=''){
    const userId=String(out.data?.userId||''),name=String(out.data?.profile?.name||out.data?.profile?.full_name||'معلم مشارك').trim().slice(0,100);if(!userId||userId.length>200)return fail(503,'تعذر التحقق من حساب المعلم.');
    const now=Math.floor(Date.now()/1000),payload=Buffer.from(JSON.stringify({v:1,userId,name,iat:now,exp:now+TTL,n:randomBytes(12).toString('base64url')})).toString('base64url');setCookie(req,res,payload+'.'+sign(payload),TTL);return res.status(200).json({authenticated:true,name});
   }
-  if(['teacher_save','teacher_delete'].includes(action)&&!user)return fail(401,'تحقق من حساب المعلم لإضافة أسئلتك أو تعديلها.');
+  if(['teacher_save','teacher_delete','teacher_import'].includes(action)&&!user)return fail(401,'تحقق من حساب المعلم لإضافة أسئلتك أو تعديلها.');
   if(!database)return fail(503,'قاعدة بيانات مكتبة أسئلة المعلمين غير مهيأة.');
   const grade=String(req.query?.grade||'');if(grade&&!/^g(?:0\d|1[01])$/.test(grade))return fail(400,'الصف غير صحيح.');
   await ensure();
@@ -48,10 +61,47 @@ export function createTeacherQuestionHandler(database,login,secret=''){
     database`SELECT COUNT(*) AS total FROM game_teacher_questions WHERE deleted_at IS NULL AND (${grade}='' OR grade_id=${grade}) AND (${subject}='' OR subject=${subject}) AND (${owner}='' OR owner_user_id=${owner}) AND (${search}='' OR text ILIKE ${'%'+search+'%'} OR lesson ILIKE ${'%'+search+'%'})`
    ]);return res.status(200).json({items:rows.map(row=>browseQuestion(row,user)),total:Number(counts[0]?.total||0)});
   }
+  if(action==='teacher_import'){
+   if(!Array.isArray(body.questions)||!body.questions.length)return fail(400,'لا توجد أسئلة للنشر.');
+   if(Buffer.byteLength(JSON.stringify(body))>MAX_IMPORT_BYTES)return fail(413,'الأسئلة تتجاوز حجم النشر المسموح. وزّع الدروس على أكثر من ملف.');
+   const incoming=[];
+   for(const [index,question] of body.questions.entries()){
+    if(!question||typeof question!=='object'||Array.isArray(question))return fail(400,'بيانات السؤال '+(index+1)+' غير صحيحة.');
+    try{incoming.push(importRow(question));}catch(error){return fail(400,'السؤال '+(index+1)+' — '+error.message);}
+   }
+   await ensureImport();
+   const rows=await database`
+    WITH incoming AS (
+     SELECT * FROM jsonb_to_recordset(${JSON.stringify(incoming)}::jsonb) AS q(
+      grade_id TEXT,subject TEXT,semester TEXT,unit TEXT,lesson TEXT,type TEXT,text TEXT,
+      options JSONB,answer SMALLINT,reference TEXT,import_fingerprint TEXT
+     )
+    ), written AS (
+     INSERT INTO game_teacher_questions (
+      owner_user_id,author_name,grade_id,subject,semester,unit,lesson,type,text,options,answer,reference,import_fingerprint
+     )
+     SELECT ${user.userId},${user.name},q.grade_id,q.subject,q.semester,q.unit,q.lesson,q.type,q.text,q.options,q.answer,q.reference,q.import_fingerprint
+     FROM incoming q
+     WHERE NOT EXISTS (
+      SELECT 1 FROM game_teacher_questions old
+      WHERE old.owner_user_id=${user.userId} AND old.deleted_at IS NULL
+       AND (old.grade_id,old.subject,old.semester,old.unit,old.lesson,old.type,old.text,old.options,old.answer)
+        = (q.grade_id,q.subject,q.semester,q.unit,q.lesson,q.type,q.text,q.options,q.answer)
+     )
+     ON CONFLICT (owner_user_id,import_fingerprint) WHERE deleted_at IS NULL AND import_fingerprint IS NOT NULL DO NOTHING
+     RETURNING id
+    )
+    SELECT COUNT(*) AS count FROM written`;
+   const inserted=Number(rows[0].count);
+   return res.status(200).json({inserted,skipped:incoming.length-inserted});
+  }
   const id=String(body.id||'');if(id&&!validId(id))return fail(400,'معرّف السؤال غير صحيح.');
   if(action==='teacher_save'){
    let q;try{q=validateQuestion(body);}catch(error){return fail(400,error.message);}let rows;
-   if(id)rows=await database`UPDATE game_teacher_questions SET grade_id=${q.gradeId},subject=${q.subject},semester=${q.semester},unit=${q.unit},lesson=${q.lesson},type=${q.type},text=${q.text},options=${JSON.stringify(q.options)}::jsonb,answer=${q.answer},reference=${q.reference},updated_at=NOW() WHERE id=${id}::bigint AND owner_user_id=${user.userId} AND deleted_at IS NULL RETURNING *`;
+   if(id){
+    await ensureImport();
+    rows=await database`UPDATE game_teacher_questions SET grade_id=${q.gradeId},subject=${q.subject},semester=${q.semester},unit=${q.unit},lesson=${q.lesson},type=${q.type},text=${q.text},options=${JSON.stringify(q.options)}::jsonb,answer=${q.answer},reference=${q.reference},import_fingerprint=NULL,updated_at=NOW() WHERE id=${id}::bigint AND owner_user_id=${user.userId} AND deleted_at IS NULL RETURNING *`;
+   }
    else rows=await database`INSERT INTO game_teacher_questions(owner_user_id,author_name,grade_id,subject,semester,unit,lesson,type,text,options,answer,reference) VALUES(${user.userId},${user.name},${q.gradeId},${q.subject},${q.semester},${q.unit},${q.lesson},${q.type},${q.text},${JSON.stringify(q.options)}::jsonb,${q.answer},${q.reference}) RETURNING *`;
    if(!rows.length)return fail(404,'السؤال غير موجود ضمن أسئلتك.');return res.status(id?200:201).json({item:browseQuestion(rows[0],user),message:id?'تم تعديل سؤالك.':'تم نشر سؤالك في مكتبة المعلمين وأصبح متاحًا للجميع في الألعاب.'});
   }
