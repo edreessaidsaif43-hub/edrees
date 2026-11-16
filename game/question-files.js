@@ -9,12 +9,89 @@
  $('question-sheet').onchange=()=>{if(workbook)showPreview(XLSX.utils.sheet_to_json(workbook.Sheets[$('question-sheet').value],{header:1,raw:false,defval:'',blankrows:true}));};
  $('file-review').onclick=()=>{if(!preview)return;const rows=[['رقم الصف في الملف','رقم السؤال','نوع الملاحظة','الملاحظة','الصف','المادة','الفصل','الوحدة','الدرس','نص الأسئلة'],...preview.issues.map(i=>[i.row,i.block||'', 'مراجعة',i.message,...i.cells]),...preview.warnings.map(i=>[i.row,'','تنبيه',i.message,...i.cells])];download(new Blob([GameSheets.writeCSV(rows)],{type:'text/csv;charset=utf-8'}),'ملاحظات-أسئلة-الألعاب.csv');};
  function batches(lessons){const result=[];let batch=[],bytes=2;for(const lesson of lessons){const size=new TextEncoder().encode(JSON.stringify(lesson)).length+1;if(size>650000)throw Error('أحد الدروس كبير جدًا. قسّمه إلى دروس أصغر.');if(batch.length&&(batch.length>=100||bytes+size>650000)){result.push(batch);batch=[];bytes=2;}batch.push(lesson);bytes+=size;}if(batch.length)result.push(batch);return result;}
- $('import-questions').onclick=async()=>{if(!preview||busy)return;if(preview.issues.length&&!$('skip-errors').checked)return note('راجع التقرير أو اختر اعتماد الأسئلة السليمة فقط.',true);busy=true;ready();$('question-file').disabled=true;$('question-sheet').disabled=true;try{const snapshot=preview,parts=batches(snapshot.lessons),source=$('question-file').files[0]?.name||'ملف أسئلة';note('جارٍ تجهيز تحديث '+snapshot.questionCount+' سؤالًا…');const started=await A().api('sheet_begin',{}, {name:source,batches:parts.length,lessons:snapshot.lessons.length,questions:snapshot.questionCount});let next=0,done=0,failed=false;await Promise.all(Array.from({length:Math.min(3,parts.length)},async()=>{while(!failed&&next<parts.length){const index=next++;try{await A().api('sheet_batch',{}, {importId:started.id,batch:index,lessons:parts[index]});done++;note('جارٍ رفع أسئلة الملف: '+done+' من '+parts.length+' دفعة.');}catch(error){failed=true;throw error;}}}));note('جارٍ اعتماد الملف كاملًا…');await A().api('sheet_commit',{}, {importId:started.id});await sourceInfo();note('تم تحديث '+snapshot.questionCount+' سؤالًا في '+snapshot.lessons.length+' درسًا. ستظهر التحديثات عند فتح الصف مجددًا في الألعاب.');}catch(error){note(error.message+' لم يتم اعتماد ملف جزئي.',true);}finally{busy=false;$('question-file').disabled=false;$('question-sheet').disabled=!workbook||workbook.SheetNames.length<2;ready();}};
+ $('import-questions').onclick=async()=>{
+  if(!preview||busy)return;
+  if(preview.issues.length&&!$('skip-errors').checked)return note('راجع التقرير أو اختر اعتماد الأسئلة السليمة فقط.',true);
+  const mode=$('sheet-import-mode').value;
+  const snapshot=preview;
+  busy=true;
+  ready();
+  $('question-file').disabled=$('question-sheet').disabled=$('sheet-import-mode').disabled=true;
+  try{
+   const parts=batches(snapshot.lessons),source=$('question-file').files[0]?.name||'ملف أسئلة';
+   note('جارٍ تجهيز '+snapshot.questionCount+' سؤالًا…');
+   const started=await A().api('sheet_begin',{},{
+    name:source,batches:parts.length,lessons:snapshot.lessons.length,questions:snapshot.questionCount,mode
+   });
+   let next=0,done=0,failed=false;
+   const workers=await Promise.allSettled(Array.from({length:Math.min(3,parts.length)},async()=>{
+    while(!failed&&next<parts.length){
+     const index=next++;
+     try{
+      await A().api('sheet_batch',{}, {importId:started.id,batch:index,lessons:parts[index]});
+      done++;
+      if(!failed)note('جارٍ رفع أسئلة الملف: '+done+' من '+parts.length+' دفعة.');
+     }catch(error){
+      failed=true;
+      throw error;
+     }
+    }
+   }));
+   const rejected=workers.find(worker=>worker.status==='rejected');
+   if(rejected)throw rejected.reason;
+   note('جارٍ اعتماد الملف كاملًا…');
+   await A().api('sheet_commit',{}, {importId:started.id});
+   const suffix=mode==='append'?' تُضاف الأسئلة الجديدة إلى البنك.':'';
+   note('تم اعتماد ملف يضم '+snapshot.questionCount+' سؤالًا في '+snapshot.lessons.length+' درسًا.'+suffix+' ستظهر التحديثات عند فتح الصف مجددًا في الألعاب.');
+   sourceInfo().catch(()=>{});
+  }catch(error){note(error.message,true);}
+  finally{
+   busy=false;
+   $('question-file').disabled=$('sheet-import-mode').disabled=false;
+   $('question-sheet').disabled=!workbook||workbook.SheetNames.length<2;
+   ready();
+  }
+ };
  async function sourceInfo(){const data=await A().api('sheet_info');$('sheet-source-info').textContent=data.source?'آخر ملف تحديث: '+data.source.name+' — '+data.source.lessons+' درسًا و'+data.source.questions+' سؤالًا — '+new Date(data.source.updatedAt).toLocaleString('ar-OM'):'يُستخدم الملف الأساسي المرفق. لم يُعتمد ملف تحديث إضافي بعد.';}
  window.addEventListener('game-admin-ready',()=>{sourceInfo().catch(e=>note(e.message,true));fetch('/game/sheets/info.json').then(r=>r.json()).then(info=>{$('seed-source-info').textContent='الملف الأساسي: '+info.lessons+' درسًا و'+info.questions+' سؤالًا صالحًا. توجد '+info.issues+' ملاحظة موضحة في تقرير المراجعة.';}).catch(()=>{});});
+ function appendQuestions(previous,incoming){
+  const identity=q=>JSON.stringify([q.type,q.text,q.options,q.answer]);
+  const seen=new Set(previous.map(identity));
+  return previous.concat(incoming.filter(q=>{
+   const key=identity(q);
+   if(seen.has(key))return false;
+   seen.add(key);
+   return true;
+  }));
+ }
  function fromRaw(entry){return {gradeId:entry.gradeId,subject:entry.subject,semester:entry.semester,unit:entry.unit,lesson:entry.lesson,questions:entry.qs.map(q=>({type:q.t,text:q.q,options:q.o||[],answer:((q.k-q.q.length)%(q.t==='mc'?q.o.length:2)+(q.t==='mc'?q.o.length:2))%(q.t==='mc'?q.o.length:2),reference:q.ref||''}))};}
  async function exportRows(){const response=await fetch('/game/sheets/source-rows.json');if(!response.ok)throw Error('تعذر تحميل ملف الأسئلة الأساسي.');const rows=await response.json();const positions=new Map(),duplicates=new Map();for(let i=1;i<rows.length;i++){const r=rows[i],id=GameSheets.gradeId(r[0]);if(id&&r[1]&&r[2]&&r[4]){const key=GameSheets.key({gradeId:id,subject:r[1],semester:r[2],unit:r[3]||'بدون وحدة',lesson:r[4]});if(!positions.has(key))positions.set(key,i);else duplicates.set(key,[...(duplicates.get(key)||[]),i]);}}
-  const current=await A().api('sheet_info');if(current.source){let next=0;await Promise.all(Array.from({length:3},async()=>{while(next<12){const number=next++,grade='g'+String(number).padStart(2,'0');const result=await A().api('sheet_rows',{grade,importId:current.source.id});for(const raw of result.lessons||[]){const item=fromRaw(raw),key=GameSheets.key(item),row=GameSheets.rowsFromLessons([item])[1];if(positions.has(key)){rows[positions.get(key)]=row;for(const index of duplicates.get(key)||[])rows[index][5]='';}else{positions.set(key,rows.length);rows.push(row);}}}}));}
+  const current=await A().api('sheet_info');
+  if(current.source){
+   let next=0;
+   await Promise.all(Array.from({length:3},async()=>{
+    while(next<12){
+     const number=next++,grade='g'+String(number).padStart(2,'0');
+     const result=await A().api('sheet_rows',{grade,importId:current.source.id,append:'1'});
+     for(const raw of result.lessons||[]){
+      const item=fromRaw(raw),key=GameSheets.key(item);
+      if(positions.has(key)){
+       const index=positions.get(key),otherIndices=duplicates.get(key)||[];
+       if(raw.append){
+        const base=[index,...otherIndices].map(position=>rows[position]);
+        const existing=GameSheets.parseRows(base).lessons[0]?.questions||[];
+        item.questions=appendQuestions(existing,item.questions);
+       }
+       rows[index]=GameSheets.rowsFromLessons([item])[1];
+       for(const otherIndex of otherIndices)rows[otherIndex][5]='';
+      }else{
+       positions.set(key,rows.length);
+       rows.push(GameSheets.rowsFromLessons([item])[1]);
+      }
+     }
+    }
+   }));
+  }
   for(let offset=0;offset<1000000;offset+=50){const data=await A().api('admin_list',{offset:String(offset)});for(const q of data.items||[]){const key=GameSheets.key(q),question={type:q.type,text:q.text,options:q.options||[],answer:q.answer,reference:q.reference||''};if(positions.has(key)){const row=rows[positions.get(key)],existing=GameSheets.parseQuestions(row[5]).questions;const match=existing.some(old=>old.type===question.type&&old.text===question.text&&JSON.stringify(old.options)===JSON.stringify(question.options)&&old.answer===question.answer);if(!match)row[5]=String(row[5]||'')+'\n\n'+GameSheets.formatQuestions([question]);}else {const row=GameSheets.rowsFromLessons([{...q,questions:[question]}])[1];positions.set(key,rows.length);rows.push(row);}}if(offset+(data.items?.length||0)>=data.total)break;}return rows;
  }
  async function exportFile(format){if(busy)return;busy=true;ready();$('export-xlsx').disabled=$('export-csv').disabled=true;note('جارٍ تجهيز ملف الأسئلة للتصدير…');try{const rows=await exportRows();if(format==='csv')download(new Blob([GameSheets.writeCSV(rows)],{type:'text/csv;charset=utf-8'}),'أسئلة-الألعاب-تحديث.csv');else {if(!window.XLSX)throw Error('تعذر تحميل قارئ Excel. استخدم تصدير CSV.');const book=XLSX.utils.book_new(),sheet=XLSX.utils.aoa_to_sheet(rows);sheet['!cols']=[{wch:18},{wch:25},{wch:16},{wch:35},{wch:45},{wch:100}];XLSX.utils.book_append_sheet(book,sheet,'Sheet1');XLSX.writeFile(book,'أسئلة-الألعاب-تحديث.xlsx');}note('تم تصدير الملف بالأعمدة الستة الأصلية. عدّل الأسئلة ثم ارفع الملف لتحديث الألعاب.');}catch(error){note(error.message,true);}finally{busy=false;$('export-xlsx').disabled=$('export-csv').disabled=false;ready();}}
