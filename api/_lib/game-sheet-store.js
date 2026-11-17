@@ -55,6 +55,18 @@ export function createGameSheetHandler(sql){
   const fail=(status,message)=>res.status(status).json({message}),action=String(req.query?.action||'');
   await ensure();
 
+  if(action==='sheet_catalog'){
+   if(req.method!=='GET')return fail(405,'العملية غير متاحة.');
+   const rows=await sql`
+    SELECT grade_id,subject FROM game_public_questions WHERE deleted_at IS NULL
+    UNION
+    SELECT l.grade_id,l.subject
+    FROM game_sheet_lessons l JOIN game_sheet_imports i ON i.id=l.import_id
+    WHERE i.status='active'
+    ORDER BY grade_id,subject`;
+   return res.status(200).json({subjects:rows.map(row=>({gradeId:row.grade_id,subject:row.subject}))});
+  }
+
   if(req.method==='GET'&&['sheet_bank','sheet_rows','sheet_info'].includes(action)){
    const requested=action==='sheet_rows'?String(req.query?.importId||''):'';
    if(requested&&!/^[0-9a-f-]{36}$/i.test(requested))return fail(400,'معرّف الملف غير صحيح.');

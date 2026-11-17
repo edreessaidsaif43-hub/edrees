@@ -15,7 +15,7 @@ export function createQuestionHandler(database,authorize,options={}){
  let schema;
  const ensure=()=>schema||(schema=(async()=>{await database`CREATE TABLE IF NOT EXISTS game_public_questions (id BIGSERIAL PRIMARY KEY,grade_id TEXT NOT NULL,subject TEXT NOT NULL,semester TEXT NOT NULL,unit TEXT NOT NULL,lesson TEXT NOT NULL,type TEXT NOT NULL,text TEXT NOT NULL,options JSONB NOT NULL DEFAULT '[]'::jsonb,answer SMALLINT NOT NULL,reference TEXT NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),deleted_at TIMESTAMPTZ)`;await database`CREATE INDEX IF NOT EXISTS game_public_questions_grade_id_idx ON game_public_questions(grade_id,id DESC)`;})().catch(error=>{schema=null;throw error;}));
  return async function(req,res){res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');const fail=(status,message)=>res.status(status).json({message});
-  try{const action=String(req.query?.action||'bank'),admin=!['bank','sheet_bank'].includes(action);
+  try{const action=String(req.query?.action||'bank'),admin=!['bank','sheet_bank','sheet_catalog'].includes(action);
    if(action.startsWith('teacher_'))return await teacherHandler(req,res);
    if(['admin_login','admin_logout'].includes(action)){
     if(req.method!=='POST')return fail(405,'العملية غير متاحة.');
