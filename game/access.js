@@ -9,7 +9,13 @@ window.GameLibraryAccess=(async function(){
  if(!getSubscriptionUserId())throw Error('سجّل الدخول من مكتبة الألعاب لعرض صفوفك المفعّلة.');
  const loadIndex=new Promise((resolve,reject)=>{const script=document.createElement('script');let done=false;const finish=(error)=>{if(done)return;done=true;clearTimeout(timer);script.onload=script.onerror=null;if(error){script.remove();reject(error);}else resolve();};const timer=setTimeout(()=>finish(Error('تأخر تحميل فهرس الصفوف. تحقق من الاتصال ثم أعد المحاولة.')),10000);script.src='data/index.js';script.onload=()=>finish(Array.isArray(window.__BANK?.index)?null:Error('ملف فهرس الصفوف غير مكتمل.'));script.onerror=()=>finish(Error('تعذر تحميل فهرس الصفوف. تحقق من رفع مجلد data كاملًا.'));document.head.append(script);});
  const [status]=await Promise.all([refreshSubscriptionStatus(),loadIndex]);if(status?.loadError)throw Error(status.loadError);
- window.__BANK.index=window.__BANK.index.filter(g=>g.subjects.some(s=>isSubjectSubscribed('الصف '+g.n,s)));
+ const activeSubjects=getActiveSubscriptionSubjects();
+ window.__BANK.index=window.__BANK.index.filter(grade=>{
+  const label='الصف '+grade.n;
+  return activeSubjects.length
+   ?activeSubjects.some(item=>isSameSubscriptionGrade(item.grade,label))
+   :grade.subjects.some(subject=>isSubjectSubscribed(label,subject));
+ });
  if(!window.__BANK.index.length)throw Error('لا توجد مواد مفعّلة لهذا الحساب. حدّث اشتراكك من مكتبة الألعاب.');
  window.gameLibraryAllows=function(id,subject){const g=window.__BANK.index.find(g=>g.id===id);return !!g&&isSubjectSubscribed('الصف '+g.n,subject);};
  window.addEventListener('storage',e=>{if(!e.key||!e.key.startsWith('games-roster:'))location.reload();});return true;

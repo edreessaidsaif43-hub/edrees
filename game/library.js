@@ -1,8 +1,46 @@
 const $ = id => document.getElementById(id);
 const libraryGames = [{"id":"rihlat-almarifa","button":"launch","available":true},{"id":"camel-race","button":"launch-camel","available":true},{"id":"duo-challenge","button":"launch-duo","available":true},{"id":"who-wins-lesson","button":"launch-ladder","available":true},{"id":"oman-teams","button":"launch-oman","available":true},{"id":"penalty","button":"launch-penalty","available":true},{"id":"heroes-battle","button":"launch-heroes","available":true},{"id":"tug","button":"launch-tug","available":true},{"id":"wheel","button":"launch-wheel","available":true},{"id":"pearl","button":"launch-pearl","available":true},{"id":"castle","button":"launch-castle","available":true},{"id":"escape","button":"launch-escape","available":true},{"id":"race3d","button":"launch-race3d","available":true},{"id":"football3d","button":"launch-football3d","available":true},{"id":"corniche3d","button":"launch-corniche3d","available":true},{"id":"flight3d","button":"launch-flight3d","available":true},{"id":"storm3d","button":"launch-storm3d","available":true}];
 function setGameButtons(disabled){libraryGames.forEach(g=>{$(g.button).disabled=disabled||!g.available;});}
-const bank = window.__BANK?.index || [];
+const baseBank = window.__BANK?.index || [];
+let bank = baseBank;
 let D = bank.flatMap(g => g.subjects.map(subject => ({'1':'الصف '+g.n,'2':subject})));
+let publishedSubjects=[],refreshing=false;
+
+function updateLibraryCatalog(){
+ bank=baseBank.map(grade=>({...grade,subjects:[...grade.subjects]}));
+ const grades=new Map(bank.map(grade=>[grade.id,grade]));
+ const keys=new Map(bank.map(grade=>[grade.id,new Set(grade.subjects.map(normalizeSubscriptionSubject))]));
+ const add=(grade,subject)=>{
+  if(!grade||typeof subject!=='string')return;
+  const name=subject.trim(),key=normalizeSubscriptionSubject(name);
+  if(!key||keys.get(grade.id).has(key))return;
+  grade.subjects.push(name);
+  keys.get(grade.id).add(key);
+ };
+ for(const item of publishedSubjects)add(grades.get(item?.gradeId),item?.subject);
+ for(const item of getActiveSubscriptionSubjects()){
+  add(bank.find(grade=>isSameSubscriptionGrade('الصف '+grade.n,item.grade)),item.subject);
+ }
+ D=bank.flatMap(grade=>grade.subjects.map(subject=>({'1':'الصف '+grade.n,'2':subject})));
+}
+
+async function refreshLibraryCatalog(){
+ const status=$('subscription-catalog-status');
+ status.hidden=false;
+ status.textContent='جارٍ تحديث قائمة المواد من بنك الأسئلة…';
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),5000);
+ try{
+  const response=await fetch(subscriptionApiUrl('/api/game-questions?action=sheet_catalog'),{signal:controller.signal,cache:'no-store'});
+  if(!response.ok)throw Error('Question catalog unavailable');
+  const data=await response.json();
+  if(!Array.isArray(data.subjects))throw Error('Invalid question catalog');
+  publishedSubjects=data.subjects;
+  status.hidden=true;
+ }catch(error){
+  status.textContent='تعذر تحديث قائمة المواد من بنك الأسئلة. أعد تحميل الصفحة للمحاولة.';
+ }finally{clearTimeout(timer);}
+}
 let workbook, rows=[];
 function showMessage(message){$('notice').textContent=message;}
 function rosterData(){return GameRosters.read(getSubscriptionUserId(),$('library-grade').value,$('roster-subject').value);}
@@ -16,7 +54,28 @@ function paintRoster(){const names=roster();$('names').replaceChildren(...names.
 function options(el,items){el.replaceChildren(...items.map(([value,text])=>new Option(text,value)));}
 function paintSubjects(){const g=bank.find(g=>g.id===$('library-grade').value);const prev=$('roster-subject').value;options($('roster-subject'),[['','اختر المادة'],...(g?g.subjects.filter(s=>isSubjectSubscribed('الصف '+g.n,s)).map(s=>[s,s]):[])]);if([...$('roster-subject').options].some(o=>o.value===prev))$('roster-subject').value=prev; setGameButtons(!bank.some(g=>g.subjects.some(s=>isSubjectSubscribed('الصف '+g.n,s))));paintSections(); }
 function applySubscriptionToGrades(){const previous=$('library-grade').value;options($('library-grade'),[['','اختر الصف'],...bank.filter(g=>g.n!=='غير محدد'&&g.subjects.some(s=>isSubjectSubscribed('الصف '+g.n,s))).map(g=>[g.id,'الصف '+g.n])]);if([...$('library-grade').options].some(o=>o.value===previous))$('library-grade').value=previous;paintSubjects();}
-async function refresh(){ setGameButtons(true);await refreshSubscriptionStatus();applySubscriptionToGrades();if(subscriptionState.loadError){showMessage(subscriptionState.loadError);return;}fillSubscriptionGradeOptions(bank.filter(g=>g.n!=='غير محدد').map(g=>'الصف '+g.n));if(!bank.length)showMessage('تعذر تحميل بيانات رحلة المعرفة. ستتاح اللعبة بعد رفع ملفاتها وإعادة تحميل الصفحة.');else if(!getSubscriptionUserId())showMessage('سجل الدخول لعرض الصفوف المشترك بها وإنشاء الشعب.');else if(!bank.some(g=>g.subjects.some(s=>isSubjectSubscribed('الصف '+g.n,s))))showMessage('فعّل اشتراك الصف أو إحدى مواده لإضافة شعبه وطلابه.');else showMessage('اختر الصف المشترك به والمادة، ثم أنشئ شعبة بالاسم الذي تريده.');}
+async function refresh(){
+ if(refreshing)return;
+ refreshing=true;
+ setGameButtons(true);
+ try{
+  const catalogRequest=refreshLibraryCatalog();
+  const paint=()=>{
+   updateLibraryCatalog();
+   applySubscriptionToGrades();
+   fillSubscriptionGradeOptions(bank.filter(g=>g.n!=='غير محدد').map(g=>'الصف '+g.n));
+  };
+  await refreshSubscriptionStatus();
+  paint();
+  if(subscriptionState.loadError)showMessage(subscriptionState.loadError);
+  else if(!bank.length)showMessage('تعذر تحميل بيانات رحلة المعرفة. ستتاح اللعبة بعد رفع ملفاتها وإعادة تحميل الصفحة.');
+  else if(!getSubscriptionUserId())showMessage('سجل الدخول لعرض الصفوف المشترك بها وإنشاء الشعب.');
+  else if(!bank.some(g=>g.subjects.some(s=>isSubjectSubscribed('الصف '+g.n,s))))showMessage('فعّل اشتراك الصف أو إحدى مواده لإضافة شعبه وطلابه.');
+  else showMessage('اختر الصف المشترك به والمادة، ثم أنشئ شعبة بالاسم الذي تريده.');
+  await catalogRequest;
+  paint();
+ }finally{refreshing=false;}
+}
 $('roster-subject').onchange=paintSections;
 $('refresh').onclick=refresh;$('library-grade').onchange=paintSubjects;
 function loadSheet(){rows=XLSX.utils.sheet_to_json(workbook.Sheets[$('sheet').value],{header:1,defval:'',raw:false,blankrows:false});$('import').disabled=!rows.length;}
