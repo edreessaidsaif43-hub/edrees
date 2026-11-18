@@ -263,6 +263,7 @@ code.k{font-family:inherit;background:#f1f5f9;border-radius:6px;padding:1px 6px;
 .wz-guide-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .wz-guide-steps>div{background:#fff;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
 .wz-guide-steps small{color:var(--muted);font-size:12px}
+.wz-guide a.btn{text-decoration:none}
 .wz-guide .n{width:26px;height:26px;background:var(--tq);color:#fff}
 .wz-list{margin:12px 0 18px;padding-inline-start:22px;line-height:2;font-size:14px}
 .wz-progress{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:10px 14px}
@@ -1017,17 +1018,21 @@ var Engine = (function () {
 
   /* ============================================================
      قراءة الجدول المدرسي من صفوف Excel
-     يدعم تنسيقين:
+     يدعم ثلاثة تنسيقات:
      (أ) الشبكة: المعلم | التخصص | الهاتف | اليوم | الحصة 1 … الحصة ن
          الخلية: «7/2» أو «7/2 - رياضيات» أو «مناوبة» أو فارغة (فراغ)
      (ب) القائمة: المعلم | اليوم | الحصة | الصف | المادة
+     (ج) الجدول الأسبوعي: صف لكل معلم، وعناوين الأيام فوق أرقام الحصص
      ============================================================ */
   var DUTY_WORDS = ['مناوبة', 'مناوبه', 'اجتماع', 'إشراف', 'اشراف', 'مهمة', 'مهمه', 'لجنة', 'لجنه', 'نشاط', 'غير متاح', 'مشغول', 'تنسيق', 'ريادة'];
   function cellStr(v) { return String(v == null ? '' : v).replace(/ /g, ' ').replace(/[٠-٩]/g, function (c) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(c); }).trim(); }
+  function normalizedDay(v) {
+    return cellStr(v).replace(/[\u0640\u064B-\u065F\u0670]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/^يوم\s*/, '');
+  }
   function parseDay(v, settings) {
-    var s = cellStr(v).replace(/^يوم\s*/, '');
+    var s = normalizedDay(v);
     if (!s) return null;
-    for (var i = 0; i < 7; i++) { var nm = DAY_NAMES[i]; if (s === nm || s === nm.replace(/^ال/, '') || s.indexOf(nm) >= 0 || nm.indexOf(s) >= 0 && s.length >= 3) return i; }
+    for (var i = 0; i < 7; i++) { var nm = normalizedDay(DAY_NAMES[i]); if (s === nm || s === nm.replace(/^ال/, '') || s.indexOf(nm) >= 0 || nm.indexOf(s) >= 0 && s.length >= 3) return i; }
     var n = parseInt(s, 10);
     if (!isNaN(n) && n >= 1 && n <= settings.days.length) return settings.days[n - 1];
     return null;
@@ -1054,14 +1059,37 @@ var Engine = (function () {
     for (var i = 0; i < row.length; i++) { var c = cellStr(row[i]); for (var j = 0; j < words.length; j++) if (c.indexOf(words[j]) >= 0) return i; }
     return -1;
   }
+  function findWeeklyGrid(rows) {
+    var days = DAY_NAMES.map(normalizedDay);
+    for (var h = 0; h < Math.min(10, rows.length - 1); h++) {
+      var headers = rows[h], periods = rows[h + 1];
+      if (headerIndex(headers, ['المعلم', 'المعلمة', 'اسم']) < 0) continue;
+      var day = -1, slots = [];
+      for (var c = 0; c < periods.length; c++) {
+        if (headers[c]) {
+          var name = normalizedDay(headers[c]);
+          day = days.findIndex(function (d) { return name === d || name === d.replace(/^ال/, ''); });
+        }
+        if (day < 0 || !periods[c]) continue;
+        var period = /^(?:(?:الحصة|حصة|ح)\s*)?\d+$/.test(periods[c]) ||
+          PERIOD_NAMES.some(function (n) { return periods[c] === n || periods[c] === 'الحصة ' + n; })
+          ? parsePeriod(periods[c]) : null;
+        if (period > 0) slots.push({ column: c, day: day, period: period });
+      }
+      if (new Set(slots.map(function (s) { return s.day; })).size >= 2) return { header: h, slots: slots };
+    }
+    return null;
+  }
   function parseTimetable(rows, settings) {
     settings = settings || defaultSettings();
     var res = { format: null, teachers: [], lessons: [], blocks: [], errors: [], warnings: [] };
     rows = (rows || []).map(function (r) { return (r || []).map(cellStr); });
-    // ابحث عن صف العناوين في أول 10 صفوف
-    var hi = -1;
-    for (var i = 0; i < Math.min(10, rows.length); i++) if (headerIndex(rows[i], ['المعلم', 'اسم']) >= 0 && headerIndex(rows[i], ['اليوم']) >= 0) { hi = i; break; }
-    if (hi < 0) { res.errors.push({ row: 0, msg: 'لم يُعثر على صف العناوين (يجب أن يحتوي على «المعلم» و«اليوم»). استخدم النموذج.' }); return res; }
+    var weekly = findWeeklyGrid(rows);
+    var hi = weekly ? weekly.header : -1;
+    if (!weekly) {
+      for (var i = 0; i < Math.min(10, rows.length); i++) if (headerIndex(rows[i], ['المعلم', 'اسم']) >= 0 && headerIndex(rows[i], ['اليوم']) >= 0) { hi = i; break; }
+    }
+    if (hi < 0) { res.errors.push({ row: 0, msg: 'لم يُعثر على عناوين الجدول. استخدم نموذج Excel، أو ضع أسماء الأيام فوق أرقام الحصص.' }); return res; }
     var H = rows[hi];
     var iName = headerIndex(H, ['المعلم', 'اسم']), iDay = headerIndex(H, ['اليوم']);
     var iSubj = headerIndex(H, ['التخصص']), iPhone = headerIndex(H, ['الهاتف', 'الجوال', 'واتساب']);
@@ -1072,7 +1100,7 @@ var Engine = (function () {
       var p = /الحصة|حصة|^ح\s*\d|^\d+$/.test(h) || PERIOD_NAMES.some(function (n) { return h.indexOf(n) >= 0; }) ? parsePeriod(h) : null;
       if (p) periodCols.push({ idx: idx, p: p });
     });
-    var tmap = {};
+    var tmap = Object.create(null);
     function teacher(name, subj, phone) {
       var t = tmap[name];
       if (!t) { t = tmap[name] = { name: name, subject: subj || '', phone: phone || '' }; res.teachers.push(t); }
@@ -1094,7 +1122,39 @@ var Engine = (function () {
       seen[name + '|' + k] = 1;
       res.blocks.push({ name: name, d: d, p: p, why: why });
     }
-    if (periodCols.length >= 2) {
+    function addCell(rowNo, t, day, period, value) {
+      var cell = parseCell(value, t.subject);
+      if (!cell) return;
+      if (cell.duty) addBlock(rowNo, t.name, day, period, cell.duty);
+      else addLesson(rowNo, t.name, day, period, cell.cls, cell.subj);
+    }
+    if (weekly) {
+      res.format = 'weekly';
+      var slots = weekly.slots.filter(function (slot) {
+        if (slot.period <= PERIOD_NAMES.length) return true;
+        res.warnings.push(DAY_NAMES[slot.day] + ': الحصة ' + slot.period + ' تتجاوز الحد المدعوم (' + PERIOD_NAMES.length + ') وتم تجاهلها');
+        return false;
+      });
+      res.requiredPeriods = slots.reduce(function (max, slot) {
+        return settings.days.indexOf(slot.day) >= 0 ? Math.max(max, slot.period) : max;
+      }, settings.periods);
+      for (var rw = hi + 2; rw < rows.length; rw++) {
+        var weeklyRow = rows[rw], teacherName = weeklyRow[iName];
+        if (!slots.some(function (slot) { return weeklyRow[slot.column]; })) continue;
+        if (!teacherName) { res.errors.push({ row: rw + 1, msg: 'اسم المعلم فارغ' }); continue; }
+        var weeklyTeacher = teacher(teacherName, weeklyRow[iSubj], weeklyRow[iPhone]);
+        var excludedDays = new Set();
+        slots.forEach(function (slot) {
+          var value = weeklyRow[slot.column];
+          if (!value) return;
+          if (settings.days.indexOf(slot.day) < 0) { excludedDays.add(slot.day); return; }
+          addCell(rw + 1, weeklyTeacher, slot.day, slot.period, value);
+        });
+        excludedDays.forEach(function (day) {
+          res.errors.push({ row: rw + 1, msg: DAY_NAMES[day] + ' ليس من أيام الدوام في الإعدادات' });
+        });
+      }
+    } else if (periodCols.length >= 2) {
       res.format = 'grid';
       var lastName = '', lastSubj = '', lastPhone = '';
       for (var r = hi + 1; r < rows.length; r++) {
@@ -1109,9 +1169,7 @@ var Engine = (function () {
         if (settings.days.indexOf(d) < 0) { res.errors.push({ row: r + 1, msg: DAY_NAMES[d] + ' ليس من أيام الدوام في الإعدادات' }); continue; }
         periodCols.forEach(function (pc) {
           if (pc.p > settings.periods) { if (row[pc.idx]) res.warnings.push('الحصة ' + pc.p + ' تتجاوز عدد الحصص (' + settings.periods + ') وتم تجاهلها'); return; }
-          var c = parseCell(row[pc.idx], t.subject);
-          if (!c) return;
-          if (c.duty) addBlock(r + 1, name, d, pc.p, c.duty); else addLesson(r + 1, name, d, pc.p, c.cls, c.subj);
+          addCell(r + 1, t, d, pc.p, row[pc.idx]);
         });
       }
     } else if (iPer >= 0) {
@@ -1148,9 +1206,10 @@ var Engine = (function () {
   /* تطبيق جدول مُحلَّل على المدرسة (استبدال جدول المعلمين الواردين فيه) */
   function applyTimetable(S, parsed, opts) {
     opts = opts || {};
-    var byName = {}; S.teachers.forEach(function (t) { byName[t.name.trim()] = t; });
+    if (parsed.requiredPeriods > S.settings.periods) S.settings.periods = parsed.requiredPeriods;
+    var byName = Object.create(null); S.teachers.forEach(function (t) { byName[t.name.trim()] = t; });
     var touched = {}, created = 0;
-    if (opts.replaceAll) { S.teachers = []; S.schedule = {}; byName = {}; }
+    if (opts.replaceAll) { S.teachers = []; S.schedule = {}; byName = Object.create(null); }
     parsed.teachers.forEach(function (pt) {
       var t = byName[pt.name];
       if (!t) {
@@ -1159,7 +1218,10 @@ var Engine = (function () {
       } else { if (pt.subject) t.subject = pt.subject; if (pt.phone) t.phone = pt.phone; }
       S.schedule[t.id] = {}; t.blocked = {}; touched[t.id] = 1;
     });
-    parsed.lessons.forEach(function (l) { S.schedule[byName[l.name].id][slotKey(l.d, l.p)] = { cls: l.cls, subj: l.subj }; });
+    parsed.lessons.forEach(function (l) {
+      var t = byName[l.name];
+      S.schedule[t.id][slotKey(l.d, l.p)] = { cls: l.cls, subj: l.subj || t.subject || '' };
+    });
     var dutyCount = {};
     parsed.blocks.forEach(function (b) { var t = byName[b.name]; t.blocked[slotKey(b.d, b.p)] = b.why; dutyCount[t.id] = (dutyCount[t.id] || 0) + 1; });
     S.teachers.forEach(function (t) { if (touched[t.id]) { t.load = teachingCount(S, t.id); } if (!S.schedule[t.id]) S.schedule[t.id] = {}; });
@@ -3110,12 +3172,14 @@ function wzTimetable() {
     (S.teachers.length ? '<details style="margin-top:14px"><summary class="small" style="cursor:pointer;font-weight:700;color:var(--navy)">المعلمون المستخرجون من الجدول (' + S.teachers.length + ')</summary><div class="tbl-wrap" style="max-height:320px;margin-top:8px"><table class="t"><thead><tr><th>المعلم</th><th>التخصص</th><th>الهاتف</th><th class="num">النصاب</th><th class="num">مهام</th></tr></thead><tbody>' + S.teachers.map(function (t) { return '<tr><td><b>' + esc(t.name) + '</b></td><td class="small">' + esc(t.subject) + '</td><td class="small" dir="ltr" style="text-align:right">' + esc(t.phone) + '</td><td class="num">' + t.load + '</td><td class="num">' + Object.keys(t.blocked || {}).length + '</td></tr>'; }).join('') + '</tbody></table></div></details>' : '');
 }
 function ttGuide() {
-  var st = S.settings;
   return '<div class="wz-guide"><div class="wz-guide-steps">' +
-    '<div><span class="n">1</span><b>نزّل النموذج</b><small>مُعدّ على ' + st.days.length + ' أيام و' + st.periods + ' حصص</small><button class="btn sm pri" data-a="ttTemplate">' + ic('dl') + ' نموذج Excel</button></div>' +
-    '<div><span class="n">2</span><b>املأ الجدول</b><small>صف لكل معلم في كل يوم، وعمود لكل حصة</small></div>' +
+    '<div><span class="n">1</span><b>نزّل قالب Excel</b>' +
+      '<a class="btn sm pri" href="teacher-timetable-template.xlsx" download="قالب_الجدول_الأسبوعي_للمعلمين.xlsx">' + ic('dl') + ' قالب الجدول الأسبوعي</a>' +
+      '<button class="btn sm" type="button" data-a="ttTemplate">' + ic('dl') + ' نموذج حسب إعدادات المدرسة</button></div>' +
+    '<div><span class="n">2</span><b>جهّز الجدول</b><small>أدخل بيانات المعلمين وحصصهم في ملف Excel</small></div>' +
     '<div><span class="n">3</span><b>ارفع الملف وراجعه</b><small>يظهر عدد الحصص والأخطاء قبل الاعتماد</small></div></div>' +
-    '<div class="small muted" style="margin-top:10px"><b>طريقة الكتابة في خلية الحصة:</b> <code class="k">7/2</code> للصف (المادة = تخصص المعلم) · <code class="k">7/2 - العلوم</code> للصف والمادة · <code class="k">مناوبة</code> أو <code class="k">اجتماع القسم</code> أو <code class="k">مهمة: إشراف</code> لحصة غير متاحة للاحتياط · فارغة = حصة فراغ. يكفي كتابة اسم المعلم وتخصصه وهاتفه في أول صف له. يُقبل أيضًا تنسيق القائمة: <code class="k">المعلم | اليوم | الحصة | الصف | المادة</code>.</div></div>';
+    '<div class="small muted" style="margin-top:10px"><b>الجدول الأسبوعي</b> يقبل صفًا واحدًا لكل معلم، وتوضع أسماء الأيام فوق أرقام الحصص. في النموذج، استخدم صفًا لكل يوم واكتب بيانات المعلم في أول صف له. يُقبل أيضًا تنسيق القائمة <code class="k">المعلم | اليوم | الحصة | الصف | المادة</code>.</div>' +
+    '<div class="small muted" style="margin-top:6px"><b>محتوى خلية الحصة</b> <code class="k">7/2</code> للصف، أو <code class="k">7/2 - العلوم</code> للصف والمادة. اكتب <code class="k">مناوبة</code> أو <code class="k">اجتماع القسم</code> أو <code class="k">مهمة: إشراف</code> لحصة غير متاحة للاحتياط. الخلية الفارغة حصة فراغ.</div></div>';
 }
 function ttUploader(scope) {
   return '<label class="drop" style="display:block;margin-top:12px">' + ic('up', 'style="width:30px;height:30px"') + '<div style="font-weight:700;margin-top:4px">اختر ملف Excel للجدول المدرسي (.xlsx)</div><div class="small">أو CSV — يُقرأ الملف داخل المتصفح ولا يُرفع لأي جهة</div><input type="file" accept=".xlsx,.xlsm,.xls,.csv" class="hidden" data-c="ttFile" data-scope="' + scope + '"></label><div id="tt-result-' + scope + '"></div>';
@@ -3126,22 +3190,29 @@ ACT.ttTemplate = function () {
   var help = [['تعليمات تعبئة الجدول'], [''], ['• كل صف = معلم واحد في يوم واحد. يكفي كتابة الاسم والتخصص والهاتف في أول صف للمعلم.'], ['• اكتب في خلية الحصة الصف مثل 7/2، أو الصف والمادة مثل: 7/2 - العلوم.'], ['• للحصص غير المتاحة للاحتياط اكتب: مناوبة، اجتماع القسم، إشراف، لجنة، أو مهمة: (نوعها).'], ['• اترك الخلية فارغة إذا كانت الحصة فراغًا.'], ['• أيام الدوام: ' + st.days.map(function (d) { return E.DAY_NAMES[d]; }).join('، ') + ' — عدد الحصص: ' + st.periods], ['• لا تغيّر عناوين الأعمدة في ورقة «الجدول المدرسي».'], ['• احذف صفوف المثال قبل الرفع.']];
   exportXlsx('نموذج-الجدول-المدرسي.xlsx', [{ name: 'الجدول المدرسي', rows: rows, widths: [30, 18, 15, 11].concat(range(st.periods).map(function () { return 14; })), freeze: true, border: true }, { name: 'تعليمات', rows: help, widths: [100], header: true }]);
 };
+var ttReadId = 0;
 function handleTTFile(file, scope) {
   var school = S;
   var box = $('#tt-result-' + scope);
+  var readId = ++ttReadId;
+  wzParsed = null;
   if (box) box.innerHTML = '<div class="note small" style="margin-top:10px">جارٍ قراءة الملف…</div>';
   readTable(file).then(function (rows) {
-    if (S !== school) return;
+    if (readId !== ttReadId || S !== school || !box?.isConnected) return;
     wzParsed = E.parseTimetable(rows, school.settings);
     wzParsed.fileName = file.name;
-    if (box) box.innerHTML = ttResultHTML(wzParsed, scope);
-  }).catch(function (e) { if (box) box.innerHTML = '<div class="note err" style="margin-top:10px">تعذرت قراءة الملف: ' + esc(e.message || e) + '</div>'; });
+    box.innerHTML = ttResultHTML(wzParsed, scope);
+  }).catch(function (e) {
+    if (readId === ttReadId && S === school && box?.isConnected) box.innerHTML = '<div class="note err" style="margin-top:10px">تعذرت قراءة الملف: ' + esc(e.message || e) + '</div>';
+  });
 }
 function ttResultHTML(r, scope) {
   var ok = r.teachers.length && r.lessons.length;
   var cls = {}; r.lessons.forEach(function (l) { cls[l.cls] = 1; });
-  return '<div class="card" style="margin-top:12px;background:#fafcff"><h3>نتيجة قراءة «' + esc(r.fileName || '') + '»<span class="sp"></span>' + (r.format ? '<span class="badge b-gray">' + (r.format === 'grid' ? 'تنسيق الشبكة' : 'تنسيق القائمة') + '</span>' : '') + '</h3>' +
+  var formatLabel = { grid: 'تنسيق الشبكة', list: 'تنسيق القائمة', weekly: 'الجدول الأسبوعي للمعلمين' }[r.format];
+  return '<div class="card" style="margin-top:12px;background:#fafcff"><h3>نتيجة قراءة «' + esc(r.fileName || '') + '»<span class="sp"></span>' + (formatLabel ? '<span class="badge b-gray">' + formatLabel + '</span>' : '') + '</h3>' +
     '<div class="kpis">' + kpi('المعلمون', r.teachers.length, r.teachers.length ? 'ok' : 'bad') + kpi('الحصص التدريسية', r.lessons.length, r.lessons.length ? 'ok' : 'bad') + kpi('مهام ومناوبات', r.blocks.length) + kpi('الصفوف', Object.keys(cls).length) + kpi('صفوف بها أخطاء', r.errors.length, r.errors.length ? 'warn' : 'ok') + '</div>' +
+    (ok && r.requiredPeriods > S.settings.periods ? '<div class="note small" style="margin-top:8px">سيُضبط عدد الحصص اليومي إلى <b>' + r.requiredPeriods + '</b> عند اعتماد هذا الجدول.</div>' : '') +
     (r.errors.length ? '<div class="note warn small" style="margin-top:10px"><b>' + r.errors.length + ' ملاحظة — لن تُعتمد هذه الصفوف/الخلايا:</b><ul style="margin:6px 0 0;padding-inline-start:18px;max-height:180px;overflow:auto">' + r.errors.slice(0, 60).map(function (e) { return '<li>' + (e.row ? 'صف ' + e.row + ': ' : '') + esc(e.msg) + '</li>'; }).join('') + '</ul></div>' : '') +
     (r.warnings.length ? '<div class="note small" style="margin-top:8px">' + r.warnings.map(esc).join('<br>') + '</div>' : '') +
     (ok ? '<div class="tbl-wrap" style="max-height:240px;margin-top:10px"><table class="t"><thead><tr><th>المعلم</th><th>التخصص</th><th>الهاتف</th><th class="num">الحصص</th><th class="num">المهام</th></tr></thead><tbody>' + r.teachers.map(function (t) {
