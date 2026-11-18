@@ -33,6 +33,8 @@ function createIhtiyatStore({ key, getWorkspace, openWorkspace, closeWorkspace, 
     get canImport() { return store.hasAccess && !!owner && revision === 0 && !pending && !!legacyWorkspace(); },
     start,
     save,
+    shareContext: () => store.hasAccess && owner && !switchingAccount
+      ? { ownerId: owner, expectedRevision: !pending && !conflict ? revision : null } : null,
     retry: () => sync(true),
     importLegacy,
     recoverDraft,

@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta name="theme-color" content="#0f2a4a">
+  <title>جدول الاحتياط المعتمد | الاحتياط الذكي</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --navy: #0f2a4a;
+      --ink: #172b43;
+      --muted: #506477;
+      --line: #dbe5eb;
+      --teal: #097665;
+      --teal-soft: #e8f7f3;
+      --background: #f4f8fa;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--ink);
+      font: 1rem/1.7 system-ui, "Segoe UI", Tahoma, sans-serif;
+    }
+    .frame { width: min(1080px, calc(100% - 40px)); margin-inline: auto; }
+    .brand {
+      padding-block: 16px;
+      color: #fff;
+      background: var(--navy);
+      font-size: 1.06rem;
+      font-weight: 750;
+    }
+    main { padding-block: clamp(24px, 5vw, 48px) 56px; }
+    h1, h2, p { margin: 0; }
+    h1 { font-size: clamp(1.65rem, 4vw, 2.5rem); line-height: 1.25; color: var(--navy); }
+    h2 { font-size: 1.18rem; color: var(--navy); }
+    .school { margin-block-start: 10px; font-size: 1.1rem; font-weight: 700; }
+    .muted { color: var(--muted); }
+    .header { margin-block-end: 20px; }
+    time { display: block; margin-block-start: 2px; }
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 5px 16px rgb(15 42 74 / 5%);
+    }
+    .status-card { margin-block-start: 20px; padding: 20px; }
+    .status-card button {
+      margin-block-start: 12px;
+      padding: 7px 14px;
+      border: 1px solid var(--teal);
+      border-radius: 8px;
+      background: var(--teal);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    :focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+      gap: 12px;
+      margin: 0 0 22px;
+    }
+    .metric { padding: 13px 16px; }
+    .metric dt { font-size: .9rem; color: var(--muted); }
+    .metric dd {
+      margin: 0;
+      font-size: 1.4rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: var(--navy);
+    }
+    .method { margin-block-start: 18px; padding: 16px 18px; }
+    .method summary { font-weight: 750; color: var(--teal); cursor: pointer; }
+    .method p { margin-block-start: 8px; }
+    .method .mode { font-weight: 700; }
+    .calendar { margin-block-start: 8px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; text-align: right; }
+    th, td { padding: 11px 13px; overflow-wrap: anywhere; text-align: start; }
+    th { color: var(--navy); background: #edf4f7; font-size: .88rem; }
+    td { vertical-align: top; border-block-start: 1px solid var(--line); }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+    td:first-child { font-weight: 750; }
+    .selection {
+      display: inline-block;
+      border-radius: 6px;
+      padding: 1px 7px;
+      background: var(--teal-soft);
+      color: #076052;
+      font-size: .8rem;
+      font-weight: 750;
+    }
+    .selection.manual { background: #e9effb; color: #304c7b; }
+    .selection.uncovered { background: #fff0de; color: #7d4718; }
+    .reason { margin-block-start: 3px; color: var(--muted); font-size: .9rem; }
+    .empty { margin-block-start: 8px; padding: 16px; color: var(--muted); }
+    @media (max-width: 620px) {
+      .frame { width: calc(100% - 24px); }
+      .summary { gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .metric { padding: 9px 11px; }
+      .metric dd { font-size: 1.18rem; }
+      .calendar { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+      table, tbody { display: block; }
+      thead {
+        position: absolute;
+        inline-size: 1px;
+        block-size: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      tbody tr {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-block-end: 10px;
+        padding: 8px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: #fff;
+      }
+      tbody tr:nth-child(even) { background: #fff; }
+      td { padding: 5px 7px; border: 0; }
+      td::before {
+        display: block;
+        content: attr(data-label);
+        font-size: .77rem;
+        font-weight: 500;
+        color: var(--muted);
+      }
+      td:last-child { grid-column: 1 / -1; }
+      td:last-child::before { margin-block-end: 2px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="brand"><div class="frame">الاحتياط الذكي</div></header>
+  <main class="frame">
+    <div class="header">
+      <h1>جدول الاحتياط المعتمد</h1>
+      <p id="school-name" class="school" hidden></p>
+      <time id="schedule-date" class="muted" hidden></time>
+    </div>
+    <div class="card status-card" id="status">
+      <p id="status-text" role="status">جارٍ تحميل جدول الاحتياط…</p>
+      <button id="retry" type="button" hidden>إعادة المحاولة</button>
+    </div>
+    <div id="schedule" hidden>
+      <dl class="summary" aria-label="ملخص الجدول والعدالة">
+        <div class="card metric">
+          <dt>الحصص المغطاة</dt><dd id="coverage"></dd>
+        </div>
+        <div class="card metric" id="fairness" hidden>
+          <dt>مؤشر العدالة العام</dt><dd id="fairness-indicator"></dd>
+        </div>
+      </dl>
+      <section aria-labelledby="lessons-title">
+        <h2 id="lessons-title">حصص الاحتياط</h2>
+        <div class="card calendar" id="calendar" hidden>
+          <table role="table" aria-labelledby="lessons-title">
+            <thead role="rowgroup">
+              <tr role="row">
+                <th role="columnheader" scope="col">الحصة</th>
+                <th role="columnheader" scope="col">الصف</th>
+                <th role="columnheader" scope="col">المادة</th>
+                <th role="columnheader" scope="col">معلم الاحتياط</th>
+                <th role="columnheader" scope="col">الإسناد وسببه</th>
+              </tr>
+            </thead>
+            <tbody role="rowgroup" id="table-body"></tbody>
+          </table>
+        </div>
+        <p id="empty-schedule" class="card empty" hidden>لا توجد حصص احتياط في الجدول المعتمد لهذا اليوم.</p>
+      </section>
+      <details class="card method" open>
+        <summary>كيف تُوزّع الحصص؟</summary>
+        <p id="distribution-mode" class="mode" hidden></p>
+        <p id="mode-description"></p>
+        <p id="fairness-description" class="muted" hidden>يقارن مؤشر العدالة العام رصيد الاحتياط بفرص التوفر، التي تراعي النصاب والمهام المسجلة.</p>
+      </details>
+    </div>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id);
+    const numberFormat = new Intl.NumberFormat('ar-OM');
+    const dateFormat = new Intl.DateTimeFormat('ar-OM', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'
+    });
+    const columns = ['الحصة', 'الصف', 'المادة', 'معلم الاحتياط', 'الإسناد وسببه'];
+    const selections = new Map([
+      ['automatic', 'إسناد آلي'],
+      ['manual', 'إسناد يدوي'],
+      ['uncovered', 'غير مغطاة']
+    ]);
+    const modes = new Map([
+      ['smart', ['التوزيع الذكي المتوازن', 'يرتّب النظام المؤهلين بحسب رصيد الاحتياط مقارنةً بفرص التوفر، مع مراعاة النصاب والمهام.']],
+      ['least', ['بحسب أقل عدد من حصص الاحتياط', 'يعطي النظام الأولوية لمن لديه رصيد احتياط أقل، مع مراعاة الأعباء اليومية والأسبوعية.']],
+      ['load', ['بحسب النصاب التدريسي', 'يعطي النظام وزنًا أكبر للنصاب التدريسي، ويأخذ رصيد الاحتياط وفرص التوفر في الحسبان.']],
+      ['subject', ['بحسب التخصص', 'يعطي النظام وزنًا أكبر لتطابق التخصص ضمن المرشحين المتاحين.']],
+      ['manual', ['التوزيع اليدوي', 'تختار إدارة المدرسة معلم الاحتياط وفق التوفر والقيود المعتمدة.']],
+      ['custom', ['التوزيع المخصص حسب إعدادات المدرسة', 'يرتّب النظام المؤهلين بحسب أوزان ومعايير التوزيع التي تحددها المدرسة.']],
+      ['mixed', ['توزيع بأكثر من آلية', 'تظهر طريقة الإسناد في صف كل حصة.']]
+    ]);
+    const eligibility = 'يستبعد النظام من الإسناد الآلي من لديهم تعارض في الحصة أو مهمة مسجلة، ومن بلغوا الحد اليومي أو الأسبوعي.';
+    const expired = 'انتهت صلاحية رابط العرض أو أُلغي. اطلب رابطًا جديدًا من إدارة المدرسة.';
+    const unavailable = 'تعذّر تحميل الجدول الآن. أعد المحاولة.';
+    const failures = new Map([
+      [401, [expired, false]],
+      [403, ['العرض متوقف مؤقتًا. تواصل مع إدارة المدرسة.', true]],
+      [404, [expired, false]],
+      [409, ['الجدول قيد التحديث. سيظهر بعد إعادة اعتماده.', true]],
+      [410, [expired, false]]
+    ]);
+    let currentRequest;
+
+    function showStatus(message, canRetry = false) {
+      $('schedule').hidden = true;
+      $('school-name').hidden = true;
+      $('school-name').textContent = '';
+      $('schedule-date').hidden = true;
+      $('schedule-date').textContent = '';
+      $('schedule-date').removeAttribute('datetime');
+      $('coverage').textContent = '';
+      $('fairness-indicator').textContent = '';
+      $('distribution-mode').textContent = '';
+      $('table-body').replaceChildren();
+      $('status-text').textContent = message;
+      $('retry').hidden = !canRetry;
+      $('status').hidden = false;
+    }
+
+    function text(value, fallback = '—') {
+      return typeof value === 'string' && value.trim() ? value : fallback;
+    }
+
+    function cell(label, value) {
+      const item = document.createElement('td');
+      item.setAttribute('role', 'cell');
+      item.dataset.label = label;
+      if (value) item.textContent = value;
+      return item;
+    }
+
+    function lessonRow(lesson) {
+      const row = document.createElement('tr');
+      row.setAttribute('role', 'row');
+      const period = Number(lesson.period);
+      const selection = selections.has(lesson.selection) ? lesson.selection : 'uncovered';
+      row.append(
+        cell(columns[0], Number.isInteger(period) && period > 0 ? numberFormat.format(period) : '—'),
+        cell(columns[1], text(lesson.className)),
+        cell(columns[2], text(lesson.subject)),
+        cell(columns[3], selection === 'uncovered' ? '—' : text(lesson.teacherName))
+      );
+      const explanation = cell(columns[4]);
+      const badge = document.createElement('span');
+      badge.className = 'selection ' + selection;
+      badge.textContent = selections.get(selection);
+      explanation.append(badge);
+      const reason = text(lesson.explanation, '');
+      if (reason) {
+        const paragraph = document.createElement('p');
+        paragraph.className = 'reason';
+        paragraph.textContent = reason;
+        explanation.append(paragraph);
+      }
+      row.append(explanation);
+      return row;
+    }
+
+    function render(data) {
+      if (!Array.isArray(data?.lessons) || !/^\d{4}-\d{2}-\d{2}$/.test(data.date)) throw new Error('Invalid schedule');
+      const date = new Date(data.date + 'T00:00:00Z');
+      if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== data.date) throw new Error('Invalid date');
+      $('school-name').textContent = text(data.schoolName, '');
+      $('school-name').hidden = !$('school-name').textContent;
+      $('schedule-date').dateTime = data.date;
+      $('schedule-date').textContent = dateFormat.format(date);
+      $('schedule-date').hidden = false;
+
+      const stats = data.fairness || {};
+      const total = Number.isSafeInteger(stats.total) && stats.total >= 0 ? stats.total : data.lessons.length;
+      const covered = Number.isSafeInteger(stats.covered) && stats.covered >= 0 && stats.covered <= total
+        ? stats.covered : data.lessons.filter(item => item.selection === 'automatic' || item.selection === 'manual').length;
+      $('coverage').textContent = numberFormat.format(covered) + ' من ' + numberFormat.format(total);
+      const hasFairness = Number.isFinite(stats.indicator) && stats.indicator >= 0 && stats.indicator <= 100;
+      $('fairness-indicator').textContent = hasFairness ? numberFormat.format(stats.indicator) + '٪' : '';
+      $('fairness').hidden = !hasFairness;
+      $('fairness-description').hidden = !hasFairness;
+
+      const mode = modes.get(data.distributionMode);
+      const modeLabel = mode?.[0] || '';
+      $('distribution-mode').textContent = modeLabel;
+      $('distribution-mode').hidden = !modeLabel;
+      const ranking = mode?.[1] || 'يرتّب النظام المعلمين المؤهلين وفق وضع التوزيع المعتمد للمدرسة.';
+      $('mode-description').textContent = (mode?.[0] === modes.get('manual')[0] ? '' : eligibility + ' ') + ranking;
+
+      $('table-body').replaceChildren(...data.lessons.map(lessonRow));
+      $('calendar').hidden = !data.lessons.length;
+      $('empty-schedule').hidden = !!data.lessons.length;
+      $('status').hidden = true;
+      $('schedule').hidden = false;
+    }
+
+    async function loadSchedule() {
+      currentRequest?.abort();
+      const token = new URLSearchParams(location.hash.slice(1)).get('token');
+      if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) {
+        currentRequest = null;
+        showStatus('رابط العرض غير مكتمل. اطلب الرابط من إدارة المدرسة.');
+        return;
+      }
+      const request = new AbortController();
+      currentRequest = request;
+      const timeout = setTimeout(() => request.abort(), 10000);
+      showStatus('جارٍ تحميل جدول الاحتياط…');
+      try {
+        const response = await fetch('../api/ihtiyat-share', {
+          method: 'POST',
+          credentials: 'omit',
+          cache: 'no-store',
+          redirect: 'error',
+          headers: { 'Content-Type': 'application/json' },
+          signal: request.signal,
+          body: JSON.stringify({ action: 'view', token })
+        });
+        if (currentRequest !== request) return;
+        if (!response.ok) {
+          showStatus(...(failures.get(response.status) || [unavailable, true]));
+          return;
+        }
+        const data = await response.json();
+        if (currentRequest === request) render(data);
+      } catch {
+        if (currentRequest === request) showStatus(unavailable, true);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    $('retry').addEventListener('click', loadSchedule);
+    window.addEventListener('hashchange', loadSchedule);
+    window.addEventListener('pageshow', event => { if (event.persisted) loadSchedule(); });
+    loadSchedule();
+  </script>
+</body>
+</html>

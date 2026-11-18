@@ -274,7 +274,7 @@ code.k{font-family:inherit;background:#f1f5f9;border-radius:6px;padding:1px 6px;
 .wz-check.no{border-color:#fdba74;background:#fff7ed}.wz-check.no .n{background:var(--orange);color:#fff}
 .demo-bar{background:#fef3c7;border-bottom:1px solid #fde68a;color:#78350f;padding:8px 22px;display:flex;gap:10px;align-items:center;font-size:13.5px;flex-wrap:wrap}
 @media (max-width:900px){.wz-body{grid-template-columns:1fr}.wz-steps{position:static;flex-direction:row;overflow:auto}.wz-step small{display:none}.wz-step{flex:none}.wz-cards,.wz-guide-steps{grid-template-columns:1fr}}
-</style></head><body><div id="root"></div><div id="toasts" class="toasts"></div><script src="store.js?v=6"></script><script>
+</style></head><body><div id="root"></div><div id="toasts" class="toasts"></div><script src="store.js?v=7"></script><script>
 /* ============================================================
    الاحتياط الذكي — محرك التوزيع العادل
    منطق خالص (بدون واجهة) يمكن اختباره في Node
@@ -1655,6 +1655,7 @@ var Modal = {
     (o.buttons || []).forEach(function (b) {
       var btn = document.createElement('button');
       btn.className = 'btn ' + (b.cls || '');
+      btn.disabled = !!b.disabled;
       btn.innerHTML = b.label;
       btn.onclick = function () {
         var r = b.act ? b.act(root) : true;
@@ -2238,6 +2239,7 @@ PAGES.daily = function () {
     '<div class="row">' +
     '<button class="btn pri" data-a="distribute">' + ic('bolt') + ' ' + (rows.length ? 'إعادة توزيع غير المثبتة' : 'توزيع جميع الحصص') + '</button>' +
     (can('approve') ? '<button class="btn navy" data-a="approveDay"' + (rows.length ? '' : ' disabled') + '>' + ic('check') + ' اعتماد الجدول النهائي</button>' : '') +
+    (can('approve') && !APP.demo ? '<button class="btn" type="button" data-a="shareDaily">رابط عرض للمعلمين</button>' : '') +
     '<span class="sp"></span>' +
     '<button class="btn sm" data-a="dailyPDF" title="طباعة أو حفظ PDF">' + ic('pdf') + ' طباعة / PDF</button>' +
     '<button class="btn sm" data-a="dailyXLSX">' + ic('sheet') + ' Excel</button>' +
@@ -2333,6 +2335,116 @@ ACT.approveDay = function () {
     toast('تم اعتماد الجدول', 'ok');
   });
 };
+
+function dailyShareApproved(school, date) {
+  if (!school.approvedDays[date]) return false;
+  var rows = school.assignments.filter(function (a) { return a.date === date; });
+  return rows.length > 0 && !rows.some(function (a) { return a.status === 'proposed'; });
+}
+
+ACT.shareDaily = function () {
+  if (!can('approve') || APP.demo) return;
+  var schoolId = S.id, date = UI.date;
+  var approved = dailyShareApproved(S, date);
+  Modal.open({
+    title: 'رابط عرض للمعلمين',
+    body: '<p><b>' + esc(S.settings.name) + '</b> · ' + esc(dayLabel(date)) + '</p>' +
+      (approved ? '<p>شارك رابط العرض نفسه مع معلمي المدرسة. يمكن لمن يملك الرابط مشاهدة جدول هذا اليوم لمدة ٧ أيام.</p>' +
+        '<p class="small muted">إنشاء رابط جديد يبطل الرابط السابق لهذا اليوم.</p>' :
+        '<p>اعتمد جدول هذا اليوم لإنشاء الرابط.</p>'),
+    buttons: [{
+      label: 'إنشاء رابط جديد', cls: 'pri', disabled: !approved,
+      act: function (root) { return manageDailyShare('create', schoolId, date, root); }
+    }, {
+      label: 'إلغاء الرابط', cls: 'danger',
+      act: function (root) { return manageDailyShare('revoke', schoolId, date, root); }
+    }, { label: 'إغلاق' }]
+  });
+};
+
+async function manageDailyShare(action, schoolId, date, root) {
+  if (root.dataset.shareBusy) return false;
+  root.dataset.shareBusy = 'true';
+  var buttons = $$('.modal-f button:not(:disabled)', root);
+  buttons.forEach(function (button) { button.disabled = true; });
+  var controller = new AbortController();
+  var timeout;
+  try {
+    var context = Store.shareContext();
+    if (action === 'create' && !context?.expectedRevision && !Store.hasConflict) {
+      await Store.retry();
+      context = Store.shareContext();
+    }
+    if (!root.isConnected || !context || S?.id !== schoolId || !can('approve')) return false;
+    if (action === 'create') {
+      if (!dailyShareApproved(S, date)) {
+        toast('اعتمد الجدول أولًا', 'err');
+        return false;
+      }
+      if (!context.expectedRevision) {
+        toast(Store.hasConflict ? 'راجع تعارض الحفظ قبل مشاركة الجدول' : 'انتظر حفظ الجدول ثم حاول مجددًا', 'err');
+        return false;
+      }
+    }
+    timeout = setTimeout(function () { controller.abort(); }, 12000);
+    var response = await fetch('/api/ihtiyat-share', {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: action, ownerId: context.ownerId, schoolId: schoolId, date: date,
+        ...(action === 'create' ? { expectedRevision: context.expectedRevision } : {}) })
+    });
+    var data = await response.json().catch(function () { return {}; });
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403 || data.error === 'workspace_conflict') void Store.retry();
+      var message = {
+        schedule_not_approved: 'اعتمد الجدول واحفظه قبل إنشاء الرابط',
+        workspace_conflict: 'تغيّرت نسخة الجدول. راجعها ثم أعد المحاولة',
+        subscription_required: 'يتطلب نشر الجدول اشتراكًا ساريًا',
+        account_stopped: 'حساب التحضير الذكي موقوف',
+        sign_in_required: 'سجّل الدخول بحساب التحضير الذكي'
+      }[data.error];
+      toast(message || 'تعذّر تعديل رابط العرض. حاول مجددًا.', 'err');
+      return false;
+    }
+    if (!root.isConnected || Store.shareContext()?.ownerId !== context.ownerId || S?.id !== schoolId) return false;
+    if (action === 'revoke') {
+      toast('أُلغي رابط العرض لهذا اليوم', 'ok');
+    } else {
+      if (!/^[A-Za-z0-9_-]{43}$/.test(data.token || '') || !Number.isFinite(Date.parse(data.expiresAt))) {
+        toast('تعذّر تجهيز رابط العرض. حاول مجددًا.', 'err');
+        return false;
+      }
+      setTimeout(function () {
+        if (Store.shareContext()?.ownerId === context.ownerId && S?.id === schoolId) showDailyShareLink(data);
+      }, 0);
+    }
+    return true;
+  } catch (error) {
+    if (root.isConnected) toast('تعذّر الاتصال بخدمة مشاركة الجدول. حاول مجددًا.', 'err');
+    return false;
+  } finally {
+    clearTimeout(timeout);
+    delete root.dataset.shareBusy;
+    buttons.forEach(function (button) { button.disabled = false; });
+  }
+}
+
+function showDailyShareLink(data) {
+  var link = new URL('/cc/share.html', location.origin);
+  link.hash = new URLSearchParams({ token: data.token }).toString();
+  var expiry = new Intl.DateTimeFormat('ar-OM', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Muscat' }).format(new Date(data.expiresAt));
+  Modal.open({
+    title: 'رابط العرض الخاص',
+    body: '<p>ينتهي الرابط في ' + esc(expiry) + ' بتوقيت مسقط.</p>' +
+      '<label class="f">رابط العرض<input id="daily-share-url" dir="ltr" value="' + esc(link.href) + '" readonly></label>' +
+      '<a class="btn sm" style="margin-top:10px" href="' + esc(link.href) + '" target="_blank" rel="noopener noreferrer">فتح صفحة العرض</a>',
+    buttons: [
+      { label: 'نسخ الرابط', cls: 'pri', act: function () { copyText(link.href); return false; } },
+      { label: 'إغلاق' }
+    ]
+  });
+}
+
 ACT.cleanStale = function () {
   var needed = {}; E.neededSlots(S, UI.date).forEach(function (s) { needed[s.key] = 1; });
   S.assignments = S.assignments.filter(function (a) { return a.date !== UI.date || needed[a.key]; });
