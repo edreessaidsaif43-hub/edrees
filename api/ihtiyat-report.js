@@ -35,10 +35,20 @@ function schoolFor(workspace, schoolId) {
 }
 
 export function buildIhtiyatReport(school) {
+  const teachers = [];
+  const teacherIndexes = new Map();
+  for (const teacher of Array.isArray(school.teachers) ? school.teachers : []) {
+    const name = typeof teacher?.name === "string" ? teacher.name.trim().slice(0, 160) : "";
+    if (!name || !isId(teacher?.id) || teacherIndexes.has(teacher.id)) continue;
+    teacherIndexes.set(teacher.id, teachers.length);
+    teachers.push(name);
+  }
   const approved = isRecord(school.approvedDays) ? school.approvedDays : {};
   const days = new Map();
   for (const [date, isApproved] of Object.entries(approved)) {
-    if (isApproved === true && isDate(date)) days.set(date, { date, required: 0, covered: 0, uncovered: 0, manual: 0 });
+    if (isApproved === true && isDate(date)) {
+      days.set(date, { date, required: 0, covered: 0, uncovered: 0, manual: 0, teacherCounts: new Map() });
+    }
   }
 
   const assignments = Array.isArray(school.assignments) ? school.assignments : [];
@@ -53,8 +63,16 @@ export function buildIhtiyatReport(school) {
     if (status === "approved" || status === "done") {
       day.required++;
       if (isId(assignment.subId)) {
+        const manual = assignment.manual === true || assignment.mode === "manual";
         day.covered++;
-        if (assignment.manual === true || assignment.mode === "manual") day.manual++;
+        if (manual) day.manual++;
+        const teacher = teacherIndexes.get(assignment.subId);
+        if (teacher !== undefined) {
+          if (!day.teacherCounts.has(teacher)) day.teacherCounts.set(teacher, { teacher, approved: 0, done: 0, manual: 0 });
+          const count = day.teacherCounts.get(teacher);
+          count[status]++;
+          if (manual) count.manual++;
+        }
       } else {
         day.uncovered++;
       }
@@ -67,7 +85,10 @@ export function buildIhtiyatReport(school) {
   const schoolName = typeof school.settings?.name === "string" ? school.settings.name.trim().slice(0, 160) : "";
   return {
     schoolName: schoolName || "المدرسة",
-    days: [...days.values()].filter(day => day.required > 0).sort((first, second) => second.date.localeCompare(first.date)),
+    teachers,
+    days: [...days.values()].filter(day => day.required > 0)
+      .sort((first, second) => second.date.localeCompare(first.date))
+      .map(day => ({ ...day, teacherCounts: [...day.teacherCounts.values()] })),
   };
 }
 

@@ -127,6 +127,8 @@
     td:first-child { font-weight: 700; }
     .empty { padding: 16px; margin-block-start: 8px; }
     .explanation { margin-block-start: 12px; color: var(--muted); font-size: .88rem; }
+    .comparison { margin-block-start: 24px; }
+    .comparison td:first-child { overflow-wrap: anywhere; }
     @media (max-width: 640px) {
       .frame { width: calc(100% - 24px); }
       .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
@@ -213,6 +215,24 @@
         <p class="card empty muted" id="empty-report" role="status" hidden></p>
         <p class="explanation">يشمل التقرير الجداول المعتمدة. الإسناد اليدوي جزء من الحصص المغطاة.</p>
       </section>
+      <section class="comparison" id="teacher-comparison" aria-labelledby="teacher-title" hidden>
+        <h2 id="teacher-title">مقارنة حصص الاحتياط بين المعلمين</h2>
+        <p class="explanation">الترتيب بحسب إجمالي الحصص المعتمدة والمنفّذة في الفترة المحددة. تعتمد قراءة الأعداد على فرص توفّر كل معلم.</p>
+        <div class="card table-card">
+          <table role="table" aria-labelledby="teacher-title">
+            <thead role="rowgroup">
+              <tr role="row">
+                <th scope="col" role="columnheader">المعلم</th>
+                <th scope="col" role="columnheader">الإجمالي</th>
+                <th scope="col" role="columnheader">المعتمدة</th>
+                <th scope="col" role="columnheader">المنفّذة</th>
+                <th scope="col" role="columnheader">الإسناد اليدوي</th>
+              </tr>
+            </thead>
+            <tbody id="teacher-rows" role="rowgroup"></tbody>
+          </table>
+        </div>
+      </section>
     </section>
   </main>
   <script>
@@ -225,14 +245,18 @@
       weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'
     });
     let allDays = [];
+    let teachers = [];
     let currentRequest;
 
     function showStatus(message, retry = false) {
       allDays = [];
+      teachers = [];
       get('report').hidden = true;
       get('school-name').hidden = true;
       get('school-name').textContent = '';
       get('report-rows').replaceChildren();
+      get('teacher-rows').replaceChildren();
+      get('teacher-comparison').hidden = true;
       metrics.forEach(id => { get(id).textContent = ''; });
       get('status-text').textContent = message;
       get('retry').hidden = !retry;
@@ -265,6 +289,39 @@
       return row;
     }
 
+    function renderTeachers(days) {
+      const counts = teachers.map(name => ({ name, approved: 0, done: 0, manual: 0 }));
+      for (const day of days) {
+        for (const entry of day.teacherCounts || []) {
+          const count = counts[entry.teacher];
+          count.approved += entry.approved;
+          count.done += entry.done;
+          count.manual += entry.manual;
+        }
+      }
+      counts.sort((left, right) => (right.approved + right.done) - (left.approved + left.done) ||
+        left.name.localeCompare(right.name, 'ar'));
+      const rows = document.createDocumentFragment();
+      if (days.length) {
+        for (const count of counts) {
+          const row = document.createElement('tr');
+          row.setAttribute('role', 'row');
+          const values = [count.name, ...[count.approved + count.done, count.approved, count.done, count.manual].map(value => numbers.format(value))];
+          const headers = ['المعلم', 'الإجمالي', 'المعتمدة', 'المنفّذة', 'الإسناد اليدوي'];
+          values.forEach((value, index) => {
+            const cell = document.createElement('td');
+            cell.setAttribute('role', 'cell');
+            cell.dataset.label = headers[index];
+            cell.textContent = value;
+            row.append(cell);
+          });
+          rows.append(row);
+        }
+      }
+      get('teacher-rows').replaceChildren(rows);
+      get('teacher-comparison').hidden = !days.length || !teachers.length;
+    }
+
     function filterDays() {
       const from = get('date-from').value;
       const to = get('date-to').value;
@@ -279,6 +336,7 @@
       visible.forEach(day => { rows.append(rowFor(day)); });
       get('report-rows').replaceChildren(rows);
       get('daily-table').hidden = !visible.length;
+      renderTeachers(visible);
       const empty = get('empty-report');
       empty.textContent = invalidRange ? 'اختر تاريخ نهاية يوافق تاريخ البداية أو يليه.'
         : allDays.length ? 'لا توجد أيام معتمدة في الفترة المحددة.' : 'لا توجد أيام معتمدة بعد.';
@@ -287,11 +345,18 @@
 
     function renderReport(data) {
       if (!data || typeof data.schoolName !== 'string' || !Array.isArray(data.days)) throw new Error('Invalid report');
+      teachers = data.teachers ?? [];
+      if (!Array.isArray(teachers) || teachers.some(name => typeof name !== 'string' || !name.trim())) throw new Error('Invalid teachers');
       const seen = new Set();
       allDays = data.days.map(day => {
         if (!day || !parsedDate(day.date) || seen.has(day.date) || !fields.every(field =>
           Number.isSafeInteger(day[field]) && day[field] >= 0
         )) throw new Error('Invalid report date or counts');
+        const entries = day.teacherCounts ?? [];
+        if (!Array.isArray(entries) || entries.some(entry => !entry || !Number.isSafeInteger(entry.teacher) ||
+          entry.teacher < 0 || entry.teacher >= teachers.length ||
+          !['approved', 'done', 'manual'].every(field => Number.isSafeInteger(entry[field]) && entry[field] >= 0)
+        )) throw new Error('Invalid teacher counts');
         seen.add(day.date);
         return day;
       }).sort((left, right) => right.date.localeCompare(left.date));

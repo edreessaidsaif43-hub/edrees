@@ -2921,7 +2921,7 @@ ACT.publicReport = function () {
   var schoolId = S.id;
   Modal.open({
     title: 'رابط التقارير العامة',
-    body: '<p>يعرض رابط واحد إحصاءات جميع الأيام المعتمدة في <b>' + esc(S.settings.name) +
+    body: '<p>يعرض الرابط إحصاءات الأيام المعتمدة وأسماء المعلمين وأعداد حصص الاحتياط في <b>' + esc(S.settings.name) +
       '</b>. يمكن لأي شخص لديه الرابط فتح التقرير.</p><div id="public-report-content"></div>',
     buttons: [{ label: 'إغلاق' }],
     onOpen: function (root) { managePublicReport(root, context.ownerId, schoolId); }
