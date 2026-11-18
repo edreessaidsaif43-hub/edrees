@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>غابة الهدوء 3D – التحضير الذكي للمعلم العماني</title>
+<style>/*CSS*/</style>
+</head>
+<body>
+<div id="stage" class="stage"></div>
+<div id="dim" class="dim"></div>
+
+<!-- شاشة البداية -->
+<section id="start" class="panel-wrap show">
+  <div class="panel">
+    <a class="library-back" href="../index.html">→ الرجوع إلى مكتبة الألعاب</a>
+    <div class="brand"><span class="logo">🌳</span><div><small>التحضير الذكي للمعلم العماني</small><h1>غابة <b>الهدوء</b> <i>3D</i></h1></div></div>
+    <p class="lead">حافظوا على هدوء الصف لتبقى حيوانات غابة ظفار في مكانها… وإذا علا الصوت <b>هربت الحيوانات!</b> ومع الهدوء تعود واحدًا تلو الآخر.</p>
+    <div class="grid2">
+      <label class="fld">اسم الصف (اختياري)<input id="className" maxlength="30" placeholder="مثال: الصف الخامس / 2"></label>
+      <label class="fld">اسم المعلم (اختياري)<input id="teacherName" maxlength="30" placeholder="مثال: أ. سعيد"></label>
+    </div>
+    <div class="opts">
+      <div class="opt"><span>حساسية الميكروفون</span><div class="sens"><small>أقل</small><input type="range" id="sens" min="1" max="10" step="1"><small>أكثر</small><b id="sensVal"></b></div></div>
+      <div class="opt"><span>مدة الحصة</span><div class="chips" id="optDur"></div></div>
+      <div class="opt"><span>سرعة عودة الحيوانات</span><div class="chips" id="optRet"></div></div>
+      <div class="opt"><span>نجمة هدوء كل</span><div class="chips" id="optStar"></div></div>
+      <div class="opt"><span>جودة الرسوم</span><div class="chips" id="optQ"></div></div>
+      <div class="opt"><span>أصوات الغابة</span><div class="chips" id="optSnd"></div></div>
+    </div>
+    <div class="acts">
+      <button class="btn primary" id="goMic" disabled>🎤 ابدأ مع الميكروفون</button>
+      <button class="btn ghost" id="goManual" disabled>✋ تجربة بدون ميكروفون</button>
+    </div>
+    <p class="note" id="note" role="status"></p>
+    <details class="how"><summary>كيف تعمل؟ ونصائح للمعلم</summary>
+      <ul>
+        <li>تستمع الغابة إلى صوت الصف عبر ميكروفون الجهاز (لا يُسجَّل أي صوت ولا يُرسَل إلى أي مكان).</li>
+        <li>في البداية نقيس هدوء الصف 3 ثوانٍ؛ اطلب من الطلاب الصمت أثناءها.</li>
+        <li><b>همس وهدوء:</b> الحيوانات مطمئنة. <b>ارتفاع الصوت:</b> تنتبه الحيوانات وتنظر إلى الصف. <b>ضجيج متواصل:</b> تهرب الحيوانات واحدًا بعد الآخر.</li>
+        <li>مع استمرار الهدوء تعود الحيوانات، ويكسب الصف <b>نجمة هدوء</b> كل فترة، وقد يزوره <b>النمر العربي</b> النادر إذا طال الهدوء والغابة مكتملة.</li>
+        <li>عندما تشرح أنت، اضغط <b>🗣️ المعلم يشرح</b> (أو حرف <kbd>T</kbd>) فتتوقّف الغابة عن الاستماع.</li>
+        <li>اختصارات: <kbd>مسافة</kbd> إيقاف/متابعة • <kbd>F</kbd> ملء الشاشة • <kbd>M</kbd> إظهار/إخفاء المقياس • <kbd>↑</kbd><kbd>↓</kbd> الحساسية • <kbd>R</kbd> إعادة كل الحيوانات • <kbd>N</kbd> (مع الضغط) محاكاة ضجيج.</li>
+        <li>إذا كانت الحيوانات تهرب بسرعة كبيرة فخفّض الحساسية، وإذا لم تتأثر بالضجيج فارفعها.</li>
+      </ul>
+    </details>
+  </div>
+</section>
+
+<!-- المعايرة -->
+<section id="calib" class="panel-wrap">
+  <div class="panel small">
+    <div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="bg"/><circle cx="60" cy="60" r="52" class="fg" id="calRing"/></svg><b id="calNum">3</b></div>
+    <h2>لحظة هدوء من فضلكم… 🤫</h2>
+    <p>نقيس هدوء الصف لضبط الغابة على صفّكم.</p>
+    <div class="cal-meter"><i id="calBar"></i></div>
+    <button class="btn ghost sm" id="calSkip">تخطّي</button>
+  </div>
+</section>
+
+<!-- واجهة اللعب -->
+<section id="hud" class="hud">
+  <div class="top">
+    <div class="glass title"><span class="logo">🌳</span><div><b>غابة الهدوء</b><small id="hClass"></small></div></div>
+    <div class="glass life"><div class="life-h"><span>حيوانات الغابة</span><b id="hCount"></b></div><div class="life-bar"><i id="hLife"></i></div><div class="life-em" id="hEm"></div></div>
+    <div class="glass stat"><small>هدوء متواصل</small><b id="hCalm">00:00</b><div class="mini"><i id="hStarProg"></i></div></div>
+    <div class="glass stat stars"><small>نجوم الهدوء</small><b id="hStars">0 ⭐</b></div>
+    <div class="glass stat" id="hTimeBox"><small>المتبقّي</small><b id="hTime">—</b></div>
+  </div>
+  <div class="meter glass" id="meter">
+    <div class="face" id="mFace">😊</div>
+    <div class="tube"><i class="lvl" id="mLvl"></i><s class="th warn" id="mWarn"></s><s class="th loud" id="mLoud"></s></div>
+    <small id="mTxt">هادئ</small>
+  </div>
+  <div class="shh" id="shh">🤫</div>
+  <div class="banner" id="banner"></div>
+  <div class="talk" id="talkTag">🗣️ المعلم يشرح — الغابة لا تستمع الآن</div>
+  <div class="pausedTag" id="pausedTag">⏸️ متوقّف مؤقتًا</div>
+  <div class="bar glass" id="bar">
+    <button class="tb" id="bTalk" title="المعلم يشرح (T)">🗣️<span>المعلم يشرح</span></button>
+    <button class="tb" id="bPause" title="إيقاف/متابعة (مسافة)">⏸️<span>إيقاف</span></button>
+    <div class="tsens"><button class="tb sq" id="bSensDn" title="حساسية أقل (↓)">−</button><span>الحساسية <b id="bSens"></b></span><button class="tb sq" id="bSensUp" title="حساسية أكثر (↑)">+</button></div>
+    <button class="tb" id="bNoise" title="محاكاة ضجيج (اضغط مطوّلًا أو N)">📢<span>ضجيج</span></button>
+    <button class="tb" id="bReturn" title="إعادة كل الحيوانات (R)">🐾<span>أعِدها</span></button>
+    <button class="tb" id="bMeter" title="إظهار/إخفاء المقياس (M)">📊<span>المقياس</span></button>
+    <button class="tb" id="bSound" title="أصوات الغابة">🔊<span>الصوت</span></button>
+    <button class="tb" id="bFull" title="ملء الشاشة (F)">⛶<span>الشاشة</span></button>
+    <button class="tb end" id="bEnd" title="إنهاء الحصة">🏁<span>إنهاء</span></button>
+  </div>
+</section>
+
+<!-- التقرير -->
+<section id="report" class="panel-wrap">
+  <div class="panel">
+    <a class="library-back" href="../index.html">→ الرجوع إلى مكتبة الألعاب</a>
+    <h2 class="rep-h">🌳 تقرير هدوء الحصة</h2>
+    <p class="rep-sub" id="rSub"></p>
+    <div class="cards" id="rCards"></div>
+    <div class="chart"><canvas id="rChart" width="900" height="200"></canvas><div class="chart-l"><span><i class="c1"></i>هادئ</span><span><i class="c2"></i>مرتفع</span><span><i class="c3"></i>ضجيج</span></div></div>
+    <p class="rep-msg" id="rMsg"></p>
+    <div class="acts"><button class="btn primary" id="rAgain">🌳 حصة جديدة</button><button class="btn ghost" id="rBack">↩️ متابعة الحصة</button></div>
+  </div>
+</section>
+<script>/*ENGINE*/</script>
+<script src="../subscriptions.js?v=startup2"></script>
+<script>/*APP*/</script>
+</body>
+</html>
