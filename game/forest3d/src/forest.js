@@ -20,14 +20,14 @@ export function mg(parts) {
   return mergeGeometries(parts.map(([g, hex]) => { if (g.index) g = g.toNonIndexed(); const c = new THREE.Color(hex), n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); if (g.attributes.uv) g.deleteAttribute('uv'); return g; }));
 }
 export const vmat = () => toon(0xffffff, { vertexColors: true });
-function inst(S, geom, list, shadow, mat) {
+export function inst(S, geom, list, shadow, mat) {
   const m = new THREE.InstancedMesh(geom, mat || vmat(), list.length), M4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), s = new THREE.Vector3();
   list.forEach(([x, y, z, sc, ry], i) => { e.set(0, ry || 0, 0); q.setFromEuler(e); v.set(x, y, z); s.setScalar(sc || 1); M4.compose(v, q, s); m.setMatrixAt(i, M4); });
   m.castShadow = !!shadow; m.receiveShadow = true; m.userData.noOut = 1; S.add(m); return m;
 }
 
 // ---------- الأرض ----------
-function grassTex() {
+export function grassTex() {
   const t = canvasTex(256, 256, (c) => {
     c.fillStyle = '#fff'; c.fillRect(0, 0, 256, 256);
     for (let i = 0; i < 900; i++) { const x = Math.random() * 256, y = Math.random() * 256, a = .08 + Math.random() * .12; c.strokeStyle = Math.random() < .5 ? `rgba(30,110,40,${a})` : `rgba(255,255,200,${a})`; c.lineWidth = 2; c.beginPath(); c.moveTo(x, y); c.lineTo(x + (Math.random() - .5) * 4, y - 5 - Math.random() * 5); c.stroke(); }
@@ -92,7 +92,7 @@ export function animPond(P, t, dt) {
 }
 
 // ---------- الأشجار ----------
-function figTree(r, s = 1) {
+export function figTree(r, s = 1) {
   const parts = [], h = 4.2 * s;
   const tr = new THREE.CylinderGeometry(.42 * s, .7 * s, h, 9); tr.translate(0, h / 2, 0); parts.push([tr, 0x8a5a3a]);
   for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28 + r(), b = new THREE.CylinderGeometry(.12 * s, .26 * s, 2.6 * s, 6); b.translate(0, 1.3 * s, 0); b.rotateZ(.75); b.rotateY(a); b.translate(0, h * .78, 0); parts.push([b, 0x7a4e32]); }
@@ -106,18 +106,18 @@ function baobab(r, s = 1) {
   for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28 + r() * .4, b = new THREE.CylinderGeometry(.1 * s, .3 * s, 2.4 * s, 6); b.translate(0, 1.2 * s, 0); b.rotateZ(.85); b.rotateY(a); b.translate(0, 5.9 * s, 0); parts.push([b, 0xa07a5c]); const c = new THREE.SphereGeometry(.9 * s, 10, 8); c.scale(1.2, .55, 1.2); c.translate(Math.cos(-a + Math.PI / 2) * 0 + Math.sin(a) * 1.9 * s, 7.4 * s, Math.cos(a) * 1.9 * s); parts.push([c, i % 2 ? 0x6ccc4e : 0x55b845]); }
   return mg(parts);
 }
-function frank(r, s = 1) {
+export function frank(r, s = 1) {
   const parts = []; let x = 0, y = 0, z = 0;
   for (let i = 0; i < 3; i++) { const dx = (r() - .5) * .8 * s, len = 1.1 * s, b = new THREE.CylinderGeometry(.13 * s, .2 * s, len, 6); const a = new THREE.Vector3(x, y, z), e = new THREE.Vector3(x + dx, y + len, z + (r() - .5) * .5 * s); b.translate(0, len / 2, 0); const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), e.clone().sub(a).normalize()); b.applyQuaternion(q); b.translate(a.x, a.y, a.z); parts.push([b, 0xc8a88a]); x = e.x; y = e.y; z = e.z; }
   for (let i = 0; i < 6; i++) { const a = i * 1.1, c = new THREE.SphereGeometry(.55 * s, 9, 7); c.scale(1.3, .6, 1.3); c.translate(x + Math.cos(a) * 1.1 * s, y - .2 * s + (i % 3) * .3 * s, z + Math.sin(a) * 1.1 * s); parts.push([c, i % 2 ? 0x78c850 : 0x5aae42]); }
   return mg(parts);
 }
-function bushG() { const parts = []; [[0, .5, 0, .9], [.8, .38, .3, .65], [-.75, .4, -.2, .7], [.2, .45, -.6, .6]].forEach(([x, y, z, rr], i) => { const s = new THREE.SphereGeometry(rr, 10, 8); s.translate(x, y, z); parts.push([s, [0x3aae48, 0x4cc458, 0x2f9e40, 0x5ad064][i]]); }); return mg(parts); }
+export function bushG() { const parts = []; [[0, .5, 0, .9], [.8, .38, .3, .65], [-.75, .4, -.2, .7], [.2, .45, -.6, .6]].forEach(([x, y, z, rr], i) => { const s = new THREE.SphereGeometry(rr, 10, 8); s.translate(x, y, z); parts.push([s, [0x3aae48, 0x4cc458, 0x2f9e40, 0x5ad064][i]]); }); return mg(parts); }
 function berryBush() { const parts = [[bushG(), 0x3aae48]]; return bushG(); }
-function grassG() { const parts = []; for (let i = 0; i < 6; i++) { const c = new THREE.ConeGeometry(.07, .7 + (i % 3) * .2, 3); c.translate(0, .35, 0); c.rotateZ((i - 2.5) * .18); c.rotateY(i * 1.1); parts.push([c, i % 2 ? 0x3fa83c : 0x6ccf4a]); } return mg(parts); }
-function flowerG(hex) { const parts = []; const st = new THREE.CylinderGeometry(.02, .025, .55, 4); st.translate(0, .27, 0); parts.push([st, 0x3a9a3a]); for (let i = 0; i < 5; i++) { const p = new THREE.SphereGeometry(.09, 6, 4); p.scale(1, .45, 1); p.translate(Math.cos(i * 1.256) * .1, .56, Math.sin(i * 1.256) * .1); parts.push([p, hex]); } const c = new THREE.SphereGeometry(.06, 6, 4); c.translate(0, .58, 0); parts.push([c, 0xffd21a]); return mg(parts); }
-function rockG() { const parts = []; [[0, .4, 0, .9], [.8, .25, .3, .55]].forEach(([x, y, z, rr], i) => { const s = new THREE.DodecahedronGeometry(rr, 0); s.scale(1.2, .75, 1); s.translate(x, y, z); parts.push([s, i ? 0xa49890 : 0x958a84]); }); return mg(parts); }
-function mtnG(r, w, h) {
+export function grassG() { const parts = []; for (let i = 0; i < 6; i++) { const c = new THREE.ConeGeometry(.07, .7 + (i % 3) * .2, 3); c.translate(0, .35, 0); c.rotateZ((i - 2.5) * .18); c.rotateY(i * 1.1); parts.push([c, i % 2 ? 0x3fa83c : 0x6ccf4a]); } return mg(parts); }
+export function flowerG(hex) { const parts = []; const st = new THREE.CylinderGeometry(.02, .025, .55, 4); st.translate(0, .27, 0); parts.push([st, 0x3a9a3a]); for (let i = 0; i < 5; i++) { const p = new THREE.SphereGeometry(.09, 6, 4); p.scale(1, .45, 1); p.translate(Math.cos(i * 1.256) * .1, .56, Math.sin(i * 1.256) * .1); parts.push([p, hex]); } const c = new THREE.SphereGeometry(.06, 6, 4); c.translate(0, .58, 0); parts.push([c, 0xffd21a]); return mg(parts); }
+export function rockG() { const parts = []; [[0, .4, 0, .9], [.8, .25, .3, .55]].forEach(([x, y, z, rr], i) => { const s = new THREE.DodecahedronGeometry(rr, 0); s.scale(1.2, .75, 1); s.translate(x, y, z); parts.push([s, i ? 0xa49890 : 0x958a84]); }); return mg(parts); }
+export function mtnG(r, w, h) {
   const g = new THREE.ConeGeometry(w, h, 16, 6); const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 1 + (fbm(x / 8 + w, z / 8, 3) - .5) * .5; p.setXYZ(i, x * k, y * (y > 0 ? .85 + r() * .1 : 1), z * k); }
   g.translate(0, h / 2, 0); g.computeVertexNormals(); return g;

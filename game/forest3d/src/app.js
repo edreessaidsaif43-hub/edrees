@@ -4,9 +4,15 @@
   var $ = function (id) { return document.getElementById(id); };
   var store = { get: function (k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }, set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
   var DURS = [0, 10, 20, 30, 45], RETS = [['سريعة', 6], ['عادية', 10], ['بطيئة', 16]], STARS = [1, 2, 3], QS = [['high', 'عالية'], ['medium', 'متوسطة'], ['low', 'خفيفة']];
+  var DEFAULT_SENSITIVITY = 7, MIC_RANGE_DB = [35, 31, 28, 25, 22, 19, 16, 13, 11, 9];
   function autoQ() { var small = Math.min(screen.width, screen.height) < 700; return small ? 'low' : 'medium'; }
   var S = store.get('forest-calm', null) || {};
-  S = { cls: S.cls || '', tch: S.tch || '', sens: S.sens || 5, dur: DURS.indexOf(S.dur) >= 0 ? S.dur : 0, ret: S.ret >= 0 && S.ret < 3 ? S.ret : 1, star: STARS.indexOf(S.star) >= 0 ? S.star : 2, q: S.q || autoQ(), snd: S.snd !== false, meter: S.meter !== false };
+  var SCN = (window.ForestEngine && window.ForestEngine.SCENES) || [{ id: 'forest', ar: 'غابة ظفار', em: '🌳' }];
+  var savedSensitivity = Number(S.sens);
+  var sensitivity = Number.isInteger(savedSensitivity) && savedSensitivity >= 1 && savedSensitivity <= MIC_RANGE_DB.length ? savedSensitivity : DEFAULT_SENSITIVITY;
+  S = { scene: SCN.some(function (x) { return x.id === S.scene; }) ? S.scene : 'forest', cls: S.cls || '', tch: S.tch || '', sens: sensitivity, dur: DURS.indexOf(S.dur) >= 0 ? S.dur : 0, ret: S.ret >= 0 && S.ret < 3 ? S.ret : 1, star: STARS.indexOf(S.star) >= 0 ? S.star : 2, q: S.q || autoQ(), snd: S.snd !== false, meter: S.meter !== false };
+  if (urlQ_scene()) S.scene = urlQ_scene();
+  function urlQ_scene() { var v = new URLSearchParams(location.search).get('scene'); return SCN.some(function (x) { return x.id === v; }) ? v : null; }
   function save() { store.set('forest-calm', S); }
   var WARN = 55, LOUD = 75;
   var ENG = null, GL = window.ForestEngine && window.ForestEngine.supported();
@@ -29,17 +35,19 @@
 
   /* ---------- المحرك ---------- */
   function engine() {
-    if (ENG && ENG.q === S.q) return ENG;
-    if (ENG) { ENG.stop(); var c = $('stage').querySelector('canvas'); if (c) c.remove(); try { ENG.renderer.dispose(); } catch (e) {} }
-    ENG = window.ForestEngine.create($('stage'), { quality: S.q, preserve: urlQ.get('shot') === '1' }); ENG.q = S.q; window.__forest = ENG;
+    if (ENG && ENG.q === S.q && ENG.sceneInfo.id === S.scene) return ENG;
+    if (ENG) ENG.dispose();
+    ENG = window.ForestEngine.create($('stage'), { quality: S.q, scene: S.scene, preserve: urlQ.get('shot') === '1' }); ENG.q = S.q; window.__forest = ENG;
     ENG.debug.onSfx = function (n) { sfx(n); };
     ENG.start(); return ENG;
   }
-
+  function sceneOf(id) { return SCN.filter(function (x) { return x.id === id; })[0] || SCN[0]; }
   /* ---------- شاشة البداية ---------- */
   function chips(el, labels, idx, cb) { el.innerHTML = labels.map(function (l, i) { return '<button class="chip' + (i === idx ? ' on' : '') + '">' + l + '</button>'; }).join(''); Array.prototype.forEach.call(el.children, function (b, i) { b.onclick = function () { cb(i); }; }); }
   function sensName(v) { return v; }
   function paintStart() {
+    var sp = $('scenePick'); sp.innerHTML = SCN.map(function (x) { return '<button class="scn' + (x.id === S.scene ? ' on' : '') + '" data-id="' + x.id + '"><i>' + x.em + '</i><b>' + x.ar + '</b><small>' + (x.desc || '') + '</small></button>'; }).join('');
+    Array.prototype.forEach.call(sp.children, function (b) { b.onclick = function () { if (S.scene === b.dataset.id) return; S.scene = b.dataset.id; save(); paintStart(); if (canStart) engine(); }; });
     $('className').value = S.cls; $('teacherName').value = S.tch;
     $('sens').value = S.sens; $('sensVal').textContent = S.sens;
     chips($('optDur'), DURS.map(function (d) { return d ? d + ' دقيقة' : 'بلا مؤقّت'; }), DURS.indexOf(S.dur), function (i) { S.dur = DURS[i]; save(); paintStart(); });
@@ -67,8 +75,9 @@
     if (!AN) return -90; AN.getFloatTimeDomainData(BUF); var s = 0; for (var i = 0; i < BUF.length; i++) s += BUF[i] * BUF[i];
     var db = 20 * Math.log10(Math.sqrt(s / BUF.length) + 1e-9); envDb = db > envDb ? envDb + (db - envDb) * .55 : envDb + (db - envDb) * .07; return envDb;
   }
-  function rangeDb() { return [44, 39, 35, 31, 28, 25, 22, 19, 16, 13][S.sens - 1]; }
-  function levelFromDb(db) { return Math.max(0, Math.min(100, (db - floorDb - 3) / rangeDb() * 100)); }
+  function levelFromDb(db) {
+    return Math.max(0, Math.min(100, (db - floorDb - 3) / MIC_RANGE_DB[S.sens - 1] * 100));
+  }
 
   /* ---------- الأصوات ---------- */
   var OUT = null, AMB = null;
@@ -85,6 +94,7 @@
     'return': function (t) { [784, 988, 1175].forEach(function (f, i) { tone(t + i * .1, f, 'triangle', .07, .45); }); },
     star: function (t) { [1047, 1319, 1568, 2093].forEach(function (f, i) { tone(t + i * .09, f, 'triangle', .09, .6); }); },
     leo: function (t) { [523, 659, 784, 1047, 1319, 1568].forEach(function (f, i) { tone(t + i * .12, f, 'sine', .08, .9); }); },
+    splash: function (t) { nz(t, .8, 'lowpass', 1800, 300, .25, .02); nz(t + .05, .4, 'bandpass', 3000, 1200, .12, .02); },
     end: function (t) { [523, 659, 784, 1047].forEach(function (f, i) { tone(t + i * .15, f, 'triangle', .1, .8); }); }
   };
   function sfx(n) { if (!S.snd) return; var c = out(); if (!c || !FX[n]) return; gateUntil = performance.now() + 700; try { FX[n](c.currentTime + .01); } catch (e) {} }
@@ -99,17 +109,19 @@
 
   /* ---------- اللعب ---------- */
   var G = null, raf = 0;
+  function paintTitle() { var sc = sceneOf(S.scene); $('hClass').textContent = sc.em + ' ' + sc.ar + ([S.cls, S.tch].filter(Boolean).length ? ' • ' + [S.cls, S.tch].filter(Boolean).join(' • ') : ''); }
+  function paintEm() { $('hEm').innerHTML = emRow().map(function (r) { return '<span data-g="' + r.g + '">' + r.em + '</span>'; }).join(''); }
   function emRow() { var E = ENG.debug; return E.groups.slice(1).map(function (g) { return { g: g.g, em: g.list[0].c.em }; }); }
   function startSession(manual) {
     if (!canStart) return;
     engine(); audioCtx();
-    G = window.__calm = { manual: manual, L: 0, H: 0, alert: 0, quietT: 0, lastRet: 0, streak: 0, best: 0, stars: 0, flees: 0, returns: 0, t: 0, calmSec: 0, warnSec: 0, loudSec: 0, samples: [], secAcc: 0, secMax: 0, paused: false, talk: false, cool: 0, burstT: 0, simNoise: false, leoVisits: 0, sStars: 0, leoDone: false, ended: false, left: S.dur * 60, cnt: 99 };
+    G = window.__calm = { manual: manual, L: 0, H: 0, alert: 0, quietT: 0, lastRet: 0, streak: 0, best: 0, stars: 0, flees: 0, returns: 0, t: 0, calmSec: 0, warnSec: 0, loudSec: 0, samples: [], secAcc: 0, secMax: 0, paused: false, talk: false, cool: 0, burstT: 0, simNoise: false, leoVisits: 0, sStars: 0, rareNames: {}, scenes: {}, leoDone: false, ended: false, left: S.dur * 60, cnt: 99 };
     ENG.returnAll(); ENG.debug.agents.forEach(function (a) { if (a.c.rare && a.state !== 'gone') { a.state = 'gone'; a.o.visible = false; } });
     ENG.debug.fled = [];
     show('start', false); $('dim').classList.add('off');
-    $('hClass').textContent = [S.cls, S.tch].filter(Boolean).join(' • ') || 'التحضير الذكي للمعلم العماني';
+    paintTitle();
     $('hTimeBox').style.display = S.dur ? '' : 'none';
-    $('hEm').innerHTML = emRow().map(function (r) { return '<span data-g="' + r.g + '">' + r.em + '</span>'; }).join('');
+    paintEm();
     $('meter').classList.toggle('off', !S.meter); $('bMeter').classList.toggle('on', S.meter); $('bSound').textContent = ''; paintSound(); $('bSens').textContent = S.sens;
     show('hud', true); paintHud(); ambient(true);
     if (manual) { $('bNoise').style.display = ''; banner('🌳 الغابة هادئة', 'وضع التجربة: اضغط مطوّلًا على 📢 أو حرف N لمحاكاة الضجيج', 'good', 3800); loopStart(); return; }
@@ -169,7 +181,7 @@
     if (Math.floor(G.streak / si) > G.sStars) { G.sStars = Math.floor(G.streak / si); G.stars++; sfx('star'); banner('⭐ نجمة هدوء!', 'أحسنتم — ' + (S.star === 1 ? 'دقيقة' : S.star === 2 ? 'دقيقتان' : '3 دقائق') + ' دون أن تهرب الحيوانات', 'gold', 3000); }
     // زيارة النمر العربي: الغابة مكتملة وهدوء طويل
     var c = ENG.counts(); G.cnt = c.groupsHere;
-    if (!G.leoDone && c.groupsHere === c.groups && G.streak >= Math.max(150, si * 1.5) && !ENG.hasLeopard()) { if (ENG.leopardVisit()) { G.leoDone = true; G.leoVisits++; sfx('leo'); banner('🐆 زائر نادر: النمر العربي!', 'هدوؤكم الرائع أخرجه من مخبئه — لا تخيفوه!', 'gold', 4500); } }
+    if (!G.leoDone && c.groupsHere === c.groups && G.streak >= Math.max(150, si * 1.5) && !ENG.hasLeopard()) { if (ENG.leopardVisit()) { var rr = ENG.sceneInfo.rare; G.leoDone = true; G.leoVisits++; G.rareNames[rr.ar] = rr.em; sfx('leo'); banner(rr.em + ' زائر نادر: ' + rr.ar + '!', rr.msg, 'gold', 4500); } }
     if (fled) G.leoDone = false;
     // إحصاءات كل ثانية
     G.secAcc += dt; G.secMax = Math.max(G.secMax, L);
@@ -195,7 +207,7 @@
     $('shh').classList.remove('on'); $('banner').className = 'banner';
     var tot = Math.max(1, G.calmSec + G.warnSec + G.loudSec), pc = Math.round(G.calmSec / tot * 100);
     $('rSub').textContent = [S.cls, S.tch, new Date().toLocaleDateString('ar-OM', { weekday: 'long', day: 'numeric', month: 'long' })].filter(Boolean).join(' • ');
-    var cards = [[fmt(G.t), 'مدة الحصة'], [pc + '%', 'من الوقت هادئ'], [G.stars + ' ⭐', 'نجوم الهدوء'], [fmt(G.best), 'أطول هدوء متواصل'], [G.flees, 'مرّات هروب الحيوانات'], [G.returns, 'مرّات عودة الحيوانات'], [ENG.counts().here + ' / ' + ENG.counts().tot, 'الحيوانات في النهاية'], [G.leoVisits ? 'نعم 🐆' : 'لا', 'زيارة النمر العربي']];
+    var cards = [[fmt(G.t), 'مدة الحصة'], [pc + '%', 'من الوقت هادئ'], [G.stars + ' ⭐', 'نجوم الهدوء'], [fmt(G.best), 'أطول هدوء متواصل'], [G.flees, 'مرّات هروب الحيوانات'], [G.returns, 'مرّات عودة الحيوانات'], [ENG.counts().here + ' / ' + ENG.counts().tot, 'الحيوانات في النهاية'], [G.leoVisits ? Object.keys(G.rareNames).map(function (k) { return G.rareNames[k]; }).join(' ') : 'لا', G.leoVisits ? 'زائر نادر: ' + Object.keys(G.rareNames).join('، ') : 'زيارة الحيوان النادر']];
     $('rCards').innerHTML = cards.map(function (c) { return '<div class="card"><b>' + c[0] + '</b><small>' + c[1] + '</small></div>'; }).join('');
     $('rMsg').textContent = pc >= 85 ? '🌟 صفّ رائع! كانت الغابة مطمئنة معظم الحصة.' : pc >= 65 ? '👍 أداء جيد — يمكننا أن نكون أهدأ قليلًا لتبقى كل الحيوانات.' : '🌱 لنحاول في المرة القادمة أن نحافظ على هدوء أكثر لتبقى الحيوانات.';
     drawChart(); show('report', true); $('bar').classList.remove('hide');
@@ -212,6 +224,11 @@
   function stopMic() { if (MIC) { MIC.getTracks().forEach(function (t) { t.stop(); }); MIC = null; AN = null; } }
 
   /* ---------- أزرار المعلم ---------- */
+  function switchScene(dir) {
+    if (!G) return; var i = SCN.map(function (x) { return x.id; }).indexOf(S.scene); S.scene = SCN[(i + (dir || 1) + SCN.length) % SCN.length].id; save();
+    var sc = sceneOf(S.scene); $('swapEm').textContent = sc.em; $('swapTxt').textContent = 'جارٍ الانتقال إلى ' + sc.ar + '…'; $('swap').classList.add('on');
+    setTimeout(function () { engine(); paintTitle(); paintEm(); G.H = 0; G.quietT = 0; G.leoDone = false; paintHud(); setTimeout(function () { $('swap').classList.remove('on'); banner(sc.em + ' ' + sc.ar, 'حافظوا على الهدوء لتبقى الحيوانات', 'good', 2600); }, 250); }, 60);
+  }
   function setTalk(v) { if (!G) return; G.talk = v; $('bTalk').classList.toggle('on', v); $('talkTag').classList.toggle('on', v); if (!v) G.quietT = Math.min(G.quietT, 1); }
   function setPause(v) { if (!G) return; G.paused = v; $('bPause').innerHTML = v ? '▶️<span>متابعة</span>' : '⏸️<span>إيقاف</span>'; $('pausedTag').classList.toggle('on', v); if (!v) G.last = performance.now(); ENG.setAlert(0); $('shh').classList.remove('on'); }
   function sens(d) { S.sens = Math.max(1, Math.min(10, S.sens + d)); save(); $('bSens').textContent = S.sens; banner('الحساسية: ' + S.sens, d > 0 ? 'الغابة أكثر انتباهًا للأصوات' : 'الغابة أكثر تسامحًا', '', 1300); }
@@ -223,6 +240,7 @@
   $('bReturn').onclick = function () { ENG.returnAll(); G.quietT = 0; G.H = 0; banner('🐾 عادت كل الحيوانات', 'لنحافظ عليها بالهدوء', 'good', 2200); sfx('return'); };
   $('bMeter').onclick = function () { S.meter = !S.meter; save(); $('meter').classList.toggle('off', !S.meter); $('bMeter').classList.toggle('on', S.meter); };
   $('bSound').onclick = function () { S.snd = !S.snd; save(); paintSound(); ambient(S.snd); };
+  $('bScene').onclick = function () { switchScene(1); };
   $('bFull').onclick = full; $('bEnd').onclick = function () { endSession(false); };
   var bn = $('bNoise'); function simOn(e) { if (G) G.simNoise = true; if (e) e.preventDefault(); } function simOff() { if (G) G.simNoise = false; }
   bn.addEventListener('pointerdown', simOn); bn.addEventListener('pointerup', simOff); bn.addEventListener('pointerleave', simOff); bn.addEventListener('pointercancel', simOff);
@@ -230,7 +248,7 @@
     if (!G || G.ended || e.target.tagName === 'INPUT') return;
     var k = e.code;
     if (k === 'Space') { setPause(!G.paused); e.preventDefault(); } else if (k === 'KeyF') full(); else if (k === 'KeyM') $('bMeter').onclick(); else if (k === 'KeyT') setTalk(!G.talk);
-    else if (k === 'ArrowUp') sens(1); else if (k === 'ArrowDown') sens(-1); else if (k === 'KeyR') $('bReturn').onclick(); else if (k === 'KeyN') G.simNoise = true; else if (k === 'Escape' && !document.fullscreenElement) endSession(false); else return;
+    else if (k === 'ArrowUp') sens(1); else if (k === 'ArrowDown') sens(-1); else if (k === 'KeyR') $('bReturn').onclick(); else if (k === 'KeyB') switchScene(1); else if (k === 'KeyN') G.simNoise = true; else if (k === 'Escape' && !document.fullscreenElement) endSession(false); else return;
     wake();
   });
   window.addEventListener('keyup', function (e) { if (e.code === 'KeyN' && G) G.simNoise = false; });

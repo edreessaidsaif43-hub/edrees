@@ -15,7 +15,9 @@
   <div class="panel">
     <a class="library-back" href="../index.html">→ الرجوع إلى مكتبة الألعاب</a>
     <div class="brand"><span class="logo">🌳</span><div><small>التحضير الذكي للمعلم العماني</small><h1>غابة <b>الهدوء</b> <i>3D</i></h1></div></div>
-    <p class="lead">حافظوا على هدوء الصف لتبقى حيوانات غابة ظفار في مكانها… وإذا علا الصوت <b>هربت الحيوانات!</b> ومع الهدوء تعود واحدًا تلو الآخر.</p>
+    <p class="lead">حافظوا على هدوء الصف لتبقى الحيوانات في مكانها… وإذا علا الصوت <b>هربت الحيوانات!</b> ومع الهدوء تعود واحدًا تلو الآخر.</p>
+    <div class="scn-h">اختر البيئة</div>
+    <div class="scenes" id="scenePick"></div>
     <div class="grid2">
       <label class="fld">اسم الصف (اختياري)<input id="className" maxlength="30" placeholder="مثال: الصف الخامس / 2"></label>
       <label class="fld">اسم المعلم (اختياري)<input id="teacherName" maxlength="30" placeholder="مثال: أ. سعيد"></label>
@@ -38,9 +40,9 @@
         <li>تستمع الغابة إلى صوت الصف عبر ميكروفون الجهاز (لا يُسجَّل أي صوت ولا يُرسَل إلى أي مكان).</li>
         <li>في البداية نقيس هدوء الصف 3 ثوانٍ؛ اطلب من الطلاب الصمت أثناءها.</li>
         <li><b>همس وهدوء:</b> الحيوانات مطمئنة. <b>ارتفاع الصوت:</b> تنتبه الحيوانات وتنظر إلى الصف. <b>ضجيج متواصل:</b> تهرب الحيوانات واحدًا بعد الآخر.</li>
-        <li>مع استمرار الهدوء تعود الحيوانات، ويكسب الصف <b>نجمة هدوء</b> كل فترة، وقد يزوره <b>النمر العربي</b> النادر إذا طال الهدوء والغابة مكتملة.</li>
+        <li>مع استمرار الهدوء تعود الحيوانات، ويكسب الصف <b>نجمة هدوء</b> كل فترة، وقد يزوره <b>زائر نادر</b> إذا طال الهدوء واكتملت الحيوانات (النمر العربي، المها، الحوت الأحدب، القرش الحوتي، الطهر العربي).</li>
         <li>عندما تشرح أنت، اضغط <b>🗣️ المعلم يشرح</b> (أو حرف <kbd>T</kbd>) فتتوقّف الغابة عن الاستماع.</li>
-        <li>اختصارات: <kbd>مسافة</kbd> إيقاف/متابعة • <kbd>F</kbd> ملء الشاشة • <kbd>M</kbd> إظهار/إخفاء المقياس • <kbd>↑</kbd><kbd>↓</kbd> الحساسية • <kbd>R</kbd> إعادة كل الحيوانات • <kbd>N</kbd> (مع الضغط) محاكاة ضجيج.</li>
+        <li>اختصارات: <kbd>مسافة</kbd> إيقاف/متابعة • <kbd>F</kbd> ملء الشاشة • <kbd>M</kbd> إظهار/إخفاء المقياس • <kbd>B</kbd> تغيير البيئة • <kbd>↑</kbd><kbd>↓</kbd> الحساسية • <kbd>R</kbd> إعادة كل الحيوانات • <kbd>N</kbd> (مع الضغط) محاكاة ضجيج.</li>
         <li>إذا كانت الحيوانات تهرب بسرعة كبيرة فخفّض الحساسية، وإذا لم تتأثر بالضجيج فارفعها.</li>
       </ul>
     </details>
@@ -62,7 +64,7 @@
 <section id="hud" class="hud">
   <div class="top">
     <div class="glass title"><span class="logo">🌳</span><div><b>غابة الهدوء</b><small id="hClass"></small></div></div>
-    <div class="glass life"><div class="life-h"><span>حيوانات الغابة</span><b id="hCount"></b></div><div class="life-bar"><i id="hLife"></i></div><div class="life-em" id="hEm"></div></div>
+    <div class="glass life"><div class="life-h"><span>الحيوانات</span><b id="hCount"></b></div><div class="life-bar"><i id="hLife"></i></div><div class="life-em" id="hEm"></div></div>
     <div class="glass stat"><small>هدوء متواصل</small><b id="hCalm">00:00</b><div class="mini"><i id="hStarProg"></i></div></div>
     <div class="glass stat stars"><small>نجوم الهدوء</small><b id="hStars">0 ⭐</b></div>
     <div class="glass stat" id="hTimeBox"><small>المتبقّي</small><b id="hTime">—</b></div>
@@ -74,6 +76,7 @@
   </div>
   <div class="shh" id="shh">🤫</div>
   <div class="banner" id="banner"></div>
+  <div class="swap" id="swap"><div><b id="swapEm">🌳</b><p id="swapTxt"></p></div></div>
   <div class="talk" id="talkTag">🗣️ المعلم يشرح — الغابة لا تستمع الآن</div>
   <div class="pausedTag" id="pausedTag">⏸️ متوقّف مؤقتًا</div>
   <div class="bar glass" id="bar">
@@ -82,6 +85,7 @@
     <div class="tsens"><button class="tb sq" id="bSensDn" title="حساسية أقل (↓)">−</button><span>الحساسية <b id="bSens"></b></span><button class="tb sq" id="bSensUp" title="حساسية أكثر (↑)">+</button></div>
     <button class="tb" id="bNoise" title="محاكاة ضجيج (اضغط مطوّلًا أو N)">📢<span>ضجيج</span></button>
     <button class="tb" id="bReturn" title="إعادة كل الحيوانات (R)">🐾<span>أعِدها</span></button>
+    <button class="tb" id="bScene" title="تغيير البيئة (B)">🖼️<span>البيئة</span></button>
     <button class="tb" id="bMeter" title="إظهار/إخفاء المقياس (M)">📊<span>المقياس</span></button>
     <button class="tb" id="bSound" title="أصوات الغابة">🔊<span>الصوت</span></button>
     <button class="tb" id="bFull" title="ملء الشاشة (F)">⛶<span>الشاشة</span></button>

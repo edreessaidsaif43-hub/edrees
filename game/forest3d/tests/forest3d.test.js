@@ -55,6 +55,32 @@ const res = []; const rec = (n, ok, d) => { res.push(ok); console.log((ok ? '✅
     s = await G(() => ({ L: __calm.L, manual: __calm.manual, hud: document.getElementById('hud').classList.contains('show') }));
     rec('وضع الميكروفون: معايرة ثم استماع', !s.manual && s.hud && typeof s.L === 'number' && !isNaN(s.L), s);
   } catch (e) { rec('تنفيذ الاختبار دون استثناء', false, e.message); } finally { await p.close(); }
+  // البيئات الخمس: الهروب الكامل والعودة والزائر النادر
+  const q = await b.newPage({ viewport: { width: 1000, height: 560 } }); q.on('pageerror', e => errs.push(e.message));
+  try {
+    await q.goto(URL + '?auto=1'); await q.waitForFunction(() => window.__calm && window.__forest, null, { timeout: 120000 });
+    rec('بطاقات البيئات الخمس في شاشة البداية', await q.evaluate(() => ForestEngine.SCENES.length === 5 && document.querySelectorAll('#scenePick .scn').length === 5), null);
+    const seen = [];
+    for (let i = 0; i < 5; i++) {
+      if (i) { await q.click('#bScene', { force: true }); await q.waitForFunction(n => window.__forest.sceneInfo.id !== n && !document.getElementById('swap').classList.contains('on'), seen[seen.length - 1], { timeout: 60000 }); }
+      const id = await q.evaluate(() => __forest.sceneInfo.id); seen.push(id);
+      const r = await q.evaluate(async () => {
+        const F = __forest, E = F.debug, st = F.counts(); __calm.paused = true;
+        let n = 0; while (F.fleeNext()) n++;
+        const tick = () => new Promise(res => setTimeout(res, 60));
+        for (let k = 0; k < 400; k++) { E.agents.forEach(a => { if (a.state === 'flee' && a.startle <= 0) a.d = Math.max(a.d, a.L - .05); }); await tick(); if (E.agents.every(a => a.state === 'gone' || a.state === 'hidden')) break; }
+        const empty = F.counts().here;
+        F.returnAll(); for (let k = 0; k < 600; k++) { E.agents.forEach(a => { if (a.state === 'enter') a.d = Math.max(a.d, a.L - .05); }); await tick(); if (E.agents.every(a => a.state !== 'enter')) break; }
+        const full = F.counts();
+        const v = F.leopardVisit(); for (let k = 0; k < 600; k++) { E.agents.forEach(a => { if (a.state === 'enter') a.d = Math.max(a.d, a.L - .05); }); await tick(); if (E.agents.every(a => a.state !== 'enter')) break; }
+        const rare = F.hasLeopard(); __calm.paused = false;
+        return { st, n, empty, full, v, rare, title: document.getElementById('hClass').textContent, em: document.querySelectorAll('#hEm span').length, groups: F.counts().groups };
+      });
+      await q.screenshot({ path: '/tmp/claude-0/ft-scene-' + id + '.png' });
+      rec('البيئة «' + r.title.split('•')[0].trim() + '»: تهرب كل الحيوانات ثم تعود ويزورها الحيوان النادر', r.st.here === r.st.tot && r.st.tot >= 10 && r.n === r.groups && r.empty === 0 && r.full.here === r.full.tot && r.v && r.rare && r.em === r.groups, r);
+    }
+    rec('زر «البيئة» يتنقّل بين البيئات الخمس', new Set(seen).size === 5, seen);
+  } catch (e) { rec('اختبار البيئات دون استثناء', false, e.message); } finally { await q.close(); }
   const m = await b.newPage({ viewport: { width: 390, height: 780 }, isMobile: true, hasTouch: true }); m.on('pageerror', e => errs.push(e.message));
   await m.goto(URL); await m.waitForTimeout(2500);
   rec('يعمل على الهاتف دون تمرير أفقي', await m.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), null);
