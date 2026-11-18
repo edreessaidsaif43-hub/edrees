@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta name="theme-color" content="#0f2a4a">
+  <title>تقارير الاحتياط المعتمدة | الاحتياط الذكي</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --navy: #0f2a4a;
+      --ink: #172b43;
+      --muted: #506477;
+      --line: #dbe5eb;
+      --teal: #097665;
+      --warning: #8a470c;
+      --background: #f4f8fa;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--ink);
+      font: 1rem/1.65 system-ui, "Segoe UI", Tahoma, sans-serif;
+    }
+    .frame { width: min(1060px, calc(100% - 40px)); margin-inline: auto; }
+    .brand {
+      padding-block: 15px;
+      background: var(--navy);
+      color: #fff;
+      font-size: 1.06rem;
+      font-weight: 750;
+    }
+    main { padding-block: clamp(25px, 5vw, 54px) 48px; }
+    h1, h2, p, dl { margin: 0; }
+    h1 {
+      color: var(--navy);
+      font-size: clamp(1.65rem, 4.5vw, 2.6rem);
+      line-height: 1.18;
+    }
+    h2 { color: var(--navy); font-size: 1.15rem; }
+    .header { margin-block-end: 22px; }
+    .school { margin-block-start: 8px; font-size: 1.12rem; font-weight: 700; overflow-wrap: anywhere; }
+    .muted { color: var(--muted); }
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 4px 14px rgb(15 42 74 / 5%);
+    }
+    .status-card { padding: 19px; }
+    button, input {
+      max-width: 100%;
+      border: 1px solid #9eb5c2;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+    button {
+      min-height: 42px;
+      padding: 5px 12px;
+      color: var(--teal);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:disabled { color: var(--muted); opacity: .65; cursor: default; }
+    .status-card button { margin-block-start: 12px; }
+    :focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px 14px;
+      margin-block-end: 14px;
+    }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      gap: 9px 12px;
+      margin-block-end: 16px;
+      padding: 12px;
+    }
+    .filters label {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+      font-size: .87rem;
+      font-weight: 650;
+    }
+    .filters input {
+      min-width: 0;
+      min-height: 42px;
+      padding: 4px 7px;
+      font-size: .96rem;
+    }
+    .filters button { font-size: .87rem; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-block-end: 22px;
+    }
+    .metric { min-width: 0; padding: 11px 15px; }
+    .metric dt { color: var(--muted); font-size: .87rem; }
+    .metric dd {
+      margin: 0;
+      color: var(--navy);
+      font-size: 1.55rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric .covered { color: var(--teal); }
+    .metric .uncovered { color: var(--warning); }
+    .table-card { margin-block-start: 8px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; text-align: start; }
+    th, td { padding: 10px 13px; text-align: start; }
+    th { background: #edf4f7; color: var(--navy); font-size: .87rem; }
+    td { border-block-start: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+    td:first-child { font-weight: 700; }
+    .empty { padding: 16px; margin-block-start: 8px; }
+    .explanation { margin-block-start: 12px; color: var(--muted); font-size: .88rem; }
+    @media (max-width: 640px) {
+      .frame { width: calc(100% - 24px); }
+      .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+      .metric { padding: 8px 10px; }
+      .metric dd { font-size: 1.28rem; }
+      .filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .filters button { justify-self: start; }
+      .table-card { overflow: visible; border: 0; background: transparent; box-shadow: none; }
+      table, tbody { display: block; }
+      thead {
+        position: absolute;
+        inline-size: 1px;
+        block-size: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      tbody tr {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-block-end: 8px;
+        padding: 6px 9px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: #fff;
+      }
+      tbody tr:nth-child(even) { background: #fff; }
+      td { padding: 4px 6px; border: 0; }
+      td:first-child { grid-column: 1 / -1; border-block-end: 1px solid var(--line); }
+      td:not(:first-child)::before {
+        display: block;
+        content: attr(data-label);
+        color: var(--muted);
+        font-size: .76rem;
+        font-weight: 500;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="brand"><div class="frame">الاحتياط الذكي</div></header>
+  <main class="frame">
+    <div class="header">
+      <h1>تقارير الاحتياط المعتمدة</h1>
+      <p id="school-name" class="school" hidden></p>
+    </div>
+    <div class="card status-card" id="status">
+      <p id="status-text" role="status">جارٍ تحميل التقرير…</p>
+      <button id="retry" type="button" hidden>إعادة المحاولة</button>
+    </div>
+    <section id="report" hidden>
+      <div class="toolbar">
+        <h2>ملخص التغطية</h2>
+        <button id="refresh-report" type="button">تحديث التقرير</button>
+      </div>
+      <div class="card filters" id="filters" role="group" aria-label="تصفية التقرير حسب الفترة">
+        <label for="date-from">من تاريخ<input id="date-from" type="date"></label>
+        <label for="date-to">إلى تاريخ<input id="date-to" type="date"></label>
+        <button id="clear-filters" type="button" disabled>عرض كل الأيام</button>
+      </div>
+      <dl class="metrics" aria-label="ملخص الفترة المحددة" aria-live="polite">
+        <div class="card metric"><dt>الأيام المعتمدة</dt><dd id="days-count"></dd></div>
+        <div class="card metric"><dt>الحصص المطلوبة</dt><dd id="required-count"></dd></div>
+        <div class="card metric"><dt>الحصص المغطاة</dt><dd id="covered-count" class="covered"></dd></div>
+        <div class="card metric"><dt>الحصص غير المغطاة</dt><dd id="uncovered-count" class="uncovered"></dd></div>
+        <div class="card metric"><dt>الإسناد اليدوي</dt><dd id="manual-count"></dd></div>
+      </dl>
+      <section aria-labelledby="daily-title">
+        <h2 id="daily-title">التقارير اليومية</h2>
+        <div class="card table-card" id="daily-table" hidden>
+          <table role="table" aria-labelledby="daily-title">
+            <thead role="rowgroup">
+              <tr role="row">
+                <th scope="col" role="columnheader">التاريخ</th>
+                <th scope="col" role="columnheader">المطلوبة</th>
+                <th scope="col" role="columnheader">المغطاة</th>
+                <th scope="col" role="columnheader">غير المغطاة</th>
+                <th scope="col" role="columnheader">الإسناد اليدوي</th>
+              </tr>
+            </thead>
+            <tbody role="rowgroup" id="report-rows"></tbody>
+          </table>
+        </div>
+        <p class="card empty muted" id="empty-report" role="status" hidden></p>
+        <p class="explanation">يشمل التقرير الجداول المعتمدة. الإسناد اليدوي جزء من الحصص المغطاة.</p>
+      </section>
+    </section>
+  </main>
+  <script>
+    const get = id => document.getElementById(id);
+    const fields = ['required', 'covered', 'uncovered', 'manual'];
+    const metrics = ['days-count', 'required-count', 'covered-count', 'uncovered-count', 'manual-count'];
+    const labels = ['التاريخ', 'المطلوبة', 'المغطاة', 'غير المغطاة', 'الإسناد اليدوي'];
+    const numbers = new Intl.NumberFormat('ar-OM');
+    const dates = new Intl.DateTimeFormat('ar-OM', {
+      weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'
+    });
+    let allDays = [];
+    let currentRequest;
+
+    function showStatus(message, retry = false) {
+      allDays = [];
+      get('report').hidden = true;
+      get('school-name').hidden = true;
+      get('school-name').textContent = '';
+      get('report-rows').replaceChildren();
+      metrics.forEach(id => { get(id).textContent = ''; });
+      get('status-text').textContent = message;
+      get('retry').hidden = !retry;
+      get('status').hidden = false;
+    }
+
+    function parsedDate(value) {
+      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+      const date = new Date(value + 'T00:00:00Z');
+      return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? date : null;
+    }
+
+    function rowFor(day) {
+      const row = document.createElement('tr');
+      row.setAttribute('role', 'row');
+      const dateCell = document.createElement('td');
+      dateCell.setAttribute('role', 'cell');
+      const time = document.createElement('time');
+      time.dateTime = day.date;
+      time.textContent = dates.format(parsedDate(day.date));
+      dateCell.append(time);
+      row.append(dateCell);
+      fields.forEach((field, index) => {
+        const cell = document.createElement('td');
+        cell.setAttribute('role', 'cell');
+        cell.dataset.label = labels[index + 1];
+        cell.textContent = numbers.format(day[field]);
+        row.append(cell);
+      });
+      return row;
+    }
+
+    function filterDays() {
+      const from = get('date-from').value;
+      const to = get('date-to').value;
+      const invalidRange = from && to && from > to;
+      const visible = invalidRange ? [] : allDays.filter(day =>
+        (!from || day.date >= from) && (!to || day.date <= to)
+      );
+      get('clear-filters').disabled = !from && !to;
+      const totals = [visible.length, ...fields.map(field => visible.reduce((sum, day) => sum + day[field], 0))];
+      metrics.forEach((id, index) => { get(id).textContent = numbers.format(totals[index]); });
+      const rows = document.createDocumentFragment();
+      visible.forEach(day => { rows.append(rowFor(day)); });
+      get('report-rows').replaceChildren(rows);
+      get('daily-table').hidden = !visible.length;
+      const empty = get('empty-report');
+      empty.textContent = invalidRange ? 'اختر تاريخ نهاية يوافق تاريخ البداية أو يليه.'
+        : allDays.length ? 'لا توجد أيام معتمدة في الفترة المحددة.' : 'لا توجد أيام معتمدة بعد.';
+      empty.hidden = !!visible.length;
+    }
+
+    function renderReport(data) {
+      if (!data || typeof data.schoolName !== 'string' || !Array.isArray(data.days)) throw new Error('Invalid report');
+      const seen = new Set();
+      allDays = data.days.map(day => {
+        if (!day || !parsedDate(day.date) || seen.has(day.date) || !fields.every(field =>
+          Number.isSafeInteger(day[field]) && day[field] >= 0
+        )) throw new Error('Invalid report date or counts');
+        seen.add(day.date);
+        return day;
+      }).sort((left, right) => right.date.localeCompare(left.date));
+      get('school-name').textContent = data.schoolName;
+      get('school-name').hidden = !data.schoolName;
+      get('filters').hidden = !allDays.length;
+      filterDays();
+      get('status').hidden = true;
+      get('report').hidden = false;
+    }
+
+    async function loadReport() {
+      currentRequest?.abort();
+      const token = new URLSearchParams(location.hash.slice(1)).get('token');
+      if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) {
+        currentRequest = null;
+        showStatus('رابط التقرير غير مكتمل. اطلب الرابط من إدارة المدرسة.');
+        return;
+      }
+      const request = new AbortController();
+      currentRequest = request;
+      const timeout = setTimeout(() => request.abort(), 10000);
+      showStatus('جارٍ تحميل التقرير…');
+      try {
+        const response = await fetch('../api/ihtiyat-report', {
+          method: 'POST',
+          credentials: 'omit',
+          cache: 'no-store',
+          redirect: 'error',
+          headers: { 'Content-Type': 'application/json' },
+          signal: request.signal,
+          body: JSON.stringify({ action: 'view', token })
+        });
+        if (currentRequest !== request) return;
+        if (response.status === 404) {
+          showStatus('رابط التقرير غير متاح. اطلب الرابط من إدارة المدرسة.');
+          return;
+        }
+        if (response.status === 403) {
+          showStatus('عرض التقرير متوقف مؤقتًا. تواصل مع إدارة المدرسة.', true);
+          return;
+        }
+        if (!response.ok) throw new Error('Report unavailable');
+        const data = await response.json();
+        if (currentRequest === request) renderReport(data);
+      } catch {
+        if (currentRequest === request) showStatus('تعذر تحميل التقرير. أعد المحاولة.', true);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    function clearFilters() {
+      get('date-from').value = '';
+      get('date-to').value = '';
+      filterDays();
+    }
+
+    get('date-from').addEventListener('change', filterDays);
+    get('date-to').addEventListener('change', filterDays);
+    get('clear-filters').addEventListener('click', clearFilters);
+    get('refresh-report').addEventListener('click', loadReport);
+    get('retry').addEventListener('click', loadReport);
+    window.addEventListener('hashchange', () => { clearFilters(); loadReport(); });
+    window.addEventListener('pageshow', event => { if (event.persisted) loadReport(); });
+    loadReport();
+  </script>
+</body>
+</html>

@@ -2909,12 +2909,95 @@ PAGES.reports = function () {
   return '<div class="stack"><div class="tabs">' + Object.keys(REP_TABS).map(function (k) { return '<a class="' + (UI.repTab === k ? 'on' : '') + '" data-a="repTab" data-v="' + k + '">' + REP_TABS[k] + '</a>'; }).join('') + '</div>' +
     '<div class="row"><div class="seg">' + [['day', 'يومي'], ['week', 'أسبوعي'], ['month', 'شهري'], ['semester', 'الفصل الدراسي'], ['custom', 'مخصص']].map(function (x) { return '<a class="' + (UI.repRange === x[0] ? 'on' : '') + '" data-a="repRange" data-v="' + x[0] + '">' + x[1] + '</a>'; }).join('') + '</div>' +
     (UI.repRange === 'custom' ? '<input type="date" value="' + (UI.repFrom || S.settings.semesterStart) + '" data-c="repFrom"> — <input type="date" value="' + (UI.repTo || UI.date) + '" data-c="repTo">' : '<input type="date" value="' + UI.date + '" data-c="setDate" title="التاريخ المرجعي">') +
-    '<span class="sp"></span><button class="btn sm" data-a="repPDF">' + ic('pdf') + ' طباعة / PDF</button><button class="btn sm" data-a="repXLSX">' + ic('sheet') + ' Excel</button></div>' +
+    '<span class="sp"></span>' + (can('approve') && !APP.demo ? '<button class="btn sm" type="button" data-a="publicReport">رابط التقارير العامة</button>' : '') +
+    '<button class="btn sm" data-a="repPDF">' + ic('pdf') + ' طباعة / PDF</button><button class="btn sm" data-a="repXLSX">' + ic('sheet') + ' Excel</button></div>' +
     '<div class="card"><h3>' + esc(D.title) + ' <span class="badge b-gray">' + esc(D.R.label) + '</span></h3>' + (D.extra ? '<div style="margin-bottom:10px">' + D.extra + '</div>' : '') +
     (D.rows.length ? '<div class="tbl-wrap" style="max-height:560px"><table class="t"><thead><tr>' + D.head.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + D.rows.map(function (r) { return '<tr>' + r.map(function (c, i) { return '<td' + (typeof c === 'number' ? ' class="num"' : '') + '>' + (i === 0 && typeof c === 'string' ? '<b>' + esc(c) + '</b>' : esc(c)) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>' : '<div class="empty">لا توجد بيانات في هذه الفترة</div>') + '</div></div>';
 };
 ACT.repTab = function (el) { UI.repTab = el.dataset.v; render(); };
 ACT.repRange = function (el) { UI.repRange = el.dataset.v; render(); };
+ACT.publicReport = function () {
+  var context = Store.shareContext();
+  if (!context || !can('approve') || APP.demo) return;
+  var schoolId = S.id;
+  Modal.open({
+    title: 'رابط التقارير العامة',
+    body: '<p>يعرض رابط واحد إحصاءات جميع الأيام المعتمدة في <b>' + esc(S.settings.name) +
+      '</b>. يمكن لأي شخص لديه الرابط فتح التقرير.</p><div id="public-report-content"></div>',
+    buttons: [{ label: 'إغلاق' }],
+    onOpen: function (root) { managePublicReport(root, context.ownerId, schoolId); }
+  });
+};
+
+function managePublicReport(root, ownerId, schoolId) {
+  var panel = $('#public-report-content', root);
+  var link = null;
+  var busy = false;
+  function isCurrent() {
+    return root.isConnected && Store.shareContext()?.ownerId === ownerId && S?.id === schoolId;
+  }
+  function showLink() {
+    if (!link) {
+      panel.innerHTML = '<div class="row"><button class="btn pri" type="button" data-report-action="create">إنشاء رابط التقارير</button></div>';
+      return;
+    }
+    panel.innerHTML = '<label class="f">رابط التقارير<input id="public-report-url" dir="ltr" value="' + esc(link) + '" readonly></label>' +
+      '<div class="row" style="margin-top:10px"><button class="btn pri" type="button" data-report-action="copy">نسخ الرابط</button>' +
+      '<a class="btn" href="' + esc(link) + '" target="_blank" rel="noopener noreferrer">فتح التقارير</a>' +
+      '<button class="btn danger" type="button" data-report-action="revoke">إيقاف الرابط</button></div>';
+  }
+  async function request(action) {
+    if (busy || !isCurrent()) return;
+    busy = true;
+    if (action === 'get') panel.innerHTML = '<p class="muted" role="status">جارٍ التحقق من رابط التقارير…</p>';
+    var buttons = $$('button', panel);
+    buttons.forEach(function (button) { button.disabled = true; });
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 12000);
+    try {
+      var response = await fetch('/api/ihtiyat-report', {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action, ownerId: ownerId, schoolId: schoolId })
+      });
+      var data = await response.json().catch(function () { return {}; });
+      if (!isCurrent()) return;
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) void Store.retry();
+        throw new Error(response.status === 404 ? 'احفظ بيانات المدرسة ثم حاول مجددًا.' : 'تعذّر تحديث رابط التقارير. حاول مجددًا.');
+      }
+      if ((action === 'revoke' && data.revoked === true) || (action === 'get' && data.token === null)) {
+        link = null;
+      } else if (typeof data.token === 'string' && /^[A-Za-z0-9_-]{43}$/.test(data.token)) {
+        var url = new URL('/cc/report.html', location.origin);
+        url.hash = new URLSearchParams({ token: data.token }).toString();
+        link = url.href;
+      } else {
+        throw new Error('تعذّر تجهيز رابط التقارير. حاول مجددًا.');
+      }
+      showLink();
+      if (action === 'revoke') toast('أُوقف رابط التقارير العامة', 'ok');
+    } catch (error) {
+      if (!isCurrent()) return;
+      var message = error instanceof TypeError || error.name === 'AbortError' ? 'تعذّر الاتصال بخدمة التقارير.' : error.message;
+      if (action === 'get') {
+        panel.innerHTML = '<p class="muted" role="status">' + esc(message) + '</p>' +
+          '<button class="btn" type="button" data-report-action="get">إعادة المحاولة</button>';
+      } else toast(message, 'err');
+    } finally {
+      clearTimeout(timer);
+      busy = false;
+      buttons.forEach(function (button) { button.disabled = false; });
+    }
+  }
+  panel.addEventListener('click', function (event) {
+    var action = event.target.closest('button[data-report-action]')?.dataset.reportAction;
+    if (!isCurrent()) return;
+    if (action === 'copy' && link) copyText(link);
+    if (['get', 'create', 'revoke'].includes(action)) void request(action);
+  });
+  void request('get');
+}
 ACT.repXLSX = function () { var D = reportData(); exportXlsx('تقرير-' + D.title + '.xlsx', [{ name: D.title, rows: [[S.settings.name], [D.title + ' — ' + D.R.label], []].concat([D.head]).concat(D.rows), headerRow: 3, border: true, widths: D.head.map(function (h, i) { return i === 0 || /المعلم/.test(h) ? 30 : 14; }) }]); };
 ACT.repPDF = function () {
   var D = reportData();
