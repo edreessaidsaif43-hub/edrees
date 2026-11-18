@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>خدمات مدرسية | التحضير الذكي</title>
+  <link rel="stylesheet" href="../assets/site-navbar.css?v=4">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f7f9fc;
+      color: #0a1628;
+      font-family: 'Tajawal', sans-serif;
+      line-height: 1.6;
+    }
+    main {
+      max-width: 1160px;
+      margin-inline: auto;
+      padding: clamp(26px, 6vw, 72px) clamp(16px, 5vw, 48px);
+    }
+    .back-link {
+      color: #18558f;
+      font-weight: 700;
+      text-underline-offset: .24em;
+    }
+    h1 {
+      margin: 10px 0 26px;
+      font-family: 'Cairo', sans-serif;
+      font-size: clamp(1.9rem, 4.5vw, 3.1rem);
+      line-height: 1.2;
+    }
+    .services {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+      gap: 18px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .service {
+      display: flex;
+      align-items: flex-start;
+      gap: clamp(12px, 3vw, 20px);
+      max-width: 560px;
+      padding: clamp(18px, 4vw, 32px);
+      border: 1px solid #cce4df;
+      border-radius: 20px;
+      background: linear-gradient(140deg, #fff, #effbf8);
+      box-shadow: 0 10px 32px rgba(13, 118, 110, .08);
+      color: inherit;
+      text-decoration: none;
+    }
+    .service:hover { border-color: #0d766e; }
+    a:focus-visible { outline: 2px solid #0d766e; outline-offset: 4px; }
+    .service-number {
+      display: grid;
+      place-items: center;
+      flex: 0 0 2.5rem;
+      block-size: 2.5rem;
+      border-radius: 12px;
+      background: #0d766e;
+      color: #fff;
+      font-size: 1.2rem;
+      font-weight: 800;
+    }
+    .service h2 { margin: 0 0 6px; font: 800 1.35rem/1.4 'Cairo', sans-serif; }
+    .service p { margin: 0; color: #435b75; }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="back-link" href="../index.html">العودة إلى الرئيسية</a>
+    <h1>خدمات مدرسية</h1>
+    <ol class="services" role="list">
+      <li>
+        <a class="service" href="../cc/index.html">
+          <span class="service-number" aria-hidden="true">١</span>
+          <div>
+            <h2>الاحتياط الذكي</h2>
+            <p>سجّل غياب المعلمين ووزّع حصص الاحتياط وفق الجدول المدرسي، وتابع التوزيع بالتقارير.</p>
+          </div>
+        </a>
+      </li>
+    </ol>
+  </main>
+  <script src="../assets/site-navbar.js?v=5"></script>
+</body>
+</html>
