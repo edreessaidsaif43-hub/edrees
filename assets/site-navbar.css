@@ -58,7 +58,7 @@ html{scroll-padding-top:82px}
   #nmob.site-navbar-menu a{min-height:42px}
   #nav.site-navbar a:focus-visible,#nav.site-navbar button:focus-visible,#nmob.site-navbar-menu a:focus-visible{outline:2px solid #1958ae;outline-offset:2px}
   #user-menu{top:calc(var(--portal-nav-height) + 4px)!important}
-  @media(min-width:1120px){
+  @media(min-width:1180px){
     :root{--portal-nav-height:110px}
     #nav.site-navbar{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:60px 49px;gap:0 12px}
     #nav.site-navbar .nb{grid-column:1;grid-row:1;justify-self:start}

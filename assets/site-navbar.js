@@ -19,9 +19,11 @@
     ['games', 'game/', 'game/index.html', 'الألعاب'],
     ['noor', 'noor/', 'noor/index.html', 'خدمات نور'],
     ['board', 'Board/index.html', 'Board/index.html', 'السبورة البيضاء'],
+    ['certificates', 'certificates/', 'certificates/index.html', 'شهادات التقدير'],
     ['enjazy', 'enjazy', 'enjazy/index.html', 'ملف الإنجاز'],
     ['motivation', 'Motivation+/', 'Motivation+/index.html', 'تحفيز+'],
     ['mash', 'mash/index.html', 'mash/index.html', 'مشاريع المعلمين'],
+    ['ihtiyat', 'cc/index.html', 'cc/index.html', 'الاحتياط الذكي'],
     ['attendance', 'https://gyab-xi.vercel.app/', 'https://gyab-xi.vercel.app/', 'الحضور والتسرب']
   ];
   function mountNavigation(){
@@ -219,6 +221,7 @@
     else if(p.includes('/mash'))page='mash';
     else if(p.includes('/motivation+/'))page='motivation';
     else if(/\/board(?:\/|$)/.test(p))page='board';
+    else if(/\/certificates(?:\/|$)/.test(p))page='certificates';
     else if(/\/noor(?:\/|$)|\/noor-guide\.html$/.test(p))page='noor';
     document.querySelectorAll('#nav [data-page],#nmob [data-page]').forEach(function(a){
       const active=a.getAttribute('data-page')===page;
