@@ -274,7 +274,7 @@ code.k{font-family:inherit;background:#f1f5f9;border-radius:6px;padding:1px 6px;
 .wz-check.no{border-color:#fdba74;background:#fff7ed}.wz-check.no .n{background:var(--orange);color:#fff}
 .demo-bar{background:#fef3c7;border-bottom:1px solid #fde68a;color:#78350f;padding:8px 22px;display:flex;gap:10px;align-items:center;font-size:13.5px;flex-wrap:wrap}
 @media (max-width:900px){.wz-body{grid-template-columns:1fr}.wz-steps{position:static;flex-direction:row;overflow:auto}.wz-step small{display:none}.wz-step{flex:none}.wz-cards,.wz-guide-steps{grid-template-columns:1fr}}
-</style></head><body><div id="root"></div><div id="toasts" class="toasts"></div><script src="store.js"></script><script>
+</style></head><body><div id="root"></div><div id="toasts" class="toasts"></div><script src="store.js?v=6"></script><script>
 /* ============================================================
    الاحتياط الذكي — محرك التوزيع العادل
    منطق خالص (بدون واجهة) يمكن اختباره في Node
@@ -1430,22 +1430,12 @@ var S = null;            // المدرسة الحالية
 var ME = null;           // المستخدم الحالي
 var UI = { route: 'dashboard', date: null, ttMode: 'teacher', ttTeacher: null, ttClass: null, swapFrom: null, repTab: 'summary', repRange: 'month', repFrom: '', repTo: '', tSearch: '', actCat: 'الكل', plan: null, menu: false, inboxTab: 'open', logQ: '' };
 
-var ROLES = { sysadmin: 'مدير النظام', principal: 'مدير المدرسة', assistant: 'مساعد المدير', scheduler: 'مسؤول الجدول والاحتياط', teacher: 'معلم' };
-var ADMIN_ROLES = { sysadmin: 1, principal: 1, assistant: 1, scheduler: 1 };
+var ROLES = { sysadmin: 'مدير النظام', principal: 'مدير المدرسة' };
+var MANAGEMENT_ROLES = Object.keys(ROLES);
 function can(what) {
-  if (!ME) return false;
-  var r = ME.role;
-  switch (what) {
-    case 'admin': return !!ADMIN_ROLES[r];
-    case 'settings': return r === 'sysadmin' || r === 'principal';
-    case 'users': return r === 'sysadmin' || r === 'principal';
-    case 'schools': return r === 'sysadmin';
-    case 'delete': return r === 'sysadmin' || r === 'principal' || r === 'scheduler';
-    case 'approve': return !!ADMIN_ROLES[r];
-    case 'log': return r === 'sysadmin' || r === 'principal' || r === 'assistant';
-    case 'backup': return r === 'sysadmin' || r === 'principal';
-  }
-  return false;
+  if (!ME || !MANAGEMENT_ROLES.includes(ME.role)) return false;
+  if (what === 'schools') return ME.role === 'sysadmin';
+  return ['admin', 'settings', 'users', 'delete', 'approve', 'log', 'backup'].includes(what);
 }
 
 /* ---------------- أدوات ---------------- */
@@ -1522,9 +1512,7 @@ function ic(name, extra) { return '<svg class="ic" viewBox="0 0 24 24" fill="cur
 
 /* ---------------- التخزين ---------------- */
 var cloudLabels = {
-  local: 'حفظ محلي',
   checking: 'جارٍ التحقق…',
-  guest: 'اربط حساب التحضير',
   ready: 'الحفظ في قاعدة البيانات',
   saving: 'جارٍ الحفظ…',
   saved: 'محفوظ في قاعدة البيانات',
@@ -1537,6 +1525,11 @@ var Store = createIhtiyatStore({
   key: LS_KEY,
   getWorkspace: function () { return APP; },
   openWorkspace: openWorkspace,
+  closeWorkspace: closeWorkspace,
+  accessChanged: function () {
+    if (!Store.hasAccess) Modal.closeAll();
+    render();
+  },
   paint: paintSync,
   newWriteId: function () { return window.crypto?.randomUUID?.() || E.uid('write'); }
 });
@@ -1553,9 +1546,10 @@ function paintSync() {
 function openWorkspace(workspace, device) {
   APP = workspace || newApp(false);
   if (APP.activated == null) { APP.activated = true; APP.demo = APP.demo === true; }
-  APP.session = device?.session ?? null;
+  restrictAccounts(APP);
   APP.currentSchoolId = device?.currentSchoolId ?? null;
-  ME = APP.users.find(function (user) { return user.id === APP.session; }) || null;
+  ME = APP.users.find(function (user) { return user.id === device?.session; }) || null;
+  APP.session = ME ? ME.id : null;
   wzParsed = null;
   UI.plan = null;
   UI.menu = false;
@@ -1565,26 +1559,48 @@ function openWorkspace(workspace, device) {
   render();
 }
 
+function closeWorkspace() {
+  APP = null;
+  S = null;
+  ME = null;
+  wzParsed = null;
+  UI.plan = null;
+  UI.menu = false;
+}
+
 function newApp(demo) {
   var school = demo ? E.makeDemo({ seed: Math.floor(Math.random() * 1e6) }) : E.emptySchool('مدرستي');
   if (!demo) return { version: 2, schools: [school], users: [], updatedAt: Date.now(), session: null, currentSchoolId: school.id, activated: false, demo: false };
   var users = [
     { id: 'u-admin', name: 'مدير النظام', role: 'sysadmin', pin: '1234', schoolId: null },
-    { id: E.uid('u'), name: 'مدير المدرسة', role: 'principal', pin: '1111', schoolId: school.id },
-    { id: E.uid('u'), name: 'مساعد المدير', role: 'assistant', pin: '2222', schoolId: school.id },
-    { id: E.uid('u'), name: 'مسؤول الجدول والاحتياط', role: 'scheduler', pin: '3333', schoolId: school.id }
+    { id: E.uid('u'), name: 'مدير المدرسة', role: 'principal', pin: '1111', schoolId: school.id }
   ];
-  var app = { version: 2, schools: [school], users: users, updatedAt: Date.now(), session: null, currentSchoolId: school.id, activated: true, demo: true };
-  syncTeacherUsers(app, school);
-  return app;
+  return { version: 2, schools: [school], users: users, updatedAt: Date.now(), session: null, currentSchoolId: school.id, activated: true, demo: true };
 }
-function syncTeacherUsers(app, school, pin) {
-  school.teachers.forEach(function (t) {
-    var u = app.users.filter(function (x) { return x.teacherId === t.id; })[0];
-    if (!u) app.users.push({ id: E.uid('u'), name: t.name, role: 'teacher', pin: pin || app.teacherPin || '0000', schoolId: school.id, teacherId: t.id, auto: true });
-    else u.name = t.name;
+function restrictAccounts(workspace) {
+  var users = workspace.users;
+  var ids = new Set();
+  workspace.users = [];
+  MANAGEMENT_ROLES.forEach(function (role) {
+    var user = users.find(function (u) {
+      return u && u.role === role && typeof u.id === 'string' && u.id && !ids.has(u.id)
+        && typeof u.name === 'string' && u.name.trim() && String(u.pin ?? '').length >= 4;
+    });
+    if (!user) return;
+    var school = role === 'principal'
+      ? workspace.schools.find(function (s) { return s.id === user.schoolId; }) || workspace.schools[0] : null;
+    ids.add(user.id);
+    workspace.users.push({ id: user.id, name: user.name, role: role, pin: String(user.pin), schoolId: school?.id ?? null });
   });
-  app.users = app.users.filter(function (u) { return u.role !== 'teacher' || app.schools.some(function (s) { return s.teachers.some(function (t) { return t.id === u.teacherId; }); }); });
+  delete workspace.teacherPin;
+  if (workspace.setup) {
+    workspace.setup.users = managementDrafts(workspace.setup.users);
+    delete workspace.setup.teacherPin;
+  }
+  if (workspace.activated && !workspace.users.length && workspace.schools.length) {
+    workspace.activated = false;
+    workspace.setup = { ...workspace.setup, step: 4, started: true, users: workspace.setup?.users ?? managementDrafts() };
+  }
 }
 
 
@@ -1879,17 +1895,12 @@ function svgDonut(val, total, label, color) {
    الهيكل، الدخول، لوحة التحكم، الغياب، جدول الاحتياط اليومي
    ============================================================ */
 var ACT = {};
+ACT.verifyAccess = function () { Store.retry(); };
 ACT.cloudSettings = function () {
   var state = Store.status;
   var body = APP?.demo ? '<p>البيانات التجريبية للاطلاع. ابدأ إعداد مدرستك لحفظ بياناتها.</p>' :
     '<p>' + esc(cloudLabels[state]) + '</p>';
   var buttons = [];
-  if (state === 'guest') {
-    var target = location.pathname + location.search + location.hash;
-    var link = '/enjazy/auth.html?mode=login&return=' + encodeURIComponent(target);
-    body += '<p>سجّل الدخول بحساب التحضير الذكي لحفظ مساحة العمل والوصول إليها من أجهزتك.</p>' +
-      '<a class="btn pri" href="' + esc(link) + '">دخول التحضير الذكي</a>';
-  }
   if (Store.canImport) {
     body += '<p>توجد بيانات محفوظة في هذا المتصفح. يمكنك حفظها في قاعدة البيانات ضمن حسابك الحالي.</p>';
     buttons.push({ label: 'نقل البيانات المحلية', cls: 'pri', act: function () { setTimeout(Store.importLegacy, 0); } });
@@ -1909,10 +1920,6 @@ ACT.cloudSettings = function () {
     } });
   }
   if (Store.localFailed) body += '<p>تعذّر حفظ المسودة في تخزين هذا المتصفح.</p>';
-  if (!APP && ['error', 'offline'].includes(state)) {
-    body += '<p>اتصل بالإنترنت لفتح مساحة حسابك، أو افتح البيانات المحلية لهذا الجهاز.</p>';
-    buttons.push({ label: 'فتح البيانات المحلية', act: function () { setTimeout(Store.openLocal, 0); } });
-  }
   if (['error', 'offline', 'large'].includes(state)) buttons.push({ label: 'إعادة المحاولة', cls: 'pri', act: function () { Store.retry(); } });
   buttons.push({ label: 'إغلاق' });
   Modal.open({ title: 'حفظ البيانات', body: body, buttons: buttons });
@@ -1931,20 +1938,49 @@ var NAV = [
   { r: 'setup', t: 'إعدادات المدرسة', i: 'cog', p: 'settings' },
   { r: 'accounts', t: 'المستخدمون والصلاحيات', i: 'users', p: 'users' },
   { r: 'schools', t: 'إدارة المدارس', i: 'sch', p: 'schools' },
-  { r: 'audit', t: 'سجل العمليات', i: 'log', p: 'log' },
-  { r: 'portal', t: 'حسابي', i: 'me', p: 'teacher' }
+  { r: 'audit', t: 'سجل العمليات', i: 'log', p: 'log' }
 ];
-function navAllowed(n) { if (n.p === 'any') return true; if (n.p === 'teacher') return ME && ME.role === 'teacher'; return can(n.p); }
+function navAllowed(n) { return n.p === 'any' || can(n.p); }
+
+function accessView() {
+  var state = Store.access;
+  var message = {
+    checking: 'جارٍ التحقق من الاشتراك…',
+    granted: 'جارٍ فتح مساحة العمل…',
+    guest: 'سجّل الدخول بحساب التحضير الذكي للتحقق من اشتراكك.',
+    subscription_required: 'يتطلب استخدام الاحتياط الذكي اشتراكًا ساريًا في التحضير الذكي.',
+    account_stopped: 'حساب التحضير الذكي موقوف. تواصل مع إدارة المنصة لإعادة تفعيله.',
+    offline: 'اتصل بالإنترنت للتحقق من اشتراكك وفتح النظام.',
+    error: 'تعذّر التحقق من اشتراكك. أعد المحاولة.',
+    site_required: 'افتح الاحتياط الذكي عبر موقع التحضير الذكي للتحقق من اشتراكك.'
+  }[state];
+  var actions = '';
+  if (state === 'guest') {
+    var target = location.pathname + location.search + location.hash;
+    var signIn = '/enjazy/auth.html?mode=login&return=' + encodeURIComponent(target);
+    actions = '<a class="btn pri" href="' + esc(signIn) + '">دخول التحضير الذكي</a>';
+  } else if (state === 'site_required') {
+    actions = '<a class="btn pri" href="https://altahdir.app/cc/index.html">افتح الاحتياط الذكي</a>';
+  } else if (state !== 'checking' && state !== 'granted') {
+    if (state === 'subscription_required') {
+      actions = '<a class="btn pri" href="/t#subscription-section-title">عرض الاشتراك</a>';
+    }
+    actions += '<button class="btn" type="button" data-a="verifyAccess">إعادة التحقق</button>';
+  }
+  return '<main class="login"><div class="box center"><div class="hero"><div class="logo"><svg width="38" height="38" viewBox="0 0 24 24">' + IC.logo + '</svg></div>' +
+    '<h2>الاحتياط الذكي</h2></div><p class="muted" role="status">' + esc(message) + '</p>' +
+    '<div class="row" style="justify-content:center;margin-top:16px">' + actions + '</div>' + portalLink + '</div></main>';
+}
 
 function render() {
   var root = $('#root');
-  if (!APP) { root.innerHTML = '<div class="login"><div class="box center"><h2>الاحتياط الذكي</h2><div id="sync" class="sync"></div></div></div>'; paintSync(); return; }
+  if (!Store.hasAccess || !APP) { root.innerHTML = accessView(); return; }
   if (!APP.activated) { root.innerHTML = wizardView(); paintSync(); return; }
   if (!ME) { root.innerHTML = loginView(); paintSync(); return; }
   if (!S) { root.innerHTML = shell('<div class="empty">لا توجد مدرسة. ' + (can('schools') ? '<a data-a="go" data-r="schools">أضف مدرسة</a>' : '') + '</div>'); return; }
   var r = UI.route;
   var navItem = NAV.filter(function (n) { return n.r === r; })[0];
-  if (!navItem || !navAllowed(navItem)) { r = UI.route = ME.role === 'teacher' ? 'portal' : 'dashboard'; }
+  if (!navItem || !navAllowed(navItem)) { r = UI.route = 'dashboard'; }
   if (!UI.date) UI.date = defaultDate();
   var body = '';
   try { body = (PAGES[r] || PAGES.dashboard)(); }
@@ -1957,11 +1993,10 @@ function render() {
 function shell(body) {
   var st = S ? S.settings : { name: '' };
   var openReq = S ? S.requests.filter(function (q) { return q.status === 'open'; }).length : 0;
-  var unread = S && ME && ME.teacherId ? S.notifications.filter(function (n) { return n.teacherId === ME.teacherId && !n.read; }).length : 0;
   var nav = NAV.map(function (n) {
     if (n.sep) return '<div class="sep"></div>';
     if (!navAllowed(n)) return '';
-    var cnt = n.r === 'inbox' && openReq ? '<span class="cnt">' + openReq + '</span>' : n.r === 'portal' && unread ? '<span class="cnt">' + unread + '</span>' : '';
+    var cnt = n.r === 'inbox' && openReq ? '<span class="cnt">' + openReq + '</span>' : '';
     return '<a class="' + (UI.route === n.r ? 'on' : '') + '" data-a="go" data-r="' + n.r + '">' + ic(n.i) + '<span>' + n.t + '</span>' + cnt + '</a>';
   }).join('');
   var title = (NAV.filter(function (n) { return n.r === UI.route; })[0] || {}).t || '';
@@ -1977,27 +2012,24 @@ function shell(body) {
 }
 
 /* ---------------- الدخول ---------------- */
-var loginTab = 'admin';
 function loginView() {
-  var users = APP.users.filter(function (u) { return loginTab === 'admin' ? u.role !== 'teacher' : u.role === 'teacher'; });
-  var bySchool = {};
-  APP.schools.forEach(function (s) { bySchool[s.id] = s.settings.name; });
   return '<div class="login"><div class="box"><div class="hero"><div class="logo"><svg width="38" height="38" viewBox="0 0 24 24">' + IC.logo + '</svg></div><h2>الاحتياط الذكي</h2><div class="slogan">عدالة في التوزيع… كفاءة في الإدارة</div></div>' +
-    '<div class="seg" style="display:flex;margin-bottom:14px"><a style="flex:1;text-align:center" class="' + (loginTab === 'admin' ? 'on' : '') + '" data-a="loginTab" data-v="admin">الإدارة المدرسية</a><a style="flex:1;text-align:center" class="' + (loginTab === 'teacher' ? 'on' : '') + '" data-a="loginTab" data-v="teacher">حساب المعلم</a></div>' +
-    '<form id="loginForm" class="stack"><label class="f">المستخدم<select id="lg-u">' + users.map(function (u) { return '<option value="' + u.id + '">' + esc(u.name) + (u.role !== 'teacher' ? ' — ' + ROLES[u.role] : '') + (APP.schools.length > 1 && u.schoolId ? ' (' + esc(bySchool[u.schoolId] || '') + ')' : '') + '</option>'; }).join('') + '</select></label>' +
+    '<form id="loginForm" class="stack"><label class="f">الحساب<select id="lg-u">' + APP.users.map(function (u) {
+      var role = ROLES[u.role];
+      return '<option value="' + esc(u.id) + '">' + role + (u.name === role ? '' : ' — ' + esc(u.name)) + '</option>';
+    }).join('') + '</select></label>' +
     '<label class="f">الرمز السري<input type="password" id="lg-p" inputmode="numeric" autocomplete="current-password" placeholder="••••"></label>' +
     '<button class="btn pri lg" style="width:100%;justify-content:center" type="submit">دخول</button></form>' +
-    (APP.demo ? '<div class="note small" style="margin-top:14px"><b>الوضع التجريبي — رموز الدخول:</b> مدير النظام 1234 · مدير المدرسة 1111 · المساعد 2222 · مسؤول الجدول 3333 · المعلمون 0000.<div style="margin-top:6px"><a data-a="startRealSetup">بدء الإعداد الفعلي لمدرستك ←</a></div></div>' : '<div class="tiny muted center" style="margin-top:12px">' + esc(S ? S.settings.name : '') + '</div>') +
+    (APP.demo ? '<div class="note small" style="margin-top:14px"><b>رموز الدخول التجريبية</b><div>مدير النظام 1234 · مدير المدرسة 1111</div><div style="margin-top:6px"><a data-a="startRealSetup">بدء الإعداد الفعلي لمدرستك ←</a></div></div>' : '<div class="tiny muted center" style="margin-top:12px">' + esc(S ? S.settings.name : '') + '</div>') +
     '<div class="center">' + portalLink + '</div><div id="sync" class="sync"></div></div></div>';
 }
-ACT.loginTab = function (el) { loginTab = el.dataset.v; render(); };
 function doLogin() {
   var id = $('#lg-u').value, pin = $('#lg-p').value.trim();
-  var u = APP.users.filter(function (x) { return x.id === id; })[0];
+  var u = APP.users.find(function (x) { return x.id === id && MANAGEMENT_ROLES.includes(x.role); });
   if (!u || String(u.pin) !== pin) { toast('الرمز السري غير صحيح', 'err'); return; }
   ME = u; APP.session = u.id;
   pickSchool();
-  UI.route = u.role === 'teacher' ? 'portal' : 'dashboard';
+  UI.route = 'dashboard';
   UI.date = defaultDate();
   if (S) S.log.unshift({ ts: Date.now(), user: u.name + ' (' + ROLES[u.role] + ')', action: 'تسجيل دخول', details: '' });
   Store.save(); render();
@@ -2242,7 +2274,7 @@ PAGES.daily = function () {
       '</td></tr>';
   }).join('') + '</tbody></table></div>';
   return '<div class="stack">' + head + notes + kp + '<div class="card" style="padding:0">' + tbl + '</div>' +
-    '<div class="card"><h3>إرسال الإشعارات</h3><div class="small muted" style="margin-bottom:8px">عند الاعتماد تصل الإشعارات إلى حسابات المعلمين داخل النظام. ويمكنك إرسال رسالة واتساب جاهزة لكل معلم:</div><div class="row">' +
+    '<div class="card"><h3>إبلاغ المعلمين عبر واتساب</h3><div class="small muted" style="margin-bottom:8px">اختر اسم المعلم لفتح رسالة جاهزة بحصص الاحتياط المعتمدة.</div><div class="row">' +
     uniqueSubs(rows).map(function (tid) { var t = E.teacherById(S, tid); var mine = rows.filter(function (a) { return a.subId === tid; }); return '<a class="btn sm wa" target="_blank" rel="noopener" href="' + waLink(t.phone, teacherMsgMulti(t, mine)) + '">' + ic('wa') + ' ' + esc(shortName(t.name)) + ' (' + mine.length + ')</a>'; }).join('') + '</div></div>' +
     '</div>';
 };
@@ -2279,7 +2311,7 @@ ACT.distribute = function () {
   var date = UI.date;
   var hasApproved = S.assignments.some(function (a) { return a.date === date && (a.status === 'approved' || a.status === 'done') && !a.pinned; });
   if (hasApproved) {
-    confirmBox('إعادة التوزيع', 'يوجد حصص معتمدة غير مثبتة، وقد يتغير معلموها ويُرسل لهم إشعار بالتعديل. ثبّت الحصص التي تريد الإبقاء عليها أولًا. هل تريد المتابعة؟', 'متابعة').then(function (ok) { if (ok) runDistribute(true); });
+    confirmBox('إعادة التوزيع', 'قد يتغير إسناد الحصص المعتمدة غير المثبّتة. ثبّت الحصص التي تريد الإبقاء عليها أولًا. هل تريد المتابعة؟', 'متابعة').then(function (ok) { if (ok) runDistribute(true); });
   } else runDistribute(true);
 };
 ACT.approveDay = function () {
@@ -2288,7 +2320,7 @@ ACT.approveDay = function () {
   var errs = E.validateDay(S, date);
   if (errs.length) { toast('لا يمكن الاعتماد مع وجود تعارضات', 'err'); return; }
   var unc = rows.filter(function (a) { return !a.subId; }).length;
-  confirmBox('اعتماد الجدول النهائي', 'سيتم اعتماد ' + rows.filter(function (a) { return a.subId; }).length + ' حصة احتياط وإشعار المعلمين.' + (unc ? '<br><b style="color:var(--red)">تنبيه: ' + unc + ' حصة دون تغطية.</b>' : ''), 'اعتماد').then(function (ok) {
+  confirmBox('اعتماد الجدول النهائي', 'سيتم اعتماد ' + rows.filter(function (a) { return a.subId; }).length + ' حصة احتياط.' + (unc ? '<br><b style="color:var(--red)">تنبيه: ' + unc + ' حصة دون تغطية.</b>' : ''), 'اعتماد').then(function (ok) {
     if (!ok) return;
     rows.forEach(function (a) {
       if (a.subId && a.status === 'proposed') {
@@ -2298,7 +2330,7 @@ ACT.approveDay = function () {
     });
     S.approvedDays[date] = true;
     commit('اعتماد جدول الاحتياط', date + ' — ' + rows.length + ' حصة');
-    toast('تم اعتماد الجدول وإرسال الإشعارات', 'ok');
+    toast('تم اعتماد الجدول', 'ok');
   });
 };
 ACT.cleanStale = function () {
@@ -2489,7 +2521,6 @@ ACT.editTeacher = function (el) {
       o.exempt = { type: $('#te-ex-type', root).value, reason: $('#te-ex-reason', root).value.trim(), from: $('#te-ex-from', root).value, to: $('#te-ex-to', root).value, maxWeekly: $('#te-ex-mw', root).value };
       o.active = $('#te-active', root).checked;
       if (!t) { S.teachers.push(o); S.schedule[o.id] = {}; }
-      syncTeacherUsers(APP, S);
       commit(t ? 'تعديل بيانات معلم' : 'إضافة معلم', name);
     } }, { label: 'إلغاء' }]
   });
@@ -2501,7 +2532,6 @@ ACT.delTeacher = function (el) {
     if (!ok) return;
     S.teachers = S.teachers.filter(function (x) { return x !== t; });
     delete S.schedule[t.id];
-    syncTeacherUsers(APP, S);
     commit('حذف معلم', t.name);
   });
 };
@@ -2533,7 +2563,6 @@ ACT.importTeachers = function () {
         else { S.teachers.push(Object.assign({ id: E.uid('t'), gender: S.settings.type === 'female' ? 'f' : 'm', dutyLoad: o.duties.length * 2, status: 'present', exempt: { type: 'none' }, blocked: {}, active: true }, o)); added++; }
       });
       S.teachers.forEach(function (t) { if (!S.schedule[t.id]) S.schedule[t.id] = {}; });
-      syncTeacherUsers(APP, S);
       commit('استيراد معلمين', 'إضافة ' + added + '، تحديث ' + upd);
       toast('تمت إضافة ' + added + ' وتحديث ' + upd, 'ok');
     }
@@ -2781,7 +2810,7 @@ ACT.repPDF = function () {
   exportPDF('تقرير-' + D.title + '.pdf', html, D.head.length > 6);
 };
 /* ============================================================
-   الأنشطة، الطلبات، الإعدادات، المستخدمون، المدارس، السجل، حساب المعلم
+   الأنشطة، الطلبات، الإعدادات، المستخدمون، المدارس، السجل
    ============================================================ */
 PAGES.activities = function () {
   var acts = allActivities();
@@ -2822,7 +2851,7 @@ PAGES.inbox = function () {
 ACT.inboxTab = function (el) { UI.inboxTab = el.dataset.v; render(); };
 ACT.closeReq = function (el) {
   var q = S.requests.filter(function (x) { return x.id === el.dataset.id; })[0];
-  askText('الرد على الطلب', 'نص الرد (يصل للمعلم كإشعار)', '').then(function (v) {
+  askText('الرد على الطلب', 'نص الرد', '').then(function (v) {
     if (v == null) return;
     q.status = 'closed'; q.reply = v;
     if (v) notify(q.teacherId, 'رد الإدارة على طلبك: ' + v);
@@ -2882,8 +2911,7 @@ ACT.resetDemo = function () {
     var demo = E.makeDemo({ seed: Math.floor(Math.random() * 1e6) });
     demo.id = S.id;
     var i = APP.schools.indexOf(S); APP.schools[i] = demo;
-    APP.users = APP.users.filter(function (u) { return u.role !== 'teacher' || u.schoolId !== S.id; });
-    S = demo; syncTeacherUsers(APP, S); UI.date = defaultDate();
+    S = demo; UI.date = defaultDate();
     commit('إعادة البيانات التجريبية');
   });
 };
@@ -2892,62 +2920,58 @@ ACT.clearSchool = function () {
     if (!ok) return;
     var blank = E.emptySchool(S.settings.name); blank.id = S.id; blank.settings.logo = S.settings.logo;
     var i = APP.schools.indexOf(S); APP.schools[i] = blank;
-    APP.users = APP.users.filter(function (u) { return u.role !== 'teacher' || u.schoolId !== S.id; });
     S = blank;
     commit('تفريغ بيانات المدرسة');
   });
 };
 
 /* ---------------- المستخدمون ---------------- */
+function canEditAccount(account) {
+  return can('users') && (!account || ME.role === 'sysadmin' || ME.id === account.id);
+}
 PAGES.accounts = function () {
-  var users = APP.users.filter(function (u) { return ME.role === 'sysadmin' || u.schoolId === S.id; });
-  var staff = users.filter(function (u) { return u.role !== 'teacher'; }), tch = users.filter(function (u) { return u.role === 'teacher'; });
-  var schoolName = function (id) { var s = APP.schools.filter(function (x) { return x.id === id; })[0]; return s ? s.settings.name : '— جميع المدارس —'; };
-  return '<div class="stack"><div class="row"><span class="sp"></span><button class="btn pri" data-a="editUser">' + ic('plus') + ' إضافة مستخدم</button></div>' +
-    '<div class="card"><h3>الإدارة المدرسية</h3><div class="tbl-wrap"><table class="t"><thead><tr><th>الاسم</th><th>الدور</th><th>المدرسة</th><th>الرمز</th><th></th></tr></thead><tbody>' + staff.map(function (u) {
-      return '<tr><td><b>' + esc(u.name) + '</b></td><td><span class="badge b-navy">' + ROLES[u.role] + '</span></td><td class="small">' + esc(schoolName(u.schoolId)) + '</td><td class="small muted">••••</td><td class="nowrap"><button class="btn xs" data-a="editUser" data-id="' + u.id + '">' + ic('edit') + '</button> ' + (u.id !== ME.id ? '<button class="btn xs danger" data-a="delUser" data-id="' + u.id + '">' + ic('del') + '</button>' : '') + '</td></tr>';
-    }).join('') + '</tbody></table></div></div>' +
-    '<div class="card"><h3>حسابات المعلمين (' + tch.length + ')<span class="sp"></span><button class="btn xs" data-a="resetTeacherPins">تعيين رمز موحد</button></h3><div class="small muted" style="margin-bottom:8px">يُنشأ حساب لكل معلم تلقائيًا. يطّلع المعلم من خلاله على جدوله وحصص الاحتياط وسجله ومؤشر العدالة، ويؤكد الاطلاع والتنفيذ ويقدّم طلبات التبديل والملاحظات.</div>' +
-    '<div class="tbl-wrap" style="max-height:360px"><table class="t"><thead><tr><th>المعلم</th><th>المدرسة</th><th></th></tr></thead><tbody>' + tch.map(function (u) { return '<tr><td>' + esc(u.name) + '</td><td class="small">' + esc(schoolName(u.schoolId)) + '</td><td><button class="btn xs" data-a="editUser" data-id="' + u.id + '">تغيير الرمز</button></td></tr>'; }).join('') + '</tbody></table></div></div>' +
-    '<div class="note small">يُسجَّل كل دخول وإضافة وتعديل وحذف واعتماد في سجل العمليات مع اسم المستخدم ودوره. بيانات كل مدرسة معزولة؛ لا يرى مستخدمو مدرسة بيانات مدرسة أخرى، ومدير النظام وحده يدير جميع المدارس.</div></div>';
+  return '<div class="card"><h3>حسابات الإدارة</h3><div class="tbl-wrap"><table class="t"><thead><tr><th>الدور</th><th>الاسم</th><th>المدرسة</th><th></th></tr></thead><tbody>' +
+    MANAGEMENT_ROLES.map(function (role) {
+      var u = APP.users.find(function (account) { return account.role === role; });
+      var school = u && APP.schools.find(function (s) { return s.id === u.schoolId; });
+      return '<tr><td><span class="badge b-navy">' + ROLES[role] + '</span></td><td><b>' + (u ? esc(u.name) : 'بانتظار الإعداد') + '</b></td><td class="small">' +
+        (role === 'sysadmin' ? 'جميع المدارس' : school ? esc(school.settings.name) : '—') + '</td><td class="nowrap">' +
+        (canEditAccount(u) ? '<button class="btn xs' + (u ? '' : ' pri') + '" data-a="editUser" data-role="' + role + '">' + ic(u ? 'edit' : 'plus') + (u ? ' تعديل' : ' إعداد الحساب') + '</button>' : '') + '</td></tr>';
+    }).join('') + '</tbody></table></div></div>';
 };
 ACT.editUser = function (el) {
-  var u = el.dataset.id ? APP.users.filter(function (x) { return x.id === el.dataset.id; })[0] : null;
-  var isT = u && u.role === 'teacher';
-  var roles = Object.keys(ROLES).filter(function (r) { return r !== 'teacher' && (ME.role === 'sysadmin' || r !== 'sysadmin'); });
+  var role = el.dataset.role;
+  if (!MANAGEMENT_ROLES.includes(role)) return;
+  var u = APP.users.find(function (account) { return account.role === role; });
+  if (!canEditAccount(u)) return;
+  var chooseSchool = role === 'principal' && can('schools');
   Modal.open({
-    title: u ? 'تعديل مستخدم' : 'إضافة مستخدم',
-    body: '<div class="form">' + (isT ? '<div class="full"><b>' + esc(u.name) + '</b></div>' : '<label class="f full">الاسم<input type="text" id="us-n" value="' + esc(u ? u.name : '') + '"></label><label class="f">الدور<select id="us-r">' + roles.map(function (r) { return '<option value="' + r + '"' + (u && u.role === r ? ' selected' : '') + '>' + ROLES[r] + '</option>'; }).join('') + '</select></label>' +
-      (ME.role === 'sysadmin' ? '<label class="f">المدرسة<select id="us-s"><option value="">— جميع المدارس (لمدير النظام) —</option>' + APP.schools.map(function (s) { return '<option value="' + s.id + '"' + ((u ? u.schoolId : S.id) === s.id ? ' selected' : '') + '>' + esc(s.settings.name) + '</option>'; }).join('') + '</select></label>' : '')) +
-      '<label class="f">الرمز السري الجديد' + (u ? ' (اتركه فارغًا للإبقاء)' : '') + '<input type="password" inputmode="numeric" id="us-p"></label></div>',
-    buttons: [{ label: 'حفظ', cls: 'pri', act: function (r) {
-      var pin = $('#us-p', r).value.trim();
-      if (!u && pin.length < 4) { toast('الرمز 4 أرقام على الأقل', 'err'); return false; }
-      if (pin && pin.length < 4) { toast('الرمز 4 أرقام على الأقل', 'err'); return false; }
-      var o = u || { id: E.uid('u') };
-      if (!isT) {
-        o.name = $('#us-n', r).value.trim(); if (!o.name) { toast('الاسم مطلوب', 'err'); return false; }
-        o.role = $('#us-r', r).value;
-        o.schoolId = ME.role === 'sysadmin' ? ($('#us-s', r).value || null) : S.id;
-        if (o.role !== 'sysadmin' && !o.schoolId) { toast('اختر المدرسة', 'err'); return false; }
+    title: (u ? 'تعديل حساب ' : 'إعداد حساب ') + ROLES[role],
+    body: '<div class="form"><label class="f full">الاسم<input type="text" id="us-n" value="' + esc(u?.name || '') + '"></label>' +
+      (chooseSchool ? '<label class="f">المدرسة<select id="us-s">' + APP.schools.map(function (s) {
+        return '<option value="' + esc(s.id) + '"' + ((u?.schoolId || S?.id) === s.id ? ' selected' : '') + '>' + esc(s.settings.name) + '</option>';
+      }).join('') + '</select></label>' : '') +
+      '<label class="f">رمز الدخول' + (u ? ' الجديد (اختياري)' : '') + '<input type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" id="us-p" placeholder="4–8 أرقام"></label></div>',
+    buttons: [{ label: 'حفظ', cls: 'pri', act: function (root) {
+      var name = $('#us-n', root).value.trim();
+      var pin = $('#us-p', root).value.trim();
+      if (!name) { toast('الاسم مطلوب', 'err'); return false; }
+      if ((!u || pin) && !/^\d{4,8}$/.test(pin)) { toast('رمز الدخول من 4 إلى 8 أرقام', 'err'); return false; }
+      var schoolId = role === 'principal' ? (chooseSchool ? $('#us-s', root).value : u?.schoolId || S?.id) : null;
+      if (role === 'principal' && !APP.schools.some(function (s) { return s.id === schoolId; })) {
+        toast('اختر المدرسة', 'err');
+        return false;
       }
-      if (pin) o.pin = pin;
-      if (!u) { o.manual = true; APP.users.push(o); }
-      commit(u ? 'تعديل مستخدم' : 'إضافة مستخدم', o.name + ' — ' + ROLES[o.role]);
+      if (u) {
+        u.name = name;
+        if (pin) u.pin = pin;
+        u.schoolId = schoolId;
+      } else {
+        if (APP.users.some(function (account) { return account.role === role; })) return;
+        APP.users.push({ id: E.uid('u'), name: name, role: role, pin: pin, schoolId: schoolId });
+      }
+      commit(u ? 'تعديل حساب' : 'إعداد حساب', name + ' — ' + ROLES[role]);
     } }, { label: 'إلغاء' }]
-  });
-};
-ACT.delUser = function (el) {
-  var u = APP.users.filter(function (x) { return x.id === el.dataset.id; })[0];
-  var named = APP.users.filter(function (x) { return !x.auto; }).length;
-  if (!u.auto && named <= MIN_USERS) { toast('لا يمكن الحذف: يلزم ' + MIN_USERS + ' مستخدمين على الأقل لبقاء النظام مفعّلًا. أضف مستخدمًا آخر أولًا.', 'err'); return; }
-  confirmBox('حذف مستخدم', 'حذف حساب <b>' + esc(u.name) + '</b>؟', 'حذف', true).then(function (ok) { if (!ok) return; APP.users = APP.users.filter(function (x) { return x !== u; }); commit('حذف مستخدم', u.name); });
-};
-ACT.resetTeacherPins = function () {
-  askText('رمز موحد للمعلمين', 'الرمز الجديد لجميع حسابات المعلمين في هذه المدرسة (4 أرقام على الأقل)', '', true).then(function (v) {
-    if (!v) return; if (v.length < 4) { toast('الرمز قصير', 'err'); return; }
-    APP.users.forEach(function (u) { if (u.role === 'teacher' && u.schoolId === S.id) u.pin = v; });
-    commit('تعيين رمز موحد للمعلمين');
   });
 };
 
@@ -2961,25 +2985,34 @@ PAGES.schools = function () {
     }).join('') + '</tbody></table></div></div>';
 };
 ACT.addSchool = function (el) {
+  if (!can('schools')) return;
   askText('مدرسة جديدة', 'اسم المدرسة', '', true).then(function (name) {
     if (!name) return;
     var s = el.dataset.demo === '1' ? E.makeDemo({ seed: Math.floor(Math.random() * 1e6) }) : E.emptySchool(name);
     s.settings.name = name;
     APP.schools.push(s);
-    APP.users.push({ id: E.uid('u'), name: 'مدير ' + name, role: 'principal', pin: '1111', schoolId: s.id });
-    syncTeacherUsers(APP, s);
     commit('إضافة مدرسة', name);
-    toast('أُضيفت المدرسة وحساب مديرها (الرمز 1111)', 'ok');
+    toast('أُضيفت المدرسة', 'ok');
   });
 };
-ACT.openSchool = function (el) { APP.currentSchoolId = el.dataset.id; pickSchool(); UI.route = 'dashboard'; UI.date = defaultDate(); Store.save(); render(); };
+ACT.openSchool = function (el) {
+  if (!can('schools') || !APP.schools.some(function (s) { return s.id === el.dataset.id; })) return;
+  APP.currentSchoolId = el.dataset.id;
+  pickSchool(); UI.route = 'dashboard'; UI.date = defaultDate(); Store.save(); render();
+};
 ACT.delSchool = function (el) {
-  var s = APP.schools.filter(function (x) { return x.id === el.dataset.id; })[0];
-  confirmBox('حذف مدرسة', 'حذف <b>' + esc(s.settings.name) + '</b> وجميع بياناتها وحساباتها نهائيًا؟', 'حذف', true).then(function (ok) {
+  if (!can('schools') || APP.schools.length < 2) return;
+  var s = APP.schools.find(function (x) { return x.id === el.dataset.id; });
+  if (!s) return;
+  var principal = APP.users.find(function (u) { return u.role === 'principal' && u.schoolId === s.id; });
+  var next = APP.schools.find(function (x) { return x !== s; });
+  var message = 'حذف <b>' + esc(s.settings.name) + '</b> وجميع بياناتها نهائيًا؟';
+  if (principal) message += ' سينتقل حساب مدير المدرسة إلى <b>' + esc(next.settings.name) + '</b>.';
+  confirmBox('حذف مدرسة', message, 'حذف', true).then(function (ok) {
     if (!ok) return;
     APP.schools = APP.schools.filter(function (x) { return x !== s; });
-    APP.users = APP.users.filter(function (u) { return u.schoolId !== s.id; });
-    if (S === s) { APP.currentSchoolId = APP.schools[0].id; pickSchool(); }
+    if (principal) principal.schoolId = next.id;
+    if (S === s) { APP.currentSchoolId = next.id; pickSchool(); }
     commit('حذف مدرسة', s.settings.name);
   });
 };
@@ -2994,69 +3027,6 @@ PAGES.audit = function () {
 ACT.exportLog = function () { exportXlsx('سجل-العمليات.xlsx', [{ name: 'السجل', rows: [['الوقت', 'المستخدم', 'العملية', 'التفاصيل']].concat(S.log.map(function (l) { return [new Date(l.ts).toLocaleString('ar-OM'), l.user, l.action, l.details]; })), widths: [22, 30, 28, 60] }]); };
 
 /* ============================================================
-   حساب المعلم
-   ============================================================ */
-PAGES.portal = function () {
-  var t = E.teacherById(S, ME.teacherId);
-  if (!t) return '<div class="empty">لم يُربط هذا الحساب بمعلم.</div>';
-  var today = E.today(), ws = E.weekStart(today), mk = E.monthKey(today);
-  var mine = S.assignments.filter(function (a) { return a.subId === t.id && a.status !== 'proposed'; }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : a.period - b.period; });
-  var upcoming = mine.filter(function (a) { return a.date >= today && (a.status === 'approved' || a.status === 'done'); }).sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.period - b.period; });
-  var exec = mine.filter(function (a) { return E.EXECUTED[a.status]; });
-  var wk = exec.filter(function (a) { return a.date >= ws && a.date <= E.addDays(ws, 6); }).length;
-  var mo = exec.filter(function (a) { return E.monthKey(a.date) === mk; }).length;
-  var sem = exec.filter(function (a) { return a.date >= S.settings.semesterStart; }).length;
-  var F = E.fairness(S, { from: S.settings.semesterStart }); var me = F.rows.filter(function (r) { return r.t.id === t.id; })[0] || {};
-  var notes = S.notifications.filter(function (n) { return n.teacherId === t.id; }).slice(0, 30);
-  var unread = notes.filter(function (n) { return !n.read; }).length;
-  var P = S.settings.periods;
-  return '<div class="stack">' +
-    '<div class="card" style="background:linear-gradient(135deg,var(--navy),var(--navy3));color:#fff;border:0"><div class="row"><div><div style="font-size:13px;opacity:.8">' + genderize('مرحبًا بك أيها المعلم', t) + '</div><h2 style="font-size:20px">' + esc(t.name) + '</h2><div style="font-size:13px;opacity:.8">' + esc(t.subject) + ' · النصاب ' + (t.load || 0) + ' حصة</div></div><span class="sp"></span>' + (me.level ? '<div class="center"><div style="font-size:12px;opacity:.8">مؤشر العدالة</div>' + lvlBadge(me.level, me.index) + '</div>' : '') + '</div></div>' +
-    '<div class="kpis">' + kpi('احتياط هذا الأسبوع', wk) + kpi('احتياط هذا الشهر', mo) + kpi('احتياط الفصل', sem) + kpi('المتوقع العادل للفصل', nfmt(me.expected, 1)) + '</div>' +
-    '<div class="grid g2">' +
-    '<div class="card"><h3>' + ic('sub') + ' حصص الاحتياط القادمة</h3>' + (upcoming.length ? upcoming.map(function (a) {
-      var act = a.activityId ? findActivity(a.activityId) : null;
-      return '<div class="list-i"><div class="center" style="min-width:64px"><b style="color:var(--tq)">' + pName(a.period) + '</b><div class="tiny muted">' + (a.date === today ? 'اليوم' : dayLabel(a.date)) + '</div></div><div style="flex:1"><b>الصف ' + esc(a.cls) + '</b> — ' + esc(a.subj) + '<div class="tiny muted">بدلًا من ' + esc(tname(a.absentId)) + '</div>' + (act ? '<div class="small" style="margin-top:4px">📚 <b>' + esc(act.title) + '</b>: ' + esc(act.desc) + '</div>' : '') + '<div class="row" style="margin-top:6px;gap:6px">' +
-        (!a.seen ? '<button class="btn xs pri" data-a="tSeen" data-id="' + a.id + '">' + ic('check') + ' تأكيد الاطلاع</button>' : '<span class="badge b-green">تم الاطلاع</span>') +
-        (a.status === 'approved' && a.date <= today ? '<button class="btn xs" data-a="tDone" data-id="' + a.id + '">تأكيد تنفيذ الحصة</button>' : a.status === 'done' ? '<span class="badge b-green">منفذة</span>' : '') +
-        (a.status === 'approved' ? '<button class="btn xs" data-a="tSwapReq" data-id="' + a.id + '">' + ic('swap') + ' طلب تبديل</button>' : '') + '</div></div></div>';
-    }).join('') : '<div class="empty small">لا توجد حصص احتياط قادمة</div>') + '</div>' +
-    '<div class="card"><h3>' + ic('bell') + ' الإشعارات ' + (unread ? '<span class="badge b-orange">' + unread + ' جديد</span>' : '') + '<span class="sp"></span>' + (unread ? '<button class="btn xs" data-a="tReadAll">تحديد الكل كمقروء</button>' : '') + '</h3><div style="max-height:320px;overflow:auto">' + (notes.length ? notes.map(function (n) { return '<div class="list-i"><span class="dot" style="margin-top:7px;background:' + (n.read ? '#cbd5e1' : 'var(--tq)') + '"></span><div style="flex:1" class="small' + (n.read ? ' muted' : '') + '">' + esc(n.text) + '<div class="tiny muted">' + new Date(n.ts).toLocaleString('ar-OM') + '</div></div></div>'; }).join('') : '<div class="empty small">لا توجد إشعارات</div>') + '</div></div>' +
-    '</div>' +
-    '<div class="card"><h3>' + ic('tt') + ' جدولي المدرسي</h3><div style="overflow:auto"><table class="tt ro"><thead><tr><th class="day"></th>' + range(P).map(function (p) { return '<th>' + pName(p) + '</th>'; }).join('') + '</tr></thead><tbody>' + S.settings.days.map(function (d) {
-      var dd = E.addDays(ws, d);
-      return '<tr><th class="day">' + E.DAY_NAMES[d] + '</th>' + range(P).map(function (p) {
-        var l = E.lesson(S, t.id, d, p), b = E.blocked(S, t.id, d, p);
-        var s = S.assignments.filter(function (a) { return a.subId === t.id && a.date === dd && a.period === p && (a.status === 'approved' || a.status === 'done'); })[0];
-        if (s) return '<td class="sub"><b>احتياط ' + esc(s.cls) + '</b>' + esc(s.subj) + '</td>';
-        return l ? '<td class="les"><b>' + esc(l.cls) + '</b>' + esc(l.subj) + '</td>' : b ? '<td class="blk"><b>' + esc(b) + '</b></td>' : '<td class="free">فراغ</td>';
-      }).join('') + '</tr>';
-    }).join('') + '</tbody></table></div><div class="legend" style="margin-top:6px"><span><i style="background:#ccfbf1;border:1px solid #5eead4"></i>احتياط هذا الأسبوع</span></div></div>' +
-    '<div class="grid g2">' +
-    '<div class="card"><h3>سجل الاحتياط الشخصي</h3><div class="tbl-wrap" style="max-height:340px"><table class="t"><thead><tr><th>التاريخ</th><th>الحصة</th><th>الصف</th><th>الحالة</th></tr></thead><tbody>' + (mine.length ? mine.slice(0, 120).map(function (a) { return '<tr><td class="small">' + a.date + '</td><td>' + pName(a.period) + '</td><td>' + esc(a.cls) + '</td><td>' + statusBadge(a.status) + '</td></tr>'; }).join('') : '<tr><td colspan="4" class="empty small">لا يوجد سجل</td></tr>') + '</tbody></table></div></div>' +
-    '<div class="card"><h3>مراسلة الإدارة</h3><label class="f">ملاحظة أو استفسار<textarea id="t-note" placeholder="اكتب ملاحظتك…"></textarea></label><div class="row" style="margin-top:8px"><button class="btn pri" data-a="tNote">إرسال للإدارة</button></div>' +
-    '<div class="small muted" style="margin-top:12px">طلباتي:</div>' + S.requests.filter(function (q) { return q.teacherId === t.id; }).slice(-8).reverse().map(function (q) { return '<div class="list-i small"><span class="badge ' + (q.status === 'open' ? 'b-yellow' : 'b-gray') + '">' + (q.status === 'open' ? 'قيد المراجعة' : q.status === 'approved' ? 'موافق عليه' : 'مغلق') + '</span><span style="flex:1">' + esc(q.text) + (q.reply ? '<div class="tiny" style="color:var(--tq)">الرد: ' + esc(q.reply) + '</div>' : '') + '</span></div>'; }).join('') + '</div>' +
-    '</div></div>';
-};
-ACT.tSeen = function (el) { var a = findAsg(el.dataset.id); a.seen = true; S.notifications.forEach(function (n) { if (n.assignmentId === a.id) n.read = true; }); commit('تأكيد اطلاع على حصة احتياط', a.date + ' ' + pName(a.period) + ' ' + a.cls); };
-ACT.tDone = function (el) { var a = findAsg(el.dataset.id); a.status = 'done'; a.seen = true; commit('تأكيد تنفيذ حصة احتياط', a.date + ' ' + pName(a.period) + ' ' + a.cls); toast('شكرًا لك، تم تأكيد التنفيذ', 'ok'); };
-ACT.tReadAll = function () { S.notifications.forEach(function (n) { if (n.teacherId === ME.teacherId) n.read = true; }); commit('', '', {}); };
-ACT.tSwapReq = function (el) {
-  var a = findAsg(el.dataset.id);
-  askText('طلب تبديل حصة', 'سبب طلب التبديل (' + pName(a.period) + ' — ' + a.cls + ' — ' + a.date + ')', '', true).then(function (v) {
-    if (!v) return;
-    S.requests.push({ id: E.uid('rq'), teacherId: ME.teacherId, type: 'swap', text: v, assignmentId: a.id, ts: Date.now(), status: 'open' });
-    commit('طلب تبديل حصة', tname(ME.teacherId) + ': ' + v);
-    toast('أُرسل الطلب للإدارة', 'ok');
-  });
-};
-ACT.tNote = function () {
-  var v = $('#t-note').value.trim(); if (!v) { toast('اكتب الملاحظة', 'err'); return; }
-  S.requests.push({ id: E.uid('rq'), teacherId: ME.teacherId, type: 'note', text: v, ts: Date.now(), status: 'open' });
-  commit('ملاحظة من معلم', tname(ME.teacherId));
-  toast('أُرسلت الملاحظة', 'ok');
-};
-/* ============================================================
    معالج الإعداد الأولي والتفعيل
    ============================================================ */
 var WZ_STEPS = [
@@ -3064,31 +3034,37 @@ var WZ_STEPS = [
   { t: 'الدوام والحصص', d: 'الأيام وعدد الحصص والفصل' },
   { t: 'الجدول المدرسي', d: 'رفع ملف Excel ومراجعته' },
   { t: 'قواعد الاحتياط', d: 'الحدود ووضع التوزيع' },
-  { t: 'المستخدمون', d: '5 مستخدمين على الأقل' },
+  { t: 'المستخدمون', d: 'مدير النظام ومدير المدرسة' },
   { t: 'المراجعة والتفعيل', d: 'التحقق ثم التشغيل' }
 ];
-var MIN_USERS = 5;
 var wzParsed = null; // آخر جدول تمت قراءته في المعالج
 
 function wzState() {
-  if (!APP.setup) APP.setup = { step: 0, ttApplied: false, users: defaultDraftUsers(), teacherPin: '' };
+  if (!APP.setup) APP.setup = { step: 0, users: managementDrafts() };
   return APP.setup;
 }
-function defaultDraftUsers() {
-  return ['sysadmin', 'principal', 'assistant', 'scheduler', 'teacher'].map(function (r) { return { id: E.uid('u'), name: '', role: r, pin: '', teacherId: '' }; });
+function managementDrafts(users) {
+  var existing = Array.isArray(users) ? users : [];
+  var ids = new Set();
+  return MANAGEMENT_ROLES.map(function (role) {
+    var user = existing.find(function (u) { return u?.role === role; });
+    var id = typeof user?.id === 'string' && user.id && !ids.has(user.id) ? user.id : E.uid('u');
+    ids.add(id);
+    return { id: id, name: typeof user?.name === 'string' ? user.name : '', role: role, pin: String(user?.pin ?? '') };
+  });
 }
 function draftUserProblem(u) {
   if (!u.name || !u.name.trim()) return 'الاسم مطلوب';
   if (!/^\d{4,8}$/.test(u.pin || '')) return 'الرمز من 4 إلى 8 أرقام';
-  if (u.role === 'teacher' && !u.teacherId) return 'اختر المعلم المرتبط';
   return null;
 }
 function usersStatus(list) {
   var ok = list.filter(function (u) { return !draftUserProblem(u); });
-  var names = {}, dup = false;
-  ok.forEach(function (u) { var k = u.name.trim(); if (names[k]) dup = true; names[k] = 1; });
-  var hasHead = ok.some(function (u) { return u.role === 'principal' || u.role === 'sysadmin'; });
-  return { ok: ok.length, dup: dup, hasHead: hasHead, valid: ok.length >= MIN_USERS && !dup && hasHead };
+  var dup = new Set(ok.map(function (u) { return u.name.trim(); })).size !== ok.length;
+  var valid = list.length === MANAGEMENT_ROLES.length && !dup && MANAGEMENT_ROLES.every(function (role) {
+    return ok.some(function (u) { return u.role === role; });
+  });
+  return { ok: ok.length, dup: dup, valid: valid };
 }
 function wzChecks() {
   var st = S.settings, W = wzState();
@@ -3098,8 +3074,8 @@ function wzChecks() {
     { ok: !!(st.name && st.name.trim() && st.name !== 'مدرستي'), t: 'بيانات المدرسة', d: st.name, need: 'اكتب اسم المدرسة', step: 0 },
     { ok: st.days.length > 0 && st.periods >= 4 && !!st.semesterStart && !!st.semesterEnd && st.semesterStart < st.semesterEnd, t: 'الدوام والحصص', d: st.days.length + ' أيام · ' + st.periods + ' حصص · ' + st.semesterStart + ' ← ' + st.semesterEnd, need: 'اختر أيام الدوام وتأكد أن بداية الفصل قبل نهايته', step: 1 },
     { ok: S.teachers.length > 0 && lessons > 0, t: 'الجدول المدرسي', d: S.teachers.length + ' معلمًا · ' + lessons + ' حصة · ' + E.allClasses(S).length + ' صفًا', need: 'ارفع ملف Excel للجدول ثم اضغط «اعتماد هذا الجدول»', step: 2 },
-    { ok: +st.defaultMaxDaily > 0 && +st.defaultMaxWeekly >= +st.defaultMaxDaily && /^\d{4,8}$/.test(W.teacherPin || ''), t: 'قواعد الاحتياط', d: 'حد يومي ' + st.defaultMaxDaily + ' · أسبوعي ' + st.defaultMaxWeekly + ' · ' + E.MODES[st.mode] + (/^\d{4,8}$/.test(W.teacherPin || '') ? '' : ' · رمز المعلمين الافتراضي ناقص'), need: 'تأكد من الحدود واكتب رمزًا افتراضيًا للمعلمين (4–8 أرقام)', step: 3 },
-    { ok: us.valid, t: 'المستخدمون', d: us.ok + ' من ' + MIN_USERS + ' مكتملون' + (us.dup ? ' · أسماء مكررة' : '') + (!us.hasHead ? ' · يلزم مدير مدرسة أو مدير نظام' : ''), need: 'أكمل بيانات ' + MIN_USERS + ' مستخدمين على الأقل (' + us.ok + ' مكتمل)', step: 4 }
+    { ok: +st.defaultMaxDaily > 0 && +st.defaultMaxWeekly >= +st.defaultMaxDaily, t: 'قواعد الاحتياط', d: 'حد يومي ' + st.defaultMaxDaily + ' · أسبوعي ' + st.defaultMaxWeekly + ' · ' + E.MODES[st.mode], need: 'تأكد من صحة الحدين اليومي والأسبوعي', step: 3 },
+    { ok: us.valid, t: 'المستخدمون', d: us.ok + ' من ' + MANAGEMENT_ROLES.length + ' مكتمل' + (us.dup ? ' · أسماء مكررة' : ''), need: 'أكمل بيانات مدير النظام ومدير المدرسة', step: 4 }
   ];
 }
 
@@ -3118,7 +3094,7 @@ function wizardView() {
 }
 function wzWelcome() {
   return '<div class="login"><div class="box" style="max-width:560px"><div class="hero"><div class="logo"><svg width="38" height="38" viewBox="0 0 24 24">' + IC.logo + '</svg></div><h2>مرحبًا بك في الاحتياط الذكي</h2><div class="slogan">عدالة في التوزيع… كفاءة في الإدارة</div></div>' +
-    '<p class="small muted" style="text-align:center;margin-top:0">قبل التشغيل نضبط الإعدادات الأساسية في ست خطوات واضحة. يُفعَّل النظام بعد رفع الجدول المدرسي من ملف Excel وإدخال ' + MIN_USERS + ' مستخدمين على الأقل.</p>' +
+    '<p class="small muted" style="text-align:center;margin-top:0">ارفع الجدول المدرسي من ملف Excel وأعدّ حسابَي مدير المدرسة ومدير النظام لتفعيل الاحتياط الذكي.</p>' +
     '<ol class="wz-list">' + WZ_STEPS.map(function (s) { return '<li><b>' + s.t + '</b> — ' + s.d + '</li>'; }).join('') + '</ol>' +
     '<button class="btn pri lg" style="width:100%;justify-content:center" data-a="wzStart">ابدأ الإعداد</button>' +
     '<div class="center" style="margin-top:12px"><a class="small" data-a="wzDemo">أو استعرض النظام أولًا ببيانات تجريبية</a></div>' +
@@ -3225,15 +3201,7 @@ ACT.ttApply = function (el) {
   if (!wzParsed) return;
   var scope = el.dataset.scope;
   var replaceAll = scope === 'wz' || ($('#tt-replace') && $('#tt-replace').checked);
-  if (replaceAll) {
-    // إزالة حسابات المعلمين المرتبطة بمعلمين سيُحذفون
-    APP.users = APP.users.filter(function (u) { return u.role !== 'teacher' || u.schoolId !== S.id; });
-    if (APP.setup) APP.setup.users.forEach(function (u) { if (u.role === 'teacher') u.teacherId = ''; });
-  }
   var res = E.applyTimetable(S, wzParsed, { replaceAll: replaceAll });
-  if (APP.activated) syncTeacherUsers(APP, S, APP.teacherPin);
-  // ربط مستخدمي المعالج من نوع «معلم» بالاسم
-  if (APP.setup) APP.setup.users.forEach(function (u) { if (u.role === 'teacher' && !u.teacherId && u.name) { var t = S.teachers.filter(function (x) { return x.name === u.name.trim(); })[0]; if (t) u.teacherId = t.id; } });
   var f = wzParsed.fileName; wzParsed = null;
   if (scope !== 'wz') Modal.closeAll();
   commit('استيراد الجدول المدرسي من Excel', f + ' — ' + res.lessons + ' حصة، ' + res.blocks + ' مهمة، ' + res.created + ' معلم جديد، ' + res.updated + ' محدّث');
@@ -3242,35 +3210,35 @@ ACT.ttApply = function (el) {
 
 /* ---------- 4. قواعد الاحتياط ---------- */
 function wzRules() {
-  var st = S.settings, W = wzState();
+  var st = S.settings;
   return '<p class="muted small">قيم افتراضية مقترحة؛ يمكن تعديلها لاحقًا من «إعدادات المدرسة»، ويمكن تخصيص الحدود لكل معلم.</p><div class="form">' +
     '<label class="f">الحد الأقصى اليومي لحصص الاحتياط *<input type="number" min="1" max="6" value="' + st.defaultMaxDaily + '" data-c="setNum" data-k="defaultMaxDaily"></label>' +
     '<label class="f">الحد الأقصى الأسبوعي *<input type="number" min="1" max="30" value="' + st.defaultMaxWeekly + '" data-c="setNum" data-k="defaultMaxWeekly"></label>' +
     '<label class="f">أقصى حصص متتالية قبل تجنب الإسناد<input type="number" min="2" max="8" value="' + st.maxConsecutive + '" data-c="setNum" data-k="maxConsecutive"></label>' +
-    '<label class="f">وضع التوزيع الافتراضي' + modeSelect() + '</label>' +
-    '<label class="f">الرمز الافتراضي لحسابات المعلمين *<input type="password" inputmode="numeric" value="' + esc(W.teacherPin || '') + '" data-c="wzTeacherPin" placeholder="4–8 أرقام"></label></div>' +
+    '<label class="f">وضع التوزيع الافتراضي' + modeSelect() + '</label></div>' +
     '<div class="card" style="margin-top:14px;background:#fafcff"><h3>أوزان خوارزمية التوزيع الذكي (الافتراضية)</h3>' + Object.keys(E.DEFAULT_WEIGHTS).map(function (k) { return '<div class="row small" style="padding:3px 0;border-bottom:1px solid #f1f5f9"><span>' + E.WEIGHT_LABELS[k] + '</span><span class="sp"></span><b>' + st.weights[k] + '٪</b></div>'; }).join('') + '<div class="tiny muted" style="margin-top:6px">أوزان افتراضية قابلة للتعديل وليست قواعد وزارية معتمدة.</div></div>';
 }
 
 /* ---------- 5. المستخدمون ---------- */
-function wzUsers() {
-  var W = wzState(), us = usersStatus(W.users);
-  var roles = Object.keys(ROLES);
-  return '<p class="muted small">يُفعَّل النظام بعد إدخال <b>' + MIN_USERS + ' مستخدمين على الأقل</b> بأسماء ورموز دخول صحيحة، منهم مدير مدرسة أو مدير نظام. تُنشأ حسابات بقية المعلمين تلقائيًا من الجدول بالرمز الافتراضي.</p>' +
-    '<div class="wz-progress"><div class="row"><b>' + Math.min(us.ok, MIN_USERS) + ' / ' + MIN_USERS + ' مستخدمين مكتملين</b><span class="sp"></span>' + (us.valid ? '<span class="badge b-green">✓ جاهز</span>' : '<span class="badge b-orange">غير مكتمل</span>') + '</div><div class="meter" style="height:8px;margin-top:6px"><i style="width:' + Math.min(100, 100 * us.ok / MIN_USERS) + '%;background:' + (us.valid ? 'var(--green)' : 'var(--tq)') + '"></i></div></div>' +
-    '<div class="stack" style="margin-top:12px">' + W.users.map(function (u, i) {
-      var pr = draftUserProblem(u);
-      return '<div class="wz-user ' + (pr ? '' : 'ok') + '"><span class="n">' + (pr ? i + 1 : '✓') + '</span><div class="form" style="flex:1;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))">' +
-        '<label class="f">الاسم<input type="text" value="' + esc(u.name) + '" data-c="wzU" data-i="' + i + '" data-k="name"' + (u.role === 'teacher' ? ' list="wz-tlist"' : '') + '></label>' +
-        '<label class="f">الدور<select data-c="wzU" data-i="' + i + '" data-k="role">' + roles.map(function (r) { return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + ROLES[r] + '</option>'; }).join('') + '</select></label>' +
-        (u.role === 'teacher' ? '<label class="f">المعلم المرتبط<select data-c="wzU" data-i="' + i + '" data-k="teacherId"><option value="">— اختر —</option>' + S.teachers.map(function (t) { return '<option value="' + t.id + '"' + (u.teacherId === t.id ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join('') + '</select></label>' : '') +
-        '<label class="f">رمز الدخول<input type="password" inputmode="numeric" value="' + esc(u.pin) + '" data-c="wzU" data-i="' + i + '" data-k="pin" placeholder="4–8 أرقام"></label>' +
-        '</div>' + (W.users.length > 1 ? '<button class="btn xs danger" data-a="wzDelU" data-i="' + i + '" title="حذف">' + ic('del') + '</button>' : '') + (pr && (u.name || u.pin) ? '<div class="tiny" style="color:var(--orange);width:100%;padding-inline-start:40px">' + pr + '</div>' : '') + '</div>';
-    }).join('') + '</div><datalist id="wz-tlist">' + S.teachers.map(function (t) { return '<option value="' + esc(t.name) + '">'; }).join('') + '</datalist>' +
-    '<div class="row" style="margin-top:12px"><button class="btn" data-a="wzAddU">' + ic('plus') + ' إضافة مستخدم</button>' + (us.dup ? '<span class="small" style="color:var(--red)">يوجد اسم مكرر</span>' : '') + (!us.hasHead ? '<span class="small" style="color:var(--red)">يلزم مدير مدرسة أو مدير نظام</span>' : '') + '</div>';
+function wzAccountProgress(status) {
+  return '<div class="row"><b>' + status.ok + ' من ' + MANAGEMENT_ROLES.length + ' مكتمل</b><span class="sp"></span>' +
+    (status.valid ? '<span class="badge b-green">✓ جاهز</span>' : '<span class="badge b-orange">غير مكتمل</span>') +
+    '</div><div class="meter" style="height:8px;margin-top:6px"><i style="width:' + (100 * status.ok / MANAGEMENT_ROLES.length) + '%;background:' + (status.valid ? 'var(--green)' : 'var(--tq)') + '"></i></div>';
 }
-ACT.wzAddU = function () { wzState().users.push({ id: E.uid('u'), name: '', role: 'teacher', pin: '', teacherId: '' }); Store.save(); render(); };
-ACT.wzDelU = function (el) { wzState().users.splice(+el.dataset.i, 1); Store.save(); render(); };
+function wzUsers() {
+  var users = wzState().users, status = usersStatus(users);
+  return '<p class="muted small">أدخل اسمًا ورمز دخول لكل من مدير النظام ومدير المدرسة.</p>' +
+    '<div class="wz-progress" id="wz-account-progress">' + wzAccountProgress(status) + '</div>' +
+    '<div class="stack" style="margin-top:12px">' + users.map(function (u, i) {
+      var problem = draftUserProblem(u);
+      return '<div class="wz-user ' + (problem ? '' : 'ok') + '"><div style="flex:1"><b>' + ROLES[u.role] + '</b>' +
+        '<div class="form" style="margin-top:8px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">' +
+        '<label class="f">الاسم<input type="text" value="' + esc(u.name) + '" data-c="wzU" data-i="' + i + '" data-k="name"></label>' +
+        '<label class="f">رمز الدخول<input type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" value="' + esc(u.pin) + '" data-c="wzU" data-i="' + i + '" data-k="pin" placeholder="4–8 أرقام"></label>' +
+        '</div><div class="tiny" data-account-problem style="color:var(--orange);margin-top:6px;min-height:1.5em">' +
+        (u.name || u.pin ? problem || '' : '') + '</div></div></div>';
+    }).join('') + '</div><p class="small" id="wz-account-duplicate" style="color:var(--red)"' + (status.dup ? '' : ' hidden') + '>استخدم اسمًا مختلفًا لكل حساب.</p>';
+}
 
 /* ---------- 6. المراجعة والتفعيل ---------- */
 function wzReview() {
@@ -3281,14 +3249,13 @@ function wzReview() {
     '<div class="row" style="margin-top:18px"><button class="btn pri lg" data-a="wzActivate"' + (all ? '' : ' disabled') + '>' + ic('check') + ' تفعيل النظام</button>' + (all ? '' : '<span class="small muted">أكمل البنود المعلّمة بعلامة (!) أولًا</span>') + '</div>';
 }
 ACT.wzActivate = function () {
+  if (APP.activated) return;
   var checks = wzChecks();
   if (!checks.every(function (c) { return c.ok; })) { toast('أكمل جميع البنود أولًا', 'err'); return; }
   var W = wzState();
-  APP.users = W.users.map(function (u) { return { id: u.id, name: u.name.trim(), role: u.role, pin: u.pin, schoolId: u.role === 'sysadmin' ? null : S.id, teacherId: u.role === 'teacher' ? u.teacherId : undefined, manual: true }; });
-  APP.teacherPin = W.teacherPin;
-  syncTeacherUsers(APP, S, W.teacherPin);
+  APP.users = W.users.map(function (u) { return { id: u.id, name: u.name.trim(), role: u.role, pin: u.pin, schoolId: u.role === 'principal' ? S.id : null }; });
   APP.activated = true; APP.activatedAt = Date.now(); APP.demo = false;
-  S.log.unshift({ ts: Date.now(), user: 'معالج الإعداد', action: 'تفعيل النظام', details: S.teachers.length + ' معلمًا، ' + APP.users.filter(function (u) { return u.manual; }).length + ' مستخدمين' });
+  S.log.unshift({ ts: Date.now(), user: 'معالج الإعداد', action: 'تفعيل النظام', details: S.teachers.length + ' معلمًا، وحسابا مدير النظام ومدير المدرسة' });
   delete APP.setup;
   ME = null; APP.session = null; UI.route = 'dashboard'; UI.date = defaultDate();
   Store.save(); render();
@@ -3359,42 +3326,48 @@ var CHG = {
       if (!Array.isArray(obj?.schools) || !Array.isArray(obj?.users)) throw new Error('ملف غير صالح');
       return confirmBox('استعادة نسخة احتياطية', 'ستُستبدل جميع البيانات الحالية بمحتوى النسخة (' + obj.schools.length + ' مدرسة، ' + obj.users.length + ' مستخدم).', 'استعادة', true).then(function (ok) {
         if (!ok || APP !== workspace) return;
-        var keep = ME;
-        APP = obj; APP.session = keep && APP.users.some(function (u) { return u.id === keep.id; }) ? keep.id : null;
-        ME = APP.session ? APP.users.filter(function (u) { return u.id === APP.session; })[0] : null;
-        pickSchool(); commit('استعادة نسخة احتياطية', f.name);
+        openWorkspace(obj, { session: ME?.id, currentSchoolId: S?.id });
+        commit('استعادة نسخة احتياطية', f.name);
         toast('تمت الاستعادة', 'ok');
       });
     }).catch(function (e) { toast('تعذرت الاستعادة: ' + e.message, 'err'); });
   }
 };
 CHG.ttFile = function (el) { var f = el.files[0]; if (f) handleTTFile(f, el.dataset.scope); el.value = ''; };
-CHG.wzTeacherPin = function (el) { wzState().teacherPin = el.value.trim(); Store.save(); render(); };
 CHG.wzU = function (el) {
-  var u = wzState().users[+el.dataset.i], k = el.dataset.k;
-  u[k] = el.value;
-  if (k === 'name' && u.role === 'teacher' && !u.teacherId) { var t = S.teachers.filter(function (x) { return x.name === el.value.trim(); })[0]; if (t) u.teacherId = t.id; }
-  if (k === 'teacherId' && el.value && !u.name) u.name = tname(el.value);
-  if (k === 'role' && el.value !== 'teacher') u.teacherId = '';
-  Store.save(); render();
+  var users = wzState().users, u = users[+el.dataset.i], k = el.dataset.k;
+  if (!u || (k !== 'name' && k !== 'pin')) return;
+  u[k] = el.value.trim();
+  var problem = draftUserProblem(u);
+  var row = el.closest('.wz-user');
+  row.classList.toggle('ok', !problem);
+  $('[data-account-problem]', row).textContent = u.name || u.pin ? problem || '' : '';
+  var status = usersStatus(users);
+  $('#wz-account-progress').innerHTML = wzAccountProgress(status);
+  $('#wz-account-duplicate').hidden = !status.dup;
+  $('.wz-step[data-v="4"]').classList.toggle('done', status.valid);
+  Store.save();
 };
+
 var LIVE = { absQ: 1, tSearch: 1, logQ: 1 }; // تحديث أثناء الكتابة
 
 document.addEventListener('click', function (e) {
   var el = e.target.closest('[data-a]');
-  if (!el) return;
+  if (!el || (!Store.hasAccess && el.dataset.a !== 'verifyAccess')) return;
   var fn = ACT[el.dataset.a];
   if (!fn) return;
   if (el.tagName === 'A' && !el.getAttribute('href')) e.preventDefault();
   fn(el, e);
 });
 document.addEventListener('change', function (e) {
+  if (!Store.hasAccess) return;
   var el = e.target.closest('[data-c]');
   if (!el || LIVE[el.dataset.c]) return;
   var fn = CHG[el.dataset.c]; if (fn) fn(el, e);
 });
 var liveTimer = null;
 document.addEventListener('input', function (e) {
+  if (!Store.hasAccess) return;
   var el = e.target.closest('[data-c]');
   if (!el || !LIVE[el.dataset.c]) return;
   clearTimeout(liveTimer);
@@ -3408,10 +3381,11 @@ document.addEventListener('input', function (e) {
 });
 document.addEventListener('submit', function (e) {
   e.preventDefault();
-  if (e.target.id === 'loginForm') doLogin();
+  if (Store.hasAccess && e.target.id === 'loginForm') doLogin();
 });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && Modal.stack.length) Modal.stack[Modal.stack.length - 1](); });
 window.addEventListener('hashchange', function () {
+  if (!Store.hasAccess) return;
   var r = location.hash.slice(1);
   if (r && r !== UI.route && PAGES[r]) { UI.route = r; render(); }
 });

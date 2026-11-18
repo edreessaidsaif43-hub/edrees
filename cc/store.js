@@ -1,6 +1,6 @@
 'use strict';
 
-function createIhtiyatStore({ key, getWorkspace, openWorkspace, paint, newWriteId }) {
+function createIhtiyatStore({ key, getWorkspace, openWorkspace, closeWorkspace, accessChanged, paint, newWriteId }) {
   const hosted = /^https?:$/.test(location.protocol);
   const endpoint = '/api/ihtiyat';
   const draftPrefix = key + ':draft:';
@@ -20,17 +20,19 @@ function createIhtiyatStore({ key, getWorkspace, openWorkspace, paint, newWriteI
   let switchingAccount = false;
   let timer;
   let localFailed = false;
+  let access = hosted ? 'checking' : 'site_required';
 
   const store = {
-    status: hosted ? 'checking' : 'local',
+    status: 'checking',
+    get access() { return access; },
+    get hasAccess() { return access === 'granted'; },
     get localFailed() { return localFailed; },
     get hasPending() { return !!pending; },
     get hasConflict() { return !!conflict; },
     get hasOwner() { return !!owner; },
-    get canImport() { return !!owner && revision === 0 && !pending && !!legacyWorkspace(); },
+    get canImport() { return store.hasAccess && !!owner && revision === 0 && !pending && !!legacyWorkspace(); },
     start,
     save,
-    openLocal: () => { if (!owner && !getWorkspace()) openLocal(); },
     retry: () => sync(true),
     importLegacy,
     recoverDraft,
@@ -78,7 +80,7 @@ function createIhtiyatStore({ key, getWorkspace, openWorkspace, paint, newWriteI
   }
 
   function latestDraft() {
-    if (!owner || pending) return null;
+    if (!store.hasAccess || !owner || pending) return null;
     let newest = null;
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -102,10 +104,6 @@ function createIhtiyatStore({ key, getWorkspace, openWorkspace, paint, newWriteI
 
   function persist() {
     const workspace = getWorkspace();
-    if (!owner) {
-      localFailed = !write(localStorage, key, workspace);
-      return;
-    }
     write(sessionStorage, devicePrefix + owner, deviceState(workspace));
     if (workspace.demo) {
       localFailed = !write(sessionStorage, devicePrefix + owner + ':demo', workspace);
@@ -122,20 +120,31 @@ function createIhtiyatStore({ key, getWorkspace, openWorkspace, paint, newWriteI
     paint();
   }
 
-  function openLocal() {
-    const legacy = read(localStorage, key);
-    openWorkspace(valid(legacy) ? legacy : null, deviceState(legacy));
+  function setAccess(next) {
+    if (access === next) return;
+    if (store.hasAccess && next !== 'granted') document.activeElement?.blur();
+    access = next;
+    accessChanged();
+  }
+
+  function denyAccess(reason) {
+    setAccess(reason);
+    if (!owner) return;
+    clearTimeout(timer);
+    owner = null;
+    revision = 0;
+    pending = null;
+    attempted = null;
+    conflict = null;
+    localFailed = false;
+    closeWorkspace();
   }
 
   function start() {
-    if (!hosted) {
-      openLocal();
-      return;
-    }
-    if (!navigator.onLine && read(sessionStorage, key + ':scope') === 'guest') openLocal();
+    if (!hosted) return;
     void sync(true);
     window.addEventListener('online', () => void sync(true));
-    window.addEventListener('offline', () => setStatus('offline'));
+    window.addEventListener('offline', () => setAccess('offline'));
     window.addEventListener('pageshow', event => { if (event.persisted) void sync(true); });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') void sync(true);
@@ -146,18 +155,17 @@ function createIhtiyatStore({ key, getWorkspace, openWorkspace, paint, newWriteI
       }
     });
     setInterval(() => {
-      if (owner && document.visibilityState === 'visible'
-          && !document.activeElement?.matches('input, textarea, select, [contenteditable]')) void sync(true);
+      if (owner && document.visibilityState === 'visible') void sync(true);
     }, 30000);
   }
 
   function save() {
-    if (switchingAccount) return;
+    if (!store.hasAccess || !owner || switchingAccount) return;
     const workspace = getWorkspace();
     workspace.updatedAt = Date.now();
-    if (owner && !workspace.demo) pending = newWriteId();
+    if (!workspace.demo) pending = newWriteId();
     persist();
-    if (!owner || workspace.demo || conflict) {
+    if (workspace.demo || conflict) {
       paint();
       return;
     }
@@ -188,20 +196,15 @@ function createIhtiyatStore({ key, getWorkspace, openWorkspace, paint, newWriteI
   }
 
   function changeOwner(remote) {
-    owner = remote?.ownerId ?? null;
+    owner = remote.ownerId;
     pending = null;
     attempted = null;
     conflict = null;
-    revision = remote?.revision ?? 0;
+    revision = remote.revision;
     localFailed = false;
-    if (!owner) {
-      write(sessionStorage, key + ':scope', 'guest');
-      openLocal();
-      return;
-    }
-    write(sessionStorage, key + ':scope', 'account');
     const previousKey = previousTabId ? accountPrefix() + previousTabId : null;
-    const draft = previousKey ? readDraft(previousKey) : null;
+    const currentDraft = readDraft(draftKey());
+    const draft = currentDraft ?? (previousKey ? readDraft(previousKey) : null);
     previousTabId = null;
     if (draft) {
       revision = draft.revision;
@@ -210,12 +213,13 @@ function createIhtiyatStore({ key, getWorkspace, openWorkspace, paint, newWriteI
     }
     const demo = remote.revision === 0 ? read(sessionStorage, devicePrefix + owner + ':demo') : null;
     openCloud(draft?.workspace ?? remote.workspace ?? (valid(demo) ? demo : null));
-    if (draft) keepDraft(previousKey, draft);
+    if (draft && !currentDraft) keepDraft(previousKey, draft);
     if (!localFailed) write(sessionStorage, key + ':tab', tabId);
   }
 
   function reloadForAccountChange() {
     switchingAccount = true;
+    setAccess('checking');
     location.reload();
   }
 
@@ -283,39 +287,45 @@ function createIhtiyatStore({ key, getWorkspace, openWorkspace, paint, newWriteI
   }
 
   async function sync(checkRemote, discard = false) {
-    if (switchingAccount) return;
+    if (!hosted || switchingAccount) return;
     if (active) {
       queued = true;
       checkAgain ||= checkRemote;
       return;
     }
     if (!navigator.onLine) {
-      setStatus('offline');
+      setAccess('offline');
       return;
     }
     active = true;
     const previousOwner = owner;
     const discardWrite = discard ? pending : null;
     try {
-      if (checkRemote || attempted || !owner) {
+      if (checkRemote || attempted || !owner || !store.hasAccess) {
         const remote = await fetchRemote();
+        if (!navigator.onLine) {
+          setAccess('offline');
+          return;
+        }
         applyRemote(remote, discard && previousOwner === remote.ownerId && pending === discardWrite);
+        if (switchingAccount) return;
+        setAccess('granted');
       }
-      if (switchingAccount) return;
       await push();
       if (switchingAccount) return;
       setStatus(conflict ? 'conflict' : pending ? 'saving' : revision ? 'saved' : 'ready');
     } catch (error) {
       if (error.status === 401) {
-        if (owner) {
-          reloadForAccountChange();
-          return;
-        }
-        if (!getWorkspace()) changeOwner(null);
-        write(sessionStorage, key + ':scope', 'guest');
-        setStatus('guest');
+        denyAccess('guest');
+      } else if (error.status === 403 && ['subscription_required', 'account_stopped'].includes(error.message)) {
+        denyAccess(error.message);
+      } else if (!navigator.onLine) {
+        setAccess('offline');
+      } else if (error.status === 413) {
+        setStatus('large');
       } else {
-        setStatus(error.status === 413 ? 'large' : 'error');
+        setStatus('error');
+        setAccess('error');
       }
     } finally {
       active = false;
@@ -353,7 +363,7 @@ function createIhtiyatStore({ key, getWorkspace, openWorkspace, paint, newWriteI
   }
 
   function useRemote() {
-    if (conflict && !active) void sync(true, true);
+    if (store.hasAccess && conflict && !active) void sync(true, true);
   }
 
   return store;

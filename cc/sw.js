@@ -1,11 +1,11 @@
 /* الاحتياط الذكي — عامل الخدمة: يتيح التثبيت والعمل دون اتصال */
 var CACHE_PREFIX = 'ihtiyat-';
-var CACHE = CACHE_PREFIX + 'v5';
+var CACHE = CACHE_PREFIX + 'v6';
 var SCOPE = new URL(self.registration.scope);
 var APP_PAGE = new URL('index.html', SCOPE);
 var TEMPLATE_FILE = 'teacher-timetable-template.xlsx';
 var TEMPLATE_URL = new URL(TEMPLATE_FILE, SCOPE).href;
-var SHELL = ['index.html', 'store.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-512-maskable.png', 'apple-touch-icon.png', TEMPLATE_FILE];
+var SHELL = ['index.html', 'store.js?v=6', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-512-maskable.png', 'apple-touch-icon.png', TEMPLATE_FILE];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));

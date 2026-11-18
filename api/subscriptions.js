@@ -719,6 +719,30 @@ function boardSubscriptionActive(row, now) {
   return subscriptionGrades(row).some(grade => lessonGrades.has(normalizeGradeKey(grade)));
 }
 
+export async function readPreparationSubscription(userId) {
+  if (!sql) throw new Error("Subscription database unavailable");
+  await ensureAccountStopSchema();
+  const rows = await sql`
+    SELECT u.id, COALESCE(NULLIF(BTRIM(u.profile->>'name'), ''),
+      NULLIF(BTRIM(u.profile->>'full_name'), ''), NULLIF(BTRIM(u.profile->>'fullName'), ''), '') AS name,
+      s.status, s.account_stopped, s.grade, s.grades, s.subjects
+    FROM teacher_users u
+    LEFT JOIN teacher_subscriptions s ON s.user_id = u.id OR (
+      STRPOS(u.contact_norm, '@') > 0 AND LOWER(s.user_id) = LOWER(u.contact_norm)
+      AND NOT EXISTS (SELECT 1 FROM teacher_users owner WHERE owner.id = s.user_id AND owner.id <> u.id)
+    )
+    WHERE u.id = ${userId};
+  `;
+  if (!rows.length) return { status: 401, error: "sign_in_required" };
+  if (rows.some(row => row.account_stopped)) return { status: 403, error: "account_stopped" };
+  const teacher = { id: rows[0].id, name: rows[0].name };
+  const now = Date.now();
+  if (!rows.some(row => boardSubscriptionActive(row, now))) {
+    return { status: 403, error: "subscription_required", teacher };
+  }
+  return { status: 200, teacher };
+}
+
 async function boardAccess(req, res, workspace = false) {
   res.setHeader("Cache-Control", "private, no-store");
   if (req.method !== "GET" && !(workspace && req.method === "POST")) {
@@ -730,25 +754,8 @@ async function boardAccess(req, res, workspace = false) {
   try {
     const session = await readTeacherSession(req, res);
     if (!session) return send(res, 401, { error: "sign_in_required" });
-    const userId = session.userId;
-    if (!sql) return unavailable();
-    await ensureAccountStopSchema();
-    const rows = await sql`
-      SELECT u.id, COALESCE(NULLIF(BTRIM(u.profile->>'name'), ''),
-        NULLIF(BTRIM(u.profile->>'full_name'), ''), NULLIF(BTRIM(u.profile->>'fullName'), ''), '') AS name,
-        s.status, s.account_stopped, s.grade, s.grades, s.subjects
-      FROM teacher_users u
-      LEFT JOIN teacher_subscriptions s ON s.user_id = u.id OR (
-        STRPOS(u.contact_norm, '@') > 0 AND LOWER(s.user_id) = LOWER(u.contact_norm)
-        AND NOT EXISTS (SELECT 1 FROM teacher_users owner WHERE owner.id = s.user_id AND owner.id <> u.id)
-      )
-      WHERE u.id = ${userId};
-    `;
-    if (!rows.length) return send(res, 401, { error: "sign_in_required" });
-    if (rows.some(row => row.account_stopped)) return send(res, 403, { error: "account_stopped" });
-    const now = Date.now();
-    if (!rows.some(row => boardSubscriptionActive(row, now))) return send(res, 403, { error: "subscription_required" });
-    const teacher = { id: rows[0].id, name: rows[0].name };
+    const { status, error, teacher } = await readPreparationSubscription(session.userId);
+    if (status !== 200) return send(res, status, { error });
     return workspace ? await boardWorkspace(req, res, teacher) : send(res, 200, { teacher });
   } catch {
     return unavailable();
@@ -773,28 +780,14 @@ async function certificatesAccess(req, res, action) {
   try {
     const session = await readTeacherSession(req, res);
     if (!session) return send(res, 401, { error: "sign_in_required" });
-    if (!sql) return unavailable();
-    await ensureAccountStopSchema();
-    const rows = await sql`
-      SELECT u.id, COALESCE(NULLIF(BTRIM(u.profile->>'name'), ''),
-        NULLIF(BTRIM(u.profile->>'full_name'), ''), NULLIF(BTRIM(u.profile->>'fullName'), ''), '') AS name,
-        s.status, s.account_stopped, s.grade, s.grades, s.subjects
-      FROM teacher_users u
-      LEFT JOIN teacher_subscriptions s ON s.user_id = u.id OR (
-        STRPOS(u.contact_norm, '@') > 0 AND LOWER(s.user_id) = LOWER(u.contact_norm)
-        AND NOT EXISTS (SELECT 1 FROM teacher_users owner WHERE owner.id = s.user_id AND owner.id <> u.id)
-      )
-      WHERE u.id = ${session.userId};
-    `;
-    if (!rows.length) return send(res, 401, { error: "sign_in_required" });
-    teacher = { id: rows[0].id, name: rows[0].name };
-    if (rows.some(row => row.account_stopped)) return send(res, 403, { error: "account_stopped" });
-    const now = Date.now();
-    if (!rows.some(row => boardSubscriptionActive(row, now))) {
+    const access = await readPreparationSubscription(session.userId);
+    teacher = access.teacher;
+    if (access.error === "subscription_required") {
       // المشاريع لا تُحذف عند انتهاء الاشتراك؛ نُعلم المعلّم بعددها فقط دون فتحها.
       const savedProjects = action === "certificates_access" ? await certificateStudio.savedProjectCount(teacher.id) : 0;
       return send(res, 403, { error: "subscription_required", savedProjects });
     }
+    if (access.status !== 200) return send(res, access.status, { error: access.error });
   } catch {
     return unavailable();
   }

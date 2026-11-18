@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { isTeacherSessionOrigin, readTeacherSession } from "../enjazy/server_api/_lib/teacher-session.js";
+import { readPreparationSubscription } from "./subscriptions.js";
 
 const maxBodyBytes = 4 * 1024 * 1024;
 const invalidJsonText = /[\u0000\uD800-\uDFFF]/u;
@@ -73,7 +74,7 @@ async function readPayload(req) {
   return { payload: JSON.parse(Buffer.concat(chunks).toString("utf8")) };
 }
 
-export function createIhtiyatHandler(sql, readSession = readTeacherSession) {
+export function createIhtiyatHandler(sql, readSession = readTeacherSession, readSubscription = readPreparationSubscription) {
   let schemaPromise;
 
   function ensureSchema() {
@@ -167,6 +168,19 @@ export function createIhtiyatHandler(sql, readSession = readTeacherSession) {
     try {
       const account = await readSession(req, res);
       if (!isId(account?.userId)) return res.status(401).json({ error: "sign_in_required" });
+
+      let access;
+      try {
+        access = await readSubscription(account.userId);
+      } catch {
+        return res.status(503).json({ error: "subscription_check_unavailable" });
+      }
+      if (access?.status === 401) return res.status(401).json({ error: "sign_in_required" });
+      if (access?.status === 403 && ["subscription_required", "account_stopped"].includes(access.error)) {
+        return res.status(403).json({ error: access.error });
+      }
+      if (access?.status !== 200) return res.status(503).json({ error: "subscription_check_unavailable" });
+
       return req.method === "GET"
         ? await loadWorkspace(res, account.userId)
         : await saveWorkspace(req, res, account.userId);
