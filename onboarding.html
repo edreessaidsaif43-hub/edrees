@@ -51,11 +51,26 @@
         const session=getSession();
         const user=document.getElementById('signed-user');
         if(user)user.textContent=session?'تم تسجيل الدخول. أكمل الخطوات التالية للبدء.':'ابدأ من الخطوة الأولى لتفعيل حسابك.';
-        document.querySelector('[data-step="1"]')?.classList.toggle('done',Boolean(session));
-        document.querySelector('[data-step="2"]')?.classList.toggle('done',isComplete('subscription'));
-        document.querySelector('[data-step="3"]')?.classList.toggle('done',isComplete('extension'));
-        document.querySelector('[data-step="4"]')?.classList.toggle('done',isComplete('browse'));
-        document.querySelectorAll('[data-progress]').forEach(item=>{const n=item.dataset.progress;const done=n==='1'?Boolean(session):isComplete({2:'subscription',3:'extension',4:'browse'}[n]);item.classList.toggle('done',done);});
+        const completed={
+          1:Boolean(session),
+          2:isComplete('subscription'),
+          3:isComplete('extension'),
+          4:isComplete('browse')
+        };
+        const pendingLabels={
+          1:'مطلوب أولًا',
+          2:'بعد تسجيل الدخول',
+          3:'بعد الاشتراك',
+          4:'آخر خطوة'
+        };
+        document.querySelectorAll('[data-step]').forEach(card=>{
+          const step=card.dataset.step;
+          const done=Boolean(completed[step]);
+          card.classList.toggle('done',done);
+          const status=card.querySelector('.step-status');
+          if(status)status.textContent=done?'✓ تم':pendingLabels[step];
+        });
+        document.querySelectorAll('[data-progress]').forEach(item=>{const n=item.dataset.progress;item.classList.toggle('done',Boolean(completed[n]));});
       };
       document.querySelectorAll('[data-complete]').forEach(link=>link.addEventListener('click',()=>{setComplete(link.dataset.complete);setTimeout(refresh,50);}));
       document.querySelectorAll('[data-browser]').forEach(link=>{if(link.dataset.browser==='firefox'&&!/Firefox\/|FxiOS\//i.test(navigator.userAgent||''))link.classList.add('secondary');});
