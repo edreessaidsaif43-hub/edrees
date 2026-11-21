@@ -203,7 +203,7 @@
       body { padding-bottom: 20px; }
     }
   </style>
-<link rel="stylesheet" href="../assets/site-navbar.css?v=2">
+<link rel="stylesheet" href="../assets/site-navbar.css?v=3">
 </head>
 <body>
   <!-- ===== NAVBAR COPIED FROM INDEX START ===== -->
@@ -642,6 +642,13 @@
       }
     }
 
+    function redirectNewUserToOnboarding() {
+      const target = window.location.protocol === "file:"
+        ? new URL("../onboarding.html", window.location.href).href
+        : "/onboarding.html";
+      window.location.href = target;
+    }
+
     async function fetchApiWithFallback(path, options = {}) {
       let last404 = null;
       let lastError = null;
@@ -748,9 +755,9 @@
           password
         })
       });
-      const nextSession = persistSession(out);
+      persistSession(out);
       showMessage("تم إنشاء الحساب بنجاح. جارٍ التحويل...", true);
-      redirectAfterAuth(nextSession);
+      redirectNewUserToOnboarding();
     }
 
 

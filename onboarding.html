@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ابدأ استخدام المنصة | التحضير الذكي</title>
+  <link rel="stylesheet" href="assets/site-navbar.css?v=3">
+  <style>
+    :root{font-family:Tajawal,Tahoma,Arial,sans-serif;color:#173849;background:#f5fbfa}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:linear-gradient(180deg,#edf9f6 0,#f7fbff 52%,#fff 100%)}
+    .onboarding-page{max-width:1050px;margin:auto;padding:34px 18px 60px}
+    .back-link{display:inline-flex;align-items:center;gap:8px;color:#0f766e;text-decoration:none;font-weight:800;min-height:42px}.back-link:hover{text-decoration:underline}
+    .hero{display:grid;grid-template-columns:1.15fr .85fr;gap:22px;align-items:center;margin:20px 0 26px;padding:26px;border-radius:24px;background:linear-gradient(135deg,#0f766e,#164e63);color:#fff;box-shadow:0 20px 44px rgba(15,118,110,.18)}
+    .hero h1{margin:0 0 10px;font-size:clamp(1.75rem,4vw,2.8rem);font-weight:900;line-height:1.2}.hero p{margin:0;color:rgba(255,255,255,.8);line-height:1.9;font-size:14px}.hero-badge{display:flex;align-items:center;justify-content:center;min-height:150px;border:1px solid rgba(255,255,255,.2);border-radius:20px;background:rgba(255,255,255,.1);font-size:4rem}
+    .progress{display:flex;align-items:center;gap:0;margin:0 0 22px;padding:0;list-style:none}.progress li{display:flex;align-items:center;gap:7px;flex:1;color:#78908e;font-size:11px;font-weight:900}.progress li:not(:last-child)::after{content:'';height:2px;flex:1;margin:0 8px;background:#d4e5e1}.progress .number{display:flex;align-items:center;justify-content:center;flex:0 0 30px;width:30px;height:30px;border-radius:50%;background:#e4f1ee;color:#0f766e}.progress li.done{color:#0f766e}.progress li.done .number{background:#0f766e;color:#fff}.progress li.done:not(:last-child)::after{background:#8bc9bd}
+    .steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.step-card{display:flex;flex-direction:column;min-height:250px;padding:20px;border:1px solid #d9e8e4;border-radius:20px;background:#fff;box-shadow:0 14px 30px rgba(23,56,73,.06);position:relative}.step-card.done{border-color:#a7d8c9;background:#fbfffd}.step-head{display:flex;align-items:flex-start;gap:12px}.step-number{display:flex;align-items:center;justify-content:center;flex:0 0 42px;width:42px;height:42px;border-radius:14px;background:#eaf6f3;color:#0f766e;font-size:18px;font-weight:900}.step-card.done .step-number{background:#0f766e;color:#fff}.step-card h2{margin:0 0 5px;color:#173849;font-size:1.1rem;font-weight:900}.step-card p{margin:0;color:#667c80;font-size:13px;line-height:1.8}.step-status{display:inline-flex;align-self:flex-start;margin:15px 0 10px;padding:5px 9px;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:11px;font-weight:900}.step-card.done .step-status{background:#dcfce7;color:#166534}.step-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}.step-action{display:inline-flex;align-items:center;justify-content:center;min-height:43px;padding:9px 13px;border-radius:10px;background:#0f766e;color:#fff;text-decoration:none;font-size:12px;font-weight:900}.step-action.secondary{background:#edf6f4;color:#17645f;border:1px solid #c5e0da}.step-action:hover,.step-action:focus-visible{filter:brightness(.96);outline:3px solid rgba(15,118,110,.18);outline-offset:2px}.extension-actions{display:flex;flex-wrap:wrap;gap:8px}.extension-actions .step-action{background:#1a56a0}.extension-actions .step-action.secondary{background:#fff;color:#174ea6;border-color:#bfdbfe}.signed-user{margin-top:16px;padding:11px 13px;border-radius:11px;background:#eff6ff;border:1px solid #bfdbfe;color:#174ea6;font-size:12px;font-weight:800}.signed-user:empty{display:none}
+    @media(max-width:800px){.hero{grid-template-columns:1fr}.hero-badge{min-height:90px}.steps{grid-template-columns:1fr}.progress{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.progress li{display:flex;flex-direction:column;text-align:center;gap:5px}.progress li:not(:last-child)::after{display:none}}
+    @media(max-width:520px){.onboarding-page{padding:24px 14px 44px}.hero{padding:20px}.hero-badge{font-size:3rem}.progress li{font-size:10px}.step-card{padding:17px}}
+  </style>
+</head>
+<body>
+  <main class="onboarding-page">
+    <a class="back-link" href="index.html">→ العودة إلى الصفحة الرئيسية</a>
+    <section class="hero" aria-labelledby="onboarding-title">
+      <div><h1 id="onboarding-title">مرحبًا بك في التحضير الذكي</h1><p>اتبع الخطوات بالترتيب حتى تبدأ استخدام التحضير ومنصة نور بسهولة.</p><div class="signed-user" id="signed-user"></div></div>
+      <div class="hero-badge" aria-hidden="true">🚀</div>
+    </section>
+    <ol class="progress" aria-label="مراحل بدء الاستخدام">
+      <li data-progress="1"><span class="number">1</span><span>تسجيل الدخول</span></li>
+      <li data-progress="2"><span class="number">2</span><span>الاشتراك</span></li>
+      <li data-progress="3"><span class="number">3</span><span>تثبيت الأداة</span></li>
+      <li data-progress="4"><span class="number">4</span><span>تصفح الموقع</span></li>
+    </ol>
+    <section class="steps" aria-label="خطوات المستخدم الجديد">
+      <article class="step-card" data-step="1"><div class="step-head"><span class="step-number">1</span><div><h2>سجّل الدخول أو أنشئ حسابًا</h2><p>ابدأ بتسجيل الدخول حتى يتم حفظ اشتراكاتك وموادك.</p></div></div><span class="step-status">مطلوب أولًا</span><div class="step-actions"><a class="step-action" href="enjazy/auth.html?mode=login&return=%2Fonboarding.html">تسجيل الدخول</a><a class="step-action secondary" href="enjazy/auth.html?mode=register&return=%2Fonboarding.html">إنشاء حساب</a></div></article>
+      <article class="step-card" data-step="2"><div class="step-head"><span class="step-number">2</span><div><h2>اشترك في المواد</h2><p>اختر الصف والمواد، ثم حوّل قيمة الاشتراك وارفع صورة الإيصال.</p></div></div><span class="step-status">بعد تسجيل الدخول</span><div class="step-actions"><a class="step-action" href="subscription.html" data-complete="subscription">فتح صفحة الاشتراك</a></div></article>
+      <article class="step-card" data-step="3"><div class="step-head"><span class="step-number">3</span><div><h2>ثبّت أداة التعبئة</h2><p>الأداة تساعد على ظهور أزرار تعبئة التحضير داخل منصة نور.</p></div></div><span class="step-status">بعد الاشتراك</span><div class="step-actions extension-actions"><a class="step-action" data-browser="chrome" href="https://chromewebstore.google.com/detail/%D8%AA%D8%B9%D8%A8%D8%A6%D8%A9-%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%AF%D8%B1%D9%88%D8%B3-%D9%86%D9%88%D8%B1/fgdlajfbjmobhaeabmgdfgmecpjjlmng" target="_blank" rel="noopener noreferrer" data-complete="extension">تنزيل أداة كروم</a><a class="step-action secondary" data-browser="firefox" href="https://addons.mozilla.org/en-US/firefox/addon/%D8%A7%D9%84%D8%AA%D8%AD%D8%B6%D9%8A%D8%B1-%D8%A7%D9%84%D8%B0%D9%83%D9%8A-%D9%84%D9%84%D9%85%D8%B9%D9%84%D9%85-%D8%A7%D9%84%D8%B9%D9%85%D8%A7%D9%86%D9%8A/" target="_blank" rel="noopener noreferrer" data-complete="extension">تنزيل أداة فايرفوكس</a></div></article>
+      <article class="step-card" data-step="4"><div class="step-head"><span class="step-number">4</span><div><h2>ابدأ تصفح الموقع</h2><p>بعد إكمال الخطوات يمكنك استخدام التحضير اليدوي والذكاء الاصطناعي وبقية الخدمات.</p></div></div><span class="step-status">آخر خطوة</span><div class="step-actions"><a class="step-action" href="index.html" data-complete="browse">تصفح الموقع</a><a class="step-action secondary" href="t.html">تحضير الدروس</a></div></article>
+    </section>
+  </main>
+  <script src="assets/site-navbar.js?v=5"></script>
+  <script>
+    (function(){
+      const sessionKeys=['lesson_platform_backend_session_v1','enjazy_session_v1'];
+      const getSession=()=>{for(const key of sessionKeys){try{const value=JSON.parse(localStorage.getItem(key)||'null');if(value?.userId)return value;}catch(e){}}return null;};
+      const setComplete=key=>{if(key)localStorage.setItem('onboarding_complete_'+key,'1');};
+      const isComplete=key=>localStorage.getItem('onboarding_complete_'+key)==='1';
+      const refresh=()=>{
+        const session=getSession();
+        const user=document.getElementById('signed-user');
+        if(user)user.textContent=session?'تم تسجيل الدخول. أكمل الخطوات التالية للبدء.':'ابدأ من الخطوة الأولى لتفعيل حسابك.';
+        document.querySelector('[data-step="1"]')?.classList.toggle('done',Boolean(session));
+        document.querySelector('[data-step="2"]')?.classList.toggle('done',isComplete('subscription'));
+        document.querySelector('[data-step="3"]')?.classList.toggle('done',isComplete('extension'));
+        document.querySelector('[data-step="4"]')?.classList.toggle('done',isComplete('browse'));
+        document.querySelectorAll('[data-progress]').forEach(item=>{const n=item.dataset.progress;const done=n==='1'?Boolean(session):isComplete({2:'subscription',3:'extension',4:'browse'}[n]);item.classList.toggle('done',done);});
+      };
+      document.querySelectorAll('[data-complete]').forEach(link=>link.addEventListener('click',()=>{setComplete(link.dataset.complete);setTimeout(refresh,50);}));
+      document.querySelectorAll('[data-browser]').forEach(link=>{if(link.dataset.browser==='firefox'&&!/Firefox\/|FxiOS\//i.test(navigator.userAgent||''))link.classList.add('secondary');});
+      refresh();
+      window.addEventListener('storage',refresh);
+    })();
+  </script>
+</body>
+</html>

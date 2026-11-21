@@ -19,7 +19,7 @@
     .subscription-step{display:flex;align-items:flex-start;gap:9px;min-height:82px;padding:12px;border:1px solid #dbe7f5;border-radius:13px;background:#fff;box-shadow:0 8px 18px rgba(15,23,42,.04)}
     .step-number{display:flex;align-items:center;justify-content:center;flex:0 0 28px;width:28px;height:28px;border-radius:50%;background:#0f766e;color:#fff;font-size:13px;font-weight:900}
     .subscription-step strong{display:block;color:#163b72;font-size:12px;margin-bottom:3px}.subscription-step span:last-child{display:block;color:#64748b;font-size:11px;line-height:1.55}
-    .login-note{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px;padding:11px 13px;border:1px solid #bfdbfe;border-radius:11px;background:#eff6ff;color:#174ea6;font-size:12px;font-weight:800;line-height:1.7}.login-action{border:0;border-radius:8px;padding:8px 12px;background:#1a56a0;color:#fff;font:900 12px Tajawal,Tahoma,Arial,sans-serif;cursor:pointer;white-space:nowrap}
+    .login-note{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px;padding:11px 13px;border:1px solid #bfdbfe;border-radius:11px;background:#eff6ff;color:#174ea6;font-size:12px;font-weight:800;line-height:1.7}.login-note.logged-in{border-color:#b7e4c7;background:#f0fdf4;color:#166534}.login-action{border:0;border-radius:8px;padding:8px 12px;background:#1a56a0;color:#fff;font:900 12px Tajawal,Tahoma,Arial,sans-serif;cursor:pointer;white-space:nowrap}.logged-in-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:#dcfce7;color:#166534;font-size:11px;font-weight:900;white-space:nowrap}
     .subscription-section{padding:18px;border:1px solid #fed7aa;border-radius:18px;background:#fff7ed;box-shadow:0 16px 34px rgba(15,23,42,.07)}
     .page-section-label{display:flex;align-items:center;gap:8px;margin-bottom:12px;color:#9a3412;font-size:1.05rem;font-weight:900}
     .subscription-card{background:#fff;border:1px solid #dbe7f5;border-radius:14px;padding:18px;box-shadow:0 8px 24px rgba(15,23,42,.06);direction:rtl;text-align:right}
@@ -50,7 +50,7 @@
       <div class="page-section-label" id="subscription-section-title"><span aria-hidden="true">💳</span> الاشتراك</div>
       <div class="subscription-card" id="subscription-card">
         <div class="subscription-head"><div class="subscription-title">اشتراك المواد</div><div class="subscription-badge" id="subscription-badge">2 ريال لكل مادة</div></div>
-        <div class="login-note"><span>لإرسال الإيصال يجب تسجيل الدخول أولًا.</span><button class="login-action" type="button" onclick="goUnifiedAuth('login')">تسجيل الدخول / إنشاء حساب</button></div>
+        <div class="login-note" id="subscription-login-note"><span id="subscription-login-text">لإرسال الإيصال يجب تسجيل الدخول أولًا.</span><button class="login-action" id="subscription-login-action" type="button" onclick="goUnifiedAuth('login')">تسجيل الدخول / إنشاء حساب</button></div>
         <div class="subscription-text" id="subscription-text">بعد التحويل إلى <span class="transfer-number">91470590</span> اختر الصف والمواد ثم ارفع صورة الإيصال. الاشتراك ينتهي في 10/06 من كل سنة.</div>
         <div class="subscription-form">
           <div><label for="subscription-grade">الخطوة 2: اختر الصف</label><select id="subscription-grade" onchange="fillSubscriptionSubjectOptions()"></select></div>
@@ -73,10 +73,37 @@
   <script src="game/subscriptions.js?v=subscription-page"></script>
   <script src="assets/site-navbar.js?v=5"></script>
   <script>
+    function updateSubscriptionLoginNote(){
+      const note=document.getElementById('subscription-login-note');
+      const text=document.getElementById('subscription-login-text');
+      const action=document.getElementById('subscription-login-action');
+      if(!note||!text)return;
+      let session=null;
+      for(const key of ['lesson_platform_backend_session_v1','enjazy_session_v1']){
+        try{const raw=localStorage.getItem(key);const parsed=raw?JSON.parse(raw):null;if(parsed?.userId){session=parsed;break;}}catch(e){}
+      }
+      if(session){
+        const name=String(session.full_name||session.name||'').trim();
+        text.textContent=name?'تم تسجيل الدخول باسم '+name+'، يمكنك الآن إرسال الإيصال.':'تم تسجيل الدخول، يمكنك الآن إرسال الإيصال.';
+        note.classList.add('logged-in');
+        if(action)action.outerHTML='<span class="logged-in-badge">✓ الحساب مسجل</span>';
+      }else{
+        text.textContent='لإرسال الإيصال يجب تسجيل الدخول أولًا.';
+        note.classList.remove('logged-in');
+        if(!document.getElementById('subscription-login-action'))note.insertAdjacentHTML('beforeend','<button class="login-action" id="subscription-login-action" type="button" onclick="goUnifiedAuth(\'login\')">تسجيل الدخول / إنشاء حساب</button>');
+      }
+    }
     (function(){
       const grades = [...new Set(D.map(row => row['1']).filter(Boolean))];
       fillSubscriptionGradeOptions(grades);
       refreshSubscriptionStatus();
+      updateSubscriptionLoginNote();
+      const noteObserver=new MutationObserver(updateSubscriptionLoginNote);
+      const navUser=document.getElementById('nav-user-area');
+      if(navUser)noteObserver.observe(navUser,{childList:true,subtree:true});
+      window.addEventListener('storage',updateSubscriptionLoginNote);
+      let checks=0;
+      const timer=setInterval(()=>{updateSubscriptionLoginNote();if(++checks>=12)clearInterval(timer);},500);
     })();
   </script>
 </body>
