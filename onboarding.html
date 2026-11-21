@@ -42,6 +42,7 @@
   <script src="assets/site-navbar.js?v=5"></script>
   <script>
     (function(){
+      try{localStorage.setItem('altahdir_onboarding_seen_v1','1');}catch(e){}
       const sessionKeys=['lesson_platform_backend_session_v1','enjazy_session_v1'];
       const getSession=()=>{for(const key of sessionKeys){try{const value=JSON.parse(localStorage.getItem(key)||'null');if(value?.userId)return value;}catch(e){}}return null;};
       const setComplete=key=>{if(key)localStorage.setItem('onboarding_complete_'+key,'1');};

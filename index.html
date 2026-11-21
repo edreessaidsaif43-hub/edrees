@@ -3,6 +3,26 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <script>
+    (function () {
+      const onboardingSeenKey = 'altahdir_onboarding_seen_v1';
+      const sessionKeys = ['lesson_platform_backend_session_v1', 'enjazy_session_v1'];
+      const hasSession = sessionKeys.some(function (key) {
+        try {
+          const value = JSON.parse(localStorage.getItem(key) || 'null');
+          return Boolean(value && value.userId);
+        } catch (error) {
+          return false;
+        }
+      });
+      if (hasSession || localStorage.getItem(onboardingSeenKey) === '1') return;
+      localStorage.setItem(onboardingSeenKey, '1');
+      const target = window.location.protocol === 'file:'
+        ? new URL('onboarding.html', window.location.href).href
+        : '/onboarding.html';
+      window.location.replace(target);
+    })();
+  </script>
   <title>التحضير الذكي للمعلم العماني</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
