@@ -43,6 +43,17 @@
     .noor-tool-link{display:inline-flex;align-items:center;justify-content:center;min-height:42px;margin-top:12px;padding:10px 14px;border-radius:12px;background:var(--card-accent,#0f3d9e);color:#fff;text-decoration:none;font-size:.84rem;font-weight:900;box-shadow:0 10px 22px color-mix(in srgb, var(--card-accent,#0f3d9e) 22%, transparent)}
     .noor-coming-soon{display:inline-flex;margin-top:12px;padding:9px 12px;border-radius:999px;background:rgba(255,255,255,.72);border:1px solid rgba(214,225,238,.9);font-size:.78rem;font-weight:900;color:#526b86}
     @media(max-width:900px){.noor-device-grid{grid-template-columns:1fr}}
+    .guide-sections{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:6px 0 24px}
+    .guide-section-link{display:flex;align-items:center;gap:10px;min-height:72px;padding:13px 14px;border:1px solid #d6e5e3;border-radius:15px;background:#fff;color:#174340;text-decoration:none;font-weight:900;box-shadow:0 8px 20px rgba(23,67,64,.05);transition:transform .18s ease,background .18s ease,border-color .18s ease}
+    .guide-section-link:hover,.guide-section-link:focus-visible{transform:translateY(-2px);background:#f7fcfb;border-color:#0f766e;outline:none}
+    .guide-section-icon{font-size:21px;line-height:1}
+    .guide-section-link small{display:block;margin-top:3px;color:#607a77;font-size:.72rem;font-weight:700;line-height:1.5}
+    .guide-related{margin:4px 0 24px;padding:15px;border:1px solid #d6e5e3;border-radius:16px;background:#effbf8}
+    .guide-related h2{font-size:1rem;color:#174340;margin-bottom:10px}
+    .guide-related-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .guide-related-link{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:9px 12px;border-radius:12px;background:#fff;border:1px solid #d6e5e3;color:#174340;text-decoration:none;font-size:.84rem;font-weight:900}
+    .guide-related-link:hover,.guide-related-link:focus-visible{background:#eaf6f3;border-color:#0f766e;outline:none}
+    @media(max-width:680px){.guide-sections{grid-template-columns:1fr}.guide-related-links{grid-template-columns:1fr}}
   </style>
 <link rel="stylesheet" href="assets/site-navbar.css?v=3">
 </head>
@@ -51,6 +62,21 @@
     <a class="guide-back" href="index.html"><span aria-hidden="true">→</span> الصفحة الرئيسية</a>
     <h1>أداة التعبئة وشروحات</h1>
     <p class="guide-intro">روابط تثبيت أداة تعبئة التحضير في منصة نور، وفيديوهات تشرح التسجيل والاشتراك وتحضير الدروس على الحاسب والأندرويد والآيفون والآيباد.</p>
+    <section aria-labelledby="guide-sections-title">
+      <h2 id="guide-sections-title">أقسام البطاقة رقم 1</h2>
+      <div class="guide-sections">
+        <a class="guide-section-link" href="t.html#subscription-section-title"><span class="guide-section-icon" aria-hidden="true">💳</span><span>الاشتراك<small>تفعيل المواد ورفع الإيصال</small></span></a>
+        <a class="guide-section-link" href="#noor-install-title"><span class="guide-section-icon" aria-hidden="true">🧩</span><span>أداة التعبئة<small>تثبيت الأداة والشروحات</small></span></a>
+        <a class="guide-section-link" href="game/index.html#roster-title"><span class="guide-section-icon" aria-hidden="true">👥</span><span>إدراج الطلبة<small>استيراد القائمة من Excel</small></span></a>
+      </div>
+    </section>
+    <section class="guide-related" aria-labelledby="guide-related-title">
+      <h2 id="guide-related-title">الخدمات المدمجة</h2>
+      <div class="guide-related-links">
+        <a class="guide-related-link" href="game/"><span aria-hidden="true">🎮</span><span>الألعاب</span></a>
+        <a class="guide-related-link" href="certificates/"><span aria-hidden="true">🏆</span><span>شهادات التقدير</span></a>
+      </div>
+    </section>
     <section aria-labelledby="noor-install-title">
       <h2 id="noor-install-title">تثبيت أداة التعبئة</h2>
       <div class="noor-device-grid">

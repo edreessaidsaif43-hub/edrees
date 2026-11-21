@@ -621,18 +621,6 @@
     .card-video-panel video{display:block;width:100%;max-height:330px;border-radius:13px;background:#07121f;object-fit:contain}
     .card-video-note{margin:8px 2px 0;color:#60758d;font-size:11px;line-height:1.7}
     @media(max-width:520px){.card-video-actions{gap:7px}.card-video-button{flex:1;justify-content:center;min-width:145px}.card-video-panel video{max-height:390px}}
-    .home-card.details-card>summary{display:flex;flex:1;flex-direction:column;min-width:0;cursor:pointer;list-style:none}
-    .home-card.details-card>summary::-webkit-details-marker{display:none}
-    .home-card.details-card>summary:focus-visible{outline:3px solid color-mix(in srgb,var(--card-accent,#0f3d9e) 48%,#fff);outline-offset:4px;border-radius:18px}
-    .home-card-details{margin-top:18px;padding-top:16px;border-top:1px solid rgba(214,225,238,.86);position:relative;z-index:2}
-    .home-card-details-title{display:block;margin-bottom:10px;color:#18324f;font-size:.82rem;font-weight:900}
-    .home-card-subsection-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-    .home-card-subsection,.home-card-related-link{display:flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:8px 9px;border:1px solid rgba(214,225,238,.95);border-radius:13px;background:rgba(255,255,255,.86);color:#244463;text-decoration:none;text-align:center;font-size:11px;font-weight:900;line-height:1.45;transition:transform .18s ease,background .18s ease,border-color .18s ease}
-    .home-card-subsection:hover,.home-card-subsection:focus-visible,.home-card-related-link:hover,.home-card-related-link:focus-visible{transform:translateY(-2px);background:#fff;border-color:color-mix(in srgb,var(--card-accent,#0f3d9e) 35%,#d6e1ed);outline:none}
-    .home-card-subsection-icon,.home-card-related-icon{font-size:17px;line-height:1}
-    .home-card-related{margin-top:12px}
-    .home-card-related-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-    @media(max-width:520px){.home-card-subsection-grid{grid-template-columns:1fr}.home-card-related-links{grid-template-columns:1fr}}
     .home-band{padding:34px 0}
     .home-band-box{border-radius:28px;padding:26px;background:linear-gradient(135deg,#fff7e8,#ffffff 58%,#eef9f7);border:1px solid rgba(236,202,139,.5);box-shadow:0 18px 40px rgba(10,22,40,.05)}
     .home-band-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:24px;align-items:center}
@@ -834,29 +822,12 @@
       </div>
 
       <div class="home-grid cards-focus-grid">
-        <details class="home-card details-card r" style="--card-accent:#0f766e;--card-soft:#ecfdf5">
-          <summary>
-            <div class="home-card-icon">01</div>
-            <h3>أداة التعبئة وشروحات</h3>
-            <p>روابط الاشتراك وأداة التعبئة وإدراج الطلبة، مع الوصول السريع إلى الألعاب وشهادات التقدير.</p>
-            <div class="home-card-meta"><span>اضغط لعرض الأقسام</span><span>خدمات المعلم</span></div>
-          </summary>
-          <div class="home-card-details">
-            <span class="home-card-details-title">الأقسام الرئيسية</span>
-            <div class="home-card-subsection-grid">
-              <a class="home-card-subsection" href="t.html#subscription-section-title"><span class="home-card-subsection-icon" aria-hidden="true">💳</span><span>الاشتراك</span></a>
-              <a class="home-card-subsection" href="noor-guide.html#noor-install-title"><span class="home-card-subsection-icon" aria-hidden="true">🧩</span><span>أداة التعبئة</span></a>
-              <a class="home-card-subsection" href="game/index.html#roster-title"><span class="home-card-subsection-icon" aria-hidden="true">👥</span><span>إدراج الطلبة</span></a>
-            </div>
-            <div class="home-card-related">
-              <span class="home-card-details-title">الخدمات المدمجة</span>
-              <div class="home-card-related-links">
-                <a class="home-card-related-link" href="game/"><span class="home-card-related-icon" aria-hidden="true">🎮</span><span>الألعاب</span></a>
-                <a class="home-card-related-link" href="certificates/"><span class="home-card-related-icon" aria-hidden="true">🏆</span><span>شهادات التقدير</span></a>
-              </div>
-            </div>
-          </div>
-        </details>
+        <a href="noor-guide.html" class="home-card r" style="--card-accent:#0f766e;--card-soft:#ecfdf5">
+          <div class="home-card-icon">01</div>
+          <h3>أداة التعبئة وشروحات</h3>
+          <p>صفحة مستقلة للاشتراك وأداة التعبئة وإدراج الطلبة، مع الألعاب وشهادات التقدير.</p>
+          <div class="home-card-meta"><span>فتح الأقسام</span><span>خدمات المعلم</span></div>
+        </a>
 
         <div class="home-card wide r" style="--card-accent:#0f3d9e;--card-soft:#eef4ff">
           <a href="/t" class="home-card-main-link">
