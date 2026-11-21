@@ -484,6 +484,13 @@ async function submitSubscriptionRequest() {
     fillSubscriptionSubjectOptions();
     if (typeof applySubscriptionToGrades === 'function') applySubscriptionToGrades();
     if (typeof populateTeacherFilters === 'function') populateTeacherFilters();
+    if (new URLSearchParams(window.location.search).get('from') === 'onboarding') {
+      try { localStorage.setItem('onboarding_complete_subscription', '1'); } catch (error) {}
+      const onboardingUrl = window.location.protocol === 'file:'
+        ? new URL('../onboarding.html', window.location.href).href
+        : '/onboarding.html';
+      setTimeout(() => { window.location.href = onboardingUrl; }, 700);
+    }
   } catch (error) {
     if (typeof showMessage === 'function') showMessage(error.message, 'error');
     else if (typeof showToast === 'function') showToast(error.message, true);
