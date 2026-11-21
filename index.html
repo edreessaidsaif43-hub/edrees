@@ -606,6 +606,21 @@
     .home-card-price span{display:block;font-size:.78rem;font-weight:800;color:#526b86;line-height:1.65}
     .home-card-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
     .home-card-meta span{padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.72);border:1px solid rgba(214,225,238,.88);font-size:11px;font-weight:900;color:#445b76;box-shadow:0 8px 18px rgba(10,22,40,.035)}
+    .home-card-main-link{display:flex;flex:1;flex-direction:column;min-width:0;color:inherit;text-decoration:none}
+    .home-card-main-link:focus-visible{outline:3px solid color-mix(in srgb,var(--card-accent,#0f3d9e) 48%,#fff);outline-offset:4px;border-radius:18px}
+    .card-video-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid rgba(214,225,238,.82);position:relative;z-index:2}
+    .card-video-button{display:inline-flex;align-items:center;gap:7px;border:1px solid color-mix(in srgb,var(--card-accent,#0f3d9e) 24%,#dbe5f0);border-radius:999px;padding:8px 11px;background:rgba(255,255,255,.88);color:var(--card-accent,#0f3d9e);font:800 11px/1 'Tajawal',sans-serif;cursor:pointer;box-shadow:0 8px 16px rgba(10,22,40,.06);transition:transform .18s ease,background .18s ease,box-shadow .18s ease}
+    .card-video-button:hover{transform:translateY(-2px);background:#fff;box-shadow:0 12px 22px rgba(10,22,40,.1)}
+    .card-video-button:focus-visible{outline:3px solid color-mix(in srgb,var(--card-accent,#0f3d9e) 38%,#fff);outline-offset:2px}
+    .card-video-icon{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--card-accent,#0f3d9e);color:#fff;font-size:10px}
+    .card-video-panel{margin-top:12px;padding:12px;border:1px solid rgba(214,225,238,.9);border-radius:18px;background:rgba(248,251,255,.96);position:relative;z-index:2}
+    .card-video-panel[hidden]{display:none}
+    .card-video-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;color:#18324f;font-size:12px;font-weight:900}
+    .card-video-close{border:0;background:transparent;color:#60758d;font:900 11px 'Tajawal',sans-serif;cursor:pointer;padding:5px 7px;border-radius:8px}
+    .card-video-close:hover{background:#eaf1f8;color:#163b63}
+    .card-video-panel video{display:block;width:100%;max-height:330px;border-radius:13px;background:#07121f;object-fit:contain}
+    .card-video-note{margin:8px 2px 0;color:#60758d;font-size:11px;line-height:1.7}
+    @media(max-width:520px){.card-video-actions{gap:7px}.card-video-button{flex:1;justify-content:center;min-width:145px}.card-video-panel video{max-height:390px}}
     .home-band{padding:34px 0}
     .home-band-box{border-radius:28px;padding:26px;background:linear-gradient(135deg,#fff7e8,#ffffff 58%,#eef9f7);border:1px solid rgba(236,202,139,.5);box-shadow:0 18px 40px rgba(10,22,40,.05)}
     .home-band-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:24px;align-items:center}
@@ -814,20 +829,44 @@
           <div class="home-card-meta"><span>تثبيت الأداة</span><span>شروحات بالفيديو</span></div>
         </a>
 
-        <a href="/t" class="home-card wide r" style="--card-accent:#0f3d9e;--card-soft:#eef4ff">
-          <div class="home-card-icon">02</div>
-          <h3>تحضير الدروس بشكل يدوي</h3>
-          <p>يتم تحضير الدروس بشكل يدوي من دليل المعلم والملفات والمرفقات المعتمدة.</p>
-          <div class="home-card-price">
-            <strong>الاشتراك: 2 ريال لكل مادة</strong>
-            <span>يشمل التحضير بالذكاء الاصطناعي مجانًا، والمدة سنة دراسية كاملة.</span>
+        <div class="home-card wide r" style="--card-accent:#0f3d9e;--card-soft:#eef4ff">
+          <a href="/t" class="home-card-main-link">
+            <div class="home-card-icon">02</div>
+            <h3>تحضير الدروس بشكل يدوي</h3>
+            <p>يتم تحضير الدروس بشكل يدوي من دليل المعلم والملفات والمرفقات المعتمدة.</p>
+            <div class="home-card-price">
+              <strong>الاشتراك: 2 ريال لكل مادة</strong>
+              <span>يشمل التحضير بالذكاء الاصطناعي مجانًا، والمدة سنة دراسية كاملة.</span>
+            </div>
+            <div class="home-card-meta">
+              <span>تحضير</span>
+              <span>دروس</span>
+              <span>خطط</span>
+            </div>
+          </a>
+          <div class="card-video-actions" aria-label="شروحات التحضير اليدوي">
+            <button type="button" class="card-video-button" data-video-help="manual" data-video-src="assets/manual-lesson-preparation.mp4" data-video-label="شرح التحضير اليدوي للكمبيوتر" aria-controls="manual-prep-video-panel" aria-expanded="false" title="شرح التحضير اليدوي للكمبيوتر">
+              <span class="card-video-icon" aria-hidden="true">▶</span><span>شرح الكمبيوتر</span>
+            </button>
+            <button type="button" class="card-video-button" data-video-help="manual" data-video-src="assets/manual-lesson-preparation.mp4" data-video-label="شرح التحضير اليدوي للأندرويد" aria-controls="manual-prep-video-panel" aria-expanded="false" title="شرح التحضير اليدوي للأندرويد">
+              <span class="card-video-icon" aria-hidden="true">▶</span><span>شرح الأندرويد</span>
+            </button>
+            <button type="button" class="card-video-button" data-video-help="manual" data-video-src="assets/manual-lesson-preparation-iphone.mp4" data-video-label="شرح التحضير اليدوي للآيفون والآيباد" aria-controls="manual-prep-video-panel" aria-expanded="false" title="شرح التحضير اليدوي للآيفون والآيباد">
+              <span class="card-video-icon" aria-hidden="true">▶</span><span>شرح الآيفون</span>
+            </button>
           </div>
-          <div class="home-card-meta">
-            <span>تحضير</span>
-            <span>دروس</span>
-            <span>خطط</span>
+          <div class="card-video-panel" id="manual-prep-video-panel" hidden>
+            <div class="card-video-panel-head">
+              <span id="manual-prep-video-title">شرح التحضير اليدوي</span>
+              <button type="button" class="card-video-close" id="manual-prep-video-close">إغلاق</button>
+            </div>
+            <video id="manual-prep-video" controls preload="metadata" playsinline>
+              <source src="assets/manual-lesson-preparation.mp4" type="video/mp4">
+              المتصفح لا يدعم تشغيل الفيديو.
+            </video>
+            <p class="card-video-note">اضغط على الأيقونة المناسبة لمشاهدة شرح التحضير اليدوي على الكمبيوتر أو الأندرويد أو الآيفون والآيباد.</p>
           </div>
-        </a>
+        </div>
 
         <a href="https://altahdir.app/ai/index.html" target="_blank" rel="noopener noreferrer" class="home-card wide r2" style="--card-accent:#2563eb;--card-soft:#eef6ff">
           <div class="home-card-icon">03</div>
@@ -1157,7 +1196,36 @@
       document.getElementById('rs-conf').value='';
       setTimeout(()=>setAuthMode('login'),900);
     }catch(err){setMsg('تعذر الاتصال بالخادم.');}
-  }  // Reveal on scroll
+  }
+
+  // Video guide for the manual lesson-preparation card
+  const manualVideoPanel=document.getElementById('manual-prep-video-panel');
+  const manualVideo=document.getElementById('manual-prep-video');
+  const manualVideoSource=manualVideo?.querySelector('source');
+  const manualVideoTitle=document.getElementById('manual-prep-video-title');
+  const manualVideoClose=document.getElementById('manual-prep-video-close');
+  document.querySelectorAll('[data-video-help="manual"]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      if(!manualVideoPanel||!manualVideo)return;
+      document.querySelectorAll('[data-video-help="manual"]').forEach(item=>item.setAttribute('aria-expanded','false'));
+      button.setAttribute('aria-expanded','true');
+      if(manualVideoTitle)manualVideoTitle.textContent=button.dataset.videoLabel||'شرح التحضير اليدوي';
+      manualVideoPanel.hidden=false;
+      if(manualVideoSource&&button.dataset.videoSrc)manualVideoSource.setAttribute('src',button.dataset.videoSrc);
+      manualVideo.load();
+      manualVideo.play().catch(()=>{});
+      manualVideoPanel.scrollIntoView({behavior:'smooth',block:'nearest'});
+    });
+  });
+  if(manualVideoClose){
+    manualVideoClose.addEventListener('click',()=>{
+      if(manualVideo){manualVideo.pause();manualVideo.currentTime=0;}
+      if(manualVideoPanel)manualVideoPanel.hidden=true;
+      document.querySelectorAll('[data-video-help="manual"]').forEach(item=>item.setAttribute('aria-expanded','false'));
+    });
+  }
+
+  // Reveal on scroll
   const io=new IntersectionObserver(es=>{
     es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('v')});
   },{threshold:.1,rootMargin:'0px 0px -28px 0px'});
