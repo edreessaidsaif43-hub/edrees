@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>إدراج الطلبة | التحضير الذكي</title>
+  <link rel="stylesheet" href="assets/site-navbar.css?v=3">
+  <style>
+    :root{font-family:Tajawal,Tahoma,Arial,sans-serif;color:#173849;background:#f5fbfa}
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#edf9f6 0,#f8fbff 50%,#fff 100%)}
+    .students-page{max-width:1100px;margin:auto;padding:32px 18px 56px}
+    .back-link{display:inline-flex;align-items:center;gap:8px;color:#0f766e;text-decoration:none;font-weight:800;min-height:42px}.back-link:hover{text-decoration:underline}
+    .page-head{margin:22px 0 18px}.page-head h1{margin:0 0 8px;color:#163b72;font-size:clamp(1.7rem,4vw,2.5rem);font-weight:900}.page-head p{margin:0;color:#60758d;line-height:1.9}
+    .roster-panel{padding:18px;border:1px solid #cbded9;border-radius:18px;background:#fff;box-shadow:0 16px 36px rgba(23,56,73,.07)}
+    .panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}.eyebrow{display:block;color:#0f766e;font-size:12px;font-weight:900;margin-bottom:5px}.panel-head h2{margin:0 0 6px;color:#173849;font-size:1.35rem}.panel-head p{margin:0;color:#667c80;font-size:13px;line-height:1.8}.pill{display:inline-flex;align-items:center;justify-content:center;min-width:86px;padding:8px 12px;border-radius:999px;background:#eaf6f3;color:#0f766e;font-size:12px;font-weight:900;white-space:nowrap}
+    .roster-grid{display:grid;grid-template-columns:minmax(280px,.9fr) minmax(280px,1.1fr);gap:18px}.roster-grid>div{min-width:0}.roster-grid label{display:block;margin:0 0 6px;color:#334f5b;font-size:12px;font-weight:900}.roster-grid select,.roster-grid input[type=text]{width:100%;min-height:43px;margin:0 0 12px;padding:9px 10px;border:1px solid #cbded9;border-radius:9px;background:#fff;color:#173849;font:inherit;font-size:13px}.section-create{display:grid;grid-template-columns:1fr auto;gap:8px}.section-create input{margin:0}.button{min-height:43px;padding:9px 14px;border:0;border-radius:9px;font:900 13px Tajawal,Tahoma,Arial,sans-serif;cursor:pointer}.button.primary{background:#0f766e;color:#fff}.button.subtle{background:#edf6f4;color:#17645f;border:1px solid #c5e0da}.button:disabled{opacity:.55;cursor:not-allowed}
+    .excel-warning{margin:4px 0 14px;padding:10px 12px;border-radius:10px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:12px;line-height:1.7}.upload-box{display:flex!important;align-items:center;gap:9px;min-height:70px;margin:0 0 12px!important;padding:12px;border:1px dashed #8cc8bd;border-radius:12px;background:#f5fffc;color:#17645f;cursor:pointer}.upload-box .upload-icon{font-size:22px}.upload-box strong{display:block}.upload-box span:last-of-type{display:block;color:#667c80;font-size:11px;font-weight:700;margin-inline-start:auto}.upload-box input{display:none}.fields{margin-bottom:4px}.check{display:flex!important;align-items:center;gap:7px;font-weight:800!important}.check input{width:auto;margin:0}.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.student-list{min-height:320px;padding:14px;border:1px solid #d9e8e4;border-radius:14px;background:#f9fdfc}.list-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:10px;border-bottom:1px solid #e1eeeb;color:#173849;font-size:13px}.list-heading span{color:#748988;font-size:11px}.student-list ol{margin:12px 0 0;padding-inline-start:26px;color:#28515b}.student-list li{padding:6px 4px;border-bottom:1px solid #edf3f1;font-size:13px}.empty-hint{color:#748988;font-size:12px;line-height:1.8}.storage-note{margin:14px 0 0;color:#748988;font-size:11px}.notice{position:fixed;top:78px;right:18px;z-index:10000;max-width:330px;padding:10px 14px;border-radius:10px;background:#163b72;color:#fff;box-shadow:0 8px 22px rgba(15,23,42,.18);font-size:13px}.notice:empty{display:none}
+    [hidden]{display:none!important}
+    @media(max-width:760px){.students-page{padding:24px 14px 44px}.panel-head{display:block}.panel-head .pill{margin-top:12px}.roster-grid{grid-template-columns:1fr}.section-create{grid-template-columns:1fr}.section-create .button{width:100%}.upload-box{flex-wrap:wrap}.upload-box span:last-of-type{width:100%;margin-inline-start:31px}}
+  </style>
+</head>
+<body>
+  <main class="students-page">
+    <a class="back-link" href="noor-guide.html">→ العودة إلى أقسام البطاقة رقم 1</a>
+    <header class="page-head"><h1>إدراج الطلبة</h1><p>أضف أسماء الطلبة بالطريقة نفسها المستخدمة في قسم الألعاب، مع حفظ كل قائمة حسب الصف والمادة والشعبة.</p></header>
+    <section class="roster-panel" aria-labelledby="roster-title">
+      <div class="panel-head"><div><span class="eyebrow">صفك، حاضر في كل لعبة</span><h2 id="roster-title">قائمة الطلاب</h2><p>اختر الصف المشترك به والمادة، ثم أنشئ شعبة بأسماء تختارها واحفظ طلاب كل شعبة بشكل مستقل.</p></div><span class="pill" id="count">٠ طالب</span></div>
+      <div class="roster-grid">
+        <div>
+          <label for="library-grade">صف قائمة الطلاب</label><select id="library-grade"></select>
+          <label for="roster-subject">المادة</label><select id="roster-subject"><option value="">اختر المادة</option></select>
+          <label for="roster-section">الشعبة</label><select id="roster-section"><option value="">اختر الشعبة</option></select>
+          <label for="section-name">إنشاء شعبة جديدة</label><div class="section-create"><input id="section-name" type="text" maxlength="60" placeholder="مثل: 1 أو الثامن أ"><button id="create-section" class="button subtle" type="button">إضافة الشعبة</button></div>
+          <p class="excel-warning" role="note">يجب أن تكون أسماء الطلاب في العمود الأول (A) من ملف Excel. اختر الصف والمادة والشعبة قبل حفظ الطلاب.</p>
+          <label class="upload-box" for="excel"><span class="upload-icon">↥</span><strong>أضف ملف الطلاب</strong><span>Excel أو CSV · حتى 10 ميجابايت</span><input id="excel" type="file" accept=".xlsx,.xls,.csv"></label>
+          <div class="fields"><label for="sheet">ورقة العمل</label><select id="sheet"></select></div>
+          <label class="check"><input id="header" type="checkbox" checked> الصف الأول يحتوي على عناوين</label>
+          <div class="actions"><button id="import" class="button primary" disabled>حفظ الطلاب</button><button id="clear" class="button subtle" type="button">مسح القائمة</button><button id="refresh" class="button subtle" type="button">تحديث الاشتراك ↻</button></div>
+        </div>
+        <div class="student-list"><div class="list-heading"><strong>طلاب الصف</strong><span>تُستبعد الأسماء المكررة</span></div><ol id="names"></ol><p class="empty-hint">اختر الصف والمادة وأضف ملفًا لعرض أسماء الطلاب هنا.</p></div>
+      </div>
+      <p class="storage-note">تُحفظ القوائم لكل حساب وصف ومادة وشعبة في هذا المتصفح، وتظهر تلقائيًا عند فتح الألعاب.</p>
+    </section>
+  </main>
+  <p id="notice" class="notice" role="status" aria-live="polite"></p><p id="subscription-catalog-status" hidden></p>
+  <div hidden>
+    <button id="launch"></button><button id="launch-camel"></button><button id="launch-duo"></button><button id="launch-ladder"></button><button id="launch-oman"></button><button id="launch-penalty"></button><button id="launch-heroes"></button><button id="launch-tug"></button><button id="launch-wheel"></button><button id="launch-pearl"></button><button id="launch-castle"></button><button id="launch-escape"></button><button id="launch-race3d"></button><button id="launch-football3d"></button><button id="launch-corniche3d"></button><button id="launch-flight3d"></button><button id="launch-storm3d"></button><button id="launch-forest3d"></button>
+  </div>
+  <script src="game/rihlat-almarifa/data/index.js"></script>
+  <script src="game/subscriptions.js?v=students-page"></script>
+  <script src="game/rosters.js?v=2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="game/library.js?v=22"></script>
+  <script src="assets/site-navbar.js?v=5"></script>
+</body>
+</html>
