@@ -87,6 +87,7 @@
       <a class="action" id="login" href="/enjazy/auth.html?mode=login&amp;reauth=attendance&amp;return=%2Fmm%2Fteacher-link.html" hidden>تسجيل الدخول</a>
       <a class="action" id="subscribe" href="/subscription.html" hidden>إدارة الاشتراك</a>
       <button type="button" id="retry" hidden>إعادة المحاولة</button>
+      <button type="button" id="sheet-retry" hidden>إعادة الحفظ في Google Sheets</button>
     </section>
   </main>
   <script>
@@ -105,6 +106,7 @@
     let serial = 0;
     let submitting = false;
     let attendanceDate = '';
+    let pendingSheets = [];
     let recordMode = '';
     const modeLabels = {
       absence:'غياب', dropout:'تسرب', full_attendance:'حضور كامل', full_absence:'غياب كامل'
@@ -124,7 +126,7 @@
       const response = await fetch('/api/ghiyab-teacher-link', {
         method:'POST', credentials:'same-origin', cache:'no-store',
         headers:{'Content-Type':'application/json'},
-        signal:AbortSignal.timeout?.(15000),
+        signal:AbortSignal.timeout?.(['submit','sync_sheet'].includes(action) ? 38000 : 15000),
         body:JSON.stringify({action, token, ...fields})
       });
       const result = await response.json().catch(() => ({}));
@@ -140,6 +142,7 @@
         account_stopped:'حساب التحضير الذكي موقوف. تواصل مع الإدارة.',
         invalid_selection:'أعد اختيار الصف ثم حاول مجددًا.',
         invalid_teacher_name:'أدخل اسم المعلم من حرفين إلى 100 حرف قبل الحفظ.',
+        sheet_receipt_unavailable:'تعذّر الوصول إلى هذا الرصد من الرابط الحالي. أعد فتح رابط المدرسة.',
         already_submitted:'سبق اعتماد الرصد لهذه الحصة. حدّث القائمة.',
         date_changed:'بدأ يوم جديد بتوقيت عُمان. اضغط «إعادة المحاولة» لتحميل قائمة اليوم قبل اعتماد الرصد.'
       };
@@ -147,11 +150,17 @@
       if(locked){
         form.hidden = true;
         studentList.replaceChildren();
+        setPendingSheets([]);
       }
       setStatus(errors[error.code] || 'تعذّر تحميل الرصد. أعد المحاولة.', true);
       byId('login').hidden = error.code !== 'sign_in_required';
       byId('subscribe').hidden = error.code !== 'subscription_required';
       byId('retry').hidden = locked || error.code === 'invalid_teacher_name';
+    }
+
+    function setPendingSheets(periods){
+      pendingSheets = Array.isArray(periods) ? periods : [];
+      byId('sheet-retry').hidden = pendingSheets.length === 0;
     }
 
     function updateTally(){
@@ -186,8 +195,9 @@
         .map(input => ({key:Number(input.dataset.student), status}));
     }
 
-    function renderRoster({students, captured, periods, date}){
+    function renderRoster({students, captured, periods, date, pendingSheets: waiting}){
       attendanceDate = date;
+      setPendingSheets(waiting);
       byId('date').textContent = date;
       const available = Array.from({length:periods}, (_, index) => index + 1).filter(item => !captured.includes(item));
       period.replaceChildren(...available.map(item => new Option('الحصة ' + (periodNames[item] || item), String(item))));
@@ -195,7 +205,8 @@
       capture.hidden = !students.length || !available.length;
       studentList.replaceChildren();
       if(capture.hidden){
-        setStatus(students.length ? 'اكتمل رصد حصص هذا الصف.' : 'لا توجد أسماء طلبة في هذا الصف.');
+        setStatus(pendingSheets.length ? 'يوجد رصد محفوظ بانتظار المزامنة مع Google Sheets.'
+          : students.length ? 'اكتمل رصد حصص هذا الصف.' : 'لا توجد أسماء طلبة في هذا الصف.');
         return;
       }
       for(const {key, name} of students){
@@ -214,11 +225,12 @@
         studentList.append(li);
       }
       setRecordMode('', true);
-      setStatus('');
+      setStatus(pendingSheets.length ? 'يوجد رصد محفوظ بانتظار المزامنة مع Google Sheets.' : '');
     }
 
     async function loadRoster(){
       const current = ++serial;
+      setPendingSheets([]);
       capture.hidden = true;
       period.disabled = true;
       studentList.replaceChildren();
@@ -264,10 +276,16 @@
       controls.disabled = true;
       setStatus('جارٍ حفظ الرصد…');
       try{
-        await request('submit', {classKey:Number(classSelect.value), period:Number(period.value), date:attendanceDate, teacher, marks});
+        const result = await request('submit', {classKey:Number(classSelect.value), period:Number(period.value), date:attendanceDate, teacher, marks});
         await loadRoster();
         if(form.hidden === false && byId('status').classList.contains('error') === false){
-          setStatus('تم حفظ الرصد.');
+          if(result.sheetStatus === 'saved'){
+            setStatus('حُفظ الرصد في تبويب «سجل رصد المعلمين» في Google Sheets.');
+          }else if(result.sheetStatus === 'pending'){
+            setStatus('حُفظ الرصد في المنصة. أعد الحفظ في Google Sheets لإكمال المزامنة.', true);
+          }else{
+            setStatus('حُفظ الرصد في المنصة. اطلب من الإدارة رابط رصد مرتبطًا بملف Google Sheets.', true);
+          }
         }
       }catch(error){
         if(error.code === 'date_changed') capture.hidden = true;
@@ -275,6 +293,31 @@
       }
       finally{
         controls.disabled = false;
+        submitting = false;
+      }
+    });
+    byId('sheet-retry').addEventListener('click', async () => {
+      if(submitting || !pendingSheets.length || classSelect.value === '') return;
+      const retry = byId('sheet-retry');
+      submitting = true;
+      controls.disabled = true;
+      retry.disabled = true;
+      setStatus('جارٍ الحفظ في Google Sheets…');
+      try{
+        const result = await request('sync_sheet', {classKey:Number(classSelect.value), period:pendingSheets[0], date:attendanceDate});
+        if(result.sheetStatus !== 'saved'){
+          setStatus('ما زال الرصد محفوظًا في المنصة. تعذّرت المزامنة مع Google Sheets.', true);
+          return;
+        }
+        await loadRoster();
+        if(form.hidden === false && byId('status').classList.contains('error') === false){
+          setStatus(pendingSheets.length ? 'حُفظ الرصد في Google Sheets. توجد حصص أخرى بانتظار المزامنة.'
+            : 'حُفظ الرصد في تبويب «سجل رصد المعلمين» في Google Sheets.');
+        }
+      }catch(error){ handleError(error); }
+      finally{
+        controls.disabled = false;
+        retry.disabled = false;
         submitting = false;
       }
     });

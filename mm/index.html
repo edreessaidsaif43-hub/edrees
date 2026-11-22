@@ -1057,7 +1057,7 @@
     </div>
    <section id="teacher-link-panel" class="teacher-link-panel" aria-labelledby="teacher-link-title">
     <h2 id="teacher-link-title" class="school-section-title">رابط رصد المعلمين</h2>
-    <p class="school-section-intro">يمكن للمعلمين استخدام الرابط نفسه كل يوم طوال فترة تفعيل المدرسة. عند إنشاء رابط جديد يتوقف الرابط السابق فورًا.</p>
+    <p class="school-section-intro">يُحفظ رصد المعلمين في تبويب «سجل رصد المعلمين» في Google Sheets المرتبط بالمدرسة. عند إنشاء رابط جديد يتوقف الرابط السابق فورًا.</p>
     <label for="teacher-link-url">رابط المعلمين</label>
     <input id="teacher-link-url" type="text" readonly dir="ltr" placeholder="اضغط «إنشاء رابط»">
     <div class="school-toolbar">
@@ -2674,7 +2674,7 @@
         method:'POST', credentials:'same-origin', cache:'no-store',
         headers:{'Content-Type':'application/json'},
         signal:AbortSignal.timeout?.(18000),
-        body:JSON.stringify({action:'create', workspace, classId:'@all-classes', roster})
+        body:JSON.stringify({action:'create', workspace, classId:'@all-classes', roster, sheetUrl:selectedSchoolConfig?.googleSheet || ''})
       });
       const result = await response.json().catch(() => ({}));
       if(response.ok && result.token) return result;
@@ -2683,7 +2683,17 @@
         subscription_required:'يلزم اشتراك ساري في التحضير الذكي.',
         account_stopped:'حساب التحضير الذكي موقوف.',
         school_activation_expired:'انتهت مدة تفعيل المدارس بنهاية يوم 10/06/2027.',
-        invalid_roster:'تحقّق من قوائم الطلبة. الحد 250 طالبًا في الصف و300 صف في الرابط.'
+        invalid_roster:'تحقّق من قوائم الطلبة. الحد 250 طالبًا في الصف و300 صف في الرابط.',
+        attendance_source_invalid:'أضف رابط ملف Google Sheets أو معرّفه في إعدادات المدرسة.',
+        attendance_source_published:'استخدم رابط الملف الأصلي في Google Sheets.',
+        attendance_account_unlinked:'لم يُعتمد ملف Google Sheets لهذا الحساب. تواصل مع إدارة التحضير الذكي.',
+        attendance_sheet_mismatch:'ملف المدرسة لا يطابق ملف Google Sheets المعتمد لهذا الحساب.',
+        attendance_binding_conflict:'عُيّن ملف Google Sheets نفسه لأكثر من حساب مسؤول. راجع إعداد الربط.',
+        attendance_binding_missing:'ربط حسابات المدارس بملفات Google Sheets غير مهيأ على الخادم.',
+        attendance_binding_invalid:'تعذّر قراءة إعداد ربط حسابات المدارس بملفات Google Sheets.',
+        attendance_credentials_missing:'حساب خدمة Google Sheets غير مهيأ على الخادم.',
+        attendance_sheet_permission:'تعذّر الوصول إلى الملف. شاركه مع حساب الخدمة بصلاحية محرّر.',
+        attendance_google_unavailable:'تعذّر الاتصال بـ Google Sheets. أعد المحاولة لاحقًا.'
       };
       const serviceMissing = response.status === 404 && !result.error;
       throw new Error(messages[result.error] || (serviceMissing
