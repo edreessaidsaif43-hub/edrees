@@ -67,7 +67,7 @@
           <div class="fields">
             <label>الصف<select id="class-select" required></select></label>
             <label>الحصة<select id="period" required disabled></select></label>
-            <label>اسم المعلم<input id="teacher" type="text" readonly autocomplete="off"></label>
+            <label>اسم المعلم<input id="teacher" name="teacher" type="text" autocomplete="name" placeholder="أدخل اسم المعلم" minlength="2" maxlength="100" required></label>
           </div>
           <div id="capture" hidden>
             <h3 id="students-label">قائمة الطلبة</h3>
@@ -92,6 +92,7 @@
   <script>
     const byId = id => document.getElementById(id);
     const form = byId('attendance'), classSelect = byId('class-select'), period = byId('period');
+    const teacherName = byId('teacher');
     const studentList = byId('students'), capture = byId('capture'), controls = byId('controls');
     const validToken = /^[A-Za-z0-9_-]{43}$/;
     const storageKey = 'mm_attendance_link';
@@ -137,7 +138,8 @@
         sign_in_required:'سجّل الدخول إلى التحضير الذكي بحساب المعلم لفتح رابط الرصد.',
         subscription_required:'يلزم اشتراك ساري في التحضير الذكي لاعتماد الرصد.',
         account_stopped:'حساب التحضير الذكي موقوف. تواصل مع الإدارة.',
-        invalid_selection:'تحقّق من اسمك في بيانات حساب التحضير الذكي ثم أعد فتح الرابط.',
+        invalid_selection:'أعد اختيار الصف ثم حاول مجددًا.',
+        invalid_teacher_name:'أدخل اسم المعلم من حرفين إلى 100 حرف قبل الحفظ.',
         already_submitted:'سبق اعتماد الرصد لهذه الحصة. حدّث القائمة.',
         date_changed:'بدأ يوم جديد بتوقيت عُمان. اضغط «إعادة المحاولة» لتحميل قائمة اليوم قبل اعتماد الرصد.'
       };
@@ -149,7 +151,7 @@
       setStatus(errors[error.code] || 'تعذّر تحميل الرصد. أعد المحاولة.', true);
       byId('login').hidden = error.code !== 'sign_in_required';
       byId('subscribe').hidden = error.code !== 'subscription_required';
-      byId('retry').hidden = locked;
+      byId('retry').hidden = locked || error.code === 'invalid_teacher_name';
     }
 
     function updateTally(){
@@ -235,11 +237,10 @@
       try{
         const result = await request('view');
         if(!Array.isArray(result.classes)) return handleError({code:'link_unavailable'});
-        if((result.teacher || '').trim().length < 3) return handleError({code:'invalid_selection'});
         byId('school').textContent = result.school;
         attendanceDate = result.date;
         byId('date').textContent = attendanceDate;
-        byId('teacher').value = result.teacher;
+        if(!teacherName.value.trim()) teacherName.value = result.teacher || '';
         classSelect.replaceChildren(new Option('اختر الصف أو الشعبة',''), ...result.classes.map(item => new Option(item.className,String(item.key))));
         form.hidden = false;
         setStatus('');
@@ -249,6 +250,12 @@
     form.addEventListener('submit', async event => {
       event.preventDefault();
       if(submitting || capture.hidden || !period.value || classSelect.value === '') return;
+      const teacher = teacherName.value.trim();
+      if(teacher.length < 2 || teacher.length > 100){
+        handleError({code:'invalid_teacher_name'});
+        teacherName.focus();
+        return;
+      }
       if(!recordMode) return setStatus('اختر حالة الحضور قبل الحفظ.', true);
       const marks = selectedMarks();
       if(recordMode !== 'full_attendance' && !marks.length) return setStatus('حدّد الطلبة المطلوب رصدهم.', true);
@@ -257,7 +264,7 @@
       controls.disabled = true;
       setStatus('جارٍ حفظ الرصد…');
       try{
-        await request('submit', {classKey:Number(classSelect.value), period:Number(period.value), date:attendanceDate, marks});
+        await request('submit', {classKey:Number(classSelect.value), period:Number(period.value), date:attendanceDate, teacher, marks});
         await loadRoster();
         if(form.hidden === false && byId('status').classList.contains('error') === false){
           setStatus('تم حفظ الرصد.');
