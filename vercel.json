@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "functions": { "api/edu.js": { "maxDuration": 60 }, "api/ghiyab-teacher-link.js": { "maxDuration": 60 } },
+  "functions": { "api/edu.js": { "maxDuration": 60 } },
   "headers": [
     {
       "source": "/enjazy/auth.html",
@@ -197,6 +197,10 @@
         }
       ]
     }
+  ],
+  "redirects": [
+    { "source": "/ghiyab-site/:path*", "destination": "/mm/index.html", "permanent": false },
+    { "source": "/mm", "destination": "/mm/index.html", "permanent": false }
   ],
   "rewrites": [
     {

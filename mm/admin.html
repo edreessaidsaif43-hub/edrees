@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1e3a5f">
+  <meta name="description" content="لوحة مدير نظام الحضور والتسرب المدرسي">
+  <title>لوحة مدير نظام الحضور والتسرب المدرسي</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:'Tajawal','Segoe UI',Tahoma,sans-serif;background:#f8fafc;margin:0;color:#0f172a}
+    .wrap{max-width:980px;margin:24px auto;padding:0 14px}
+    .card{background:#fff;border:1px solid #dbe3ee;border-radius:14px;padding:16px;box-shadow:0 8px 20px rgba(15,23,42,.08);margin-bottom:14px}
+    h1{margin:0 0 12px 0;font-size:24px}
+    h3{margin:0 0 10px 0}
+    label{display:block;font-weight:700;margin:8px 0 6px}
+    input,select{width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;box-sizing:border-box}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    button{border:none;border-radius:9px;padding:10px 12px;cursor:pointer;font-weight:700}
+    .btn-primary{background:#1d4ed8;color:#fff}
+    .btn-success{background:#16a34a;color:#fff}
+    .btn-dark{background:#334155;color:#fff}
+    .btn-danger{background:#ef4444;color:#fff}
+    .btn-wa{background:#22c55e;color:#fff}
+    .msg{min-height:18px;font-size:13px;margin-top:8px}
+    .muted{color:#64748b;font-size:13px}
+    .school-item{border:1px solid #dbe3ee;border-radius:10px;padding:10px;background:#fff;margin-bottom:8px}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
+    .pill.active{background:#dcfce7;color:#166534}
+    .pill.inactive{background:#fee2e2;color:#991b1b}
+    #adminProgressOverlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.30);z-index:9999;backdrop-filter:blur(2px)}
+    #adminProgressOverlay.show{display:flex}
+    #adminProgressCard{background:#fff;border:1px solid #dbe3ee;border-radius:14px;min-width:240px;max-width:320px;padding:14px}
+    #adminProgressTitle{font-weight:800;font-size:14px;color:#0f172a}
+    #adminProgressPercent{font-size:12px;color:#334155;margin-top:4px}
+    #adminProgressBar{margin-top:10px;height:8px;border-radius:999px;background:#e2e8f0;overflow:hidden}
+    #adminProgressFill{height:100%;width:0;background:linear-gradient(90deg,#2563eb,#0ea5e9)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>لوحة مدير نظام الحضور والتسرب المدرسي</h1>
+      <div class="row">
+        <button class="btn-dark" onclick="window.location.href='index.html'">الرجوع للصفحة الرئيسية</button>
+      </div>
+    </div>
+
+    <div class="card" id="adminLoginBox">
+      <h3>تسجيل دخول المدير العام</h3>
+      <label>كلمة المرور:</label>
+      <input id="adminPassInput" type="password" placeholder="أدخل كلمة المرور">
+      <div class="row" style="margin-top:10px;">
+        <button class="btn-primary" onclick="adminLogin()">دخول</button>
+      </div>
+      <div id="adminMsg" class="msg" style="color:#b91c1c;"></div>
+    </div>
+
+    <div class="card" id="adminDashboardBox" style="display:none;">
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <h3>إدارة المدارس</h3>
+        <button class="btn-danger" onclick="adminLogout()">تسجيل خروج</button>
+      </div>
+
+      <input id="adminEditCode" type="hidden">
+
+      <label>اسم المدرسة:</label>
+      <input id="adminSchoolName" type="text" placeholder="مثال: مدرسة المعرفة">
+
+      <label>كود المدرسة:</label>
+      <input id="adminSchoolCode" type="text" placeholder="مثال: MRF">
+
+      <label>مدة التفعيل (بالساعات - بدقة):</label>
+      <input id="adminActivationHours" type="number" min="0.25" step="0.25" value="720">
+
+      <label>نوع الجنس للمدرسة:</label>
+      <select id="adminSchoolGender">
+        <option value="female">بنات</option>
+        <option value="male">بنين</option>
+        <option value="mixed">مختلطة</option>
+      </select>
+
+      <label>كلمة مرور مدير المدرسة:</label>
+      <input id="adminManagerPassword" type="text" value="3772">
+
+      <label>Google Sheet (رابط أو ID):</label>
+      <input id="adminGoogleSheet" type="text" placeholder="ضع رابط أو ID">
+
+      <label>رابط App Script:</label>
+      <input id="adminAppScript" type="text" placeholder="https://script.google.com/macros/s/.../exec">
+
+      <div class="row" style="margin-top:10px;">
+        <button class="btn-success" onclick="saveSchoolFromAdmin()">حفظ المدرسة</button>
+        <button class="btn-dark" onclick="clearSchoolForm()">تفريغ الحقول</button>
+      </div>
+      <div id="adminSaveMsg" class="msg" style="color:#166534;"></div>
+
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0;">
+      <h3 style="margin:0 0 8px 0;">طلبات الاشتراك</h3>
+      <div id="subscriptionRequestsList" style="margin-bottom:12px;"></div>
+
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0;">
+      <div id="adminCodesHint" class="muted"></div>
+      <div id="adminSchoolsList" style="margin-top:8px;"></div>
+    </div>
+  </div>
+  <div id="adminProgressOverlay">
+    <div id="adminProgressCard">
+      <div id="adminProgressTitle">جاري التنفيذ</div>
+      <div id="adminProgressPercent">0%</div>
+      <div id="adminProgressBar"><div id="adminProgressFill"></div></div>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbxOtBFQE7LFg3yusOvdhiFWUBdXGCu5-n0uYR2AvhTfmOnq64lcSZx0mj8sxaMoizE9/exec";
+    const LEGACY_API_URL = "https://script.google.com/macros/s/AKfycbw_wR_dQ6GCg-qW2XHVFEhZIfcLV7LjhWuDzMdnz2iIrN3erKbR7fO1HE_D3MMWXrA3xw/exec";
+    const ADMIN_DASHBOARD_PASSWORD = "Edrees92526869@";
+    const SCHOOL_REGISTRY_KEY = "schools_registry_v1";
+    const SUBSCRIPTION_REQUESTS_KEY = "subscription_requests_v1";
+
+    const DEFAULT_SCHOOL_REGISTRY = [
+      {name:"مدرسة جوهرة مسقط للتعليم الأساسي",code:"JMIS",gender:"female",managerPassword:"3772",activationDays:3650,activatedAt:"2026-01-01T00:00:00.000Z",expiresAt:"2036-01-01T00:00:00.000Z",googleSheet:"",appScriptUrl:DEFAULT_API_URL},
+      {name:"مدرسة الإبداع الأساسية",code:"EBD",gender:"female",managerPassword:"3772",activationDays:3650,activatedAt:"2026-01-01T00:00:00.000Z",expiresAt:"2036-01-01T00:00:00.000Z",googleSheet:"",appScriptUrl:DEFAULT_API_URL},
+      {name:"مدرسة النور الأساسية",code:"NOR",gender:"female",managerPassword:"3772",activationDays:3650,activatedAt:"2026-01-01T00:00:00.000Z",expiresAt:"2036-01-01T00:00:00.000Z",googleSheet:"",appScriptUrl:DEFAULT_API_URL},
+      {name:"مدرسة المستقبل للتعليم الأساسي",code:"MST",gender:"female",managerPassword:"3772",activationDays:3650,activatedAt:"2026-01-01T00:00:00.000Z",expiresAt:"2036-01-01T00:00:00.000Z",googleSheet:"",appScriptUrl:DEFAULT_API_URL}
+    ];
+
+    let schoolRegistry = [];
+    let subscriptionRequests = [];
+    let adminSessionOpen = false;
+    const $ = (id) => document.getElementById(id);
+
+    function setAdminProgress(percent,label){
+      const overlay=$("adminProgressOverlay");
+      if(!overlay) return;
+      const p=Math.max(0,Math.min(100,Math.round(percent||0)));
+      if($("adminProgressTitle")) $("adminProgressTitle").textContent=label||"جاري التنفيذ";
+      if($("adminProgressPercent")) $("adminProgressPercent").textContent=`${p}%`;
+      if($("adminProgressFill")) $("adminProgressFill").style.width=`${p}%`;
+      overlay.classList.add("show");
+    }
+
+    function hideAdminProgress(){
+      const overlay=$("adminProgressOverlay");
+      if(!overlay) return;
+      overlay.classList.remove("show");
+      if($("adminProgressTitle")) $("adminProgressTitle").textContent="جاري التنفيذ";
+      if($("adminProgressPercent")) $("adminProgressPercent").textContent="0%";
+      if($("adminProgressFill")) $("adminProgressFill").style.width="0%";
+    }
+
+    async function callApi(params){
+      const u = new URL(DEFAULT_API_URL);
+      Object.entries(params || {}).forEach(([k,v]) => {
+        if(v === undefined || v === null || v === "") return;
+        u.searchParams.set(k, String(v));
+      });
+      const res = await fetch(u.toString(), { cache: "no-store" });
+      if(!res.ok) throw new Error("network error");
+      const payload = await res.json();
+      if(payload && payload.ok === false){
+        throw new Error(String(payload.error || "api error"));
+      }
+      return payload || {};
+    }
+
+    function normalizeSchoolName(name){ return String(name || "").replace(/\s+/g," ").trim(); }
+    function normalizeSchoolCode(code){ return String(code || "").replace(/\s+/g,"").trim().toUpperCase(); }
+    function normalizeSchoolGender(value){
+      const v = String(value || "").trim().toLowerCase();
+      if(v === "male") return "male";
+      if(v === "mixed") return "mixed";
+      return "female";
+    }
+    function toIsoDateOnly(value){
+      const d = new Date(value || Date.now());
+      if(Number.isNaN(d.getTime())) return "";
+      return d.toISOString().slice(0,10);
+    }
+    function formatDateTime(value){
+      const d = new Date(value || "");
+      if(Number.isNaN(d.getTime())) return "-";
+      return d.toLocaleString("ar");
+    }
+    function escapeHtml(text){
+      return String(text || "")
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#039;");
+    }
+    function genderLabel(g){
+      if(g === "male") return "بنين";
+      if(g === "mixed") return "مختلطة";
+      return "بنات";
+    }
+
+    function sanitizeSchoolRecord(record){
+      const name = normalizeSchoolName(record && record.name);
+      const code = normalizeSchoolCode(record && record.code);
+      const gender = normalizeSchoolGender(record && record.gender);
+      const managerPassword = String((record && record.managerPassword) || "3772").trim();
+      const activationHoursRaw = parseFloat(record && (record.activationHours ?? ((record.activationDays || 30) * 24)));
+      const activationHours = Math.max(0.25, Number.isFinite(activationHoursRaw) ? activationHoursRaw : 720);
+      const activatedAt = record && record.activatedAt ? String(record.activatedAt) : new Date().toISOString();
+      let expiresAt = record && record.expiresAt ? String(record.expiresAt) : "";
+      if(!expiresAt){
+        const b = new Date(activatedAt);
+        b.setTime(b.getTime() + (activationHours * 60 * 60 * 1000));
+        expiresAt = b.toISOString();
+      }
+      const googleSheet = String((record && record.googleSheet) || "").trim();
+      const rawAppScriptUrl = String((record && record.appScriptUrl) || DEFAULT_API_URL).trim();
+      const appScriptUrl = rawAppScriptUrl === LEGACY_API_URL ? DEFAULT_API_URL : rawAppScriptUrl;
+      const activationDays = Math.max(1, Math.ceil(activationHours / 24));
+      return {name,code,gender,managerPassword,activationHours,activationDays,activatedAt,expiresAt,googleSheet,appScriptUrl};
+    }
+
+    function saveSchoolRegistry(){
+      try { localStorage.setItem(SCHOOL_REGISTRY_KEY, JSON.stringify(schoolRegistry)); } catch(_) {}
+    }
+
+    function loadSchoolRegistry(){
+      try {
+        const raw = localStorage.getItem(SCHOOL_REGISTRY_KEY);
+        const parsed = raw ? JSON.parse(raw) : null;
+        const list = Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_SCHOOL_REGISTRY;
+        schoolRegistry = list.map(sanitizeSchoolRecord).filter(x => x.name && x.code);
+      } catch(_) {
+        schoolRegistry = DEFAULT_SCHOOL_REGISTRY.map(sanitizeSchoolRecord);
+      }
+      saveSchoolRegistry();
+    }
+
+    async function loadSchoolRegistryFromServer(){
+      const payload = await callApi({ action: "get_schools", includeExpired: "true" });
+      const rows = Array.isArray(payload && payload.data) ? payload.data : [];
+      if(!rows.length) return false;
+      schoolRegistry = rows.map(sanitizeSchoolRecord).filter(x => x.name && x.code);
+      saveSchoolRegistry();
+      return true;
+    }
+
+    function getSchoolByCode(code){
+      const c = normalizeSchoolCode(code);
+      return schoolRegistry.find(x => normalizeSchoolCode(x.code) === c) || null;
+    }
+
+    function isSchoolActive(school){
+      const d = new Date(school && school.expiresAt || "");
+      return !Number.isNaN(d.getTime()) && d.getTime() >= Date.now();
+    }
+
+    function getSubscriptionRequests(){
+      if(Array.isArray(subscriptionRequests) && subscriptionRequests.length){
+        return subscriptionRequests;
+      }
+      try {
+        const raw = localStorage.getItem(SUBSCRIPTION_REQUESTS_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch(_) {
+        return [];
+      }
+    }
+
+    async function loadSubscriptionRequestsFromServer(){
+      const payload = await callApi({ action: "get_subscriptions" });
+      const rows = Array.isArray(payload && payload.data) ? payload.data : [];
+      subscriptionRequests = rows;
+      try {
+        localStorage.setItem(SUBSCRIPTION_REQUESTS_KEY, JSON.stringify(rows.slice(0, 1000)));
+      } catch(_) {}
+      return true;
+    }
+
+    function normalizePhoneForWhatsApp(phone){
+      const value = String(phone || "").trim();
+      if(!value) return "";
+      const clean = value.replace(/[^\d+]/g, "");
+      if(clean.startsWith("+")) return clean.slice(1);
+      return clean;
+    }
+
+    function renderSubscriptionRequests(){
+      const box = $("subscriptionRequestsList");
+      if(!box) return;
+      const requests = getSubscriptionRequests().sort((a,b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      if(!requests.length){
+        box.innerHTML = "<div class='muted'>لا توجد طلبات اشتراك حتى الآن.</div>";
+        return;
+      }
+      box.innerHTML = requests.map((r) => {
+        const waPhone = normalizePhoneForWhatsApp(r.phone);
+        const waText = encodeURIComponent(`مرحبًا، تم استلام طلب الاشتراك للمدرسة ${String(r.schoolName || "")}. سنقوم بالتواصل معكم.`);
+        const waHref = waPhone ? `https://wa.me/${waPhone}?text=${waText}` : "";
+        return `
+          <div class="school-item">
+            <div style="font-weight:800;margin-bottom:4px;">طلب اشتراك جديد</div>
+            <div class="muted">المدرسة: ${escapeHtml(r.schoolName || "-")}</div>
+            <div class="muted">المعلم: ${escapeHtml(r.teacherName || "-")}</div>
+            <div class="muted">الهاتف: ${escapeHtml(r.phone || "-")}</div>
+            <div class="muted">تاريخ الطلب: ${escapeHtml(toIsoDateOnly(r.createdAt) || "-")}</div>
+            <div class="row" style="margin-top:8px;">
+              ${waHref ? `<a href="${waHref}" target="_blank" rel="noopener noreferrer"><button class="btn-wa" type="button">مراسلة واتساب</button></a>` : `<span class="muted">رقم الهاتف غير صالح للواتساب</span>`}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function updateCodesHint(){
+      const hint = $("adminCodesHint");
+      if(!hint) return;
+      const codes = schoolRegistry.map(x => normalizeSchoolCode(x.code)).filter(Boolean);
+      hint.textContent = codes.length ? `الأكواد الحالية: ${codes.join(" - ")}` : "لا توجد أكواد مسجلة.";
+    }
+
+    function renderSchoolRegistryList(){
+      const box = $("adminSchoolsList");
+      if(!box) return;
+
+      const html = schoolRegistry
+        .sort((a,b) => normalizeSchoolName(a.name).localeCompare(normalizeSchoolName(b.name),"ar"))
+        .map((item) => {
+          const active = isSchoolActive(item);
+          const stateClass = active ? "active" : "inactive";
+          const stateText = active ? "نشطة" : "منتهية";
+          return `
+            <div class="school-item">
+              <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;">
+                <strong>${escapeHtml(item.name)}</strong>
+                <span class="pill ${stateClass}">${stateText}</span>
+              </div>
+              <div class="muted">الكود: ${escapeHtml(item.code)}</div>
+              <div class="muted">النوع: ${escapeHtml(genderLabel(item.gender))}</div>
+              <div class="muted">مدة التفعيل: ${escapeHtml(String(item.activationHours || "-"))} ساعة</div>
+              <div class="muted">ينتهي التفعيل: ${escapeHtml(formatDateTime(item.expiresAt))}</div>
+              <div class="muted">Google Sheet: ${escapeHtml(item.googleSheet || "-")}</div>
+              <div class="muted">App Script: ${escapeHtml(item.appScriptUrl || "-")}</div>
+              <div class="row" style="margin-top:8px;">
+                <button class="btn-primary" type="button" onclick='editSchoolRecord(${JSON.stringify(item.code)})'>تعديل</button>
+                <button class="btn-danger" type="button" onclick='deleteSchoolRecord(${JSON.stringify(item.code)})'>حذف</button>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+      box.innerHTML = html || "<div class='muted'>لا توجد مدارس.</div>";
+      updateCodesHint();
+      renderSubscriptionRequests();
+    }
+
+    function clearSchoolForm(){
+      $("adminEditCode").value = "";
+      $("adminSchoolName").value = "";
+      $("adminSchoolCode").value = "";
+      $("adminActivationHours").value = "720";
+      $("adminSchoolGender").value = "female";
+      $("adminManagerPassword").value = "3772";
+      $("adminGoogleSheet").value = "";
+      $("adminAppScript").value = DEFAULT_API_URL;
+    }
+
+    async function saveSchoolFromAdmin(){
+      const name = normalizeSchoolName($("adminSchoolName").value);
+      const code = normalizeSchoolCode($("adminSchoolCode").value);
+      const activationHoursRaw = parseFloat($("adminActivationHours").value);
+      const activationHours = Math.max(0.25, Number.isFinite(activationHoursRaw) ? activationHoursRaw : 0);
+      const gender = normalizeSchoolGender($("adminSchoolGender").value);
+      const managerPassword = String($("adminManagerPassword").value || "3772").trim() || "3772";
+      const googleSheet = String($("adminGoogleSheet").value || "").trim();
+      const appScriptUrl = String($("adminAppScript").value || DEFAULT_API_URL).trim() || DEFAULT_API_URL;
+      const editCode = normalizeSchoolCode($("adminEditCode").value);
+      const msg = $("adminSaveMsg");
+      setAdminProgress(10,"جاري حفظ المدرسة");
+
+      if(!name || !code){
+        msg.style.color = "#b91c1c";
+        msg.textContent = "يرجى إدخال اسم المدرسة والكود.";
+        hideAdminProgress();
+        return;
+      }
+      if(!activationHours){
+        msg.style.color = "#b91c1c";
+        msg.textContent = "يرجى إدخال مدة التفعيل بالساعات بشكل صحيح.";
+        hideAdminProgress();
+        return;
+      }
+
+      if(editCode && editCode !== code && schoolRegistry.some(x => normalizeSchoolCode(x.code) === code)){
+        msg.style.color = "#b91c1c";
+        msg.textContent = "هذا الكود مستخدم من مدرسة أخرى.";
+        hideAdminProgress();
+        return;
+      }
+      if(!editCode && schoolRegistry.some(x => normalizeSchoolCode(x.code) === code)){
+        msg.style.color = "#b91c1c";
+        msg.textContent = "هذا الكود موجود بالفعل.";
+        hideAdminProgress();
+        return;
+      }
+
+      const now = new Date();
+      const exp = new Date(now.getTime() + (activationHours * 60 * 60 * 1000));
+      const rec = sanitizeSchoolRecord({
+        name, code, gender, managerPassword, activationHours,
+        activatedAt: now.toISOString(),
+        expiresAt: exp.toISOString(),
+        googleSheet, appScriptUrl
+      });
+
+      try {
+        setAdminProgress(45,"جاري إرسال البيانات للسيرفر");
+        await callApi({
+          action: "save_school",
+          name: rec.name,
+          code: rec.code,
+          gender: rec.gender,
+          managerPassword: rec.managerPassword,
+          activationHours: rec.activationHours,
+          activatedAt: rec.activatedAt,
+          expiresAt: rec.expiresAt,
+          googleSheet: rec.googleSheet,
+          appScriptUrl: rec.appScriptUrl
+        });
+        setAdminProgress(80,"جاري تحديث القائمة");
+        await loadSchoolRegistryFromServer();
+        renderSchoolRegistryList();
+        clearSchoolForm();
+        msg.style.color = "#166534";
+        msg.textContent = "تم حفظ بيانات المدرسة على جميع الأجهزة بنجاح.";
+      } catch (err) {
+        const target = editCode || code;
+        const idx = schoolRegistry.findIndex(x => normalizeSchoolCode(x.code) === target);
+        if(idx >= 0) schoolRegistry[idx] = rec;
+        else schoolRegistry.push(rec);
+        saveSchoolRegistry();
+        renderSchoolRegistryList();
+        clearSchoolForm();
+        msg.style.color = "#b45309";
+        msg.textContent = "تم الحفظ محليًا فقط بسبب تعذر الاتصال بالسيرفر.";
+      } finally {
+        setAdminProgress(100,"اكتمل الحفظ");
+        setTimeout(hideAdminProgress,220);
+      }
+    }
+
+    function editSchoolRecord(code){
+      const s = getSchoolByCode(code);
+      if(!s) return;
+      $("adminEditCode").value = s.code;
+      $("adminSchoolName").value = s.name;
+      $("adminSchoolCode").value = s.code;
+      const hours = Number.isFinite(parseFloat(s.activationHours)) ? parseFloat(s.activationHours) : ((parseInt(s.activationDays,10) || 30) * 24);
+      $("adminActivationHours").value = String(Math.max(0.25, hours));
+      $("adminSchoolGender").value = normalizeSchoolGender(s.gender);
+      $("adminManagerPassword").value = String(s.managerPassword || "3772");
+      $("adminGoogleSheet").value = String(s.googleSheet || "");
+      $("adminAppScript").value = String(s.appScriptUrl || DEFAULT_API_URL);
+      $("adminSaveMsg").textContent = "وضع التعديل مفعل، عدّل الحقول ثم اضغط حفظ المدرسة.";
+      $("adminSaveMsg").style.color = "#1d4ed8";
+      window.scrollTo({top: 0, behavior: "smooth"});
+    }
+
+    async function deleteSchoolRecord(code){
+      const s = getSchoolByCode(code);
+      if(!s) return;
+      const ok = confirm(`هل تريد حذف المدرسة: ${s.name} ؟`);
+      if(!ok) return;
+      setAdminProgress(18,"جاري تحديث حالة المدرسة");
+      try {
+        const expiredAt = new Date(Date.now() - 60 * 1000).toISOString();
+        setAdminProgress(55,"جاري إرسال التحديث للسيرفر");
+        await callApi({
+          action: "save_school",
+          name: s.name,
+          code: s.code,
+          gender: s.gender,
+          managerPassword: s.managerPassword,
+          activationHours: 0.25,
+          activatedAt: s.activatedAt || new Date().toISOString(),
+          expiresAt: expiredAt,
+          googleSheet: s.googleSheet || "",
+          appScriptUrl: s.appScriptUrl || DEFAULT_API_URL
+        });
+        await loadSchoolRegistryFromServer();
+      } catch(_) {
+        schoolRegistry = schoolRegistry.filter(x => normalizeSchoolCode(x.code) !== normalizeSchoolCode(code));
+        saveSchoolRegistry();
+      }
+      renderSchoolRegistryList();
+      $("adminSaveMsg").textContent = "تم تعطيل المدرسة (إيقاف الدخول) على النظام.";
+      $("adminSaveMsg").style.color = "#166534";
+      setAdminProgress(100,"اكتمل التحديث");
+      setTimeout(hideAdminProgress,220);
+    }
+
+    async function adminLogin(){
+      const pass = String($("adminPassInput").value || "").trim();
+      if(pass !== ADMIN_DASHBOARD_PASSWORD){
+        $("adminMsg").textContent = "كلمة المرور غير صحيحة.";
+        return;
+      }
+      setAdminProgress(12,"جاري تسجيل الدخول");
+      adminSessionOpen = true;
+      $("adminMsg").textContent = "";
+      $("adminLoginBox").style.display = "none";
+      $("adminDashboardBox").style.display = "";
+      try {
+        setAdminProgress(50,"جاري جلب بيانات المدارس");
+        await Promise.all([
+          loadSchoolRegistryFromServer(),
+          loadSubscriptionRequestsFromServer()
+        ]);
+      } catch(_) {}
+      renderSchoolRegistryList();
+      clearSchoolForm();
+      setAdminProgress(100,"اكتمل التحميل");
+      setTimeout(hideAdminProgress,220);
+    }
+
+    function adminLogout(){
+      adminSessionOpen = false;
+      $("adminDashboardBox").style.display = "none";
+      $("adminLoginBox").style.display = "";
+      $("adminPassInput").value = "";
+      $("adminMsg").textContent = "";
+    }
+
+    loadSchoolRegistry();
+    loadSubscriptionRequestsFromServer().catch(()=>{});
+    loadSchoolRegistryFromServer().catch(()=>{});
+    setInterval(async()=>{
+      if(!adminSessionOpen) return;
+      try{
+        await Promise.all([
+          loadSchoolRegistryFromServer(),
+          loadSubscriptionRequestsFromServer()
+        ]);
+        renderSchoolRegistryList();
+      }catch(_){}
+    },30000);
+    clearSchoolForm();
+  </script>
+  <script>
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted) location.reload();
+    });
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./service-worker.js').catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>
