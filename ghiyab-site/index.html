@@ -716,6 +716,157 @@ function dailyReport(st){
 function dayRows(st){
   return [["الطالب", "الصف", "الحالة", "الحصص", "المعلم"], ...st.list.slice().sort((x, y) => arSort(x.className, y.className) || arSort(x.n, y.n)).map(o => [o.n, o.className, statusLabel[o.status], S.cfg.mode === "period" ? [...o.a, ...o.e, ...o.l].sort(arSort).join("، ") : "", o.teachers.join("، ")])];
 }
+const teacherLinkErrors = {
+  sign_in_required: "سجّل الدخول إلى التحضير الذكي ثم أعد المحاولة.",
+  subscription_required: "إنشاء روابط الرصد يتطلب اشتراكًا فعّالًا.",
+  account_stopped: "حساب التحضير الذكي موقوف.",
+  invalid_roster: "تعذّر تجهيز قائمة الصف للرابط. تحقّق من بيانات الطلبة."
+};
+
+function teacherWorkspace() {
+  return S.cfg?.createdAt || "legacy";
+}
+
+async function teacherLinkRequest(action, fields = {}, workspace = teacherWorkspace()) {
+  const response = await fetch("/api/ghiyab-teacher-link", {
+    method: "POST", credentials: "same-origin", cache: "no-store",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({action, workspace, ...fields}),
+    signal: AbortSignal.timeout?.(15000)
+  });
+  const result = await response.json().catch(() => ({}));
+  if(!response.ok) throw Error(teacherLinkErrors[result.error] || "خدمة روابط الرصد غير متاحة الآن. أعد المحاولة.");
+  return result;
+}
+
+function teacherLinkPanel() {
+  if(location.protocol === "file:") return "";
+  const canInvite = S.classes.some(c => c.students.length);
+  return `<section class="card">
+    <div class="card-h"><div><h3>روابط رصد المعلمين</h3>
+      <p class="muted small">${canInvite ? "شارك رابطًا خاصًا بكل صف وتاريخ. تنتهي صلاحيته بعد 24 ساعة." : "أضف قائمة الطلبة لتتمكن من إنشاء رابط للمعلمين."}</p>
+    </div></div>
+    <div class="row">
+      <button class="btn primary" data-act="manageTeacherLink" ${canInvite ? "" : "disabled"}>إنشاء رابط رصد</button>
+      <button class="btn ghost" data-act="revokeTeacherLink">إلغاء رابط</button>
+      <button class="btn" data-act="syncTeacherLinks">تحديث رصد المعلمين</button>
+    </div>
+    <p class="muted small" aria-live="polite">${h(S.teacherSyncNote || "تُحدّث سجلات المعلمين تلقائيًا أثناء فتح لوحة الإدارة.")}</p>
+  </section>`;
+}
+
+async function chooseTeacherLink(revoke = false) {
+  if(!S.admin || !S.cfg) return;
+  const date = S.date;
+  const workspace = teacherWorkspace();
+  let classes;
+  try{
+    classes = revoke ? (await teacherLinkRequest("links", {date}, workspace)).links : S.classes.filter(c => c.students.length);
+  }catch(error){
+    toast(error.message);
+    return;
+  }
+  if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return;
+  if(!classes.length) return toast(revoke ? "لا توجد روابط سارية في هذا التاريخ" : "أضف قائمة الطلبة أولًا");
+  modal({
+    title: revoke ? "إلغاء رابط رصد" : "إنشاء رابط رصد للمعلمين",
+    ok: revoke ? "إلغاء صلاحية الرابط" : "إنشاء الرابط",
+    danger: revoke,
+    body: `<p class="muted">${h(fmtDate(date))}</p>
+      <label class="f">الصف<select id="teacher-link-class"><option value="">اختر الصف</option>${classes.map(c => `<option value="${h(c.id)}">${h(c.name)}</option>`).join("")}</select></label>
+      <p class="hint">${revoke ? "يتوقف الرابط الحالي لهذا الصف والتاريخ عن العمل. تبقى نتائج الرصد التي أُرسلت." :
+        "شارك الرابط مع معلمي الصف فقط. إنشاء رابط جديد للصف والتاريخ نفسيهما يلغي الرابط السابق."}</p>`,
+    onOk: async () => {
+      if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return false;
+      const classId = $("#teacher-link-class")?.value;
+      if(!classes.some(c => c.id === classId)){ toast("اختر الصف"); return false; }
+      const fields = {classId, date};
+      if(revoke){
+        await teacherLinkRequest("revoke", fields, workspace);
+        toast("أُلغي رابط الرصد");
+        return;
+      }
+      const c = clsById(classId);
+      if(!c || !c.students.length){ toast("قائمة الصف غير متاحة"); return false; }
+      const roster = {
+        school: S.cfg.name, className: c.name, grade: c.grade || "",
+        periods: S.cfg.mode === "period" ? Number(S.cfg.periods) : 0,
+        students: c.students.map(s => ({id: s.id, name: s.n}))
+      };
+      const result = await teacherLinkRequest("create", {...fields, roster}, workspace);
+      const url = new URL("./teacher-link.html", location.href);
+      url.hash = result.token;
+      const expires = new Intl.DateTimeFormat("ar-OM", {dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Muscat"}).format(new Date(result.expiresAt));
+      modal({
+        title: "رابط الرصد جاهز للمشاركة",
+        body: `<p>${h(c.name)} · ${h(fmtDate(date))}</p>
+          <label class="f">رابط المعلم<input type="text" id="teacher-link-url" value="${h(url.href)}" readonly dir="ltr"></label>
+          <p class="hint">ينتهي الرابط في ${h(expires)} بتوقيت عُمان.</p>
+          <div class="row"><button class="btn primary" data-act="copyTeacherLink">نسخ الرابط</button>
+          <a class="btn wa" href="${h(waLink("رابط رصد الغياب لصف " + c.name + " · " + fmtDate(date) + "\n" + url.href))}" target="_blank" rel="noopener noreferrer">مشاركة عبر واتساب</a></div>`
+      });
+      return false;
+    }
+  });
+}
+
+let syncingTeacherLinks = false;
+async function syncTeacherLinks(announce = false) {
+  if(syncingTeacherLinks || !S.admin || !S.cfg || location.protocol === "file:") return;
+  syncingTeacherLinks = true;
+  const workspace = teacherWorkspace();
+  try{
+    const {receipts} = await teacherLinkRequest("pending", {}, workspace);
+    if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return;
+    const ack = [];
+    let count = 0, retained = 0;
+    for(const {id, period, record, submittedAt} of receipts){
+      if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return;
+      const path = `att/${record.date}_${record.classId}`;
+      const old = (await Store.get(path))?.periods?.[period];
+      if(old?.teacherReceiptId === id){
+        ack.push(id);
+        continue;
+      }
+      if(old?.at && Date.parse(old.at) >= Date.parse(submittedAt)){
+        ack.push(id);
+        retained++;
+        continue;
+      }
+      const submission = {...record.periods[period], at: submittedAt, teacherReceiptId: id};
+      await Store.merge(path, {...record, periods: {[period]: submission}});
+      if(Store === Local && JSON.parse(localStorage.getItem(Local.key) || "{}")[path]?.periods?.[period]?.teacherReceiptId !== id){
+        throw Error("تعذّر حفظ الرصد في هذا المتصفح.");
+      }
+      ack.push(id);
+      count++;
+    }
+    if(ack.length) await teacherLinkRequest("ack", {ids: ack}, workspace);
+    if(count){
+      const refreshReport = S.atab === "reports" && S.rep.data && !S.rep.loading;
+      S.rep.data = null;
+      S.alerts.data = null;
+      if(refreshReport) void ACT.runReport();
+      if(S.atab === "alerts" && !S.alerts.loading) void ACT.loadAlerts();
+    }
+    if(count || retained || announce || S.teacherSyncFailed){
+      S.teacherSyncNote = [count ? `استُلم ${count} رصد من المعلمين.` : "لا يوجد رصد جديد.",
+        retained ? `بقي ${retained} سجل أحدث في لوحة الإدارة.` : ""].filter(Boolean).join(" ");
+      S.teacherSyncFailed = false;
+      if(S.route === "admin") render();
+      if(announce) toast(S.teacherSyncNote);
+    }
+  }catch(error){
+    S.teacherSyncNote = error?.message || "تعذّر تحديث رصد المعلمين.";
+    const showError = !S.teacherSyncFailed;
+    S.teacherSyncFailed = true;
+    if(showError && S.route === "admin") render();
+    if(announce) toast(S.teacherSyncNote, 5000);
+  }finally{
+    syncingTeacherLinks = false;
+  }
+}
+
 function overviewTab(){
   const st = dayStats(S.dayRecs);
   const pk = S.cfg.mode === "period";
@@ -726,6 +877,7 @@ function overviewTab(){
     <label class="f" style="min-width:180px">اليوم<input type="date" id="a-date" data-bind="date" value="${S.date}" max="${todayStr()}"></label>
   </section>
   ${loadingNote()}
+  ${teacherLinkPanel()}
   <section class="kpis">
     <div class="kpi a"><span>الغائبون</span><b class="num">${st.a}</b><small>بدون عذر</small></div>
     <div class="kpi e"><span>غياب بعذر</span><b class="num">${st.e}</b><small>&nbsp;</small></div>
@@ -1171,6 +1323,10 @@ async function saveClasses(classes, replace){
 /* ---------- actions ---------- */
 const ACT = {
   reload(){ location.reload(); },
+  manageTeacherLink(){ chooseTeacherLink(); },
+  revokeTeacherLink(){ chooseTeacherLink(true); },
+  copyTeacherLink(){ const url = $("#teacher-link-url")?.value; if(url) copyText(url); },
+  syncTeacherLinks(){ void syncTeacherLinks(true); },
   async impSheet(t){
     if(S.sheetImport) return;
     const where = t.dataset.w;
@@ -1473,6 +1629,7 @@ function route(){
   if(r !== S.route){ S.roster = null; S.done = null; }
   S.route = r;
   if(r === "admin" && S.atab === "alerts" && !S.alerts.data && !S.alerts.loading) ACT.loadAlerts();
+  if(r === "admin") void syncTeacherLinks();
   ensureDaySub(); render();
 }
 
@@ -1566,6 +1723,9 @@ async function openForSubscriber(){
 }
 document.getElementById("subscriber-retry")?.addEventListener("click", openForSubscriber);
 openForSubscriber();
+setInterval(() => {
+  if(S.route === "admin" && !document.hidden) void syncTeacherLinks();
+}, 30000);
 </script>
 </body>
 </html>

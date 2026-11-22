@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow">
+  <title>رصد الغياب للمعلم | التحضير الذكي</title>
+  <style>
+    :root{color-scheme:light;--bg:#f2f5f4;--ink:#13221e;--green:#0e6a51;--line:#d9e2df;--muted:#526760}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 Tahoma,Arial,sans-serif}
+    main{max-width:760px;margin:auto;padding:20px 16px 60px}
+    header,section{padding:clamp(16px,4vw,28px);background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
+    h1,h2,p{margin:0}h1{font-size:clamp(1.45rem,5vw,2rem)}h2{font-size:1.15rem}
+    .school{font-weight:700;color:var(--green)}.muted{color:var(--muted)}.error{color:#9e3527}
+    .fields{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px}.fields label{flex:1 1 175px}
+    label{display:block;font-weight:600}input,select,button{min-height:44px;font:inherit;border-radius:8px}
+    input,select{border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 10px}
+    .fields input,.fields select{display:block;width:100%;margin-top:4px}
+    .rows{margin:0;padding:0;list-style:none}.rows label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+    .rows label span{min-width:0;overflow-wrap:anywhere}.rows select{flex:0 0 auto;min-width:115px}
+    button{cursor:pointer;background:var(--green);color:white;border:1px solid var(--green);font-weight:700;padding:7px 16px}
+    button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+    button:disabled{opacity:.55;cursor:default}.actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px}
+    [hidden]{display:none!important}
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="school" id="school"></p>
+      <h1>رصد غياب الطلبة</h1>
+      <p class="muted" id="scope"></p>
+    </header>
+    <section id="notice" aria-live="polite"><p id="status">جارٍ فتح رابط الرصد…</p><div class="actions"><button id="retry" type="button" hidden>إعادة المحاولة</button></div></section>
+    <section id="panel" hidden>
+      <form id="attendance">
+        <div class="fields">
+          <label>اسم المعلم<input name="teacher" required minlength="3" maxlength="100" autocomplete="name"></label>
+          <label id="period-field" hidden>الحصة<select name="period"></select></label>
+        </div>
+        <div id="roster">
+          <h2>قائمة الطلبة</h2>
+          <p class="muted">الطلبة حاضرون افتراضيًا. غيّر حالة الغائب أو المتأخر ثم اعتمد الرصد.</p>
+          <ol class="rows" id="students" aria-label="قائمة الطلبة"></ol>
+        </div>
+        <div class="actions">
+          <button type="submit" id="submit">اعتماد الرصد</button>
+          <p class="muted" id="tally" aria-live="polite"></p>
+        </div>
+      </form>
+    </section>
+  </main>
+  <script>
+  "use strict";
+  const token = location.hash.slice(1);
+  const find = id => document.getElementById(id);
+  const form = find("attendance"), rows = find("students"), periodSelect = form.elements.period;
+  const states = [["", "حاضر"], ["a", "غائب"], ["e", "غائب بعذر"], ["l", "متأخر"]];
+  const errors = {
+    link_unavailable: "رابط الرصد منتهي أو ملغى. اطلب رابطًا جديدًا من إدارة المدرسة.",
+    already_submitted: "اعتمد أحد المعلمين رصد هذه الحصة بالفعل. حدّث الصفحة لرؤية الحصص المتاحة.",
+    invalid_attendance: "تحقّق من اسم المعلم والحصة وحالات الطلبة ثم أعد المحاولة."
+  };
+  let invite;
+  let busy = false;
+
+  function message(text, isError = false, retry = false) {
+    find("notice").hidden = !text;
+    find("status").textContent = text;
+    find("status").classList.toggle("error", isError);
+    find("retry").hidden = !retry;
+  }
+
+  async function request(action, data = {}) {
+    const response = await fetch("/api/ghiyab-teacher-link", {
+      method: "POST", cache: "no-store", credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      signal: AbortSignal.timeout?.(15000),
+      body: JSON.stringify({action, token, ...data})
+    });
+    const result = await response.json().catch(() => ({}));
+    if(!response.ok) throw Object.assign(new Error(errors[result.error] || "تعذّر الاتصال بخدمة الرصد. أعد المحاولة."), {code: result.error});
+    return result;
+  }
+
+  function selectedPeriod() { return invite.periods ? Number(periodSelect.value) : 0; }
+
+  function updateTally() {
+    const counts = {a: 0, e: 0, l: 0};
+    for(const control of rows.querySelectorAll("select")) if(control.value) counts[control.value]++;
+    find("tally").textContent = `غائب ${counts.a} · بعذر ${counts.e} · متأخر ${counts.l}`;
+  }
+
+  function renderPeriods(keep = selectedPeriod()) {
+    const complete = new Set(invite.captured);
+    if(invite.periods){
+      const available = Array.from({length: invite.periods}, (_, index) => index + 1).filter(period => !complete.has(period));
+      periodSelect.replaceChildren(...available.map(period => new Option("الحصة " + period, String(period))));
+      if(available.includes(keep)) periodSelect.value = String(keep);
+      find("period-field").hidden = available.length === 0;
+    }
+    const done = complete.size >= (invite.periods || 1);
+    find("panel").hidden = done;
+    if(done) message("تم اعتماد الرصد لهذا الصف في التاريخ المحدد.");
+    return done;
+  }
+
+  async function load() {
+    find("retry").hidden = true;
+    if(!/^[A-Za-z0-9_-]{43}$/.test(token)){
+      message(errors.link_unavailable, true);
+      return;
+    }
+    message("جارٍ تحميل قائمة الطلبة…");
+    try{
+      invite = await request("view");
+      find("school").textContent = invite.school;
+      const date = new Date(invite.date + "T12:00:00+04:00");
+      find("scope").textContent = invite.className + " · " + new Intl.DateTimeFormat("ar-OM", {
+        dateStyle: "full", timeZone: "Asia/Muscat"
+      }).format(date);
+      if(renderPeriods()) return;
+      rows.replaceChildren(...invite.students.map(student => {
+        const item = document.createElement("li");
+        const label = document.createElement("label");
+        const name = document.createElement("span");
+        name.textContent = student.name;
+        const select = document.createElement("select");
+        select.dataset.student = student.key;
+        select.append(...states.map(([value, text]) => new Option(text, value)));
+        label.append(name, select);
+        item.append(label);
+        return item;
+      }));
+      updateTally();
+      message("");
+    }catch(error){
+      find("panel").hidden = true;
+      message(error.message, true, error.code !== "link_unavailable");
+    }
+  }
+
+  periodSelect.addEventListener("change", () => {
+    for(const control of rows.querySelectorAll("select")) control.value = "";
+    updateTally();
+  });
+  rows.addEventListener("change", updateTally);
+  find("retry").addEventListener("click", load);
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    if(busy || !invite) return;
+    const teacher = form.elements.teacher.value.trim();
+    if(teacher.length < 3){ message("أدخل اسم المعلم.", true); form.elements.teacher.focus(); return; }
+    const period = selectedPeriod();
+    const controls = [...rows.querySelectorAll("select")];
+    const marks = controls.filter(control => control.value).map(control => ({key: Number(control.dataset.student), status: control.value}));
+    if(!window.confirm(marks.length ? "هل تعتمد حالات الغياب والتأخر لهذه القائمة؟" : "هل تعتمد حضور جميع الطلبة؟")) return;
+    busy = true;
+    const disabled = [form.elements.teacher, periodSelect, ...controls, find("submit")];
+    disabled.forEach(control => { control.disabled = true; });
+    try{
+      await request("submit", {teacher, period, marks});
+      invite.captured.push(period);
+      for(const control of controls) control.value = "";
+      updateTally();
+      if(!renderPeriods()) message("تم اعتماد الرصد. يمكنك رصد حصة أخرى من القائمة.");
+    }catch(error){
+      if(error.code === "link_unavailable") find("panel").hidden = true;
+      message(error.message, true, error.code === "already_submitted");
+    }finally{
+      busy = false;
+      disabled.forEach(control => { control.disabled = false; });
+    }
+  });
+
+  load();
+  </script>
+</body>
+</html>
