@@ -528,7 +528,7 @@ function renderHeader(){
     </nav>` : "";
   $("#hdr").innerHTML = `<a class="brand" href="#home"><span class="mark">${ICON.logo}</span><span><b>${h(name)}</b><small>نظام رصد غياب الطلبة${S.cfg && S.cfg.year ? " · " + h(S.cfg.year) : ""}</small></span></a>${nav}`;
   const bn = $("#banner");
-  if(S.ready && S.backend === "local"){ bn.hidden = false; bn.innerHTML = S.inClaude ? `<div>وضع الحفظ المحلي: البيانات محفوظة في هذا المتصفح فقط ولن يراها المعلمون على أجهزتهم.</div>` : `<div>وضع التجربة: البيانات محفوظة في هذا المتصفح فقط. لحفظها في Google Sheets ومشاركتها مع المعلمين ضع رابط الخادم في ملف config.js (انظر ملف «اقرأني»).</div>`; }
+  if(S.ready && S.backend === "local"){ bn.hidden = false; bn.innerHTML = `<div>تُحفظ بيانات لوحة الإدارة في هذا المتصفح. لحفظ سجل الغياب في ملف قائمة الطلبة، راجع «الحفظ في Google Sheets» في تبويب متابعة اليوم.</div>`; }
   else bn.hidden = true;
 }
 function paint(html){
@@ -936,7 +936,10 @@ async function chooseTeacherLink(revoke = false) {
           };
         })
       };
-      const result = await teacherLinkRequest("create", {classId: "@all-classes", date, roster}, workspace);
+      const result = await teacherLinkRequest("create", {
+        classId:"@all-classes", date, roster,
+        sheetUrl:S.cfg.demo ? "" : (S.cfg.sheetUrl || "")
+      }, workspace);
       if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return false;
       const url = new URL("./teacher-link.html", location.href);
       url.hash = result.token;
@@ -946,12 +949,108 @@ async function chooseTeacherLink(revoke = false) {
         body: `<p>جميع الصفوف والشُّعب · ${h(fmtDate(date))}</p>
           <label class="f">رابط المعلمين<input type="text" id="teacher-link-url" value="${h(url.href)}" readonly dir="ltr"></label>
           <p class="hint">ينتهي الرابط في ${h(expires)} بتوقيت عُمان.</p>
+          <p class="hint">${result.directSheet
+            ? "يحفظ الرابط الرصد مباشرة في ورقة «سجل الغياب»."
+            : "تحتاج إلى ربط ملف قائمة الطلبة ثم إنشاء رابط جديد لتفعيل الحفظ المباشر في Google Sheets."}</p>
           <div class="row"><button class="btn primary" data-act="copyTeacherLink">نسخ الرابط</button>
           <a class="btn wa" href="${h(waLink("رابط رصد الغياب لجميع الصفوف · " + fmtDate(date) + "\n" + url.href))}" target="_blank" rel="noopener noreferrer">مشاركة عبر واتساب</a></div>`
       });
       return false;
     }
   });
+}
+
+const attendanceSheetErrors = {
+  attendance_credentials_missing: "تعذّر التحقق من حساب Google المخصص للحفظ. راجع إعداد ربط المدرسة.",
+  attendance_sheet_permission: "حساب Google المخصص للحفظ يحتاج صلاحية «محرّر» على ملف قائمة الطلبة.",
+  attendance_tab_conflict: "يوجد تبويب باسم «سجل الغياب» بتنسيق مختلف. غيّر اسمه ليُنشئ النظام ورقة مناسبة.",
+  attendance_sheet_busy: "تجري مزامنة أخرى للملف الآن. أعد المحاولة بعد قليل.",
+  attendance_invalid: "تعذّر تجهيز سجلات الرصد للكتابة. جرّب مزامنة يوم واحد."
+};
+let attendanceSheetTasks = Promise.resolve();
+
+function attendanceSheetEntries(record, selectedPeriod = null) {
+  if(!record || record.demo) return [];
+  return Object.entries(record.periods || {})
+    .filter(([key, data]) => (selectedPeriod == null || Number(key) === Number(selectedPeriod)) && data?.at)
+    .map(([key, data]) => ({
+      date:record.date, classId:record.classId, className:record.className, period:Number(key),
+      teacher:data.teacher || "", total:Number(data.total || 0), at:data.at,
+      absent:(data.absent || []).map(student => student.n),
+      excused:(data.excused || []).map(student => student.n),
+      late:(data.late || []).map(student => student.n)
+    }));
+}
+
+async function attendanceSheetRequest(action, url, entries) {
+  const response = await fetch("/api/ghiyab-sheet", {
+    method:"POST", credentials:"same-origin", cache:"no-store",
+    headers:{"Content-Type":"application/json"}, signal:AbortSignal.timeout?.(30000),
+    body:JSON.stringify({action, url, entries})
+  });
+  const result = await response.json().catch(() => null);
+  if(!response.ok || !result || typeof result.enabled !== "boolean"){
+    const reason = result?.error;
+    if(response.status === 403 && reason === "attendance_sheet_permission") throw Error(attendanceSheetErrors[reason]);
+    throw Error(attendanceSheetErrors[reason] || "تعذّر تحديث سجل Google Sheets. أعد المحاولة من لوحة الإدارة.");
+  }
+  return result;
+}
+
+function showAttendanceSheetStatus(url, message, logUrl = "") {
+  if(S.cfg?.sheetUrl !== url) return;
+  const previous = S.attendanceSheetStatus;
+  S.attendanceSheetStatus = {source:url, message, url:logUrl || (previous?.source === url ? previous.url : "")};
+  if(S.route === "admin") render();
+}
+
+function syncAttendanceSheet(entries, announce = false) {
+  const url = S.cfg?.sheetUrl;
+  if(!url || S.cfg.demo || location.protocol === "file:" || !entries.length) return Promise.resolve(true);
+  const operation = attendanceSheetTasks.then(async () => {
+    try{
+      let written = 0, logUrl = "";
+      for(let i = 0; i < entries.length; i += 20){
+        const result = await attendanceSheetRequest("attendance_save", url, entries.slice(i, i + 20));
+        if(!result.enabled){
+          const message = "لم يُفعّل الحفظ لهذا الملف بعد. اربط ملف قائمة الطلبة بحساب Google المخصص للحفظ.";
+          showAttendanceSheetStatus(url, message);
+          if(announce) toast(message, 5000);
+          return true;
+        }
+        written += result.saved;
+        logUrl = result.url;
+      }
+      const message = written ? `تم تحديث ${written} سجل في ورقة «سجل الغياب».` : "السجل في Google Sheets محدث بالفعل.";
+      showAttendanceSheetStatus(url, message, logUrl);
+      if(announce) toast(message);
+      return true;
+    }catch(failure){
+      const message = errMsg(failure);
+      showAttendanceSheetStatus(url, message);
+      if(announce) toast(message, 5000);
+      return false;
+    }
+  });
+  attendanceSheetTasks = operation;
+  return operation;
+}
+
+function attendanceSheetPanel() {
+  if(location.protocol === "file:") return "";
+  const url = S.cfg.sheetUrl;
+  const status = S.attendanceSheetStatus?.source === url ? S.attendanceSheetStatus : null;
+  return `<section class="card">
+    <div class="card-h"><div><h3>الحفظ في Google Sheets</h3>
+      <p class="muted small">يُكتب الرصد في ورقة «سجل الغياب» داخل ملف قائمة الطلبة بعد ربطه.</p>
+    </div></div>
+    <div class="row">
+      <button class="btn" data-act="checkAttendanceSheet">فحص ربط الملف</button>
+      <button class="btn" data-act="syncAttendanceDay" ${url && !S.cfg.demo ? "" : "disabled"}>مزامنة رصد التاريخ المحدد</button>
+      ${status?.url ? `<a class="btn" href="${h(status.url)}" target="_blank" rel="noopener noreferrer">فتح سجل الغياب</a>` : ""}
+    </div>
+    <p class="muted small" aria-live="polite">${h(status?.message || (url ? "اختر «فحص ربط الملف» للتحقق من تفعيل الحفظ." : "احفظ رابط ملف قائمة الطلبة في إعدادات المدرسة أولًا."))}</p>
+  </section>`;
 }
 
 let syncingTeacherLinks = false;
@@ -962,17 +1061,21 @@ async function syncTeacherLinks(announce = false) {
   try{
     const {receipts} = await teacherLinkRequest("pending", {}, workspace);
     if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return;
-    const ack = [];
+    const legacyAck = [], directAck = [];
+    const sheetEntries = [];
     let count = 0, retained = 0;
-    for(const {id, period, record, submittedAt} of receipts){
+    for(const {id, period, record, submittedAt, directSheet} of receipts){
       if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return;
+      const ack = directSheet ? directAck : legacyAck;
       const path = `att/${record.date}_${record.classId}`;
       const old = (await Store.get(path))?.periods?.[period];
       if(old?.teacherReceiptId === id){
+        if(!directSheet) sheetEntries.push(...attendanceSheetEntries({...record, periods:{[period]:old}}, period));
         ack.push(id);
         continue;
       }
       if(old?.at && Date.parse(old.at) >= Date.parse(submittedAt)){
+        if(!directSheet) sheetEntries.push(...attendanceSheetEntries({...record, periods:{[period]:old}}, period));
         ack.push(id);
         retained++;
         continue;
@@ -982,10 +1085,17 @@ async function syncTeacherLinks(announce = false) {
       if(Store === Local && JSON.parse(localStorage.getItem(Local.key) || "{}")[path]?.periods?.[period]?.teacherReceiptId !== id){
         throw Error("تعذّر حفظ الرصد في هذا المتصفح.");
       }
+      if(!directSheet) sheetEntries.push(...attendanceSheetEntries({...record, periods:{[period]:submission}}, period));
       ack.push(id);
       count++;
     }
-    if(ack.length) await teacherLinkRequest("ack", {ids: ack}, workspace);
+    const sheetReady = await syncAttendanceSheet(sheetEntries);
+    const syncedIds = sheetReady ? [...directAck, ...legacyAck] : directAck;
+    let googlePending = false;
+    if(syncedIds.length){
+      const result = await teacherLinkRequest("ack", {ids:syncedIds}, workspace);
+      googlePending = result.sheetStatus === "pending";
+    }
     if(count){
       const refreshReport = S.atab === "reports" && S.rep.data && !S.rep.loading;
       S.rep.data = null;
@@ -993,9 +1103,11 @@ async function syncTeacherLinks(announce = false) {
       if(refreshReport) void ACT.runReport();
       if(S.atab === "alerts" && !S.alerts.loading) void ACT.loadAlerts();
     }
-    if(count || retained || announce || S.teacherSyncFailed){
+    if(count || retained || announce || S.teacherSyncFailed || googlePending !== !!S.teacherSheetsPending){
+      S.teacherSheetsPending = googlePending;
       S.teacherSyncNote = [count ? `استُلم ${count} رصد من المعلمين.` : "لا يوجد رصد جديد.",
-        retained ? `بقي ${retained} سجل أحدث في لوحة الإدارة.` : ""].filter(Boolean).join(" ");
+        retained ? `بقي ${retained} سجل أحدث في لوحة الإدارة.` : "",
+        googlePending ? "بعض السجلات بانتظار الحفظ في Google Sheets." : ""].filter(Boolean).join(" ");
       S.teacherSyncFailed = false;
       if(S.route === "admin") render();
       if(announce) toast(S.teacherSyncNote);
@@ -1022,6 +1134,7 @@ function overviewTab(){
   </section>
   ${loadingNote()}
   ${teacherLinkPanel()}
+  ${attendanceSheetPanel()}
   <section class="kpis">
     <div class="kpi a"><span>الغائبون</span><b class="num">${st.a}</b><small>بدون عذر</small></div>
     <div class="kpi e"><span>غياب بعذر</span><b class="num">${st.e}</b><small>&nbsp;</small></div>
@@ -1169,7 +1282,7 @@ function settingsTab(){
       <label class="f">حد تنبيه الغياب (أيام)<input type="number" min="1" max="60" id="sf-alertN" data-bind="sf.alertN" value="${h(f.alertN)}"></label>
       <label class="f">فترة التنبيه (أيام)<input type="number" min="7" max="180" id="sf-alertDays" data-bind="sf.alertDays" value="${h(f.alertDays)}"></label>
       <p class="hint">مفتاح واتساب لسلطنة عُمان <bdi>+${omanCountryCode}</bdi></p>
-      <label class="f">رابط Google Sheet للطلاب<input type="url" id="sf-url" data-bind="sf.sheetUrl" value="${h(f.sheetUrl)}" dir="ltr"></label>
+      <label class="f">رابط Google Sheets لقائمة الطلبة<input type="url" id="sf-url" data-bind="sf.sheetUrl" value="${h(f.sheetUrl)}" dir="ltr"><span class="hint">يُستخدم هذا الملف لحفظ الرصد في ورقة «سجل الغياب» بعد ربطه.</span></label>
     </div>
     <div class="grid2">
       <label class="f">رمز دخول المعلمين الجديد<input type="password" id="sf-pin" data-bind="sf.pin" value="${h(f.pin)}" placeholder="${S.cfg.pinHash ? "اتركه فارغاً للإبقاء على الرمز الحالي" : "اختياري"}"><span class="hint">${S.cfg.pinHash ? "يوجد رمز مفعّل حالياً." : "لا يوجد رمز؛ يدخل المعلم باسمه فقط."}</span></label>
@@ -1194,7 +1307,7 @@ function settingsTab(){
       <button class="btn danger" data-act="purgeAll">حذف كل سجلات الغياب</button>
       <button class="btn danger" data-act="resetAll">إعادة تأسيس النظام بالكامل</button>
     </div>
-    <p class="hint">${S.backend === "api" ? "البيانات محفوظة في ملف Google Sheet المرتبط بالخادم (ورقة store)." : S.backend === "db" ? "البيانات محفوظة في قاعدة بيانات مشتركة يراها كل من يفتح هذه الصفحة." : "البيانات محفوظة في هذا المتصفح فقط."}</p>
+    <p class="hint">${S.backend === "api" ? "تُحفظ بيانات لوحة الإدارة في ملف Google Sheets المرتبط بالخادم." : S.backend === "db" ? "تُحفظ بيانات لوحة الإدارة في قاعدة البيانات المشتركة." : "تُحفظ بيانات لوحة الإدارة في هذا المتصفح. بعد ربط Google Sheets، يُحفظ سجل الغياب أيضًا في ملف قائمة الطلبة."}</p>
   </section>`;
 }
 
@@ -1471,6 +1584,31 @@ const ACT = {
   revokeTeacherLink(){ chooseTeacherLink(true); },
   copyTeacherLink(){ const url = $("#teacher-link-url")?.value; if(url) copyText(url); },
   syncTeacherLinks(){ void syncTeacherLinks(true); },
+  async checkAttendanceSheet(t){
+    if(!S.admin) return;
+    const url = S.cfg?.sheetUrl;
+    if(!url) return toast("احفظ رابط ملف قائمة الطلبة في الإعدادات أولًا.");
+    t.disabled = true;
+    try{
+      const result = await attendanceSheetRequest("attendance_status", url);
+      showAttendanceSheetStatus(url, result.enabled
+        ? "الملف معيّن للحفظ. استخدم مزامنة الرصد للتأكد من صلاحية الكتابة."
+        : "لم يُفعّل الحفظ لهذا الملف بعد. اطلب ربط ملف قائمة الطلبة بحساب Google المخصص للحفظ.");
+    }catch(failure){ showAttendanceSheetStatus(url, errMsg(failure)); }
+    finally{ if(t.isConnected) t.disabled = false; }
+  },
+  async syncAttendanceDay(t){
+    if(!S.admin || !S.cfg?.sheetUrl || S.cfg.demo) return;
+    const date = S.date;
+    t.disabled = true;
+    try{
+      const records = await listRange(date, date);
+      const entries = records.flatMap(record => attendanceSheetEntries(record));
+      if(!entries.length) return toast("لا توجد سجلات معتمدة في التاريخ المحدد.");
+      await syncAttendanceSheet(entries, true);
+    }catch(failure){ toast(errMsg(failure), 5000); }
+    finally{ if(t.isConnected) t.disabled = false; }
+  },
   async impSheet(t){
     if(S.sheetImport) return;
     const where = t.dataset.w;
@@ -1582,7 +1720,10 @@ const ACT = {
         ${a.length + e.length ? `<p class="small">${[...a, ...e].map(s => h(s.n)).join("، ")}</p>` : `<p class="small muted">لا يوجد غياب: سيُسجَّل أن جميع الطلاب حاضرون.</p>`}`,
       ok: "اعتماد",
       onOk: async () => {
-        await Store.merge(`att/${date}_${c.id}`, {date, classId: c.id, className: c.name, grade: c.grade || "", periods: {[pk]: {absent: a, late: l, excused: e, teacher: S.teacherName, at: new Date().toISOString(), total: c.students.length}}});
+        const record = {date, classId: c.id, className: c.name, grade: c.grade || "",
+          periods: {[pk]: {absent: a, late: l, excused: e, teacher: S.teacherName, at: new Date().toISOString(), total: c.students.length}}};
+        await Store.merge(`att/${date}_${c.id}`, record);
+        void syncAttendanceSheet(attendanceSheetEntries(record));
         S.done = {cid: c.id, cname: c.name, a, l, e, pk}; S.roster = null; render(); window.scrollTo(0, 0); toast("تم اعتماد الرصد");
       }
     });

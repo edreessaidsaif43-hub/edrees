@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 import { isTeacherSessionOrigin, readTeacherSession } from "../enjazy/server_api/_lib/teacher-session.js";
 import { readPreparationSubscription } from "./subscriptions.js";
+import { googleExportUrl, linkedSpreadsheet, saveGoogleAttendance } from "./_lib/ghiyab-attendance-google.js";
 
 const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || "";
 const tokenPattern = /^[A-Za-z0-9_-]{43}$/;
@@ -59,11 +60,14 @@ function selectionAt(items, key) {
   return Number.isInteger(key) && key >= 0 && key < items.length ? items[key] : null;
 }
 
+function validPeriod(period, periodCount) {
+  return Number.isInteger(period) && (periodCount ? period >= 1 && period <= periodCount : period === 0);
+}
+
 function makeRecord(body, invite, selected, teacher) {
   const roster = invite.roster;
   const period = body.period;
-  if(!teacher || teacher.length < 3 || !Number.isInteger(period) ||
-    (roster.periods ? period < 1 || period > roster.periods : period !== 0) ||
+  if(!teacher || teacher.length < 3 || !validPeriod(period, roster.periods) ||
     !selected.students.length || !Array.isArray(body.marks) || body.marks.length > selected.students.length) return null;
 
   const used = new Set();
@@ -118,9 +122,14 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
             attendance_date DATE NOT NULL,
             period SMALLINT NOT NULL,
             record JSONB,
+            google_sheet_id TEXT, google_synced_at TIMESTAMPTZ,
             submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             UNIQUE (owner_id, workspace_id, class_id, attendance_date, period)
           );`;
+        await sql`
+          ALTER TABLE ghiyab_teacher_receipts
+            ADD COLUMN IF NOT EXISTS google_sheet_id TEXT,
+            ADD COLUMN IF NOT EXISTS google_synced_at TIMESTAMPTZ;`;
       })().catch(error => { schema = undefined; throw error; });
     }
     return schema;
@@ -138,6 +147,50 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
     if(access?.status === 401 || access?.status === 403) return null;
     if(access?.status !== 200) throw Error("Subscription unavailable");
     return {...match, tokenHash};
+  }
+
+  function currentSheetId(ownerId, id) {
+    if(typeof id !== "string" || !/^[A-Za-z0-9_-]{2,160}$/.test(id)) return null;
+    return linkedSpreadsheet(ownerId, new URL("https://docs.google.com/spreadsheets/d/" + id + "/export"));
+  }
+
+  async function syncReceipts(ownerId, workspace, receipts) {
+    if(!receipts.length) return "not_linked";
+    if(receipts.every(receipt => receipt.sheetSaved)) return "saved";
+    const waiting = receipts.filter(receipt => receipt.sheetId && !receipt.sheetSaved);
+    const eligible = waiting.filter(receipt => receipt.record && currentSheetId(ownerId, receipt.sheetId));
+    if(!eligible.length) return waiting.length ? "pending" : "not_linked";
+    const target = eligible[0].sheetId;
+    const entries = eligible.map(({period, record, submittedAt}) => {
+      const data = record.periods[period];
+      return {
+        date:record.date, classId:record.classId, className:record.className, period:Number(period),
+        teacher:data.teacher, at:new Date(submittedAt).toISOString(), total:data.total,
+        absent:data.absent.map(student => student.n),
+        excused:data.excused.map(student => student.n),
+        late:data.late.map(student => student.n)
+      };
+    });
+
+    for(const delay of [0, 500, 1000, 1500]){
+      if(delay) await new Promise(resolve => setTimeout(resolve, delay));
+      try{
+        await saveGoogleAttendance(target, entries);
+      }catch(failure){
+        if(failure?.code === "attendance_sheet_busy") continue;
+        return "pending";
+      }
+      try{
+        const ids = eligible.map(receipt => receipt.id);
+        await sql`UPDATE ghiyab_teacher_receipts SET google_synced_at = NOW()
+          WHERE owner_id = ${ownerId} AND workspace_id = ${workspace}
+          AND google_sheet_id = ${target} AND id = ANY(${ids}::text[]);`;
+      }catch{
+        // Google accepted the write. The next attempt can update the same rows.
+      }
+      return eligible.length === waiting.length ? "saved" : "pending";
+    }
+    return "pending";
   }
 
   async function handleTeacher(body, res, fail) {
@@ -158,33 +211,58 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
     if(!selected || (schoolLink && !teacher)) return fail(400, "invalid_selection");
     if(body.action === "view" || body.action === "roster"){
       const captured = await sql`
-        SELECT period FROM ghiyab_teacher_receipts WHERE owner_id = ${invite.owner_id}
+        SELECT period, google_sheet_id AS "sheetId", google_synced_at IS NOT NULL AS "sheetSaved",
+          record #>> ARRAY['periods', period::text, 'teacher'] AS teacher
+        FROM ghiyab_teacher_receipts WHERE owner_id = ${invite.owner_id}
         AND workspace_id = ${invite.workspace_id}
         AND class_id = ${selected.id} AND attendance_date = ${invite.date}::date;`;
       return res.status(200).json({
         school, className: selected.className, date: invite.date, periods,
         students: selected.students.map(({name}, key) => ({name, key})),
-        captured: captured.map(row => Number(row.period))
+        captured: captured.map(row => Number(row.period)),
+        savedSheets: captured.filter(row => row.sheetSaved).map(row => Number(row.period)),
+        pendingSheets: captured.filter(row => row.sheetId &&
+          row.sheetId === roster.attendanceSheetId && !row.sheetSaved && row.teacher === teacher).map(row => Number(row.period))
       });
+    }
+
+    if(body.action === "sync_sheet"){
+      if(!teacher || teacher.length < 3 || !validPeriod(body.period, periods)) return fail(400, "invalid_attendance");
+      const [receipt] = await sql`
+        SELECT id, period, record, submitted_at AS "submittedAt", google_sheet_id AS "sheetId",
+          google_synced_at IS NOT NULL AS "sheetSaved"
+        FROM ghiyab_teacher_receipts WHERE owner_id = ${invite.owner_id}
+        AND workspace_id = ${invite.workspace_id} AND class_id = ${selected.id}
+        AND attendance_date = ${invite.date}::date AND period = ${body.period};`;
+      if(!receipt?.sheetId || receipt.sheetId !== roster.attendanceSheetId) return fail(409, "sheet_receipt_unavailable");
+      if(receipt.sheetSaved) return res.status(200).json({saved:true, sheetStatus:"saved"});
+      if(receipt.record?.periods?.[body.period]?.teacher !== teacher) return fail(409, "sheet_receipt_unavailable");
+      const sheetStatus = await syncReceipts(invite.owner_id, invite.workspace_id, [receipt]);
+      return res.status(200).json({saved:true, sheetStatus});
     }
 
     const record = makeRecord(body, invite, selected, teacher);
     if(!record) return fail(400, "invalid_attendance");
+    const sheetId = roster.attendanceSheetId || null;
     const [written] = await sql`
       WITH eligible AS (
         SELECT owner_id, workspace_id, attendance_date FROM ghiyab_teacher_links
         WHERE token_hash = ${invite.tokenHash} AND expires_at > NOW()
         FOR UPDATE
       ), receipt AS (
-        INSERT INTO ghiyab_teacher_receipts (id, owner_id, workspace_id, class_id, attendance_date, period, record)
-        SELECT ${randomUUID()}, owner_id, workspace_id, ${selected.id}, attendance_date, ${body.period}, ${JSON.stringify(record)}::jsonb FROM eligible
+        INSERT INTO ghiyab_teacher_receipts (id, owner_id, workspace_id, class_id, attendance_date, period, record, google_sheet_id)
+        SELECT ${randomUUID()}, owner_id, workspace_id, ${selected.id}, attendance_date, ${body.period}, ${JSON.stringify(record)}::jsonb, ${sheetId} FROM eligible
         ON CONFLICT (owner_id, workspace_id, class_id, attendance_date, period) DO NOTHING
-        RETURNING id
+        RETURNING id, submitted_at
       )
-      SELECT EXISTS (SELECT 1 FROM eligible) AS active, EXISTS (SELECT 1 FROM receipt) AS saved;`;
+      SELECT EXISTS (SELECT 1 FROM eligible) AS active,
+        (SELECT id FROM receipt) AS id, (SELECT submitted_at FROM receipt) AS "submittedAt";`;
     if(!written?.active) return fail(404, "link_unavailable");
-    if(!written.saved) return fail(409, "already_submitted");
-    return res.status(200).json({saved: true});
+    if(!written.id) return fail(409, "already_submitted");
+    const sheetStatus = await syncReceipts(invite.owner_id, invite.workspace_id, [{
+      id:written.id, period:body.period, record, submittedAt:written.submittedAt, sheetId
+    }]);
+    return res.status(200).json({saved:true, sheetStatus});
   }
 
   return async function handler(req, res) {
@@ -202,7 +280,7 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
     const body = requestBody(req);
     if(!body) return fail(400, "invalid_request");
     try {
-      if(["view", "roster", "submit"].includes(body.action)) return await handleTeacher(body, res, fail);
+      if(["view", "roster", "submit", "sync_sheet"].includes(body.action)) return await handleTeacher(body, res, fail);
       if(!["create", "links", "revoke", "pending", "ack"].includes(body.action)) return fail(400, "invalid_request");
       const session = await readSession(req, res);
       if(!session) return fail(401, "sign_in_required");
@@ -214,18 +292,26 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
       await ensureSchema();
       if(body.action === "pending"){
         const receipts = await sql`
-          SELECT id, period, record, submitted_at AS "submittedAt" FROM ghiyab_teacher_receipts
+          SELECT id, period, record, submitted_at AS "submittedAt",
+            google_sheet_id IS NOT NULL AS "directSheet" FROM ghiyab_teacher_receipts
           WHERE owner_id = ${ownerId} AND workspace_id = ${workspace} AND record IS NOT NULL
-          ORDER BY submitted_at, id LIMIT 10;`;
+          ORDER BY (google_sheet_id IS NOT NULL AND google_synced_at IS NULL), submitted_at, id LIMIT 10;`;
         return res.status(200).json({receipts});
       }
       if(body.action === "ack"){
         if(!Array.isArray(body.ids) || body.ids.length < 1 || body.ids.length > 30 ||
           body.ids.some(id => typeof id !== "string" || !uuidPattern.test(id))) return fail(400, "invalid_request");
+        const pending = await sql`
+          SELECT id, period, record, submitted_at AS "submittedAt", google_sheet_id AS "sheetId"
+          FROM ghiyab_teacher_receipts WHERE owner_id = ${ownerId} AND workspace_id = ${workspace}
+          AND id = ANY(${body.ids}::text[]) AND record IS NOT NULL AND google_sheet_id IS NOT NULL
+          AND google_synced_at IS NULL ORDER BY submitted_at LIMIT 10;`;
+        const sheetStatus = await syncReceipts(ownerId, workspace, pending);
         await sql`
           UPDATE ghiyab_teacher_receipts SET record = NULL
-          WHERE owner_id = ${ownerId} AND workspace_id = ${workspace} AND id = ANY(${body.ids}::text[]);`;
-        return res.status(200).json({ok: true});
+          WHERE owner_id = ${ownerId} AND workspace_id = ${workspace} AND id = ANY(${body.ids}::text[])
+          AND (google_sheet_id IS NULL OR google_synced_at IS NOT NULL);`;
+        return res.status(200).json({ok:true, sheetStatus});
       }
       if(body.action === "links"){
         if(!dateIsValid(body.date)) return fail(400, "invalid_request");
@@ -247,6 +333,8 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
       }
       const roster = parseRoster(body);
       if(!roster) return fail(400, "invalid_roster");
+      const target = linkedSpreadsheet(ownerId, googleExportUrl(body.sheetUrl));
+      if(target) roster.attendanceSheetId = target;
       const token = randomBytes(32).toString("base64url");
       const [saved] = await sql`
         WITH expired AS (
@@ -258,7 +346,7 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
         ON CONFLICT (owner_id, workspace_id, class_id, attendance_date) DO UPDATE
         SET token_hash = EXCLUDED.token_hash, expires_at = EXCLUDED.expires_at, roster = EXCLUDED.roster
         RETURNING expires_at AS "expiresAt";`;
-      return res.status(200).json({token, expiresAt: saved.expiresAt});
+      return res.status(200).json({token, expiresAt:saved.expiresAt, directSheet:!!target && !!process.env.GHIYAB_SHEETS_SERVICE_ACCOUNT});
     } catch {
       return fail(503, "service_unavailable");
     }

@@ -64,6 +64,7 @@
       <div id="notice" aria-live="polite">
         <p id="status">جارٍ فتح رابط الرصد…</p>
         <div class="actions" id="retry-actions" hidden><button id="retry" type="button">إعادة المحاولة</button></div>
+        <div class="actions" id="sheet-retry-actions" hidden><button id="sheet-retry" type="button">إعادة الحفظ في Google Sheets</button></div>
       </div>
     </section>
   </main>
@@ -78,14 +79,17 @@
     link_unavailable: "رابط الرصد منتهي أو ملغى. اطلب رابطًا جديدًا من إدارة المدرسة.",
     already_submitted: "سبق اعتماد الرصد لهذا الصف والحصة. حدّث القائمة لرؤية ما تبقّى.",
     invalid_selection: "اختر اسمك والصف والشعبة من القوائم.",
-    invalid_attendance: "تحقّق من اسم المعلم والحصة وحالات الطلبة ثم أعد المحاولة."
+    invalid_attendance: "تحقّق من اسم المعلم والحصة وحالات الطلبة ثم أعد المحاولة.",
+    sheet_receipt_unavailable: "تعذّر الوصول إلى هذا الرصد من الرابط الحالي."
   };
   let invite, roster, dateLabel;
   let requestVersion = 0;
   let busy = false;
 
   function message(text, isError = false, retry = false) {
-    el("notice").hidden = !text;
+    const pending = !!roster?.pendingSheets?.length;
+    el("notice").hidden = !text && !pending;
+    el("sheet-retry-actions").hidden = !pending;
     el("status").textContent = text;
     el("status").classList.toggle("error", isError);
     el("retry-actions").hidden = !retry;
@@ -95,7 +99,7 @@
     const response = await fetch("/api/ghiyab-teacher-link", {
       method: "POST", cache: "no-store", credentials: "same-origin",
       headers: {"Content-Type": "application/json"},
-      signal: AbortSignal.timeout?.(15000),
+      signal: AbortSignal.timeout?.(["submit", "sync_sheet"].includes(action) ? 55000 : 15000),
       body: JSON.stringify({action, token, ...data})
     });
     const result = await response.json().catch(() => null);
@@ -143,7 +147,7 @@
   }
 
   function showRoster(data) {
-    roster = data;
+    roster = {...data, pendingSheets:data.pendingSheets || [], savedSheets:data.savedSheets || []};
     el("scope").textContent = dateLabel + " · " + data.className;
     el("roster-title").textContent = "طلبة " + data.className;
     if(!data.students.length){
@@ -152,7 +156,9 @@
       return;
     }
     if(!renderPeriods()){
-      message("تم اعتماد رصد هذه الشعبة في التاريخ المحدد.");
+      message(roster.pendingSheets.length ? "سبق اعتماد الرصد على الخادم. بقي الحفظ في Google Sheets." :
+        roster.savedSheets.length === roster.captured.length ? "تم حفظ رصد هذه الشعبة في Google Sheets." :
+        "تم اعتماد رصد هذه الشعبة في التاريخ المحدد.");
       return;
     }
     rows.replaceChildren(...data.students.map(student => {
@@ -166,7 +172,7 @@
       return item;
     }));
     updateTally();
-    message("");
+    message(roster.pendingSheets.length ? "يوجد رصد معتمد لم يُحفظ بعد في Google Sheets." : "");
   }
 
   function selection() {
@@ -241,11 +247,47 @@
     if(Array.isArray(invite?.classes) && selection()) void loadRoster();
     else void load();
   });
+  function chosenTeacher() {
+    const choice = Array.isArray(invite.classes) ? selection() : {teacher: el("teacher-name").value.trim()};
+    return choice && (!("teacher" in choice) || choice.teacher.length >= 3) ? choice : null;
+  }
+
+  el("sheet-retry").addEventListener("click", async () => {
+    if(busy || !roster?.pendingSheets.length) return;
+    const chosen = chosenTeacher();
+    if(!chosen) return;
+    const pending = roster.pendingSheets[0];
+    busy = true;
+    el("controls").disabled = true;
+    el("sheet-retry").disabled = true;
+    message("جارٍ إعادة حفظ الرصد في Google Sheets…");
+    try{
+      const result = await request("sync_sheet", {...chosen, period:pending});
+      if(result.sheetStatus !== "saved"){
+        message("لم يُحفظ الرصد في Google Sheets بعد. أعد المحاولة أو أبلغ إدارة المدرسة.", true);
+        return;
+      }
+      roster.pendingSheets = roster.pendingSheets.filter(value => value !== pending);
+      roster.savedSheets.push(pending);
+      message(roster.pendingSheets.length ? "حُفظ الرصد في Google Sheets. توجد حصص أخرى بانتظار الحفظ." :
+        "تم حفظ الرصد في ورقة «سجل الغياب» في Google Sheets.");
+    }catch(error){
+      if(error.code === "link_unavailable"){
+        form.hidden = true;
+        roster.pendingSheets = [];
+      }
+      message(error.message, true);
+    }finally{
+      busy = false;
+      el("controls").disabled = false;
+      el("sheet-retry").disabled = false;
+    }
+  });
   form.addEventListener("submit", async event => {
     event.preventDefault();
     if(busy || !roster || el("capture").hidden) return;
-    const chosen = Array.isArray(invite.classes) ? selection() : {teacher: el("teacher-name").value.trim()};
-    if(!chosen || ("teacher" in chosen && chosen.teacher.length < 3)){
+    const chosen = chosenTeacher();
+    if(!chosen){
       message("اختر اسم المعلم أو أدخله للمتابعة.", true);
       return;
     }
@@ -255,13 +297,21 @@
     if(!window.confirm(marks.length ? "هل تعتمد حالات الغياب والتأخر لهذه الشعبة؟" : "هل تعتمد حضور جميع الطلبة في هذه الشعبة؟")) return;
     busy = true;
     el("controls").disabled = true;
+    message("جارٍ اعتماد الرصد وحفظه في Google Sheets…");
     try{
-      await request("submit", {...chosen, period: currentPeriod, marks});
+      const result = await request("submit", {...chosen, period: currentPeriod, marks});
       roster.captured.push(currentPeriod);
       clearMarks();
-      const hasMore = renderPeriods();
-      message(hasMore ? "تم اعتماد الرصد. يمكنك متابعة رصد الحصة التالية." :
-        Array.isArray(invite.classes) ? "تم اعتماد رصد هذه الشعبة. يمكنك اختيار شعبة أخرى." : "تم اعتماد الرصد.");
+      renderPeriods();
+      if(result.sheetStatus === "saved"){
+        roster.savedSheets.push(currentPeriod);
+        message("تم حفظ الرصد في ورقة «سجل الغياب» في Google Sheets.");
+      }else if(result.sheetStatus === "pending"){
+        roster.pendingSheets.push(currentPeriod);
+        message("تم اعتماد الرصد على الخادم، وتعذّر حفظه في Google Sheets. استخدم «إعادة الحفظ» دون إعادة تسجيل الغياب.", true);
+      }else{
+        message("تم اعتماد الرصد على الخادم. أبلغ الإدارة لتفعيل الحفظ في Google Sheets لهذا الرابط.", true);
+      }
     }catch(error){
       if(error.code === "link_unavailable") form.hidden = true;
       message(error.message, true, error.code === "already_submitted");

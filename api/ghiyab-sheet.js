@@ -1,46 +1,8 @@
 import { isTeacherSessionOrigin, readTeacherSession } from "../enjazy/server_api/_lib/teacher-session.js";
 import { readPreparationSubscription } from "./subscriptions.js";
+import { googleExportUrl, linkedSpreadsheet, readPrivateRoster, saveGoogleAttendance } from "./_lib/ghiyab-attendance-google.js";
 
 const maxBytes = 2 * 1024 * 1024;
-
-function googleExportUrl(value) {
-  if (typeof value !== "string" || value.length > 4096) return null;
-  let cleaned = value.replace(/[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "")
-    .replace(/&amp;/gi, "&").trim();
-  if (/^(?:docs|drive)\.google\.com\//i.test(cleaned)) cleaned = "https://" + cleaned;
-  let input;
-  try { input = new URL(cleaned); } catch { return null; }
-  if (input.protocol !== "https:" || input.username || input.password || input.port) return null;
-
-  const pathname = input.pathname;
-  const idPattern = /^[A-Za-z0-9_-]{2,160}$/;
-  let id, published = false;
-  if (input.hostname === "docs.google.com") {
-    const sheet = /^\/spreadsheets(?:\/u\/\d+)?\/d\/(e\/)?([A-Za-z0-9_-]+)(?:\/|$)/.exec(pathname);
-    if (sheet) {
-      published = Boolean(sheet[1]);
-      id = sheet[2];
-    } else if (/^\/open\/?$/.test(pathname)) {
-      id = input.searchParams.get("id");
-    }
-  } else if (input.hostname === "drive.google.com") {
-    const file = /^\/file(?:\/u\/\d+)?\/d\/([A-Za-z0-9_-]+)(?:\/|$)/.exec(pathname);
-    id = file?.[1] ?? (/^\/(?:open|uc)\/?$/.test(pathname) ? input.searchParams.get("id") : null);
-  }
-  if (!id || !idPattern.test(id)) return null;
-
-  const output = published
-    ? new URL(`https://docs.google.com/spreadsheets/d/e/${id}/pub?output=csv`)
-    : new URL(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv`);
-  const gid = input.searchParams.get("gid") || new URLSearchParams(input.hash.slice(1)).get("gid");
-  if (/^\d{1,12}$/.test(gid ?? "")) {
-    output.searchParams.set("gid", gid);
-    if (published) output.searchParams.set("single", "true");
-  }
-  const resourceKey = input.searchParams.get("resourcekey");
-  if (/^[A-Za-z0-9_-]{1,200}$/.test(resourceKey ?? "")) output.searchParams.set("resourcekey", resourceKey);
-  return output;
-}
 
 function isGoogleDownload(url) {
   return url.protocol === "https:" && !url.port && !url.username && !url.password &&
@@ -97,15 +59,19 @@ export default async function handler(req, res) {
   }
   if (!isTeacherSessionOrigin(req)) return fail(403, "origin_not_allowed");
 
+  let ownerId;
   try {
     const session = await readTeacherSession(req, res);
     if (!session) return fail(401, "sign_in_required");
     const access = await readPreparationSubscription(session.userId);
     if (access.status !== 200) return fail(access.status, access.error);
+    ownerId = session.userId;
   } catch {
     return fail(503, "subscription_check_unavailable");
   }
 
+  const maxBodyBytes = 2 * 1024 * 1024;
+  if (Number(req.headers?.["content-length"]) > maxBodyBytes) return fail(413, "attendance_invalid");
   let body = req.body;
   try {
     if (body === undefined && req[Symbol.asyncIterator]) {
@@ -114,19 +80,51 @@ export default async function handler(req, res) {
       for await (const chunk of req) {
         const buffer = Buffer.from(chunk);
         bytes += buffer.length;
-        if (bytes > 8192) return fail(400, "invalid_request");
+        if (bytes > maxBodyBytes) return fail(413, "attendance_invalid");
         chunks.push(buffer);
       }
       body = Buffer.concat(chunks);
     }
     if (typeof body === "string" || Buffer.isBuffer(body)) {
-      if (Buffer.byteLength(body) > 8192) return fail(400, "invalid_request");
+      if (Buffer.byteLength(body) > maxBodyBytes) return fail(413, "attendance_invalid");
       body = JSON.parse(String(body));
     }
   } catch { return fail(400, "invalid_request"); }
-  if (typeof body?.url !== "string") return fail(400, "invalid_request");
-  const url = googleExportUrl(body?.url);
+  const action = body?.action || "read";
+  if (!["read", "attendance_status", "attendance_save"].includes(action) || typeof body?.url !== "string") {
+    return fail(400, "invalid_request");
+  }
+  const url = googleExportUrl(body.url);
+  const linkedId = linkedSpreadsheet(ownerId, url);
+  if (action !== "read") {
+    if (!url || !linkedId || !process.env.GHIYAB_SHEETS_SERVICE_ACCOUNT) {
+      return res.status(200).json({enabled:false});
+    }
+    if (action === "attendance_status") return res.status(200).json({enabled:true});
+    try {
+      return res.status(200).json(await saveGoogleAttendance(linkedId, body.entries));
+    } catch (failure) {
+      const status = {
+        attendance_invalid:400, attendance_sheet_permission:403,
+        attendance_tab_conflict:409, attendance_sheet_busy:409
+      }[failure?.code] || 503;
+      return fail(status, failure?.code || "attendance_google_unavailable");
+    }
+  }
   if (!url) return fail(400, "invalid_sheet_url");
+
+  if (linkedId && process.env.GHIYAB_SHEETS_SERVICE_ACCOUNT) {
+    try {
+      const csv = await readPrivateRoster(linkedId, url);
+      if (Buffer.byteLength(csv) > maxBytes) return fail(413, "sheet_too_large");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      return res.status(200).send(csv);
+    } catch (failure) {
+      if (failure?.code === "attendance_sheet_permission") return fail(422, "sheet_permission_required");
+      if (["empty_sheet", "sheet_or_tab_not_found", "sheet_too_large"].includes(failure?.code)) return fail(422, failure.code);
+      return fail(503, "sheet_fetch_unavailable");
+    }
+  }
 
   try {
     const response = await fetchGoogleCsv(url);
