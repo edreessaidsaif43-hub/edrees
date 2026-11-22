@@ -6,31 +6,50 @@
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex,nofollow">
   <title>رصد غياب الطلبة | التحضير الذكي</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
   <style>
-    :root{color-scheme:light;--ink:#142c43;--muted:#425970;--line:#cbd9e3;--green:#175d56}
+    :root{color-scheme:light;--ink:#142c43;--muted:#425970;--line:#dbe3ee;--green:#185d57}
     *{box-sizing:border-box}
-    body{margin:0;background:#f0f5f8;color:var(--ink);font:1rem/1.7 system-ui,sans-serif}
-    main{max-width:46rem;margin:auto;padding:clamp(.85rem,4vw,2rem)}
-    header,section{border-radius:1rem;margin-block-end:1rem;padding:clamp(1rem,4vw,1.6rem)}
-    header{color:#fff;background:#133b46}
-    section{background:#fff;border:1px solid var(--line)}
-    h1,h2,p{margin:0}h1{font-size:clamp(1.4rem,5vw,2rem)}h2{font-size:1.15rem}
+    body{margin:0;background:radial-gradient(circle at top,#f8fbff 0%,#f4f7fb 55%);color:var(--ink);font:1rem/1.6 Tajawal,'Segoe UI',Tahoma,sans-serif;min-height:100vh}
+    main{max-width:1120px;margin:auto;padding:20px}
+    header,section{border-radius:16px;border:1px solid var(--line);box-shadow:0 8px 22px rgba(15,23,42,.08);margin-block-end:20px}
+    header{color:#ecf6fa;background:linear-gradient(115deg,#102941,#174b53);border-color:#174b53;padding:clamp(1.5rem,5vw,3.25rem)}
+    header h1{color:white;margin-block:.35rem .6rem}
+    header #school{color:#cae8e5;font-weight:700}
+    section{background:#fff;padding:clamp(1rem,3vw,30px)}
+    h1,h2,h3,p{margin:0}h1{font-size:clamp(24px,4vw,32px);line-height:1.4;font-weight:800}
+    h2{font-size:1.3rem}h3{font-size:1.08rem}
     fieldset{border:0;padding:0;margin:0;min-width:0}
-    .fields{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-block:1rem}
-    label{font-weight:650}
-    select,button,.action{min-height:44px;padding:.4rem .75rem;border-radius:.6rem;font:inherit}
-    select{background:#fff;color:var(--ink);border:1px solid var(--line)}
-    .fields select{display:block;width:100%}
-    button,.action{display:inline-flex;align-items:center;background:var(--green);border:1px solid var(--green);color:#fff;text-decoration:none;cursor:pointer}
+    .fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.85rem;margin-block:1rem}
+    label{font-weight:700}
+    input,select,button,.action{min-height:44px;padding:.55rem .75rem;border-radius:12px;font:inherit}
+    .fields :is(select,input){display:block;width:100%;background:#f8fafc;color:var(--ink);border:1px solid var(--line)}
+    button,.action{background:var(--green);border:1px solid var(--green);color:#fff;text-decoration:none;cursor:pointer;font-weight:700}
+    .action{display:inline-flex;align-items:center}
+    button:disabled{opacity:.6;cursor:default}
     :focus-visible{outline:3px solid #237970;outline-offset:3px}
-    .student-list{list-style:none;padding:0;margin:.75rem 0}
-    .student-list label{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.75rem;padding:.55rem 0;border-block-end:1px solid var(--line)}
-    .student-list span{overflow-wrap:anywhere}
+    .student-list{list-style:none;padding:12px;margin:.7rem 0;background:#f8fafc;border:1px solid var(--line);border-radius:12px;max-height:400px;overflow:auto}
+    .student-list li+li{margin-block-start:.6rem}
+    .student-list label{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.75rem;padding:.7rem .85rem;border:1px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer}
+    .student-list label.selected{background:#fff7ed;border-color:#fdba74}
+    .student-name{overflow-wrap:anywhere}
+    .student-avatar{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#475569;color:#fff}
+    .student-list input{width:21px;height:21px;min-height:0;accent-color:var(--green)}
+    .record-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.75rem;margin-block-start:1rem}
+    .record-controls button[data-record-mode]{background:#eef4f8;color:#14364a;border-color:#bdcad8}
+    .record-controls button[aria-pressed="true"]{background:#175b56;color:#fff;border-color:#175b56}
     .muted{color:var(--muted)}
     .status{margin-block:.75rem;color:var(--muted)}
+    .status:empty{display:none}
     .status.error{color:#982e23}
     [hidden]{display:none!important}
-    @media(max-width:500px){.fields{grid-template-columns:1fr}}
+    @media(max-width:650px){
+      main{padding:12px}.fields{grid-template-columns:1fr}
+      .record-controls{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .record-controls button[type="submit"]{grid-column:1 / -1}
+    }
   </style>
 </head>
 <body>
@@ -42,18 +61,25 @@
     </header>
     <section aria-label="رصد المعلم">
       <form id="attendance" hidden>
-        <p id="teacher"></p>
+        <h2>سجل الحضور والغياب</h2>
+        <p class="muted">حدّد الصف والحصة، ثم اختر حالة الحضور واحفظ الرصد.</p>
         <fieldset id="controls">
           <div class="fields">
-            <label>الصف أو الشعبة<select id="class-select" required></select></label>
+            <label>الصف<select id="class-select" required></select></label>
             <label>الحصة<select id="period" required disabled></select></label>
+            <label>اسم المعلم<input id="teacher" type="text" readonly autocomplete="off"></label>
           </div>
           <div id="capture" hidden>
-            <h2>قائمة الطلبة</h2>
-            <p class="muted">الطلبة حاضرون افتراضيًا. غيّر الحالات المطلوبة ثم اعتمد الرصد.</p>
-            <ol class="student-list" id="students"></ol>
+            <h3 id="students-label">قائمة الطلبة</h3>
+            <ul class="student-list" id="students" aria-labelledby="students-label"></ul>
+            <div class="record-controls" id="record-controls" role="group" aria-label="حالة الحضور">
+              <button type="button" data-record-mode="absence" aria-pressed="false">غياب</button>
+              <button type="button" data-record-mode="dropout" aria-pressed="false">تسرب</button>
+              <button type="button" data-record-mode="full_attendance" aria-pressed="false">حضور كامل</button>
+              <button type="button" data-record-mode="full_absence" aria-pressed="false">غياب كامل</button>
+              <button type="submit">حفظ الرصد</button>
+            </div>
             <p class="status" id="tally" aria-live="polite"></p>
-            <button type="submit">اعتماد الرصد</button>
           </div>
         </fieldset>
       </form>
@@ -78,6 +104,12 @@
     let serial = 0;
     let submitting = false;
     let attendanceDate = '';
+    let recordMode = '';
+    const modeLabels = {
+      absence:'غياب', dropout:'تسرب', full_attendance:'حضور كامل', full_absence:'غياب كامل'
+    };
+    const periodNames = ['', 'الأولى', 'الثانية', 'الثالثة', 'الرابعة', 'الخامسة', 'السادسة', 'السابعة', 'الثامنة'];
+    const modeButtons = byId('record-controls').querySelectorAll('[data-record-mode]');
 
     function setStatus(text, error = false){
       byId('status').textContent = text;
@@ -121,16 +153,42 @@
     }
 
     function updateTally(){
-      const counts = {a:0,e:0,l:0};
-      for(const item of studentList.querySelectorAll('select')) if(item.value) counts[item.value]++;
-      byId('tally').textContent = `غائب ${counts.a} · بعذر ${counts.e} · متأخر ${counts.l}`;
+      const selected = studentList.querySelectorAll('input:checked').length;
+      byId('tally').textContent = recordMode
+        ? `نوع الرصد: ${modeLabels[recordMode]} · الطلبة المحددون: ${selected}`
+        : `الطلبة المحددون: ${selected} · اختر حالة الحضور قبل الحفظ.`;
+    }
+
+    function syncStudentMark(input){
+      input.closest('label').classList.toggle('selected', input.checked);
+    }
+
+    function setRecordMode(mode, clear = false){
+      const wasFull = recordMode.startsWith('full_');
+      recordMode = mode;
+      const isFull = mode.startsWith('full_');
+      for(const input of studentList.querySelectorAll('input')){
+        if(clear || isFull || wasFull) input.checked = mode === 'full_absence';
+        input.disabled = isFull;
+        syncStudentMark(input);
+      }
+      for(const button of modeButtons){
+        button.setAttribute('aria-pressed', String(button.dataset.recordMode === mode));
+      }
+      updateTally();
+    }
+
+    function selectedMarks(){
+      const status = recordMode === 'dropout' ? 'd' : 'a';
+      return [...studentList.querySelectorAll('input:checked')]
+        .map(input => ({key:Number(input.dataset.student), status}));
     }
 
     function renderRoster({students, captured, periods, date}){
       attendanceDate = date;
       byId('date').textContent = date;
       const available = Array.from({length:periods}, (_, index) => index + 1).filter(item => !captured.includes(item));
-      period.replaceChildren(...available.map(item => new Option('الحصة ' + item, String(item))));
+      period.replaceChildren(...available.map(item => new Option('الحصة ' + (periodNames[item] || item), String(item))));
       period.disabled = !available.length;
       capture.hidden = !students.length || !available.length;
       studentList.replaceChildren();
@@ -140,15 +198,20 @@
       }
       for(const {key, name} of students){
         const li = document.createElement('li'), label = document.createElement('label');
-        const text = document.createElement('span'), select = document.createElement('select');
+        const avatar = document.createElement('span'), text = document.createElement('b');
+        const checkbox = document.createElement('input');
+        avatar.className = 'student-avatar';
+        avatar.setAttribute('aria-hidden', 'true');
+        avatar.textContent = name.split(/\s+/).slice(0,2).map(part => part[0]).join('');
+        text.className = 'student-name';
         text.textContent = name;
-        select.dataset.student = String(key);
-        select.append(new Option('حاضر',''),new Option('غائب','a'),new Option('غائب بعذر','e'),new Option('متأخر','l'));
-        label.append(text, select);
+        checkbox.type = 'checkbox';
+        checkbox.dataset.student = String(key);
+        label.append(avatar, text, checkbox);
         li.append(label);
         studentList.append(li);
       }
-      updateTally();
+      setRecordMode('', true);
       setStatus('');
     }
 
@@ -176,7 +239,7 @@
         byId('school').textContent = result.school;
         attendanceDate = result.date;
         byId('date').textContent = attendanceDate;
-        byId('teacher').textContent = 'المعلم: ' + result.teacher;
+        byId('teacher').value = result.teacher;
         classSelect.replaceChildren(new Option('اختر الصف أو الشعبة',''), ...result.classes.map(item => new Option(item.className,String(item.key))));
         form.hidden = false;
         setStatus('');
@@ -186,9 +249,10 @@
     form.addEventListener('submit', async event => {
       event.preventDefault();
       if(submitting || capture.hidden || !period.value || classSelect.value === '') return;
-      const marks = [...studentList.querySelectorAll('select')].filter(item => item.value)
-        .map(item => ({key:Number(item.dataset.student), status:item.value}));
-      if(!confirm(marks.length ? 'هل تريد اعتماد الحالات المحددة؟' : 'هل تريد اعتماد حضور جميع الطلبة؟')) return;
+      if(!recordMode) return setStatus('اختر حالة الحضور قبل الحفظ.', true);
+      const marks = selectedMarks();
+      if(recordMode !== 'full_attendance' && !marks.length) return setStatus('حدّد الطلبة المطلوب رصدهم.', true);
+      if(!confirm(`حفظ الرصد: ${modeLabels[recordMode]}؟`)) return;
       submitting = true;
       controls.disabled = true;
       setStatus('جارٍ حفظ الرصد…');
@@ -196,7 +260,7 @@
         await request('submit', {classKey:Number(classSelect.value), period:Number(period.value), date:attendanceDate, marks});
         await loadRoster();
         if(form.hidden === false && byId('status').classList.contains('error') === false){
-          setStatus('تم حفظ الرصد. يمكن لإدارة المدرسة مراجعته في نتائج رصد المعلمين.');
+          setStatus('تم حفظ الرصد.');
         }
       }catch(error){
         if(error.code === 'date_changed') capture.hidden = true;
@@ -208,11 +272,15 @@
       }
     });
     classSelect.addEventListener('change', loadRoster);
-    period.addEventListener('change', () => {
-      studentList.querySelectorAll('select').forEach(item => { item.value = ''; });
+    period.addEventListener('change', () => setRecordMode('', true));
+    for(const button of modeButtons){
+      button.addEventListener('click', () => setRecordMode(button.dataset.recordMode));
+    }
+    studentList.addEventListener('change', event => {
+      if(event.target.type !== 'checkbox') return;
+      syncStudentMark(event.target);
       updateTally();
     });
-    studentList.addEventListener('change', updateTally);
     byId('retry').addEventListener('click', () => {
       if(form.hidden || classSelect.value === '') void openLink();
       else void loadRoster();
