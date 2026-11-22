@@ -1050,7 +1050,11 @@ function settingsTab(){
 
 /* ---------- import from Google Sheets ---------- */
 const sheetImportErrors = {
-  invalid_sheet_url: "أدخل رابطًا صحيحًا من Google Sheets.",
+  invalid_sheet_url: "افتح جدول الطلبة في Google Sheets، واضغط «مشاركة» ثم «نسخ الرابط». الصق الرابط الكامل هنا.",
+  invalid_request: "لم تصل بيانات الرابط إلى خدمة الاستيراد. ألصق الرابط مجددًا وأعد المحاولة.",
+  sheet_permission_required: "الرابط صحيح، لكن Google طلب إذنًا لقراءة الجدول. إذا كانت القائمة خاصة، اطلب من إدارة الموقع ربطها بحساب Google مخوّل بقراءتها.",
+  sheet_or_tab_not_found: "تعذّر العثور على الجدول أو التبويب. افتح قائمة الطلبة في Google Sheets وانسخ رابط التبويب الحالي.",
+  empty_sheet: "التبويب فارغ. اختر التبويب الذي يحتوي على أسماء الطلبة والصفوف.",
   sign_in_required: "انتهت جلسة الدخول. سجّل الدخول إلى التحضير الذكي ثم أعد المحاولة.",
   subscription_required: "يلزم اشتراك فعّال لاستيراد الطلبة.",
   account_stopped: "الحساب موقوف. تواصل مع إدارة التحضير الذكي.",
@@ -1061,12 +1065,17 @@ async function loadRosterTab(url){
   const response = await fetch("/api/ghiyab-sheet", {
     method: "POST",
     credentials: "same-origin",
+    cache: "no-store",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({url})
   });
-  if(!response.ok){
+  const isCsv = /^text\/csv(?:\s*;|$)/i.test(response.headers.get("content-type") || "");
+  if(!response.ok || !isCsv){
     const {error} = await response.json().catch(() => ({}));
-    throw Error(sheetImportErrors[error] || "تعذّر جلب الطلبة من Google Sheets الآن. تحقّق من الرابط ثم أعد المحاولة.");
+    if(!error && (response.status === 404 || response.ok)){
+      throw Error("خدمة الاستيراد غير متاحة في هذه النسخة. تواصل مع إدارة الموقع لتحديثها.");
+    }
+    throw Error(sheetImportErrors[error] || "تعذّر جلب الطلبة من Google Sheets الآن. أعد المحاولة بعد قليل.");
   }
   return [{name: "Google Sheets", rows: parseDelimited(await response.text())}];
 }
@@ -1075,6 +1084,7 @@ function importPanel(where){
   const url = where === "setup" ? (S.setup.f.sheetUrl || "") : (S.impUrl ?? S.cfg.sheetUrl ?? "");
   const bind = where === "setup" ? "setup.f.sheetUrl" : "impUrl";
   const fetching = S.sheetImport?.where === where;
+  const message = S.sheetImportError?.where === where ? S.sheetImportError.message : "";
   let prev = "";
   if(I){
     const r = buildClasses();
@@ -1108,9 +1118,10 @@ function importPanel(where){
       <button type="button" class="btn primary" data-act="impSheet" data-w="${where}" ${fetching ? "disabled" : ""}>${fetching ? "جارٍ جلب الطلبة…" : "جلب الطلبة من الرابط"}</button>
       <a class="btn" href="./student-roster-template.xlsx" download="نموذج-قائمة-الطلبة.xlsx">تنزيل نموذج الطلبة (Excel)</a>
     </div>
+    ${message ? `<p class="small" role="alert" style="color:var(--absent)">${h(message)}</p>` : ""}
     <p class="hint">${S.backend === "api"
       ? "يمكن جلب الملف إذا كان خادم المدرسة مخوّلًا بقراءته. اترك الحقل فارغًا لجلب الملف المرتبط بالخادم."
-      : "ألصق رابط التبويب الذي يحتوي على قائمة الطلبة. يحتاج الاستيراد إلى صلاحية قراءة الجدول."}</p>
+      : "افتح تبويب قائمة الطلبة في Google Sheets وانسخ رابطه من شريط العنوان أو من «مشاركة ← نسخ الرابط». يحتاج الاستيراد إلى صلاحية القراءة."}</p>
     <p class="hint">افتح النموذج في Google Sheets، ثم اكتب بيانات الطلبة من الصف الثاني واترك عناوين الأعمدة كما هي.</p>
     ${where === "setup" ? `<div class="row"><button class="btn sm ghost" data-act="impDemo">تجربة ببيانات تجريبية</button></div>` : ""}
     ${prev}
@@ -1315,8 +1326,11 @@ const ACT = {
     if(remote && url && !/^https:\/\/docs\.google\.com\/spreadsheets\/(?:u\/\d+\/)?d\/[\w-]+(?:[/?#]|$)/.test(url)){
       return toast(sheetImportErrors.invalid_sheet_url);
     }
+    if(where === "setup") S.setup.f.sheetUrl = url;
+    else S.impUrl = url;
     const previous = S.imp;
     const stillCurrent = () => input()?.value.trim() === url && S.imp === previous;
+    S.sheetImportError = null;
     S.sheetImport = {where};
     render();
     try{
@@ -1325,7 +1339,7 @@ const ACT = {
         setImport(sheets, "معاينة قائمة الطلبة من Google Sheets");
       }
     }catch(e){
-      if(stillCurrent()) toast(errMsg(e), 5000);
+      if(stillCurrent()) S.sheetImportError = {where, message: errMsg(e)};
     }finally{
       S.sheetImport = null;
       if(input()){

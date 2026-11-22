@@ -4,19 +4,41 @@ import { readPreparationSubscription } from "./subscriptions.js";
 const maxBytes = 2 * 1024 * 1024;
 
 function googleExportUrl(value) {
-  if (typeof value !== "string" || value.length > 2048) return null;
+  if (typeof value !== "string" || value.length > 4096) return null;
+  let cleaned = value.replace(/[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "")
+    .replace(/&amp;/gi, "&").trim();
+  if (/^(?:docs|drive)\.google\.com\//i.test(cleaned)) cleaned = "https://" + cleaned;
   let input;
-  try { input = new URL(value); } catch { return null; }
-  if (input.origin !== "https://docs.google.com" || input.username || input.password) return null;
+  try { input = new URL(cleaned); } catch { return null; }
+  if (input.protocol !== "https:" || input.username || input.password || input.port) return null;
 
-  const normal = /^\/spreadsheets(?:\/u\/\d+)?\/d\/([\w-]+)(?:\/|$)/.exec(input.pathname);
-  const published = /^\/spreadsheets\/d\/e\/([\w-]+)(?:\/|$)/.exec(input.pathname);
-  if (!published && (!normal || normal[1] === "e")) return null;
+  const pathname = input.pathname;
+  const idPattern = /^[A-Za-z0-9_-]{2,160}$/;
+  let id, published = false;
+  if (input.hostname === "docs.google.com") {
+    const sheet = /^\/spreadsheets(?:\/u\/\d+)?\/d\/(e\/)?([A-Za-z0-9_-]+)(?:\/|$)/.exec(pathname);
+    if (sheet) {
+      published = Boolean(sheet[1]);
+      id = sheet[2];
+    } else if (/^\/open\/?$/.test(pathname)) {
+      id = input.searchParams.get("id");
+    }
+  } else if (input.hostname === "drive.google.com") {
+    const file = /^\/file(?:\/u\/\d+)?\/d\/([A-Za-z0-9_-]+)(?:\/|$)/.exec(pathname);
+    id = file?.[1] ?? (/^\/(?:open|uc)\/?$/.test(pathname) ? input.searchParams.get("id") : null);
+  }
+  if (!id || !idPattern.test(id)) return null;
+
   const output = published
-    ? new URL(`https://docs.google.com/spreadsheets/d/e/${published[1]}/pub?output=csv&single=true`)
-    : new URL(`https://docs.google.com/spreadsheets/d/${normal[1]}/export?format=csv`);
-  const gid = input.searchParams.get("gid") ?? new URLSearchParams(input.hash.slice(1)).get("gid");
-  if (/^\d{1,12}$/.test(gid ?? "")) output.searchParams.set("gid", gid);
+    ? new URL(`https://docs.google.com/spreadsheets/d/e/${id}/pub?output=csv`)
+    : new URL(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv`);
+  const gid = input.searchParams.get("gid") || new URLSearchParams(input.hash.slice(1)).get("gid");
+  if (/^\d{1,12}$/.test(gid ?? "")) {
+    output.searchParams.set("gid", gid);
+    if (published) output.searchParams.set("single", "true");
+  }
+  const resourceKey = input.searchParams.get("resourcekey");
+  if (/^[A-Za-z0-9_-]{1,200}$/.test(resourceKey ?? "")) output.searchParams.set("resourcekey", resourceKey);
   return output;
 }
 
@@ -35,6 +57,7 @@ async function fetchGoogleCsv(url) {
     await response.body?.cancel();
     if (!location) return null;
     url = new URL(location, url);
+    if (url.origin === "https://accounts.google.com") return { blocked: true };
     if (!isGoogleDownload(url)) return null;
   }
   return null;
@@ -84,14 +107,42 @@ export default async function handler(req, res) {
   }
 
   let body = req.body;
-  try { if (typeof body === "string" || Buffer.isBuffer(body)) body = JSON.parse(String(body)); }
-  catch { return fail(400, "invalid_sheet_url"); }
+  try {
+    if (body === undefined && req[Symbol.asyncIterator]) {
+      const chunks = [];
+      let bytes = 0;
+      for await (const chunk of req) {
+        const buffer = Buffer.from(chunk);
+        bytes += buffer.length;
+        if (bytes > 8192) return fail(400, "invalid_request");
+        chunks.push(buffer);
+      }
+      body = Buffer.concat(chunks);
+    }
+    if (typeof body === "string" || Buffer.isBuffer(body)) {
+      if (Buffer.byteLength(body) > 8192) return fail(400, "invalid_request");
+      body = JSON.parse(String(body));
+    }
+  } catch { return fail(400, "invalid_request"); }
+  if (typeof body?.url !== "string") return fail(400, "invalid_request");
   const url = googleExportUrl(body?.url);
   if (!url) return fail(400, "invalid_sheet_url");
 
   try {
     const response = await fetchGoogleCsv(url);
-    const contentType = response?.headers.get("content-type")?.split(";")[0].trim();
+    if (response?.blocked || [401, 403].includes(response?.status)) {
+      await response?.body?.cancel();
+      return fail(422, "sheet_permission_required");
+    }
+    if (response?.status === 404 || response?.status === 410) {
+      await response.body?.cancel();
+      return fail(422, "sheet_or_tab_not_found");
+    }
+    if (response?.status === 429 || response?.status >= 500) {
+      await response.body?.cancel();
+      return fail(502, "sheet_fetch_unavailable");
+    }
+    const contentType = response?.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
     if (!response?.ok || !response.body || !["text/csv", "application/csv", "application/octet-stream"].includes(contentType)) {
       await response?.body?.cancel();
       return fail(422, "sheet_not_accessible");
@@ -100,7 +151,8 @@ export default async function handler(req, res) {
     const bytes = await readCsvBytes(response);
     if (!bytes) return fail(413, "sheet_too_large");
     const csv = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    if (!csv.trim() || /^\s*</.test(csv) || csv.includes("\0")) return fail(422, "sheet_not_accessible");
+    if (!csv.trim()) return fail(422, "empty_sheet");
+    if (/^\s*</.test(csv) || csv.includes("\0")) return fail(422, "sheet_not_accessible");
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     return res.status(200).send(csv);
   } catch {
