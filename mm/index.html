@@ -893,16 +893,9 @@
     .school-form-fields :is(select, input) { margin-block-end: 0; }
     .school-record-controls { margin-block-start: 1rem; }
     .teacher-link-panel { margin-block: 1.25rem; }
-    .teacher-link-panel [hidden] { display: none !important; }
     .teacher-link-panel .school-toolbar { justify-content: flex-start; }
     .teacher-link-panel .school-toolbar button { width: auto; margin: 0; }
-    .teacher-link-panel .link-report-date { max-width: 15rem; }
-    .teacher-link-entries { display: grid; gap: .6rem; margin-block: .75rem; }
-    .teacher-link-entries details { border: 1px solid #dbe3ee; border-radius: .65rem; padding: .65rem; }
-    .teacher-link-entries summary { cursor: pointer; font-weight: 700; }
-    .teacher-link-entries p { margin-block: .4rem; }
-    .teacher-link-reports { border-block-start: 1px solid #dbe3ee; padding-block-start: .85rem; }
-    .teacher-link-reports > summary { cursor: pointer; margin-block-end: .75rem; }
+    .teacher-link-panel input { text-align: start; }
     .attendance-page .school-record-controls button[data-record-mode] {
       background: #eef4f8 !important; color: #14364a !important;
       border: 1px solid #bdcad8 !important; box-shadow: none !important;
@@ -1064,27 +1057,14 @@
     </div>
    <section id="teacher-link-panel" class="teacher-link-panel" aria-labelledby="teacher-link-title">
     <h2 id="teacher-link-title" class="school-section-title">رابط رصد المعلمين</h2>
-    <p class="school-section-intro">أنشئ الرابط وانسخه لإرساله إلى المعلمين. يَحلّ أي رابط جديد محل الرابط السابق، وتنتهي صلاحيته عند منتصف الليل بتوقيت عُمان.</p>
+    <p class="school-section-intro">يمكن للمعلمين استخدام الرابط نفسه كل يوم طوال فترة تفعيل المدرسة. عند إنشاء رابط جديد يتوقف الرابط السابق فورًا.</p>
+    <label for="teacher-link-url">رابط المعلمين</label>
+    <input id="teacher-link-url" type="text" readonly dir="ltr" placeholder="اضغط «إنشاء رابط»">
     <div class="school-toolbar">
       <button class="school-action" id="teacher-link-create" type="button">إنشاء رابط</button>
-    </div>
-    <div id="teacher-link-result" hidden>
-      <label for="teacher-link-url">رابط المعلمين</label>
-      <input id="teacher-link-url" type="text" readonly dir="ltr">
-      <button class="school-action school-secondary" id="teacher-link-copy" type="button">نسخ الرابط</button>
+      <button class="school-action school-secondary" id="teacher-link-copy" type="button" disabled>نسخ الرابط</button>
     </div>
     <p id="teacher-link-status" class="school-section-intro" role="status"></p>
-    <details class="teacher-link-reports" id="teacher-link-reports">
-      <summary class="school-section-title">نتائج الرصد عبر الرابط</summary>
-      <label for="teacher-link-report-date">تاريخ الرصد</label>
-      <input class="link-report-date" id="teacher-link-report-date" type="date" required>
-      <div class="school-toolbar">
-        <button class="school-action school-secondary" id="teacher-link-refresh" type="button">عرض النتائج</button>
-      </div>
-      <p id="teacher-link-report-status" role="status"></p>
-      <div class="teacher-link-entries" id="teacher-link-entries"></div>
-      <button class="school-action school-secondary" id="teacher-link-more" type="button" hidden>عرض المزيد</button>
-    </details>
    </section>
    <div id="r"></div>
    </div>
@@ -2650,7 +2630,6 @@
         q.style.display='block';
         setDefaultDateRange();
         resetTeacherLinkPanel();
-        $('teacher-link-report-date').value = attendanceDay();
         abs(true)
       }else{
         am.textContent='❌';
@@ -2674,29 +2653,15 @@
       logout();
     }
 
-    function attendanceDay(){
-      return new Intl.DateTimeFormat('sv-SE', {
-        timeZone:'Asia/Muscat', year:'numeric', month:'2-digit', day:'2-digit'
-      }).format(new Date());
-    }
-
     let teacherLinkContext = 0;
-    let teacherLinkReportVersion = 0;
-    let teacherLinkReportPage = 0;
 
     function resetTeacherLinkPanel(){
       teacherLinkContext++;
-      teacherLinkReportVersion++;
-      teacherLinkReportPage = 0;
       $('teacher-link-create').disabled = false;
       $('teacher-link-create').textContent = 'إنشاء رابط';
-      $('teacher-link-reports').open = false;
       $('teacher-link-url').value = '';
-      $('teacher-link-result').hidden = true;
+      $('teacher-link-copy').disabled = true;
       $('teacher-link-status').textContent = '';
-      $('teacher-link-report-status').textContent = '';
-      $('teacher-link-entries').replaceChildren();
-      $('teacher-link-more').hidden = true;
     }
 
     function currentLinkWorkspace(){
@@ -2704,24 +2669,26 @@
       return code && $('q').style.display === 'block' ? 'mm:' + code : '';
     }
 
-    async function requestTeacherLink(action, workspace, fields){
+    async function requestTeacherLink(workspace, roster){
       const response = await fetch('/api/ghiyab-teacher-link', {
         method:'POST', credentials:'same-origin', cache:'no-store',
         headers:{'Content-Type':'application/json'},
         signal:AbortSignal.timeout?.(18000),
-        body:JSON.stringify({action, workspace, ...fields})
+        body:JSON.stringify({action:'create', workspace, classId:'@all-classes', roster})
       });
       const result = await response.json().catch(() => ({}));
-      if(response.ok) return result;
+      if(response.ok && result.token) return result;
       const messages = {
         sign_in_required:'انتهت جلسة الدخول. أعد فتح الصفحة وسجّل الدخول.',
         subscription_required:'يلزم اشتراك ساري في التحضير الذكي.',
         account_stopped:'حساب التحضير الذكي موقوف.',
         school_activation_expired:'انتهت مدة تفعيل المدارس بنهاية يوم 10/06/2027.',
-        invalid_roster:'تحقّق من قوائم الطلبة. الحد 250 طالبًا في الصف و300 صف في الرابط.',
-        date_changed:'بدأ يوم جديد بتوقيت عُمان. أعد إنشاء الرابط.'
+        invalid_roster:'تحقّق من قوائم الطلبة. الحد 250 طالبًا في الصف و300 صف في الرابط.'
       };
-      throw new Error(messages[result.error] || 'تعذّر الاتصال بخدمة روابط الرصد. حاول مرة أخرى.');
+      const serviceMissing = response.status === 404 && !result.error;
+      throw new Error(messages[result.error] || (serviceMissing
+        ? 'خدمة إنشاء الروابط غير متاحة على الموقع. تحقّق من نشر ملفات الخادم.'
+        : 'تعذّر إنشاء الرابط. حاول مرة أخرى.'));
     }
 
     function buildTeacherLinkRoster(rows){
@@ -2751,27 +2718,26 @@
       const context = teacherLinkContext;
       const status = $('teacher-link-status');
       const output = $('teacher-link-url');
+      const copy = $('teacher-link-copy');
       button.disabled = true;
       output.value = '';
-      $('teacher-link-result').hidden = true;
+      copy.disabled = true;
       status.textContent = 'جارٍ إنشاء الرابط…';
       try{
         const rows = await getStudentsData();
         if(context !== teacherLinkContext) return;
         const roster = buildTeacherLinkRoster(rows);
         if(!roster.classes.length) throw new Error('لم تُحمّل قائمة الطلبة. أعد المحاولة بعد التحقق من بيانات المدرسة.');
-        const {token} = await requestTeacherLink('create', workspace, {
-          classId:'@all-classes', date:attendanceDay(), roster
-        });
+        const {token} = await requestTeacherLink(workspace, roster);
         if(context !== teacherLinkContext) return;
         if(!/^[A-Za-z0-9_-]{43}$/.test(token || '')) throw new Error('تعذّر استلام رابط الرصد.');
         const url = new URL('./teacher-link.html', location.href);
         url.hash = token;
         output.value = url.href;
-        $('teacher-link-result').hidden = false;
-        $('teacher-link-copy').focus();
+        copy.disabled = false;
+        copy.focus();
         button.textContent = 'إنشاء رابط جديد';
-        status.textContent = 'الرابط جاهز. انسخه وأرسله إلى المعلمين.';
+        status.textContent = 'الرابط جاهز للنسخ والإرسال إلى المعلمين.';
       }catch(error){
         if(context === teacherLinkContext) status.textContent = error.message;
       }finally{
@@ -2779,54 +2745,7 @@
       }
     }
 
-    function renderTeacherLinkReport({period, record}){
-      const marks = record.periods[period];
-      const detail = document.createElement('details');
-      const summary = document.createElement('summary');
-      const absent = marks.absent.length, excused = marks.excused.length, late = marks.late.length;
-      summary.textContent = `${record.className} · الحصة ${period} · غائب ${absent} · بعذر ${excused} · متأخر ${late}`;
-      const teacher = document.createElement('p');
-      teacher.textContent = `المعلم: ${marks.teacher} · إجمالي الطلبة: ${marks.total}`;
-      detail.append(summary, teacher);
-      for(const [title, students] of [['الغائبون', marks.absent], ['الغياب بعذر', marks.excused], ['المتأخرون', marks.late]]){
-        if(!students.length) continue;
-        const line = document.createElement('p');
-        line.textContent = `${title}: ${students.map(student => student.n).join('، ')}`;
-        detail.append(line);
-      }
-      return detail;
-    }
-
-    async function loadTeacherLinkReports(append = false){
-      const workspace = currentLinkWorkspace();
-      const date = $('teacher-link-report-date').value;
-      if(!workspace || !date) return;
-      const version = ++teacherLinkReportVersion;
-      const page = append ? teacherLinkReportPage + 1 : 0;
-      const more = $('teacher-link-more');
-      const entries = $('teacher-link-entries');
-      const status = $('teacher-link-report-status');
-      more.hidden = true;
-      if(!append) entries.replaceChildren();
-      status.textContent = 'جارٍ تحميل نتائج الرصد…';
-      try{
-        const result = await requestTeacherLink('reports', workspace, {date, page});
-        if(version !== teacherLinkReportVersion) return;
-        entries.append(...result.receipts.map(renderTeacherLinkReport));
-        teacherLinkReportPage = page;
-        more.hidden = !result.hasMore;
-        status.textContent = entries.childElementCount ? '' : 'لا توجد نتائج لهذا التاريخ.';
-      }catch(error){
-        if(version !== teacherLinkReportVersion) return;
-        status.textContent = error.message;
-        more.hidden = !append;
-      }
-    }
-
     $('teacher-link-create').addEventListener('click', () => void createTeacherLink());
-    $('teacher-link-report-date').addEventListener('change', () => void loadTeacherLinkReports());
-    $('teacher-link-refresh').addEventListener('click', () => void loadTeacherLinkReports());
-    $('teacher-link-more').addEventListener('click', () => void loadTeacherLinkReports(true));
     $('teacher-link-copy').addEventListener('click', async () => {
       const input = $('teacher-link-url');
       const context = teacherLinkContext;
@@ -2836,7 +2755,9 @@
         if(context === teacherLinkContext) $('teacher-link-status').textContent = 'نُسخ الرابط.';
       }catch{
         if(context !== teacherLinkContext) return;
+        input.focus();
         input.select();
+        input.setSelectionRange(0, input.value.length);
         $('teacher-link-status').textContent = 'حددتُ الرابط، انسخه من الحقل.';
       }
     });

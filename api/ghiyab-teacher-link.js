@@ -14,6 +14,10 @@ const isObject = value => value !== null && typeof value === "object" && !Array.
 const label = (value, size = 160) => typeof value === "string" ? value.trim().slice(0, size) : "";
 const hash = value => createHash("sha256").update(value).digest("hex");
 const validId = value => typeof value === "string" && idPattern.test(value);
+const isSchoolPortal = workspace => workspace.startsWith("mm:");
+const schoolPortalCutoff = "2027-06-11T00:00:00+04:00";
+// School-portal links use a stable upsert key. The date recorded for attendance is derived separately.
+const schoolPortalLinkKey = "2000-01-01";
 
 function dateIsValid(value) {
   if(typeof value !== "string" || !/^20\d\d-\d\d-\d\d$/.test(value)) return false;
@@ -47,11 +51,12 @@ function parseRoster(body) {
     return entry?.students.length ? {...entry, school, periods} : null;
   }
   if(!Array.isArray(roster.classes) || roster.classes.length < 1 || roster.classes.length > 300 ||
-    !Array.isArray(roster.teachers) || roster.teachers.length < 1 || roster.teachers.length > 400) return null;
+    (!isSchoolPortal(body.workspace) &&
+      (!Array.isArray(roster.teachers) || roster.teachers.length < 1 || roster.teachers.length > 400))) return null;
   const classes = roster.classes.map(parseClass);
   if(classes.some(entry => !entry) || new Set(classes.map(entry => entry.id)).size !== classes.length ||
     !classes.some(entry => entry.students.length)) return null;
-  const teachers = roster.teachers.map(name => label(name, 100));
+  const teachers = isSchoolPortal(body.workspace) ? [] : roster.teachers.map(name => label(name, 100));
   if(teachers.some(name => name.length < 3) || new Set(teachers).size !== teachers.length) return null;
   return {school, periods, classes, teachers};
 }
@@ -130,6 +135,14 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
           ALTER TABLE ghiyab_teacher_receipts
             ADD COLUMN IF NOT EXISTS google_sheet_id TEXT,
             ADD COLUMN IF NOT EXISTS google_synced_at TIMESTAMPTZ;`;
+        await sql`
+          UPDATE ghiyab_teacher_links
+          SET expires_at = ${schoolPortalCutoff}::timestamptz
+          WHERE LEFT(workspace_id, 3) = 'mm:'
+            AND class_id = ${schoolLinkId}
+            AND attendance_date = ${schoolPortalLinkKey}::date
+            AND expires_at > NOW()
+            AND expires_at < ${schoolPortalCutoff}::timestamptz;`;
       })().catch(error => { schema = undefined; throw error; });
     }
     return schema;
@@ -140,9 +153,12 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
     await ensureSchema();
     const tokenHash = hash(token);
     const [match] = await sql`
-      SELECT owner_id, workspace_id, class_id, attendance_date::text AS date, roster
+      SELECT owner_id, workspace_id, class_id, roster,
+        (CASE WHEN LEFT(workspace_id, 3) = 'mm:' THEN (NOW() AT TIME ZONE 'Asia/Muscat')::date
+          ELSE attendance_date END)::text AS date
       FROM ghiyab_teacher_links WHERE token_hash = ${tokenHash} AND expires_at > NOW();`;
     if(!match) return null;
+    if(isSchoolPortal(match.workspace_id) && Date.now() >= Date.parse(schoolPortalCutoff)) return null;
     const access = await readSubscription(match.owner_id);
     if(access?.status === 401 || access?.status === 403) return null;
     if(access?.status !== 200) throw Error("Subscription unavailable");
@@ -193,7 +209,7 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
     return "pending";
   }
 
-  async function handleTeacher(body, res, fail) {
+  async function handleTeacher(body, res, fail, identity) {
     const invite = await resolveInvite(body.token);
     if(!invite) return fail(404, "link_unavailable");
     const roster = invite.roster;
@@ -202,12 +218,14 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
     if(schoolLink && body.action === "view"){
       return res.status(200).json({
         school, date: invite.date, periods, teachers: roster.teachers,
+        ...(isSchoolPortal(invite.workspace_id) ? {teacher:label(identity?.name, 100)} : {}),
         classes: roster.classes.map(({className, grade, section}, key) => ({className, grade, section, key}))
       });
     }
 
     const selected = schoolLink ? selectionAt(roster.classes, body.classKey) : {...roster, id: invite.class_id};
-    const teacher = schoolLink ? selectionAt(roster.teachers, body.teacherKey) : label(body.teacher, 100);
+    const teacher = isSchoolPortal(invite.workspace_id) ? label(identity?.name, 100)
+      : schoolLink ? selectionAt(roster.teachers, body.teacherKey) : label(body.teacher, 100);
     if(!selected || (schoolLink && !teacher)) return fail(400, "invalid_selection");
     if(body.action === "view" || body.action === "roster"){
       const captured = await sql`
@@ -241,17 +259,21 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
       return res.status(200).json({saved:true, sheetStatus});
     }
 
+    if(isSchoolPortal(invite.workspace_id) && body.date && body.date !== invite.date) {
+      return fail(409, "date_changed");
+    }
     const record = makeRecord(body, invite, selected, teacher);
     if(!record) return fail(400, "invalid_attendance");
     const sheetId = roster.attendanceSheetId || null;
     const [written] = await sql`
       WITH eligible AS (
-        SELECT owner_id, workspace_id, attendance_date FROM ghiyab_teacher_links
+        SELECT owner_id, workspace_id FROM ghiyab_teacher_links
         WHERE token_hash = ${invite.tokenHash} AND expires_at > NOW()
         FOR UPDATE
       ), receipt AS (
         INSERT INTO ghiyab_teacher_receipts (id, owner_id, workspace_id, class_id, attendance_date, period, record, google_sheet_id)
-        SELECT ${randomUUID()}, owner_id, workspace_id, ${selected.id}, attendance_date, ${body.period}, ${JSON.stringify(record)}::jsonb, ${sheetId} FROM eligible
+        SELECT ${randomUUID()}, owner_id, workspace_id, ${selected.id}, ${invite.date}::date,
+          ${body.period}, ${JSON.stringify(record)}::jsonb, ${sheetId} FROM eligible
         ON CONFLICT (owner_id, workspace_id, class_id, attendance_date, period) DO NOTHING
         RETURNING id, submitted_at
       )
@@ -280,16 +302,34 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
     const body = requestBody(req);
     if(!body) return fail(400, "invalid_request");
     try {
-      if(["view", "roster", "submit", "sync_sheet"].includes(body.action)) return await handleTeacher(body, res, fail);
-      if(!["create", "links", "revoke", "pending", "ack"].includes(body.action)) return fail(400, "invalid_request");
+      const teacherRequest = ["view", "roster", "submit", "sync_sheet"].includes(body.action);
+      if(!teacherRequest && !["create", "links", "revoke", "pending", "ack", "reports"].includes(body.action)) return fail(400, "invalid_request");
       const session = await readSession(req, res);
       if(!session) return fail(401, "sign_in_required");
       const access = await readSubscription(session.userId);
       if(access?.status !== 200) return fail([401, 403].includes(access?.status) ? access.status : 503, access?.error || "service_unavailable");
+      if(teacherRequest) return await handleTeacher(body, res, fail, access.teacher);
       const ownerId = session.userId;
       if(!validId(body.workspace)) return fail(400, "invalid_request");
       const workspace = body.workspace;
+      const portal = isSchoolPortal(workspace);
+      if(portal && body.action === "create" && Date.now() >= Date.parse(schoolPortalCutoff)) {
+        return fail(403, "school_activation_expired");
+      }
+      if(portal && ["ack", "pending"].includes(body.action)) return fail(400, "invalid_request");
       await ensureSchema();
+      if(body.action === "reports"){
+        const page = body.page ?? 0;
+        if(!portal || !dateIsValid(body.date) || !Number.isSafeInteger(page) || page < 0 || page > 100) {
+          return fail(400, "invalid_request");
+        }
+        const receipts = await sql`
+          SELECT period, record FROM ghiyab_teacher_receipts
+          WHERE owner_id = ${ownerId} AND workspace_id = ${workspace}
+          AND attendance_date = ${body.date}::date AND record IS NOT NULL
+          ORDER BY class_id, period LIMIT 51 OFFSET ${page * 50};`;
+        return res.status(200).json({receipts: receipts.slice(0, 50), hasMore: receipts.length > 50});
+      }
       if(body.action === "pending"){
         const receipts = await sql`
           SELECT id, period, record, submitted_at AS "submittedAt",
@@ -314,35 +354,44 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
         return res.status(200).json({ok:true, sheetStatus});
       }
       if(body.action === "links"){
-        if(!dateIsValid(body.date)) return fail(400, "invalid_request");
+        if(!portal && !dateIsValid(body.date)) return fail(400, "invalid_request");
         const links = await sql`
           SELECT class_id AS id, CASE WHEN class_id = ${schoolLinkId}
             THEN 'جميع الصفوف والشُّعب' ELSE roster->>'className' END AS name
           FROM ghiyab_teacher_links
           WHERE owner_id = ${ownerId} AND workspace_id = ${workspace}
-          AND attendance_date = ${body.date}::date AND expires_at > NOW()
+          AND (${portal}::boolean OR attendance_date = ${portal ? schoolPortalLinkKey : body.date}::date)
+          AND expires_at > NOW()
           ORDER BY name;`;
         return res.status(200).json({links});
       }
-      if(!validId(body.classId) || !dateIsValid(body.date)) return fail(400, "invalid_request");
+      if(!validId(body.classId) || (portal ? body.classId !== schoolLinkId : !dateIsValid(body.date))) {
+        return fail(400, "invalid_request");
+      }
+      const linkDate = portal ? schoolPortalLinkKey : body.date;
       if(body.action === "revoke"){
         await sql`
           DELETE FROM ghiyab_teacher_links WHERE owner_id = ${ownerId} AND workspace_id = ${workspace}
-          AND class_id = ${body.classId} AND attendance_date = ${body.date}::date;`;
+          AND class_id = ${body.classId} AND (${portal}::boolean OR attendance_date = ${linkDate}::date);`;
         return res.status(200).json({revoked: true});
       }
       const roster = parseRoster(body);
       if(!roster) return fail(400, "invalid_roster");
-      const target = linkedSpreadsheet(ownerId, googleExportUrl(body.sheetUrl));
+      const target = portal ? null : linkedSpreadsheet(ownerId, googleExportUrl(body.sheetUrl));
       if(target) roster.attendanceSheetId = target;
       const token = randomBytes(32).toString("base64url");
       const [saved] = await sql`
-        WITH expired AS (
-          DELETE FROM ghiyab_teacher_links WHERE owner_id = ${ownerId} AND expires_at <= NOW()
-          AND (workspace_id <> ${workspace} OR class_id <> ${body.classId} OR attendance_date <> ${body.date}::date)
+        WITH replaced AS (
+          DELETE FROM ghiyab_teacher_links WHERE owner_id = ${ownerId}
+            AND (expires_at <= NOW() OR (${portal}::boolean AND workspace_id = ${workspace} AND class_id = ${body.classId}))
+            AND (workspace_id <> ${workspace} OR class_id <> ${body.classId} OR attendance_date <> ${linkDate}::date)
         )
         INSERT INTO ghiyab_teacher_links (owner_id, workspace_id, class_id, attendance_date, token_hash, expires_at, roster)
-        VALUES (${ownerId}, ${workspace}, ${body.classId}, ${body.date}::date, ${hash(token)}, NOW() + INTERVAL '24 hours', ${JSON.stringify(roster)}::jsonb)
+        VALUES (${ownerId}, ${workspace}, ${body.classId}, ${linkDate}::date, ${hash(token)},
+          CASE WHEN ${portal}::boolean
+            THEN ${schoolPortalCutoff}::timestamptz
+            ELSE NOW() + INTERVAL '24 hours'
+          END, ${JSON.stringify(roster)}::jsonb)
         ON CONFLICT (owner_id, workspace_id, class_id, attendance_date) DO UPDATE
         SET token_hash = EXCLUDED.token_hash, expires_at = EXCLUDED.expires_at, roster = EXCLUDED.roster
         RETURNING expires_at AS "expiresAt";`;
