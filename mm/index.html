@@ -901,6 +901,8 @@
     .teacher-link-entries details { border: 1px solid #dbe3ee; border-radius: .65rem; padding: .65rem; }
     .teacher-link-entries summary { cursor: pointer; font-weight: 700; }
     .teacher-link-entries p { margin-block: .4rem; }
+    .teacher-link-reports { border-block-start: 1px solid #dbe3ee; padding-block-start: .85rem; }
+    .teacher-link-reports > summary { cursor: pointer; margin-block-end: .75rem; }
     .attendance-page .school-record-controls button[data-record-mode] {
       background: #eef4f8 !important; color: #14364a !important;
       border: 1px solid #bdcad8 !important; box-shadow: none !important;
@@ -1062,11 +1064,9 @@
     </div>
    <section id="teacher-link-panel" class="teacher-link-panel" aria-labelledby="teacher-link-title">
     <h2 id="teacher-link-title" class="school-section-title">رابط رصد المعلمين</h2>
-    <p class="school-section-intro">شارك رابط اليوم مع المعلمين لرصد الطلبة في جميع الصفوف. ينتهي الرابط عند منتصف الليل بتوقيت عُمان، ويوقف إنشاء رابط جديد صلاحية السابق.</p>
+    <p class="school-section-intro">أنشئ الرابط وانسخه لإرساله إلى المعلمين. يَحلّ أي رابط جديد محل الرابط السابق، وتنتهي صلاحيته عند منتصف الليل بتوقيت عُمان.</p>
     <div class="school-toolbar">
-      <button class="school-action" id="teacher-link-create" type="button" disabled>إنشاء رابط اليوم</button>
-      <button class="school-action school-secondary" id="teacher-link-revoke" type="button" disabled>إيقاف الرابط</button>
-      <button class="school-action school-secondary" id="teacher-link-check" type="button" hidden>التحقق مجددًا</button>
+      <button class="school-action" id="teacher-link-create" type="button">إنشاء رابط</button>
     </div>
     <div id="teacher-link-result" hidden>
       <label for="teacher-link-url">رابط المعلمين</label>
@@ -1074,15 +1074,17 @@
       <button class="school-action school-secondary" id="teacher-link-copy" type="button">نسخ الرابط</button>
     </div>
     <p id="teacher-link-status" class="school-section-intro" role="status"></p>
-    <h3 class="school-section-title">نتائج الرصد عبر الرابط</h3>
-    <label for="teacher-link-report-date">تاريخ الرصد</label>
-    <input class="link-report-date" id="teacher-link-report-date" type="date" required>
-    <div class="school-toolbar">
-      <button class="school-action school-secondary" id="teacher-link-refresh" type="button">عرض النتائج</button>
-    </div>
-    <p id="teacher-link-report-status" role="status"></p>
-    <div class="teacher-link-entries" id="teacher-link-entries"></div>
-    <button class="school-action school-secondary" id="teacher-link-more" type="button" hidden>عرض المزيد</button>
+    <details class="teacher-link-reports" id="teacher-link-reports">
+      <summary class="school-section-title">نتائج الرصد عبر الرابط</summary>
+      <label for="teacher-link-report-date">تاريخ الرصد</label>
+      <input class="link-report-date" id="teacher-link-report-date" type="date" required>
+      <div class="school-toolbar">
+        <button class="school-action school-secondary" id="teacher-link-refresh" type="button">عرض النتائج</button>
+      </div>
+      <p id="teacher-link-report-status" role="status"></p>
+      <div class="teacher-link-entries" id="teacher-link-entries"></div>
+      <button class="school-action school-secondary" id="teacher-link-more" type="button" hidden>عرض المزيد</button>
+    </details>
    </section>
    <div id="r"></div>
    </div>
@@ -2649,8 +2651,6 @@
         setDefaultDateRange();
         resetTeacherLinkPanel();
         $('teacher-link-report-date').value = attendanceDay();
-        void loadTeacherLinkState();
-        void loadTeacherLinkReports();
         abs(true)
       }else{
         am.textContent='❌';
@@ -2683,22 +2683,14 @@
     let teacherLinkContext = 0;
     let teacherLinkReportVersion = 0;
     let teacherLinkReportPage = 0;
-    let teacherLinkState = null;
-
-    function setTeacherLinkState(state, busy = false){
-      teacherLinkState = state;
-      const create = $('teacher-link-create');
-      create.textContent = state?.active ? 'تغيير الرابط وإيقاف القديم' : 'إنشاء رابط اليوم';
-      create.disabled = busy || !state;
-      $('teacher-link-revoke').disabled = busy || !state?.active;
-      $('teacher-link-check').hidden = busy || Boolean(state);
-    }
 
     function resetTeacherLinkPanel(){
       teacherLinkContext++;
       teacherLinkReportVersion++;
       teacherLinkReportPage = 0;
-      setTeacherLinkState(null, true);
+      $('teacher-link-create').disabled = false;
+      $('teacher-link-create').textContent = 'إنشاء رابط';
+      $('teacher-link-reports').open = false;
       $('teacher-link-url').value = '';
       $('teacher-link-result').hidden = true;
       $('teacher-link-status').textContent = '';
@@ -2732,27 +2724,6 @@
       throw new Error(messages[result.error] || 'تعذّر الاتصال بخدمة روابط الرصد. حاول مرة أخرى.');
     }
 
-    async function loadTeacherLinkState(){
-      const workspace = currentLinkWorkspace();
-      if(!workspace) return;
-      const context = teacherLinkContext;
-      const date = attendanceDay();
-      const status = $('teacher-link-status');
-      setTeacherLinkState(null, true);
-      status.textContent = 'جارٍ التحقق من رابط اليوم…';
-      try{
-        const {links} = await requestTeacherLink('links', workspace, {date});
-        if(context !== teacherLinkContext) return;
-        const active = links.some(link => link.id === '@all-classes');
-        setTeacherLinkState({date, active});
-        status.textContent = active ? 'يوجد رابط رصد فعّال لهذا اليوم.' : 'لا يوجد رابط رصد لهذا اليوم.';
-      }catch(error){
-        if(context !== teacherLinkContext) return;
-        setTeacherLinkState(null);
-        status.textContent = error.message;
-      }
-    }
-
     function buildTeacherLinkRoster(rows){
       const classes = new Map();
       for(const row of rows){
@@ -2773,49 +2744,38 @@
       };
     }
 
-    async function changeTeacherLink(action){
+    async function createTeacherLink(){
       const workspace = currentLinkWorkspace();
-      if(!workspace || !teacherLinkState || !enforceActiveSchoolSession()) return;
-      const {date, active} = teacherLinkState;
-      if(date !== attendanceDay()){
-        $('teacher-link-result').hidden = true;
-        $('teacher-link-url').value = '';
-        await loadTeacherLinkState();
-        return;
-      }
-      const revoke = action === 'revoke';
-      if((revoke || active) && !window.confirm(revoke ? 'هل تريد إيقاف رابط اليوم؟' : 'هل تريد تغيير الرابط؟ سيتوقف الرابط السابق فورًا.')) return;
+      const button = $('teacher-link-create');
+      if(!workspace || button.disabled || !enforceActiveSchoolSession()) return;
       const context = teacherLinkContext;
       const status = $('teacher-link-status');
-      setTeacherLinkState({date, active}, true);
-      status.textContent = revoke ? 'جارٍ إيقاف الرابط…' : 'جارٍ تجهيز قوائم الطلبة…';
+      const output = $('teacher-link-url');
+      button.disabled = true;
+      output.value = '';
+      $('teacher-link-result').hidden = true;
+      status.textContent = 'جارٍ إنشاء الرابط…';
       try{
-        const fields = {classId:'@all-classes', date};
-        if(!revoke){
-          const rows = await getStudentsData();
-          if(context !== teacherLinkContext) return;
-          fields.roster = buildTeacherLinkRoster(rows);
-          if(!fields.roster.classes.length) throw new Error('تعذّر تحميل قائمة الطلبة. راجع بيانات المدرسة.');
-        }
-        const result = await requestTeacherLink(action, workspace, fields);
+        const rows = await getStudentsData();
         if(context !== teacherLinkContext) return;
-        $('teacher-link-result').hidden = revoke;
-        $('teacher-link-url').value = '';
-        if(!revoke){
-          if(!/^[A-Za-z0-9_-]{43}$/.test(result.token || '')) throw new Error('تعذّر استلام رابط الرصد.');
-          const url = new URL('./teacher-link.html', location.href);
-          url.hash = result.token;
-          $('teacher-link-url').value = url.href;
-        }
-        setTeacherLinkState({date, active:!revoke});
-        status.textContent = revoke ? 'أُوقف رابط اليوم. تبقى نتائج الرصد المحفوظة.'
-          : active ? 'أُوقف الرابط السابق. انسخ الرابط الجديد لمشاركته مع المعلمين.' : 'الرابط جاهز للمشاركة.';
+        const roster = buildTeacherLinkRoster(rows);
+        if(!roster.classes.length) throw new Error('لم تُحمّل قائمة الطلبة. أعد المحاولة بعد التحقق من بيانات المدرسة.');
+        const {token} = await requestTeacherLink('create', workspace, {
+          classId:'@all-classes', date:attendanceDay(), roster
+        });
+        if(context !== teacherLinkContext) return;
+        if(!/^[A-Za-z0-9_-]{43}$/.test(token || '')) throw new Error('تعذّر استلام رابط الرصد.');
+        const url = new URL('./teacher-link.html', location.href);
+        url.hash = token;
+        output.value = url.href;
+        $('teacher-link-result').hidden = false;
+        $('teacher-link-copy').focus();
+        button.textContent = 'إنشاء رابط جديد';
+        status.textContent = 'الرابط جاهز. انسخه وأرسله إلى المعلمين.';
       }catch(error){
-        if(context !== teacherLinkContext) return;
-        $('teacher-link-result').hidden = true;
-        $('teacher-link-url').value = '';
-        setTeacherLinkState(null);
-        status.textContent = error.message;
+        if(context === teacherLinkContext) status.textContent = error.message;
+      }finally{
+        if(context === teacherLinkContext) button.disabled = false;
       }
     }
 
@@ -2863,9 +2823,7 @@
       }
     }
 
-    $('teacher-link-create').addEventListener('click', () => void changeTeacherLink('create'));
-    $('teacher-link-revoke').addEventListener('click', () => void changeTeacherLink('revoke'));
-    $('teacher-link-check').addEventListener('click', () => void loadTeacherLinkState());
+    $('teacher-link-create').addEventListener('click', () => void createTeacherLink());
     $('teacher-link-report-date').addEventListener('change', () => void loadTeacherLinkReports());
     $('teacher-link-refresh').addEventListener('click', () => void loadTeacherLinkReports());
     $('teacher-link-more').addEventListener('click', () => void loadTeacherLinkReports(true));
