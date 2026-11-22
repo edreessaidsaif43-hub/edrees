@@ -179,6 +179,7 @@ td.n{text-align:center}
 .welcome-steps p,.welcome-note p{margin:0}
 .welcome-note{padding:16px}
 .welcome-note h2{margin-bottom:6px;font-size:1.12rem}
+.welcome-note .row{margin-top:12px}
 @media(max-width:720px){.welcome-steps{grid-template-columns:1fr}}
 .setup{max-width:760px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:18px}
 .steps{display:flex;gap:8px}
@@ -819,8 +820,9 @@ function openTeacherImport() {
   let readVersion = 0;
   modal({
     title: "رفع أسماء المعلمين من Excel", ok: "حفظ قائمة المعلمين",
-    body: `<label class="f">ملف المعلمين<input type="file" id="teacher-roster-file" accept=".xlsx,.xls">
-      <span class="hint">ضع أسماء المعلمين في الورقة الأولى تحت عنوان «اسم المعلم». إذا كانت الورقة تحتوي على عمود أسماء فقط، يمكنك تركه بلا عنوان.</span></label>
+    body: `<div class="row"><a class="btn" href="./teacher-roster-template.xlsx" download="نموذج-أسماء-المعلمين.xlsx">تنزيل نموذج أسماء المعلمين (Excel)</a></div>
+      <label class="f">ملف المعلمين<input type="file" id="teacher-roster-file" accept=".xlsx,.xls">
+      <span class="hint">اكتب أسماء المعلمين ابتداءً من الصف الثاني في النموذج، اسمًا واحدًا في كل سطر، ثم احفظ ملف Excel وارفعه هنا.</span></label>
       ${savedTeacherNames().length ? '<p class="hint">سيستبدل الحفظ قائمة المعلمين الحالية بالقائمة الجديدة.</p>' : ""}
       <p id="teacher-roster-status" class="small muted" role="status"></p><div id="teacher-roster-preview"></div>`,
     onOk: async () => {
@@ -1409,10 +1411,14 @@ function welcomeView(){
         <p class="muted">اجلب قائمة الطلبة من رابط Google Sheets، ثم راجع الصفوف واحفظ الإعداد.</p>
       </li>
     </ol>
-    <div class="card welcome-note">
-      <h2>جهّز قائمة الطلاب</h2>
-      <p class="muted">يكفي أن تضم القائمة عمودَي «اسم الطالب» و«الصف». يمكنك أيضًا تخصيص ورقة لكل صف أو تأجيل الاستيراد إلى لوحة الإدارة.</p>
-    </div>
+    <section class="card welcome-note" aria-labelledby="welcome-templates">
+      <h2 id="welcome-templates">نماذج قوائم المدرسة</h2>
+      <p class="muted">جهّز قائمة الطلبة لاستيرادها من Google Sheets، وقائمة المعلمين لرفعها من لوحة الإدارة.</p>
+      <div class="row">
+        <a class="btn" href="./student-roster-template.xlsx" download="نموذج-قائمة-الطلبة.xlsx">تنزيل نموذج أسماء الطلبة (Excel)</a>
+        <a class="btn" href="./teacher-roster-template.xlsx" download="نموذج-أسماء-المعلمين.xlsx">تنزيل نموذج أسماء المعلمين (Excel)</a>
+      </div>
+    </section>
   </section>`;
 }
 function setupView(){
