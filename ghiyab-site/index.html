@@ -220,7 +220,7 @@ td.n{text-align:center}
 .sub-gate[hidden]{display:none}.sub-gate{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:20px;background:var(--bg)}.sub-card{width:min(100%,480px);padding:28px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.sub-card h1{font-size:24px;margin:0 0 8px}.sub-card p{line-height:1.8;color:var(--muted)}.sub-card label{display:block;font-weight:600;margin:20px 0 8px}.sub-card input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}.sub-card button{margin-top:14px;width:100%}.sub-error{color:var(--absent)!important;font-size:13px;min-height:20px}</style>
 </head>
 <body>
-<div class="sub-gate" id="subscriber-gate"><section class="sub-card"><h1>دخول المشتركين</h1><p>هذا النظام متاح للمدارس صاحبة الاشتراك الساري. أدخل رمز الاشتراك الذي استلمته من إدارة الخدمة.</p><label for="subscriber-code">رمز الاشتراك</label><input id="subscriber-code" type="password" autocomplete="off" placeholder="أدخل رمز الاشتراك"><button class="btn primary" id="subscriber-activate">تفعيل الدخول</button><p class="sub-error" id="subscriber-error"></p></section></div><header class="topbar"><div class="topbar-in" id="hdr"></div></header>
+<div class="sub-gate" id="subscriber-gate" hidden><section class="sub-card"><h1 id="subscriber-gate-title">رصد غياب الطلبة للمشتركين</h1><p id="subscriber-gate-message">جارٍ التحقق من تسجيل الدخول والاشتراك...</p><div class="row"><a class="btn primary" id="subscriber-login" href="../enjazy/auth.html?mode=login&return=%2Fghiyab-site%2F" hidden>تسجيل الدخول</a><a class="btn" id="subscriber-subscribe" href="../t.html#subscription-section-title" hidden>الاشتراك</a><button class="btn" id="subscriber-retry" type="button" hidden>إعادة المحاولة</button></div><p class="sub-error" id="subscriber-error"></p></section></div><header class="topbar"><div class="topbar-in" id="hdr"></div></header>
 <div class="banner" id="banner" hidden></div>
 <main id="app"></main>
 <div id="modal-root"></div>
@@ -513,6 +513,7 @@ const ICON = {
 function renderHeader(){
   const name = S.cfg ? S.cfg.name : "رصد غياب الطلبة";
   const nav = S.cfg ? `<nav class="nav" aria-label="التنقل">
+      <a href="../" >التحضير الذكي</a>
       <a href="#home" ${S.route === "home" ? 'aria-current="page"' : ""}>الرئيسية</a>
       <a href="#teacher" ${S.route === "teacher" ? 'aria-current="page"' : ""}>رصد الغياب</a>
       <a href="#admin" ${S.route === "admin" ? 'aria-current="page"' : ""}>لوحة الإدارة</a>
@@ -1406,20 +1407,43 @@ async function boot(){
   window.addEventListener("hashchange", route);
   route();
 }
-boot();
-</script>
-
-/* لا تُحمّل بيانات المدارس إلا بعد تحقق الخادم من الاشتراك. */
-(function subscriberGate(){
-  const gate=document.getElementById("subscriber-gate"), input=document.getElementById("subscriber-code"), error=document.getElementById("subscriber-error"), button=document.getElementById("subscriber-activate");
-  const api=String(window.GHIYAB_API||"").trim();
-  if(!gate) return;
-  if(!api){error.textContent="الخدمة غير مهيأة بعد. يجب ربط الخادم أولاً.";button.disabled=true;return;}
-  const active=sessionStorage.getItem("gh_subscriber");
-  if(active){gate.hidden=true;return;}
-  async function activate(){const code=input.value.trim();if(!code){error.textContent="أدخل رمز الاشتراك.";return;}button.disabled=true;button.textContent="جارٍ التحقق…";error.textContent="";try{const res=await fetch(api,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({op:"activate",license:code,token:String(window.GHIYAB_TOKEN||"")}),redirect:"follow"});const data=await res.json();if(!data.ok||!data.data||!data.data.active)throw Error(data.error||"رمز الاشتراك غير صالح أو منتهي.");sessionStorage.setItem("gh_subscriber",code);location.reload();}catch(e){error.textContent=e.message||"تعذر التحقق من الاشتراك.";button.disabled=false;button.textContent="تفعيل الدخول"}}
-  button.addEventListener("click",activate);input.addEventListener("keydown",e=>{if(e.key==="Enter")activate()});
-})();
+async function verifyPlatformSubscription(){
+  const gate=document.getElementById('subscriber-gate');
+  const message=document.getElementById('subscriber-gate-message');
+  const login=document.getElementById('subscriber-login');
+  const subscribe=document.getElementById('subscriber-subscribe');
+  const retryButton=document.getElementById('subscriber-retry');
+  const error=document.getElementById('subscriber-error');
+  if(gate)gate.hidden=false;
+  if(message)message.textContent='جارٍ التحقق من تسجيل الدخول والاشتراك...';
+  [login,subscribe,retryButton].forEach(item=>{if(item)item.hidden=true;});
+  if(error)error.textContent='';
+  try{
+    const response=await fetch('/api/subscriptions?action=board_access',{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+    const data=await response.json().catch(()=>({}));
+    if(response.ok&&data.teacher?.id){
+      if(gate)gate.hidden=true;
+      return true;
+    }
+    if(response.status===401){
+      if(message)message.textContent='سجّل الدخول بحسابك في التحضير الذكي للوصول إلى رصد الغياب.';
+      if(login)login.hidden=false;
+    }else if(response.status===403){
+      if(message)message.textContent='هذه الخدمة متاحة للمشتركين فقط. فعّل اشتراكًا ساريًا ثم أعد المحاولة.';
+      if(subscribe)subscribe.hidden=false;
+      if(retryButton)retryButton.hidden=false;
+    }else{
+      throw Error(data.error||'تعذر التحقق من الاشتراك.');
+    }
+  }catch(errorValue){
+    if(message)message.textContent='تعذر الاتصال بخدمة التحقق من الاشتراك.';
+    if(error)error.textContent=errorValue.message||'أعد المحاولة بعد التأكد من الاتصال.';
+    if(retryButton)retryButton.hidden=false;
+  }
+  return false;
+}
+document.getElementById('subscriber-retry')?.addEventListener('click',()=>{ verifyPlatformSubscription().then(allowed=>{ if(allowed) boot(); }); });
+verifyPlatformSubscription().then(allowed=>{ if(allowed) boot(); });
 </script>
 </body>
 </html>
