@@ -273,15 +273,15 @@ function deepMerge(t, s){ for(const k of Object.keys(s)){ const v = s[k]; if(v &
 function cmp(a, op, b){ switch(op){ case "==": return a === b; case ">=": return a >= b; case "<=": return a <= b; case ">": return a > b; case "<": return a < b; } return true; }
 const arSort = (a, b) => String(a).localeCompare(String(b), "ar", {numeric:true});
 function pct(n){ return (Math.round(n * 10) / 10).toLocaleString("en") + "%"; }
-function phoneIntl(p){
-  let d = String(p || "").replace(/\D/g, ""); if(!d) return "";
-  const cc = String((S.cfg && S.cfg.cc) || "971").replace(/\D/g, "");
-  if(d.startsWith("00")) d = d.slice(2);
-  else if(d.startsWith("0")) d = cc + d.slice(1);
-  else if(d.length <= 9) d = cc + d;
-  return d;
+const omanCountryCode = "968";
+function phoneIntl(phone){
+  const digits = String(phone ?? "").normalize("NFKC")
+    .replace(/[٠-٩۰-۹]/g, digit => String(digit.charCodeAt(0) & 15))
+    .replace(/[\s().\-\u061c\u200e\u200f]/g, "");
+  const national = digits.replace(/^(?:\+|00)?968(?=[1-9]\d{7}$)/, "");
+  return /^[1-9]\d{7}$/.test(national) ? omanCountryCode + national : "";
 }
-const waLink = (text, phone) => "https://wa.me/" + (phone ? phoneIntl(phone) : "") + "?text=" + encodeURIComponent(text);
+const waLink = (text, recipient = "") => "https://wa.me/" + recipient + "?text=" + encodeURIComponent(text);
 
 /* ---------- storage: shared database when available, this browser otherwise ---------- */
 const Local = {
@@ -393,7 +393,7 @@ const S = {
   alerts: {data: null, loading: false},
   stuQ: "", showImport: false,
   sf: null,
-  setup: {step: 0, f: {name: "", year: "", pw: "", pw2: "", mode: "daily", periods: 7, pin: "", cc: "971"}},
+  setup: {step: 0, f: {name: "", year: "", pw: "", pw2: "", mode: "daily", periods: 7, pin: ""}},
   imp: null
 };
 const clsById = id => S.classes.find(c => c.id === id);
@@ -752,10 +752,10 @@ function overviewTab(){
         ${canXls() ? `<button class="btn sm" data-act="xlsDaily">تنزيل Excel</button>` : `<button class="btn sm" data-act="tsvDaily">نسخ كجدول</button>`}
       </div></div>
     ${rows.length ? `<div class="tbl-wrap"><table><thead><tr><th>الطالب</th><th>الصف</th><th>الحالة</th>${pk ? "<th>الحصص</th>" : ""}<th>المعلم</th><th>ولي الأمر</th></tr></thead><tbody>
-      ${rows.map(o => { const s = (clsById(o.classId) || {students: []}).students.find(x => x.id === o.id); const ph = s && s.p;
+      ${rows.map(o => { const s = (clsById(o.classId) || {students: []}).students.find(x => x.id === o.id); const ph = phoneIntl(s?.p);
         const msg = `السلام عليكم ولي أمر الطالب/ة ${o.n}،\nنفيدكم بأنه تم تسجيل ${o.status === "l" ? "تأخر" : "غياب"} ابنكم/ابنتكم يوم ${fmtDate(S.date)}.\nنأمل التواصل مع إدارة ${S.cfg.name}.`;
         return `<tr><td>${h(o.n)}</td><td>${h(o.className)}</td><td><span class="pill ${o.status}">${statusLabel[o.status]}</span></td>${pk ? `<td class="small">${h([...o.a, ...o.e, ...o.l].sort(arSort).join("، "))}</td>` : ""}<td class="small">${h(o.teachers.join("، "))}</td>
-        <td>${ph ? `<a class="btn sm" href="${h(waLink(msg, ph))}" target="_blank" rel="noopener">واتساب</a>` : `<span class="muted small">لا يوجد رقم</span>`}</td></tr>`; }).join("")}
+        <td>${ph ? `<a class="btn sm" href="${h(waLink(msg, ph))}" target="_blank" rel="noopener">واتساب</a>` : `<span class="muted small">لا يوجد رقم عُماني صالح</span>`}</td></tr>`; }).join("")}
     </tbody></table></div>` : `<div class="empty">${S.dayRecs === null ? "جارٍ التحميل…" : st.submitted.size ? "لا يوجد غياب في الصفوف المرصودة." : "لم يُرصد أي صف لهذا اليوم بعد."}</div>`}
   </section>`;
 }
@@ -826,7 +826,7 @@ function alertsTab(){
     const list = A.data;
     res = list.length ? `<section style="display:flex;flex-direction:column;gap:8px">${list.map(x => {
       const crit = x.days >= th * 2 || x.streak >= 3;
-      const s = (clsById(x.classId) || {students: []}).students.find(y => y.id === x.id); const ph = s && s.p;
+      const s = (clsById(x.classId) || {students: []}).students.find(y => y.id === x.id); const ph = phoneIntl(s?.p);
       const msg = `السلام عليكم ولي أمر الطالب/ة ${x.n}،\nنود إفادتكم بتكرار غياب ابنكم/ابنتكم (${x.days} أيام خلال آخر ${win} يوماً)، آخرها يوم ${fmtDate(x.last)}.\nنأمل مراجعة إدارة ${S.cfg.name} في أقرب وقت.`;
       return `<div class="alert-card ${crit ? "crit" : ""}">
         <div class="who"><b>${h(x.n)}</b><p class="small muted">${h(x.className)} · آخر غياب ${h(fmtShort(x.last))}</p></div>
@@ -860,7 +860,7 @@ function studentsTab(){
   </section>`;
 }
 function settingsTab(){
-  if(!S.sf) S.sf = {name: S.cfg.name, year: S.cfg.year || "", mode: S.cfg.mode || "daily", periods: S.cfg.periods || 7, alertN: S.cfg.alertN || 3, alertDays: S.cfg.alertDays || 30, cc: S.cfg.cc || "971", pin: "", pinOff: false, sheetUrl: S.cfg.sheetUrl || "", oldPw: "", newPw: "", newPw2: ""};
+  if(!S.sf) S.sf = {name: S.cfg.name, year: S.cfg.year || "", mode: S.cfg.mode || "daily", periods: S.cfg.periods || 7, alertN: S.cfg.alertN || 3, alertDays: S.cfg.alertDays || 30, pin: "", pinOff: false, sheetUrl: S.cfg.sheetUrl || "", oldPw: "", newPw: "", newPw2: ""};
   const f = S.sf;
   return `
   <section class="card" style="display:flex;flex-direction:column;gap:14px">
@@ -872,7 +872,7 @@ function settingsTab(){
       <label class="f">عدد الحصص في اليوم<input type="number" min="1" max="12" id="sf-periods" data-bind="sf.periods" value="${h(f.periods)}"></label>
       <label class="f">حد تنبيه الغياب (أيام)<input type="number" min="1" max="60" id="sf-alertN" data-bind="sf.alertN" value="${h(f.alertN)}"></label>
       <label class="f">فترة التنبيه (أيام)<input type="number" min="7" max="180" id="sf-alertDays" data-bind="sf.alertDays" value="${h(f.alertDays)}"></label>
-      <label class="f">مفتاح الدولة لأرقام واتساب<input type="text" inputmode="numeric" id="sf-cc" data-bind="sf.cc" value="${h(f.cc)}"><span class="hint">971 للإمارات، 966 للسعودية، 968 لعُمان.</span></label>
+      <p class="hint">مفتاح واتساب لسلطنة عُمان <bdi>+${omanCountryCode}</bdi></p>
       <label class="f">رابط Google Sheet للطلاب<input type="url" id="sf-url" data-bind="sf.sheetUrl" value="${h(f.sheetUrl)}" dir="ltr"></label>
     </div>
     <div class="grid2">
@@ -903,8 +903,6 @@ function settingsTab(){
 }
 
 /* ---------- import (Excel / CSV / pasted Google Sheet cells) ---------- */
-const rosterTemplate = "اسم الطالب,الصف,الشعبة,رقم الطالب,هاتف ولي الأمر\r\n";
-const rosterTemplateUrl = "data:text/csv;charset=utf-8," + encodeURIComponent("\uFEFF" + rosterTemplate);
 const sheetImportErrors = {
   invalid_sheet_url: "أدخل رابطًا صحيحًا من Google Sheets.",
   sign_in_required: "انتهت جلسة الدخول. سجّل الدخول إلى التحضير الذكي ثم أعد المحاولة.",
@@ -962,12 +960,12 @@ function importPanel(where){
     <label class="f">رابط Google Sheets<input type="url" id="im-url-${where}" data-bind="${bind}" value="${h(url)}" dir="ltr" placeholder="https://docs.google.com/spreadsheets/d/…"></label>
     <div class="row">
       <button type="button" class="btn primary" data-act="impSheet" data-w="${where}" ${fetching ? "disabled" : ""}>${fetching ? "جارٍ جلب الطلبة…" : "جلب الطلبة من الرابط"}</button>
-      <a class="btn" href="${h(rosterTemplateUrl)}" download="نموذج-قائمة-الطلبة.csv">تنزيل نموذج الطلبة (CSV)</a>
+      <a class="btn" href="./student-roster-template.xlsx" download="نموذج-قائمة-الطلبة.xlsx">تنزيل نموذج الطلبة (Excel)</a>
     </div>
     <p class="hint">${S.backend === "api"
       ? "يمكن جلب الملف إذا كان خادم المدرسة مخوّلًا بقراءته. اترك الحقل فارغًا لجلب الملف المرتبط بالخادم."
       : "انسخ رابط التبويب المطلوب. إذا كان الملف خاصًا، نزّل نسخة Excel أو انسخ خلايا الجدول والصقها أدناه."}</p>
-    <p class="hint">ضع عناوين الأعمدة في الصف الأول وأضف الطلاب ابتداءً من الصف الثاني في النموذج.</p>
+    <p class="hint">اكتب بيانات الطلبة ابتداءً من الصف الثاني واترك عناوين الأعمدة كما هي.</p>
     <label class="drop" id="drop-${where}"><input type="file" accept=".xlsx,.xls,.csv,.txt" data-change="impFile">${ICON.file}<b>اسحب ملف Excel أو CSV هنا، أو اضغط للاختيار</b><span class="hint">يكفي عمود لاسم الطالب وعمود للصف، أو ورقة مستقلة لكل صف.</span></label>
     <div class="or">أو</div>
     <label class="f">الصق خلايا الجدول من Google Sheets أو Excel<textarea id="im-paste-${where}" placeholder="اسم الطالب&#9;الصف&#9;الشعبة"></textarea></label>
@@ -1148,7 +1146,7 @@ function setupView(){
     <div class="grid2">
       ${f.mode === "period" ? `<label class="f">عدد الحصص في اليوم<input type="number" min="1" max="12" id="su-periods" data-bind="setup.f.periods" value="${h(f.periods)}"></label>` : ""}
       <label class="f">رمز دخول المعلمين (اختياري)<input type="password" id="su-pin" data-bind="setup.f.pin" value="${h(f.pin)}" inputmode="numeric"><span class="hint">يُطلب من المعلم مرة واحدة على جهازه.</span></label>
-      <label class="f">مفتاح الدولة لأرقام واتساب<input type="text" id="su-cc" inputmode="numeric" data-bind="setup.f.cc" value="${h(f.cc)}"><span class="hint">971 الإمارات · 966 السعودية · 968 عُمان</span></label>
+      <p class="hint">مفتاح واتساب لسلطنة عُمان <bdi>+${omanCountryCode}</bdi></p>
     </div>
     <div class="row"><button class="btn" data-act="setupBack">السابق</button><button class="btn primary" data-act="setupNext">التالي</button></div>`;
   else{
@@ -1234,7 +1232,7 @@ const ACT = {
     t.disabled = true;
     try{
       if(r.classes.length) await saveClasses(r.classes, false);
-      const cfg = {name: f.name.trim(), year: f.year.trim(), adminHash: await pwHash(f.pw), mode: f.mode, periods: Math.max(1, Math.min(12, Number(f.periods) || 7)), pinHash: f.pin ? await pwHash("pin::" + f.pin) : "", cc: (f.cc || "971").replace(/\D/g, ""), alertN: 3, alertDays: 30, sheetUrl: f.sheetUrl || "", createdAt: new Date().toISOString(), demo: !!(S.imp && S.imp.demo && !skip)};
+      const cfg = {name: f.name.trim(), year: f.year.trim(), adminHash: await pwHash(f.pw), mode: f.mode, periods: Math.max(1, Math.min(12, Number(f.periods) || 7)), pinHash: f.pin ? await pwHash("pin::" + f.pin) : "", cc: omanCountryCode, alertN: 3, alertDays: 30, sheetUrl: f.sheetUrl || "", createdAt: new Date().toISOString(), demo: !!(S.imp && S.imp.demo && !skip)};
       if(cfg.demo){
         const recs = demoRecords(r.classes, cfg.mode);
         const tt = document.createElement("div"); tt.textContent = "جارٍ إنشاء سجلات تجريبية…"; $("#toast").appendChild(tt);
@@ -1243,7 +1241,7 @@ const ACT = {
       await Store.set("school/config", cfg);
       S.cfg = cfg; S.admin = true; ss.set("admin", cfg.adminHash);
       if(r.classes.length) S.classes = sortClasses(r.classes);
-      S.imp = null; S.setup = {step: 0, f: {name: "", year: "", pw: "", pw2: "", mode: "daily", periods: 7, pin: "", cc: "971"}};
+      S.imp = null; S.setup = {step: 0, f: {name: "", year: "", pw: "", pw2: "", mode: "daily", periods: 7, pin: ""}};
       toast("تم تأسيس النظام بنجاح");
       location.hash = "#admin"; route();
     }catch(e){ toast(errMsg(e), 5000); if(t.isConnected) t.disabled = false; }
@@ -1374,7 +1372,7 @@ const ACT = {
   async saveSettings(){
     const f = S.sf;
     if(!f.name.trim()) return toast("اكتب اسم المدرسة");
-    const upd = {name: f.name.trim(), year: f.year.trim(), mode: f.mode, periods: Math.max(1, Math.min(12, Number(f.periods) || 7)), alertN: Math.max(1, Number(f.alertN) || 3), alertDays: Math.max(7, Math.min(180, Number(f.alertDays) || 30)), cc: String(f.cc || "971").replace(/\D/g, "") || "971", sheetUrl: f.sheetUrl || ""};
+    const upd = {name: f.name.trim(), year: f.year.trim(), mode: f.mode, periods: Math.max(1, Math.min(12, Number(f.periods) || 7)), alertN: Math.max(1, Number(f.alertN) || 3), alertDays: Math.max(7, Math.min(180, Number(f.alertDays) || 30)), cc: omanCountryCode, sheetUrl: f.sheetUrl || ""};
     if(f.pin) upd.pinHash = await pwHash("pin::" + f.pin); else if(f.pinOff) upd.pinHash = "";
     try{ await Store.merge("school/config", upd); Object.assign(S.cfg, upd); S.sf = null; S.alerts.data = null; toast("تم حفظ الإعدادات"); render(); }
     catch(e){ toast(errMsg(e), 4500); }
