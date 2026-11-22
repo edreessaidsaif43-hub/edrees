@@ -99,7 +99,19 @@
       <div id="adminSaveMsg" class="msg" style="color:#166534;"></div>
 
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0;">
-      <h3 style="margin:0 0 8px 0;">طلبات الاشتراك</h3>
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;">طلبات إضافة المدارس</h3>
+        <button id="refreshSchoolRequests" class="btn-dark" type="button">تحديث الطلبات</button>
+      </div>
+      <form id="schoolRequestsAccess" method="post" hidden>
+        <label for="schoolRequestsPassword">كلمة مرور إدارة التحضير الذكي</label>
+        <input id="schoolRequestsPassword" type="password" autocomplete="current-password" required>
+        <button class="btn-primary" type="submit" style="margin-top:8px;">فتح الطلبات</button>
+      </form>
+      <p id="schoolRequestsStatus" class="muted" role="status"></p>
+      <div id="schoolRequestsList"></div>
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0;">
+      <h3 style="margin:0 0 8px 0;">طلبات الاشتراك السابقة</h3>
       <div id="subscriptionRequestsList" style="margin-bottom:12px;"></div>
 
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0;">
@@ -314,6 +326,90 @@
       }).join("");
     }
 
+    async function loadMmSchoolRequests(){
+      if(!adminSessionOpen) return;
+      const refresh = $("refreshSchoolRequests");
+      if(refresh.disabled) return;
+      refresh.disabled = true;
+      const form = $("schoolRequestsAccess");
+      const status = $("schoolRequestsStatus");
+      const list = $("schoolRequestsList");
+      status.textContent = "جارٍ جلب طلبات إضافة المدارس…";
+      try {
+        const response = await fetch("/api/edu?action=getMmSchoolRequests", {credentials:"same-origin",cache:"no-store"});
+        const result = await response.json();
+        if(!adminSessionOpen) return;
+        if(response.status === 401 && result?.error === "admin_session_required") {
+          list.replaceChildren();
+          form.hidden = false;
+          status.textContent = "سجّل دخول إدارة التحضير الذكي لعرض الطلبات.";
+          return;
+        }
+        if(!response.ok || !result?.success || !Array.isArray(result.requests)) throw Error();
+        form.hidden = true;
+        status.textContent = result.requests.length ? "" : "لا توجد طلبات إضافة مدارس حتى الآن.";
+        list.innerHTML = result.requests.map(request => `
+          <div class="school-item">
+            <div><strong>${escapeHtml(request.schoolName)}</strong></div>
+            <div class="muted">مقدم الطلب: ${escapeHtml(request.teacherName)}</div>
+            <div class="muted">رقم التواصل: <bdi dir="ltr">${escapeHtml(request.phone)}</bdi></div>
+            <div class="muted">تاريخ الطلب: ${escapeHtml(toIsoDateOnly(request.createdAt))}</div>
+            <button class="btn-primary" type="button" data-request-school="${escapeHtml(request.schoolName)}" style="margin-top:8px;">تجهيز إضافة المدرسة</button>
+          </div>`).join("");
+      } catch {
+        list.replaceChildren();
+        if(adminSessionOpen) status.textContent = "تعذّر تحميل الطلبات. حاول مجددًا.";
+      } finally {
+        refresh.disabled = false;
+      }
+    }
+
+    $("refreshSchoolRequests").addEventListener("click", loadMmSchoolRequests);
+    $("schoolRequestsAccess").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if(!adminSessionOpen) return;
+      const form = event.currentTarget;
+      const submit = form.querySelector('button[type="submit"]');
+      if(submit.disabled) return;
+      const field = $("schoolRequestsPassword");
+      const password = field.value;
+      field.value = "";
+      submit.disabled = true;
+      try {
+        const response = await fetch("/api/edu", {
+          method:"POST", credentials:"same-origin", cache:"no-store", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({action:"adminLogin",password})
+        });
+        const result = await response.json();
+        if(!response.ok || !result?.success) throw Error();
+        await loadMmSchoolRequests();
+      } catch {
+        if(adminSessionOpen) $("schoolRequestsStatus").textContent = "تعذّر تسجيل دخول إدارة التحضير الذكي. تحقق من كلمة المرور وحاول مجددًا.";
+      } finally {
+        submit.disabled = false;
+      }
+    });
+
+    $("schoolRequestsList").addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-request-school]");
+      if(!button || !adminSessionOpen) return;
+      const name = normalizeSchoolName(button.dataset.requestSchool);
+      const nameField = $("adminSchoolName");
+      const message = $("adminSaveMsg");
+      if(schoolRegistry.some(school => normalizeSchoolName(school.name) === name)) {
+        message.style.color = "#b91c1c";
+        message.textContent = "توجد مدرسة مسجلة بهذا الاسم بالفعل.";
+        message.scrollIntoView({block:"center"});
+        return;
+      }
+      if((nameField.value || $("adminSchoolCode").value) && !window.confirm("استبدال البيانات المدخلة في النموذج بطلب المدرسة؟")) return;
+      clearSchoolForm();
+      nameField.value = name;
+      message.style.color = "#166534";
+      message.textContent = "أكمل رمز المدرسة وبيانات الربط، ثم اضغط «حفظ المدرسة».";
+      $("adminSchoolCode").focus();
+    });
+
     function updateCodesHint(){
       const hint = $("adminCodesHint");
       if(!hint) return;
@@ -512,6 +608,7 @@
       $("adminMsg").textContent = "";
       $("adminLoginBox").style.display = "none";
       $("adminDashboardBox").style.display = "";
+      void loadMmSchoolRequests();
       try {
         setAdminProgress(50,"جاري جلب بيانات المدارس");
         await Promise.all([
@@ -527,6 +624,10 @@
 
     function adminLogout(){
       adminSessionOpen = false;
+      $("schoolRequestsList").replaceChildren();
+      $("schoolRequestsAccess").reset();
+      $("schoolRequestsAccess").hidden = true;
+      $("schoolRequestsStatus").textContent = "";
       $("adminDashboardBox").style.display = "none";
       $("adminLoginBox").style.display = "";
       $("adminPassInput").value = "";
