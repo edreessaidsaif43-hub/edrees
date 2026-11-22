@@ -18,6 +18,7 @@
     ['m', 'm', 'm.html', 'حقيبة المعلم'],
     ['games', 'game/', 'game/index.html', 'الألعاب'],
     ['noor', 'noor/', 'noor/index.html', 'خدمات نور'],
+    ['ghiyab', 'ghiyab-site/', 'ghiyab-site/index.html', 'رصد الغياب'],
     ['board', 'Board/index.html', 'Board/index.html', 'السبورة البيضاء'],
     ['certificates', 'certificates/', 'certificates/index.html', 'شهادات التقدير'],
     ['enjazy', 'enjazy', 'enjazy/index.html', 'ملف الإنجاز'],
@@ -221,6 +222,7 @@
     else if(p.includes('/mash'))page='mash';
     else if(p.includes('/motivation+/'))page='motivation';
     else if(/\/board(?:\/|$)/.test(p))page='board';
+    else if(/\/ghiyab-site(?:\/|$)/.test(p))page='ghiyab';
     else if(/\/certificates(?:\/|$)/.test(p))page='certificates';
     else if(/\/noor(?:\/|$)|\/noor-guide\.html$/.test(p))page='noor';
     document.querySelectorAll('#nav [data-page],#nmob [data-page]').forEach(function(a){
