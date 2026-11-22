@@ -185,11 +185,6 @@ td.n{text-align:center}
 .steps div{flex:1;display:flex;flex-direction:column;gap:6px;font-size:.84rem;color:var(--muted);font-weight:600}
 .steps div i{height:5px;border-radius:9px;background:var(--line)}
 .steps div.on{color:var(--accent)} .steps div.on i{background:var(--accent)}
-.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:2px dashed var(--line);border-radius:var(--r);padding:24px;text-align:center;cursor:pointer;background:var(--sunk)}
-.drop.over,.drop:hover{border-color:var(--accent)}
-.drop input{position:absolute;width:1px;height:1px;opacity:0}
-.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.85rem}
-.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
 .preview-chips{display:flex;flex-wrap:wrap;gap:6px}
 .preview-chips span{background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:3px 10px;font-size:.86rem;font-weight:600}
 .radio-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -520,7 +515,6 @@ const ICON = {
   teacher: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 17h8"/></svg>`,
   admin: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>`,
   tick: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>`,
-  file: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>`
 };
 function renderHeader(){
   const name = S.cfg ? S.cfg.name : "رصد غياب الطلبة";
@@ -1054,14 +1048,14 @@ function settingsTab(){
   </section>`;
 }
 
-/* ---------- import (Excel / CSV / pasted Google Sheet cells) ---------- */
+/* ---------- import from Google Sheets ---------- */
 const sheetImportErrors = {
   invalid_sheet_url: "أدخل رابطًا صحيحًا من Google Sheets.",
   sign_in_required: "انتهت جلسة الدخول. سجّل الدخول إلى التحضير الذكي ثم أعد المحاولة.",
   subscription_required: "يلزم اشتراك فعّال لاستيراد الطلبة.",
   account_stopped: "الحساب موقوف. تواصل مع إدارة التحضير الذكي.",
-  sheet_not_accessible: "تعذّر قراءة هذا التبويب من الرابط. إذا كان الملف خاصًا، نزّل نسخة Excel من Google Sheets ثم ارفعها هنا.",
-  sheet_too_large: "التبويب أكبر من الحد المسموح. نزّله وارفعه هنا أو قسّمه إلى ملفات أصغر."
+  sheet_not_accessible: "تعذّر قراءة هذا التبويب. تحقّق من رابط Google Sheets ومن صلاحية خدمة الاستيراد لقراءة الملف.",
+  sheet_too_large: "بيانات التبويب تتجاوز الحد المسموح. احذف الصفوف والأعمدة غير المطلوبة ثم أعد المحاولة."
 };
 async function loadRosterTab(url){
   const response = await fetch("/api/ghiyab-sheet", {
@@ -1072,7 +1066,7 @@ async function loadRosterTab(url){
   });
   if(!response.ok){
     const {error} = await response.json().catch(() => ({}));
-    throw Error(sheetImportErrors[error] || "تعذّر جلب الطلبة من Google Sheets الآن. أعد المحاولة أو ارفع الملف.");
+    throw Error(sheetImportErrors[error] || "تعذّر جلب الطلبة من Google Sheets الآن. تحقّق من الرابط ثم أعد المحاولة.");
   }
   return [{name: "Google Sheets", rows: parseDelimited(await response.text())}];
 }
@@ -1089,7 +1083,7 @@ function importPanel(where){
     const opts = (field) => `<option value="auto" ${I.over[field] === "auto" ? "selected" : ""}>تلقائي</option><option value="-1" ${I.over[field] === "-1" ? "selected" : ""}>لا يوجد</option>` + Array.from({length: ncol}, (_, i) => `<option value="${i}" ${I.over[field] === String(i) ? "selected" : ""}>عمود ${i + 1}${hdr[i] ? ": " + h(String(hdr[i]).slice(0, 24)) : ""}</option>`).join("");
     prev = `
     <div class="card" style="box-shadow:none;background:var(--sunk);display:flex;flex-direction:column;gap:12px">
-      <div class="row" style="justify-content:space-between"><b>${h(I.label)}</b><button class="btn sm ghost" data-act="impClear">إزالة الملف</button></div>
+      <div class="row" style="justify-content:space-between"><b>${h(I.label)}</b><button class="btn sm ghost" data-act="impClear">مسح المعاينة</button></div>
       <div class="radio-cards">
         <label><input type="radio" name="impmode" value="column" data-bind="imp.mode" ${I.mode === "column" ? "checked" : ""}><span><b>عمود للصف</b><br><span class="hint">ورقة واحدة فيها عمود للاسم وعمود للصف</span></span></label>
         <label><input type="radio" name="impmode" value="sheets" data-bind="imp.mode" ${I.mode === "sheets" ? "checked" : ""}><span><b>ورقة لكل صف</b><br><span class="hint">اسم الورقة هو اسم الصف (${I.sheets.length} ورقة)</span></span></label>
@@ -1116,12 +1110,9 @@ function importPanel(where){
     </div>
     <p class="hint">${S.backend === "api"
       ? "يمكن جلب الملف إذا كان خادم المدرسة مخوّلًا بقراءته. اترك الحقل فارغًا لجلب الملف المرتبط بالخادم."
-      : "انسخ رابط التبويب المطلوب. إذا كان الملف خاصًا، نزّل نسخة Excel أو انسخ خلايا الجدول والصقها أدناه."}</p>
-    <p class="hint">اكتب بيانات الطلبة ابتداءً من الصف الثاني واترك عناوين الأعمدة كما هي.</p>
-    <label class="drop" id="drop-${where}"><input type="file" accept=".xlsx,.xls,.csv,.txt" data-change="impFile">${ICON.file}<b>اسحب ملف Excel أو CSV هنا، أو اضغط للاختيار</b><span class="hint">يكفي عمود لاسم الطالب وعمود للصف، أو ورقة مستقلة لكل صف.</span></label>
-    <div class="or">أو</div>
-    <label class="f">الصق خلايا الجدول من Google Sheets أو Excel<textarea id="im-paste-${where}" placeholder="اسم الطالب&#9;الصف&#9;الشعبة"></textarea></label>
-    <div class="row"><button class="btn sm" data-act="impPaste" data-w="${where}">قراءة النص الملصوق</button>${where === "setup" ? `<button class="btn sm ghost" data-act="impDemo">تجربة ببيانات تجريبية</button>` : ""}</div>
+      : "ألصق رابط التبويب الذي يحتوي على قائمة الطلبة. يحتاج الاستيراد إلى صلاحية قراءة الجدول."}</p>
+    <p class="hint">افتح النموذج في Google Sheets، ثم اكتب بيانات الطلبة من الصف الثاني واترك عناوين الأعمدة كما هي.</p>
+    ${where === "setup" ? `<div class="row"><button class="btn sm ghost" data-act="impDemo">تجربة ببيانات تجريبية</button></div>` : ""}
     ${prev}
   </div>`;
 }
@@ -1201,19 +1192,6 @@ function parseDelimited(text){
   if(cur !== "" || row.length){ row.push(cur); rows.push(row); }
   return rows;
 }
-async function importFile(file){
-  const low = file.name.toLowerCase();
-  try{
-    let sheets;
-    if(low.endsWith(".csv") || low.endsWith(".txt")) sheets = [{name: file.name.replace(/\.[^.]+$/, ""), rows: parseDelimited(await file.text())}];
-    else if(window.XLSX){
-      const wb = XLSX.read(await file.arrayBuffer(), {type: "array"});
-      sheets = wb.SheetNames.map(n => ({name: n, rows: XLSX.utils.sheet_to_json(wb.Sheets[n], {header: 1, defval: "", raw: false, blankrows: false})}));
-    } else throw new Error("تعذّر تحميل قارئ ملفات Excel. احفظ الملف بصيغة CSV أو الصق الخلايا.");
-    setImport(sheets, file.name);
-  }catch(e){ toast(e.message || "تعذّرت قراءة الملف"); }
-}
-
 /* ---------- demo data ---------- */
 const FN = ["محمد","أحمد","عبدالله","سعيد","خالد","راشد","سلطان","حمدان","منصور","يوسف","عمر","علي","حمد","سيف","ماجد","فيصل","مريم","فاطمة","عائشة","شما","موزة","حصة","نورة","سارة","ميثاء","آمنة","ريم","لطيفة","هند","روضة"];
 const LN = ["الشامسي","الكعبي","المهيري","النعيمي","الظاهري","السويدي","المنصوري","الحمادي","البلوشي","الزعابي","المرزوقي","الكتبي","الهاشمي","العامري","الفلاسي","الطنيجي"];
@@ -1269,7 +1247,7 @@ function welcomeView(){
       <li class="card">
         <span class="eyebrow">الخطوة الثالثة</span>
         <h2>استيراد الطلاب</h2>
-        <p class="muted">اجلب القائمة من رابط Google Sheets أو ارفع ملف Excel أو CSV، ثم راجع الصفوف واحفظ الإعداد.</p>
+        <p class="muted">اجلب قائمة الطلبة من رابط Google Sheets، ثم راجع الصفوف واحفظ الإعداد.</p>
       </li>
     </ol>
     <div class="card welcome-note">
@@ -1381,7 +1359,6 @@ const ACT = {
   },
   impDemo(){ const cls = demoClasses(); S.imp = {label: "بيانات تجريبية (6 صفوف)", demo: true, sheets: [{name: "demo", rows: [["اسم الطالب", "الصف", "الشعبة", "هاتف ولي الأمر"], ...cls.flatMap(c => c.students.map(s => [s.n, c.grade, c.name.split(" / ")[1], s.p]))], det: {hr: 0, name: 0, cls: 1, sec: 2, id: -1, phone: 3}}], mode: "column", over: {name: "auto", cls: "auto", sec: "auto", id: "auto", phone: "auto"}}; render(); },
   impClear(){ S.imp = null; render(); },
-  impPaste(t){ const ta = $("#im-paste-" + t.dataset.w); const v = ta ? ta.value.trim() : ""; if(!v) return toast("الصق خلايا الجدول أولاً"); setImport([{name: "ملصوق", rows: parseDelimited(v)}], "بيانات ملصوقة"); },
   async setupFinish(t){
     const f = S.setup.f; const skip = !!t.dataset.skip;
     const r = skip ? {classes: []} : buildClasses();
@@ -1596,7 +1573,6 @@ document.addEventListener("input", e => {
 });
 document.addEventListener("change", e => {
   const t = e.target;
-  if(t.dataset && t.dataset.change === "impFile" && t.files && t.files[0]){ importFile(t.files[0]); t.value = ""; return; }
   const b = t.dataset && t.dataset.bind; if(!b) return;
   if(t.type === "checkbox") setPath(b, t.checked);
   else if(t.type === "radio"){ if(t.checked) setPath(b, t.value); }
@@ -1605,9 +1581,6 @@ document.addEventListener("change", e => {
   if(b === "period"){ ls.set("period", S.period); S.roster = null; }
   if(t.type === "radio" || t.tagName === "SELECT" || b === "date" || b === "sf.sheetUrl") render();
 });
-document.addEventListener("dragover", e => { const d = e.target.closest && e.target.closest(".drop"); if(d){ e.preventDefault(); d.classList.add("over"); } });
-document.addEventListener("dragleave", e => { const d = e.target.closest && e.target.closest(".drop"); if(d) d.classList.remove("over"); });
-document.addEventListener("drop", e => { const d = e.target.closest && e.target.closest(".drop"); if(d){ e.preventDefault(); d.classList.remove("over"); const f = e.dataTransfer.files[0]; if(f) importFile(f); } });
 document.addEventListener("keydown", e => {
   if(e.key === "Escape" && $("#modal-root").innerHTML) closeModal();
   if(e.key === "Enter" && e.target.tagName === "INPUT"){
