@@ -892,6 +892,15 @@
     .school-form-fields label { margin-block-start: 0; }
     .school-form-fields :is(select, input) { margin-block-end: 0; }
     .school-record-controls { margin-block-start: 1rem; }
+    .teacher-link-panel { margin-block: 1.25rem; }
+    .teacher-link-panel [hidden] { display: none !important; }
+    .teacher-link-panel .school-toolbar { justify-content: flex-start; }
+    .teacher-link-panel .school-toolbar button { width: auto; margin: 0; }
+    .teacher-link-panel .link-report-date { max-width: 15rem; }
+    .teacher-link-entries { display: grid; gap: .6rem; margin-block: .75rem; }
+    .teacher-link-entries details { border: 1px solid #dbe3ee; border-radius: .65rem; padding: .65rem; }
+    .teacher-link-entries summary { cursor: pointer; font-weight: 700; }
+    .teacher-link-entries p { margin-block: .4rem; }
     .attendance-page .school-record-controls button[data-record-mode] {
       background: #eef4f8 !important; color: #14364a !important;
       border: 1px solid #bdcad8 !important; box-shadow: none !important;
@@ -905,7 +914,7 @@
       .school-record-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .school-record-controls button[type="submit"] { grid-column: 1 / -1; }
     }
-    @media print { .attendance-nav, .school-toolbar { display: none !important; } }
+    @media print { .attendance-nav, .school-toolbar, .teacher-link-panel { display: none !important; } }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -935,10 +944,10 @@
     </div>
    </div>
    <section class="card attendance-gate" id="publicGate" aria-labelledby="school-gate-title">
-    <h2 id="school-gate-title">الدخول إلى المدرسة</h2>
-    <p class="school-section-intro">أدخل الرمز الذي زوّدتك به إدارة المدرسة لفتح قوائم الصفوف.</p>
-    <label for="schoolCodeInput">رمز المدرسة</label>
-    <input id="schoolCodeInput" type="text" autocomplete="off" dir="ltr" spellcheck="false" aria-describedby="schoolCodeMsg">
+    <h2 id="school-gate-title">دخول المعلم المسؤول</h2>
+    <p class="school-section-intro">يدخل المعلم المسؤول بالرقم السري للمدرسة. يدخل بقية المعلمين من رابط الرصد الذي تنشئه لوحة إدارة المدرسة.</p>
+    <label for="schoolCodeInput">الرقم السري للمدرسة</label>
+    <input id="schoolCodeInput" type="password" autocomplete="off" dir="ltr" spellcheck="false" aria-describedby="schoolCodeMsg">
     <div id="schoolCodesHint" style="display:none;"></div>
     <button class="school-action" type="button" onclick="enterSchoolByCodeWithLoader(this)">فتح بوابة المدرسة</button>
     <div id="schoolCodeMsg" role="status" style="margin-top:12px;color:#b91c1c;"></div>
@@ -951,6 +960,20 @@
         <input id="requestTeacherName" name="teacherName" type="text" autocomplete="name" minlength="2" maxlength="100" required>
         <label for="requestPhone">رقم التواصل في سلطنة عُمان</label>
         <input id="requestPhone" name="phone" type="tel" autocomplete="tel" dir="ltr" placeholder="91234567" maxlength="32" required>
+        <label for="requestSchoolCode">الرقم السري للمدرسة</label>
+        <input id="requestSchoolCode" name="schoolCode" type="text" inputmode="numeric" dir="ltr" autocomplete="off" pattern="[0-9٠-٩۰-۹]{4,12}" maxlength="12" aria-describedby="requestCodeHelp" required>
+        <p id="requestCodeHelp" class="school-section-intro">أدخل 4 إلى 12 رقمًا لدخول المعلم المسؤول. أرسل للمعلمين رابط الرصد من لوحة إدارة المدرسة.</p>
+        <label for="requestSchoolGender">نوع المدرسة</label>
+        <select id="requestSchoolGender" name="schoolGender" required>
+          <option value="">اختر نوع المدرسة</option>
+          <option value="male">بنين</option>
+          <option value="female">بنات</option>
+          <option value="mixed">مختلطة</option>
+        </select>
+        <label for="requestManagerPassword">كلمة مرور مدير المدرسة</label>
+        <input id="requestManagerPassword" name="managerPassword" type="password" autocomplete="new-password" minlength="8" maxlength="100" aria-describedby="requestPasswordHelp" required>
+        <p id="requestPasswordHelp" class="school-section-intro">استخدم 8 محارف على الأقل، مع رمز أو حرف واحد على الأقل. تُستخدم للدخول إلى لوحة إدارة المدرسة.</p>
+        <p class="school-section-intro">يستمر التفعيل حتى نهاية يوم <bdi>10/06/2027</bdi> بتوقيت عُمان.</p>
         <button type="submit">إرسال الطلب</button>
         <div id="schoolRequestStatus" role="status" aria-live="polite"></div>
       </form>
@@ -1037,6 +1060,30 @@
         <button onclick="printReport()" style="background:#0f766e;color:white;border:none;padding:15px 20px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ طباعة</button>
       </div>
     </div>
+   <section id="teacher-link-panel" class="teacher-link-panel" aria-labelledby="teacher-link-title">
+    <h2 id="teacher-link-title" class="school-section-title">رابط رصد المعلمين</h2>
+    <p class="school-section-intro">شارك رابط اليوم مع المعلمين لرصد الطلبة في جميع الصفوف. ينتهي الرابط عند منتصف الليل بتوقيت عُمان، ويوقف إنشاء رابط جديد صلاحية السابق.</p>
+    <div class="school-toolbar">
+      <button class="school-action" id="teacher-link-create" type="button" disabled>إنشاء رابط اليوم</button>
+      <button class="school-action school-secondary" id="teacher-link-revoke" type="button" disabled>إيقاف الرابط</button>
+      <button class="school-action school-secondary" id="teacher-link-check" type="button" hidden>التحقق مجددًا</button>
+    </div>
+    <div id="teacher-link-result" hidden>
+      <label for="teacher-link-url">رابط المعلمين</label>
+      <input id="teacher-link-url" type="text" readonly dir="ltr">
+      <button class="school-action school-secondary" id="teacher-link-copy" type="button">نسخ الرابط</button>
+    </div>
+    <p id="teacher-link-status" class="school-section-intro" role="status"></p>
+    <h3 class="school-section-title">نتائج الرصد عبر الرابط</h3>
+    <label for="teacher-link-report-date">تاريخ الرصد</label>
+    <input class="link-report-date" id="teacher-link-report-date" type="date" required>
+    <div class="school-toolbar">
+      <button class="school-action school-secondary" id="teacher-link-refresh" type="button">عرض النتائج</button>
+    </div>
+    <p id="teacher-link-report-status" role="status"></p>
+    <div class="teacher-link-entries" id="teacher-link-entries"></div>
+    <button class="school-action school-secondary" id="teacher-link-more" type="button" hidden>عرض المزيد</button>
+   </section>
    <div id="r"></div>
    </div>
    </div>
@@ -1139,7 +1186,8 @@
     }
 
     function normalizeSchoolCode(code){
-      return String(code||'').replace(/\s+/g,'').trim().toUpperCase();
+      return String(code||'').replace(/\s+/g,'').trim().toUpperCase()
+        .replace(/[٠-٩۰-۹]/g, digit => String('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹'.indexOf(digit) % 10));
     }
 
     function normalizeSchoolGender(value){
@@ -1209,20 +1257,20 @@
       return d.toLocaleString('ar');
     }
 
+    const schoolActivationEnd = '2027-06-10T23:59:59.999+04:00';
+
     function sanitizeSchoolRecord(record){
       const name=normalizeSchoolName(record&&record.name);
       const code=normalizeSchoolCode(record&&record.code);
       const managerPassword=String((record&&record.managerPassword) || MANAGER_PASSWORDS.default || '3772').trim();
       const gender=normalizeSchoolGender(record&&record.gender);
       const activationHoursRaw=parseFloat(record&&(record.activationHours ?? ((record.activationDays||30)*24)));
-      const activationHours=Math.max(0.25,Number.isFinite(activationHoursRaw)?activationHoursRaw:720);
       const activatedAt=record&&record.activatedAt ? String(record.activatedAt) : new Date().toISOString();
-      let expiresAt=record&&record.expiresAt ? String(record.expiresAt) : '';
-      if(!expiresAt){
-        const base=new Date(activatedAt);
-        base.setTime(base.getTime()+(activationHours*60*60*1000));
-        expiresAt=base.toISOString();
-      }
+      const oldExpiry = record?.expiresAt;
+      // The legacy disable action marks a school with a past expiry and 0.25 hours.
+      const disabled = activationHoursRaw === 0.25 && Date.parse(oldExpiry) < Date.now();
+      const expiresAt = disabled ? oldExpiry : new Date(schoolActivationEnd).toISOString();
+      const activationHours = disabled ? 0.25 : Math.max(0.25, (Date.parse(schoolActivationEnd) - Date.parse(activatedAt)) / 3600000 || 0);
       const googleSheet=String((record&&record.googleSheet)||'').trim();
       const rawAppScriptUrl=String((record&&record.appScriptUrl)||DEFAULT_API_URL).trim();
       const appScriptUrl=rawAppScriptUrl===LEGACY_API_URL?DEFAULT_API_URL:rawAppScriptUrl;
@@ -1274,8 +1322,7 @@
     function isSchoolActive(school){
       if(!school) return false;
       const exp=new Date(school.expiresAt||'');
-      if(Number.isNaN(exp.getTime())) return true;
-      return Date.now()<=exp.getTime();
+      return Date.now() <= exp.getTime();
     }
 
     function lockExpiredSchoolSession(schoolName){
@@ -1284,8 +1331,8 @@
       if($('p')) $('p').value='';
       selectedSchool='';
       selectedSchoolConfig=null;
-      if($('schoolCodeMsg')) $('schoolCodeMsg').textContent=`انتهت مدة تفعيل ${name}. يرجى التواصل مع الإدارة.`;
       showPublicGate();
+      if($('schoolCodeMsg')) $('schoolCodeMsg').textContent=`انتهت مدة تفعيل ${name}. يرجى التواصل مع الإدارة.`;
       if($('g')) $('g').style.display='block';
       if($('q')) $('q').style.display='none';
       if($('r')) $('r').innerHTML='';
@@ -1363,13 +1410,13 @@
       const schoolName=getSchoolDisplayName();
       if($('appSchoolName')) $('appSchoolName').textContent=schoolName||'بوابة المدارس';
       if($('loginSchoolHint')){
-        const exp=(selectedSchoolConfig&&selectedSchoolConfig.expiresAt)?formatDateTime(selectedSchoolConfig.expiresAt):'غير محدد';
-        $('loginSchoolHint').textContent=`المدرسة الحالية: ${schoolName} | ينتهي التفعيل: ${exp}`;
+        $('loginSchoolHint').textContent=`المدرسة الحالية: ${schoolName} | التفعيل حتى 10/06/2027 بتوقيت عُمان`;
       }
       applyGenderTextToUI();
     }
 
     function showPublicGate(){
+      resetTeacherLinkPanel();
       if($('publicGate')) $('publicGate').style.display='block';
       if($('schoolPortal')) $('schoolPortal').style.display='none';
       if($('schoolCodeMsg')) $('schoolCodeMsg').textContent='';
@@ -1387,6 +1434,9 @@
       const errors = {
         names_required:'يرجى إدخال اسم المدرسة واسم مقدم الطلب.',
         invalid_phone:'أدخل رقمًا عُمانيًا من 8 أرقام. يمكنك إضافة مفتاح 968.',
+        invalid_school_code:'أدخل الرقم السري للمدرسة من 4 إلى 12 رقمًا.',
+        invalid_school_gender:'اختر نوع المدرسة.',
+        invalid_manager_password:'أدخل كلمة مرور من 8 إلى 100 محرف تحتوي على حرف أو رمز واحد على الأقل.',
         sign_in_required:'انتهت جلسة الدخول. افتح البوابة من جديد وسجّل الدخول.',
         subscription_required:'يتطلب تقديم الطلب اشتراكًا ساريًا في التحضير الذكي.',
         account_stopped:'حسابك موقوف. تواصل مع إدارة التحضير الذكي.'
@@ -1454,7 +1504,6 @@
     function clearSchoolForm(){
       if($('adminSchoolName')) $('adminSchoolName').value='';
       if($('adminSchoolCode')) $('adminSchoolCode').value='';
-      if($('adminActivationDays')) $('adminActivationDays').value='30';
       if($('adminSchoolGender')) $('adminSchoolGender').value='female';
       if($('adminManagerPassword')) $('adminManagerPassword').value='3772';
       if($('adminGoogleSheet')) $('adminGoogleSheet').value='';
@@ -1508,26 +1557,21 @@
       const name=normalizeSchoolName($('adminSchoolName')&&$('adminSchoolName').value);
       const code=normalizeSchoolCode($('adminSchoolCode')&&$('adminSchoolCode').value);
       const gender=normalizeSchoolGender($('adminSchoolGender')&&$('adminSchoolGender').value);
-      const activationDays=Math.max(1,parseInt(($('adminActivationDays')&&$('adminActivationDays').value)||'0',10)||0);
       const managerPassword=String(($('adminManagerPassword')&&$('adminManagerPassword').value)||'3772').trim();
       const sheetRaw=String(($('adminGoogleSheet')&&$('adminGoogleSheet').value)||'').trim();
       const appScriptUrl=String(($('adminAppScript')&&$('adminAppScript').value)||'').trim();
       const editCode=normalizeSchoolCode($('adminEditCode')&&$('adminEditCode').value);
-      if(!name || !code || !activationDays || !appScriptUrl){
-        if($('adminSaveMsg')) $('adminSaveMsg').textContent='املأ كل الحقول المطلوبة (الاسم، الكود، مدة التفعيل، رابط App Script)';
+      if(!name || !code || !appScriptUrl){
+        if($('adminSaveMsg')) $('adminSaveMsg').textContent='املأ اسم المدرسة ورمزها ورابط App Script.';
         return;
       }
       const now=new Date();
-      const exp=new Date(now);
-      exp.setDate(exp.getDate()+activationDays);
       const newRecord=sanitizeSchoolRecord({
         name,
         code,
         gender,
         managerPassword,
-        activationDays,
         activatedAt:now.toISOString(),
-        expiresAt:exp.toISOString(),
         googleSheet:extractGoogleSheetId(sheetRaw),
         appScriptUrl
       });
@@ -1557,7 +1601,6 @@
       if(!school) return;
       if($('adminSchoolName')) $('adminSchoolName').value=school.name;
       if($('adminSchoolCode')) $('adminSchoolCode').value=school.code;
-      if($('adminActivationDays')) $('adminActivationDays').value=String(school.activationDays||30);
       if($('adminSchoolGender')) $('adminSchoolGender').value=normalizeSchoolGender(school.gender);
       if($('adminManagerPassword')) $('adminManagerPassword').value=String(school.managerPassword||'3772');
       if($('adminGoogleSheet')) $('adminGoogleSheet').value=String(school.googleSheet||'');
@@ -1675,6 +1718,17 @@
 
     function getManagerPasswordForSchool(){
       return String((selectedSchoolConfig&&selectedSchoolConfig.managerPassword)||MANAGER_PASSWORDS.default||'3772').trim();
+    }
+
+    async function matchesSchoolManagerPassword(entered, stored){
+      if(!stored.startsWith('pbkdf2-sha256$')) return entered === stored;
+      const match = /^pbkdf2-sha256\$([a-f0-9]{32})\$([a-f0-9]{64})$/.exec(stored);
+      if(!match || !window.crypto?.subtle || entered.length > 100) return false;
+      const salt = Uint8Array.from(match[1].match(/../g), value => parseInt(value, 16));
+      const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(entered), 'PBKDF2', false, ['deriveBits']);
+      const bits = await crypto.subtle.deriveBits({name:'PBKDF2', hash:'SHA-256', salt, iterations:600000}, key, 256);
+      const digest = Array.from(new Uint8Array(bits), value => value.toString(16).padStart(2, '0')).join('');
+      return digest === match[2];
     }
 
     async function onSchoolChange(value){
@@ -2585,10 +2639,18 @@
       if(!enforceActiveSchoolSession()) return;
       updateSchoolBranding();
       const entered=(p.value||'').trim().replace(/[٠-٩۰-۹]/g,d=>String('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹'.indexOf(d)%10));
-      if(entered===getManagerPasswordForSchool()){
+      const code = selectedSchoolConfig.code;
+      const verifier = getManagerPasswordForSchool();
+      const accepted = await matchesSchoolManagerPassword(entered, verifier).catch(() => false);
+      if(selectedSchoolConfig?.code !== code || !enforceActiveSchoolSession() || getManagerPasswordForSchool() !== verifier) return;
+      if(accepted){
         g.style.display='none';
         q.style.display='block';
         setDefaultDateRange();
+        resetTeacherLinkPanel();
+        $('teacher-link-report-date').value = attendanceDay();
+        void loadTeacherLinkState();
+        void loadTeacherLinkReports();
         abs(true)
       }else{
         am.textContent='❌';
@@ -2611,6 +2673,215 @@
     function logoutSchoolSession(){
       logout();
     }
+
+    function attendanceDay(){
+      return new Intl.DateTimeFormat('sv-SE', {
+        timeZone:'Asia/Muscat', year:'numeric', month:'2-digit', day:'2-digit'
+      }).format(new Date());
+    }
+
+    let teacherLinkContext = 0;
+    let teacherLinkReportVersion = 0;
+    let teacherLinkReportPage = 0;
+    let teacherLinkState = null;
+
+    function setTeacherLinkState(state, busy = false){
+      teacherLinkState = state;
+      const create = $('teacher-link-create');
+      create.textContent = state?.active ? 'تغيير الرابط وإيقاف القديم' : 'إنشاء رابط اليوم';
+      create.disabled = busy || !state;
+      $('teacher-link-revoke').disabled = busy || !state?.active;
+      $('teacher-link-check').hidden = busy || Boolean(state);
+    }
+
+    function resetTeacherLinkPanel(){
+      teacherLinkContext++;
+      teacherLinkReportVersion++;
+      teacherLinkReportPage = 0;
+      setTeacherLinkState(null, true);
+      $('teacher-link-url').value = '';
+      $('teacher-link-result').hidden = true;
+      $('teacher-link-status').textContent = '';
+      $('teacher-link-report-status').textContent = '';
+      $('teacher-link-entries').replaceChildren();
+      $('teacher-link-more').hidden = true;
+    }
+
+    function currentLinkWorkspace(){
+      const code = normalizeSchoolCode(selectedSchoolConfig?.code);
+      return code && $('q').style.display === 'block' ? 'mm:' + code : '';
+    }
+
+    async function requestTeacherLink(action, workspace, fields){
+      const response = await fetch('/api/ghiyab-teacher-link', {
+        method:'POST', credentials:'same-origin', cache:'no-store',
+        headers:{'Content-Type':'application/json'},
+        signal:AbortSignal.timeout?.(18000),
+        body:JSON.stringify({action, workspace, ...fields})
+      });
+      const result = await response.json().catch(() => ({}));
+      if(response.ok) return result;
+      const messages = {
+        sign_in_required:'انتهت جلسة الدخول. أعد فتح الصفحة وسجّل الدخول.',
+        subscription_required:'يلزم اشتراك ساري في التحضير الذكي.',
+        account_stopped:'حساب التحضير الذكي موقوف.',
+        school_activation_expired:'انتهت مدة تفعيل المدارس بنهاية يوم 10/06/2027.',
+        invalid_roster:'تحقّق من قوائم الطلبة. الحد 250 طالبًا في الصف و300 صف في الرابط.',
+        date_changed:'بدأ يوم جديد بتوقيت عُمان. أعد إنشاء الرابط.'
+      };
+      throw new Error(messages[result.error] || 'تعذّر الاتصال بخدمة روابط الرصد. حاول مرة أخرى.');
+    }
+
+    async function loadTeacherLinkState(){
+      const workspace = currentLinkWorkspace();
+      if(!workspace) return;
+      const context = teacherLinkContext;
+      const date = attendanceDay();
+      const status = $('teacher-link-status');
+      setTeacherLinkState(null, true);
+      status.textContent = 'جارٍ التحقق من رابط اليوم…';
+      try{
+        const {links} = await requestTeacherLink('links', workspace, {date});
+        if(context !== teacherLinkContext) return;
+        const active = links.some(link => link.id === '@all-classes');
+        setTeacherLinkState({date, active});
+        status.textContent = active ? 'يوجد رابط رصد فعّال لهذا اليوم.' : 'لا يوجد رابط رصد لهذا اليوم.';
+      }catch(error){
+        if(context !== teacherLinkContext) return;
+        setTeacherLinkState(null);
+        status.textContent = error.message;
+      }
+    }
+
+    function buildTeacherLinkRoster(rows){
+      const classes = new Map();
+      for(const row of rows){
+        const name = String(row.student || '').trim();
+        const className = String(row.class || '').trim();
+        if(!name || !className) continue;
+        if(!classes.has(className)) classes.set(className, new Set());
+        classes.get(className).add(name);
+      }
+      return {
+        school:getSchoolDisplayName(),
+        periods:$('absenceType').options.length,
+        classes:[...classes.entries()].sort(([first], [second]) => compareClasses(first, second))
+          .map(([className, students]) => ({
+            id:encodeURIComponent(className), className, grade:className,
+            students:[...students].map((name, index) => ({id:String(index), name}))
+          }))
+      };
+    }
+
+    async function changeTeacherLink(action){
+      const workspace = currentLinkWorkspace();
+      if(!workspace || !teacherLinkState || !enforceActiveSchoolSession()) return;
+      const {date, active} = teacherLinkState;
+      if(date !== attendanceDay()){
+        $('teacher-link-result').hidden = true;
+        $('teacher-link-url').value = '';
+        await loadTeacherLinkState();
+        return;
+      }
+      const revoke = action === 'revoke';
+      if((revoke || active) && !window.confirm(revoke ? 'هل تريد إيقاف رابط اليوم؟' : 'هل تريد تغيير الرابط؟ سيتوقف الرابط السابق فورًا.')) return;
+      const context = teacherLinkContext;
+      const status = $('teacher-link-status');
+      setTeacherLinkState({date, active}, true);
+      status.textContent = revoke ? 'جارٍ إيقاف الرابط…' : 'جارٍ تجهيز قوائم الطلبة…';
+      try{
+        const fields = {classId:'@all-classes', date};
+        if(!revoke){
+          const rows = await getStudentsData();
+          if(context !== teacherLinkContext) return;
+          fields.roster = buildTeacherLinkRoster(rows);
+          if(!fields.roster.classes.length) throw new Error('تعذّر تحميل قائمة الطلبة. راجع بيانات المدرسة.');
+        }
+        const result = await requestTeacherLink(action, workspace, fields);
+        if(context !== teacherLinkContext) return;
+        $('teacher-link-result').hidden = revoke;
+        $('teacher-link-url').value = '';
+        if(!revoke){
+          if(!/^[A-Za-z0-9_-]{43}$/.test(result.token || '')) throw new Error('تعذّر استلام رابط الرصد.');
+          const url = new URL('./teacher-link.html', location.href);
+          url.hash = result.token;
+          $('teacher-link-url').value = url.href;
+        }
+        setTeacherLinkState({date, active:!revoke});
+        status.textContent = revoke ? 'أُوقف رابط اليوم. تبقى نتائج الرصد المحفوظة.'
+          : active ? 'أُوقف الرابط السابق. انسخ الرابط الجديد لمشاركته مع المعلمين.' : 'الرابط جاهز للمشاركة.';
+      }catch(error){
+        if(context !== teacherLinkContext) return;
+        $('teacher-link-result').hidden = true;
+        $('teacher-link-url').value = '';
+        setTeacherLinkState(null);
+        status.textContent = error.message;
+      }
+    }
+
+    function renderTeacherLinkReport({period, record}){
+      const marks = record.periods[period];
+      const detail = document.createElement('details');
+      const summary = document.createElement('summary');
+      const absent = marks.absent.length, excused = marks.excused.length, late = marks.late.length;
+      summary.textContent = `${record.className} · الحصة ${period} · غائب ${absent} · بعذر ${excused} · متأخر ${late}`;
+      const teacher = document.createElement('p');
+      teacher.textContent = `المعلم: ${marks.teacher} · إجمالي الطلبة: ${marks.total}`;
+      detail.append(summary, teacher);
+      for(const [title, students] of [['الغائبون', marks.absent], ['الغياب بعذر', marks.excused], ['المتأخرون', marks.late]]){
+        if(!students.length) continue;
+        const line = document.createElement('p');
+        line.textContent = `${title}: ${students.map(student => student.n).join('، ')}`;
+        detail.append(line);
+      }
+      return detail;
+    }
+
+    async function loadTeacherLinkReports(append = false){
+      const workspace = currentLinkWorkspace();
+      const date = $('teacher-link-report-date').value;
+      if(!workspace || !date) return;
+      const version = ++teacherLinkReportVersion;
+      const page = append ? teacherLinkReportPage + 1 : 0;
+      const more = $('teacher-link-more');
+      const entries = $('teacher-link-entries');
+      const status = $('teacher-link-report-status');
+      more.hidden = true;
+      if(!append) entries.replaceChildren();
+      status.textContent = 'جارٍ تحميل نتائج الرصد…';
+      try{
+        const result = await requestTeacherLink('reports', workspace, {date, page});
+        if(version !== teacherLinkReportVersion) return;
+        entries.append(...result.receipts.map(renderTeacherLinkReport));
+        teacherLinkReportPage = page;
+        more.hidden = !result.hasMore;
+        status.textContent = entries.childElementCount ? '' : 'لا توجد نتائج لهذا التاريخ.';
+      }catch(error){
+        if(version !== teacherLinkReportVersion) return;
+        status.textContent = error.message;
+        more.hidden = !append;
+      }
+    }
+
+    $('teacher-link-create').addEventListener('click', () => void changeTeacherLink('create'));
+    $('teacher-link-revoke').addEventListener('click', () => void changeTeacherLink('revoke'));
+    $('teacher-link-check').addEventListener('click', () => void loadTeacherLinkState());
+    $('teacher-link-report-date').addEventListener('change', () => void loadTeacherLinkReports());
+    $('teacher-link-refresh').addEventListener('click', () => void loadTeacherLinkReports());
+    $('teacher-link-more').addEventListener('click', () => void loadTeacherLinkReports(true));
+    $('teacher-link-copy').addEventListener('click', async () => {
+      const input = $('teacher-link-url');
+      const context = teacherLinkContext;
+      if(!input.value) return;
+      try{
+        await navigator.clipboard.writeText(input.value);
+        if(context === teacherLinkContext) $('teacher-link-status').textContent = 'نُسخ الرابط.';
+      }catch{
+        if(context !== teacherLinkContext) return;
+        input.select();
+        $('teacher-link-status').textContent = 'حددتُ الرابط، انسخه من الحقل.';
+      }
+    });
 
     function normalizePhone(phone){
       let ph=(phone||'').toString().replace(/\s+/g,'').replace(/\D/g,'');
