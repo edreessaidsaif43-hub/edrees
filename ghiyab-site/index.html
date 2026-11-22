@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Readex+Pro:wght@500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <style>
 /* Layout: sticky top bar, one centered working column; phone-first because teachers mark absence in class */
@@ -734,15 +734,148 @@ async function teacherLinkRequest(action, fields = {}, workspace = teacherWorksp
   return result;
 }
 
+function savedTeacherNames() {
+  return Array.isArray(S.cfg?.teacherLinkNames) ? S.cfg.teacherLinkNames : [];
+}
+
+const specificTeacherHeaders = new Set([
+  "اسم المعلم", "اسم المعلمة", "اسم المعلم الكامل", "اسم المعلمة الكامل", "اسم المعلم/المعلمة",
+  "اسم المعلم / المعلمة", "teacher name"
+].map(norm));
+const teacherNameHeaders = new Set([...specificTeacherHeaders, ...[
+  "أسماء المعلمين", "أسماء المعلمات", "الاسم", "الاسم الكامل", "الاسم الثلاثي",
+  "الاسم الرباعي", "اسم الموظف", "full name", "name"
+].map(norm)]);
+
+function extractTeacherNames(rows) {
+  let headerRow = -1, nameColumn = -1;
+  for(let i = 0; i < Math.min(30, rows.length); i++){
+    const normalized = rows[i].map(norm);
+    const specific = normalized.findIndex(value => specificTeacherHeaders.has(value));
+    if(specific >= 0){ headerRow = i; nameColumn = specific; break; }
+    if(headerRow < 0){
+      const candidate = normalized.findIndex(value => teacherNameHeaders.has(value));
+      if(candidate >= 0){ headerRow = i; nameColumn = candidate; }
+    }
+  }
+  if(headerRow < 0){
+    const usedColumns = new Set();
+    for(const row of rows) row.forEach((cell, index) => {
+      if(String(cell ?? "").trim()) usedColumns.add(index);
+    });
+    if(usedColumns.size !== 1) throw Error("ضع عنوان «اسم المعلم» في رأس عمود الأسماء في الورقة الأولى.");
+    [nameColumn] = usedColumns;
+  }
+
+  const names = new Set();
+  let ignored = 0, repeated = 0;
+  for(const row of rows.slice(headerRow + 1)){
+    const raw = row[nameColumn];
+    const name = typeof raw === "string" ? raw.normalize("NFKC").trim().replace(/\s+/g, " ") : "";
+    if(raw == null || String(raw).trim() === "") continue;
+    if(name.length < 3 || name.length > 100 || !/\p{L}/u.test(name) || teacherNameHeaders.has(norm(name))){ ignored++; continue; }
+    if(names.has(name)){ repeated++; continue; }
+    names.add(name);
+  }
+  if(!names.size) throw Error("لم يُعثر على أسماء معلمين في العمود المحدد.");
+  if(names.size > 400) throw Error("الحد الأقصى 400 اسم. راجع قائمة المعلمين ثم أعد رفع الملف.");
+  return {names: [...names], ignored, repeated};
+}
+
+async function readTeacherWorkbook(file) {
+  if(!/\.(?:xlsx|xls)$/i.test(file.name)) throw Error("اختر ملف Excel بصيغة XLSX أو XLS.");
+  if(file.size > 3 * 1024 * 1024) throw Error("حجم الملف أكبر من 3 ميغابايت. استخدم ملفًا يحتوي على قائمة الأسماء فقط.");
+  if(!window.XLSX) throw Error("تعذّر تحميل قارئ Excel. تحقّق من الاتصال ثم أعد فتح الصفحة.");
+  let sheet;
+  try{
+    const book = XLSX.read(await file.arrayBuffer(), {type: "array", sheets: 0, sheetRows: 1001, cellFormula: false});
+    sheet = book.Sheets[book.SheetNames[0]];
+  }catch{ throw Error("تعذّر فتح الملف. احفظه مجددًا بصيغة Excel ثم أعد المحاولة."); }
+  if(!sheet?.["!ref"]) throw Error("الورقة الأولى في الملف فارغة.");
+  const range = XLSX.utils.decode_range(sheet["!ref"]);
+  const fullRange = XLSX.utils.decode_range(sheet["!fullref"] || sheet["!ref"]);
+  if(fullRange.e.r - fullRange.s.r >= 1000) throw Error("اختصر الورقة الأولى إلى 1000 صف أو أقل، ثم أعد رفعها.");
+  range.e.c = Math.min(range.e.c, range.s.c + 49);
+  return extractTeacherNames(XLSX.utils.sheet_to_json(sheet, {header: 1, range, defval: "", raw: true, blankrows: false}));
+}
+
+async function persistTeacherNames(names) {
+  if(Store !== Local){
+    await Store.merge("school/config", {teacherLinkNames: names});
+    return;
+  }
+  const current = Local.all();
+  const next = {...current, "school/config": {...current["school/config"], teacherLinkNames: names}};
+  try{ localStorage.setItem(Local.key, JSON.stringify(next)); }
+  catch{ throw Error("تعذّر حفظ أسماء المعلمين في هذا المتصفح."); }
+  Local.mem = next;
+  Local.notify();
+}
+
+function openTeacherImport() {
+  if(!S.admin || !S.cfg) return;
+  const workspace = teacherWorkspace();
+  let names = [];
+  let readVersion = 0;
+  modal({
+    title: "رفع أسماء المعلمين من Excel", ok: "حفظ قائمة المعلمين",
+    body: `<label class="f">ملف المعلمين<input type="file" id="teacher-roster-file" accept=".xlsx,.xls">
+      <span class="hint">ضع أسماء المعلمين في الورقة الأولى تحت عنوان «اسم المعلم». إذا كانت الورقة تحتوي على عمود أسماء فقط، يمكنك تركه بلا عنوان.</span></label>
+      ${savedTeacherNames().length ? '<p class="hint">سيستبدل الحفظ قائمة المعلمين الحالية بالقائمة الجديدة.</p>' : ""}
+      <p id="teacher-roster-status" class="small muted" role="status"></p><div id="teacher-roster-preview"></div>`,
+    onOk: async () => {
+      if(!S.admin || !S.cfg || teacherWorkspace() !== workspace || !names.length) return false;
+      const file = $("#teacher-roster-file");
+      if(file) file.disabled = true;
+      try{
+        await persistTeacherNames(names);
+        if(S.cfg && teacherWorkspace() === workspace){
+          S.cfg.teacherLinkNames = names;
+          toast(`حُفظت أسماء ${names.length} معلمًا. استخدم القائمة عند إنشاء رابط جديد.`);
+          render();
+        }
+      }finally{ if(file?.isConnected) file.disabled = false; }
+    }
+  });
+  const input = $("#teacher-roster-file"), save = $("#m-ok");
+  const status = $("#teacher-roster-status"), preview = $("#teacher-roster-preview");
+  save.disabled = true;
+  input.addEventListener("change", async () => {
+    const file = input.files[0], version = ++readVersion;
+    names = [];
+    save.disabled = true;
+    preview.replaceChildren();
+    status.textContent = file ? "جارٍ قراءة ملف المعلمين…" : "";
+    if(!file) return;
+    try{
+      const result = await readTeacherWorkbook(file);
+      if(!input.isConnected || version !== readVersion) return;
+      names = result.names;
+      status.textContent = [
+        `${names.length} اسم جاهز للحفظ.`,
+        result.repeated ? `استُبعد ${result.repeated} اسم مكرر.` : "",
+        result.ignored ? `تُرك ${result.ignored} حقل ليس اسمًا صالحًا.` : ""
+      ].filter(Boolean).join(" ");
+      preview.innerHTML = `<ol style="max-height:200px;overflow:auto;margin:0;padding-inline-start:26px">${names.map(name => `<li>${h(name)}</li>`).join("")}</ol>`;
+      save.disabled = false;
+    }catch(error){
+      if(input.isConnected && version === readVersion) status.textContent = errMsg(error);
+    }
+  });
+}
+
 function teacherLinkPanel() {
   if(location.protocol === "file:") return "";
-  const canInvite = S.classes.some(c => c.students.length);
+  const hasStudents = S.classes.some(c => c.students.length);
+  const teacherCount = savedTeacherNames().length;
+  const canInvite = hasStudents && teacherCount > 0;
   return `<section class="card">
     <div class="card-h"><div><h3>روابط رصد المعلمين</h3>
-      <p class="muted small">${canInvite ? "شارك رابطًا واحدًا لجميع الصفوف والشُّعب في التاريخ المحدد. تنتهي صلاحيته بعد 24 ساعة." : "أضف قائمة الطلبة لتتمكن من إنشاء رابط للمعلمين."}</p>
+      <p class="muted small">${!hasStudents ? "أضف قائمة الطلبة لتتمكن من إنشاء رابط للمعلمين." : teacherCount ? `قائمة المعلمين المحفوظة · ${teacherCount} اسم` : "ارفع ملف أسماء المعلمين قبل إنشاء رابط الرصد."}</p>
     </div></div>
     <div class="row">
-      <button class="btn primary" data-act="manageTeacherLink" ${canInvite ? "" : "disabled"}>إنشاء رابط لجميع الصفوف</button>
+      <button class="btn ${teacherCount ? "" : "primary"}" data-act="importTeacherNames">رفع أسماء المعلمين (Excel)</button>
+      <button class="btn ${teacherCount ? "primary" : ""}" data-act="manageTeacherLink" ${canInvite ? "" : "disabled"}>إنشاء رابط لجميع الصفوف</button>
       <button class="btn ghost" data-act="revokeTeacherLink">إلغاء رابط</button>
       <button class="btn" data-act="syncTeacherLinks">تحديث رصد المعلمين</button>
     </div>
@@ -777,24 +910,17 @@ async function chooseTeacherLink(revoke = false) {
   }
 
   if(!S.classes.some(c => c.students.length)) return toast("أضف قائمة الطلبة أولًا");
-  const initialNames = Array.isArray(S.cfg.teacherLinkNames) ? S.cfg.teacherLinkNames.join("\n") : "";
+  if(!savedTeacherNames().length){ openTeacherImport(); return; }
   modal({
     title: "إنشاء رابط رصد لجميع الصفوف",
     ok: "إنشاء الرابط",
     body: `<p class="muted">${h(fmtDate(date))} · ${S.classes.length} صف وشعبة</p>
-      <label class="f">أسماء المعلمين<textarea id="teacher-link-names" rows="7" placeholder="اسم معلم في كل سطر">${h(initialNames)}</textarea>
-        <span class="hint">تظهر الأسماء في قائمة اختيار المعلم، وتُحفظ لتستخدمها عند إنشاء الرابط التالي.</span>
-      </label>
+      <p>يستخدم الرابط قائمة المعلمين المحفوظة (${savedTeacherNames().length} اسم).</p>
       <p class="hint">شارك الرابط مع المعلمين المعنيين. إنشاء رابط جديد لجميع الصفوف في التاريخ نفسه يلغي الرابط العام السابق.</p>`,
     onOk: async () => {
       if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return false;
-      const names = ($("#teacher-link-names")?.value || "").split(/\r?\n/).map(name => name.trim().replace(/\s+/g, " ")).filter(Boolean);
-      const teachers = [...new Set(names)];
-      if(!teachers.length){ toast("أدخل اسم معلم واحد على الأقل"); return false; }
-      if(teachers.length > 400 || teachers.some(name => name.length < 3 || name.length > 100)){
-        toast("أدخل الأسماء كاملة، اسمًا واحدًا في كل سطر، وبحد أقصى 400 اسم.");
-        return false;
-      }
+      const teachers = savedTeacherNames().slice();
+      if(!teachers.length){ toast("ارفع ملف أسماء المعلمين واحفظه أولًا."); return false; }
       const roster = {
         school: S.cfg.name,
         periods: S.cfg.mode === "period" ? Number(S.cfg.periods) : 0,
@@ -810,10 +936,6 @@ async function chooseTeacherLink(revoke = false) {
       };
       const result = await teacherLinkRequest("create", {classId: "@all-classes", date, roster}, workspace);
       if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return false;
-      try{
-        await Store.merge("school/config", {teacherLinkNames: teachers});
-        if(S.cfg && teacherWorkspace() === workspace) S.cfg.teacherLinkNames = teachers;
-      }catch{ toast("تم إنشاء الرابط، وتعذّر حفظ أسماء المعلمين للاستخدام لاحقًا."); }
       const url = new URL("./teacher-link.html", location.href);
       url.hash = result.token;
       const expires = new Intl.DateTimeFormat("ar-OM", {dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Muscat"}).format(new Date(result.expiresAt));
@@ -1338,6 +1460,7 @@ async function saveClasses(classes, replace){
 /* ---------- actions ---------- */
 const ACT = {
   reload(){ location.reload(); },
+  importTeacherNames(){ openTeacherImport(); },
   manageTeacherLink(){ chooseTeacherLink(); },
   revokeTeacherLink(){ chooseTeacherLink(true); },
   copyTeacherLink(){ const url = $("#teacher-link-url")?.value; if(url) copyText(url); },
