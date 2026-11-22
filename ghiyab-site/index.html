@@ -961,8 +961,17 @@ async function chooseTeacherLink(revoke = false) {
 }
 
 const attendanceSheetErrors = {
-  attendance_credentials_missing: "تعذّر التحقق من حساب Google المخصص للحفظ. راجع إعداد ربط المدرسة.",
-  attendance_sheet_permission: "حساب Google المخصص للحفظ يحتاج صلاحية «محرّر» على ملف قائمة الطلبة.",
+  attendance_source_invalid: "احفظ رابط ملف قائمة الطلبة من تبويب «الإعدادات» ثم أعد الفحص.",
+  attendance_source_published: "استخدم رابط الملف الأصلي من شريط العنوان في Google Sheets لحفظ الغياب في ورقة جديدة.",
+  attendance_binding_missing: "لم تُضبط قائمة ربط حسابات المدارس بالملفات. انسخ بيانات الربط وأرسلها إلى مشغّل الموقع.",
+  attendance_binding_invalid: "تعذّر قراءة إعداد ربط حسابات المدارس بالملفات. يحتاج المشغّل إلى مراجعة إعداد الربط.",
+  attendance_account_unlinked: "حسابك غير مرتبط بملف قائمة الطلبة. انسخ بيانات الربط وأرسلها إلى مشغّل الموقع.",
+  attendance_sheet_mismatch: "الرابط المحفوظ يشير إلى ملف مختلف عن الملف المرتبط بحسابك. راجع الرابط في الإعدادات أو اطلب من المشغّل تحديث الربط.",
+  attendance_binding_conflict: "الملف مرتبط بأكثر من حساب. اطلب من المشغّل ربطه بحساب إدارة المدرسة فقط.",
+  attendance_credentials_unconfigured: "حساب Google المخصص للحفظ غير مهيأ في إعدادات الموقع.",
+  attendance_credentials_missing: "تعذّر تسجيل الدخول بحساب Google المخصص للحفظ. يحتاج المشغّل إلى مراجعة بيانات اعتماده.",
+  attendance_google_unavailable: "تعذّر الاتصال بخدمة Google Sheets الآن. أعد الفحص بعد قليل.",
+  attendance_sheet_permission: "تعذّر الوصول للملف بحساب Google المخصص للحفظ. شارك الملف مع حساب الخدمة بصلاحية «محرّر» وتحقق من تفعيل Google Sheets API.",
   attendance_tab_conflict: "يوجد تبويب باسم «سجل الغياب» بتنسيق مختلف. غيّر اسمه ليُنشئ النظام ورقة مناسبة.",
   attendance_sheet_busy: "تجري مزامنة أخرى للملف الآن. أعد المحاولة بعد قليل.",
   attendance_invalid: "تعذّر تجهيز سجلات الرصد للكتابة. جرّب مزامنة يوم واحد."
@@ -990,17 +999,15 @@ async function attendanceSheetRequest(action, url, entries) {
   });
   const result = await response.json().catch(() => null);
   if(!response.ok || !result || typeof result.enabled !== "boolean"){
-    const reason = result?.error;
-    if(response.status === 403 && reason === "attendance_sheet_permission") throw Error(attendanceSheetErrors[reason]);
-    throw Error(attendanceSheetErrors[reason] || "تعذّر تحديث سجل Google Sheets. أعد المحاولة من لوحة الإدارة.");
+    throw Error(attendanceSheetErrors[result?.error] || "تعذّر تحديث سجل Google Sheets. أعد المحاولة من لوحة الإدارة.");
   }
   return result;
 }
 
-function showAttendanceSheetStatus(url, message, logUrl = "") {
+function showAttendanceSheetStatus(url, message, logUrl = "", binding) {
   if(S.cfg?.sheetUrl !== url) return;
-  const previous = S.attendanceSheetStatus;
-  S.attendanceSheetStatus = {source:url, message, url:logUrl || (previous?.source === url ? previous.url : "")};
+  const previous = S.attendanceSheetStatus?.source === url ? S.attendanceSheetStatus : null;
+  S.attendanceSheetStatus = {source:url, message, url:logUrl || previous?.url || "", binding:binding || previous?.binding};
   if(S.route === "admin") render();
 }
 
@@ -1013,7 +1020,7 @@ function syncAttendanceSheet(entries, announce = false) {
       for(let i = 0; i < entries.length; i += 20){
         const result = await attendanceSheetRequest("attendance_save", url, entries.slice(i, i + 20));
         if(!result.enabled){
-          const message = "لم يُفعّل الحفظ لهذا الملف بعد. اربط ملف قائمة الطلبة بحساب Google المخصص للحفظ.";
+          const message = attendanceSheetErrors[result.reason] || "لم يُفعّل الحفظ لهذا الملف بعد. استخدم «فحص ربط الملف».";
           showAttendanceSheetStatus(url, message);
           if(announce) toast(message, 5000);
           return true;
@@ -1048,6 +1055,7 @@ function attendanceSheetPanel() {
       <button class="btn" data-act="checkAttendanceSheet">فحص ربط الملف</button>
       <button class="btn" data-act="syncAttendanceDay" ${url && !S.cfg.demo ? "" : "disabled"}>مزامنة رصد التاريخ المحدد</button>
       ${status?.url ? `<a class="btn" href="${h(status.url)}" target="_blank" rel="noopener noreferrer">فتح سجل الغياب</a>` : ""}
+      ${status?.binding ? '<button class="btn ghost" data-act="copyAttendanceBinding">نسخ بيانات الربط للمشغّل</button>' : ""}
     </div>
     <p class="muted small" aria-live="polite">${h(status?.message || (url ? "اختر «فحص ربط الملف» للتحقق من تفعيل الحفظ." : "احفظ رابط ملف قائمة الطلبة في إعدادات المدرسة أولًا."))}</p>
   </section>`;
@@ -1592,10 +1600,17 @@ const ACT = {
     try{
       const result = await attendanceSheetRequest("attendance_status", url);
       showAttendanceSheetStatus(url, result.enabled
-        ? "الملف معيّن للحفظ. استخدم مزامنة الرصد للتأكد من صلاحية الكتابة."
-        : "لم يُفعّل الحفظ لهذا الملف بعد. اطلب ربط ملف قائمة الطلبة بحساب Google المخصص للحفظ.");
+        ? "تم الوصول للملف. زامن رصد التاريخ المحدد للتأكد من صلاحية الكتابة."
+        : attendanceSheetErrors[result.reason] || "لم يُفعّل الحفظ لهذا الملف بعد.", result.url, result.binding);
     }catch(failure){ showAttendanceSheetStatus(url, errMsg(failure)); }
     finally{ if(t.isConnected) t.disabled = false; }
+  },
+  copyAttendanceBinding(){
+    if(!S.admin || !S.cfg) return;
+    const status = S.attendanceSheetStatus;
+    if(status?.source !== S.cfg.sheetUrl || !status.binding) return;
+    const {accountId, spreadsheetId} = status.binding;
+    copyText(JSON.stringify({[accountId]:spreadsheetId}));
   },
   async syncAttendanceDay(t){
     if(!S.admin || !S.cfg?.sheetUrl || S.cfg.demo) return;

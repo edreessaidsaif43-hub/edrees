@@ -1,6 +1,6 @@
 import { isTeacherSessionOrigin, readTeacherSession } from "../enjazy/server_api/_lib/teacher-session.js";
 import { readPreparationSubscription } from "./subscriptions.js";
-import { googleExportUrl, linkedSpreadsheet, readPrivateRoster, saveGoogleAttendance } from "./_lib/ghiyab-attendance-google.js";
+import { googleExportUrl, attendanceBinding, linkedSpreadsheet, checkGoogleAttendanceAccess, readPrivateRoster, saveGoogleAttendance } from "./_lib/ghiyab-attendance-google.js";
 
 const maxBytes = 2 * 1024 * 1024;
 
@@ -95,12 +95,21 @@ export default async function handler(req, res) {
     return fail(400, "invalid_request");
   }
   const url = googleExportUrl(body.url);
-  const linkedId = linkedSpreadsheet(ownerId, url);
   if (action !== "read") {
-    if (!url || !linkedId || !process.env.GHIYAB_SHEETS_SERVICE_ACCOUNT) {
-      return res.status(200).json({enabled:false});
+    const configuration = attendanceBinding(ownerId, url);
+    const linkedId = configuration.spreadsheetId;
+    const binding = linkedId ? {accountId:ownerId, spreadsheetId:linkedId} : undefined;
+    const details = action === "attendance_status" ? {binding} : {};
+    const reason = configuration.reason || (!process.env.GHIYAB_SHEETS_SERVICE_ACCOUNT?.trim() ? "attendance_credentials_unconfigured" : "");
+    if (reason) return res.status(200).json({enabled:false, reason, ...details});
+    if (action === "attendance_status") {
+      try {
+        const access = await checkGoogleAttendanceAccess(linkedId);
+        return res.status(200).json({enabled:true, ...details, ...access});
+      } catch (failure) {
+        return res.status(200).json({enabled:false, reason:failure?.code || "attendance_google_unavailable", ...details});
+      }
     }
-    if (action === "attendance_status") return res.status(200).json({enabled:true});
     try {
       return res.status(200).json(await saveGoogleAttendance(linkedId, body.entries));
     } catch (failure) {
@@ -113,6 +122,7 @@ export default async function handler(req, res) {
   }
   if (!url) return fail(400, "invalid_sheet_url");
 
+  const linkedId = linkedSpreadsheet(ownerId, url);
   if (linkedId && process.env.GHIYAB_SHEETS_SERVICE_ACCOUNT) {
     try {
       const csv = await readPrivateRoster(linkedId, url);

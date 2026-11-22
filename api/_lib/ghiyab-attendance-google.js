@@ -55,15 +55,27 @@ export function googleExportUrl(value) {
   return output;
 }
 
+export function attendanceBinding(ownerId, exportUrl) {
+  if(!exportUrl) return {reason:"attendance_source_invalid"};
+  const spreadsheetId = exportUrl.pathname.match(/^\/spreadsheets\/d\/([A-Za-z0-9_-]+)\/export$/)?.[1];
+  if(!spreadsheetId) return {reason:"attendance_source_published"};
+  const raw = process.env.GHIYAB_SHEETS_BY_ACCOUNT;
+  if(!raw?.trim()) return {spreadsheetId, reason:"attendance_binding_missing"};
+  let map;
+  try{ map = JSON.parse(raw); }
+  catch{ return {spreadsheetId, reason:"attendance_binding_invalid"}; }
+  if(!map || typeof map !== "object" || Array.isArray(map)) return {spreadsheetId, reason:"attendance_binding_invalid"};
+  if(!Object.hasOwn(map, ownerId)) return {spreadsheetId, reason:"attendance_account_unlinked"};
+  if(map[ownerId] !== spreadsheetId) return {spreadsheetId, reason:"attendance_sheet_mismatch"};
+  if(Object.values(map).filter(id => id === spreadsheetId).length !== 1){
+    return {spreadsheetId, reason:"attendance_binding_conflict"};
+  }
+  return {spreadsheetId};
+}
+
 export function linkedSpreadsheet(ownerId, exportUrl) {
-  const id = exportUrl?.pathname.match(/^\/spreadsheets\/d\/([A-Za-z0-9_-]+)\/export$/)?.[1];
-  if(!id) return null;
-  try{
-    const map = JSON.parse(process.env.GHIYAB_SHEETS_BY_ACCOUNT || "{}");
-    if(!map || typeof map !== "object" || Array.isArray(map) || !Object.hasOwn(map, ownerId)) return null;
-    if(map[ownerId] !== id || Object.values(map).filter(value => value === id).length !== 1) return null;
-    return id;
-  }catch{ return null; }
+  const result = attendanceBinding(ownerId, exportUrl);
+  return result.reason ? null : result.spreadsheetId;
 }
 
 function encode(value) { return Buffer.from(JSON.stringify(value)).toString("base64url"); }
@@ -109,6 +121,12 @@ async function google(id, path, {signal, method = "GET", body} = {}) {
 async function tabs(id, signal) {
   const data = await google(id, "?fields=sheets(properties(sheetId,title,hidden,gridProperties(rowCount,columnCount)) )".replaceAll(" ", ""), {signal});
   return (data.sheets || []).map(sheet => sheet.properties);
+}
+
+export async function checkGoogleAttendanceAccess(id) {
+  const sheets = await tabs(id, AbortSignal.timeout(7500));
+  const log = sheets.find(sheet => sheet.title === tabTitle);
+  return {url:log ? "https://docs.google.com/spreadsheets/d/" + id + "/edit#gid=" + log.sheetId : ""};
 }
 
 export async function readPrivateRoster(id, exportUrl) {
