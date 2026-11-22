@@ -167,7 +167,19 @@ td.n{text-align:center}
 .chart svg{width:100%;height:auto;display:block}
 .chart text{fill:var(--muted);font-size:11px;font-family:var(--font-body)}
 
-/* setup */
+/* welcome and setup */
+.setup.welcome{max-width:920px}
+.welcome-hero{padding:clamp(20px,5vw,44px);background:linear-gradient(135deg,var(--accent-soft),var(--surface) 70%)}
+.welcome-hero h1{font-size:clamp(1.65rem,4vw,2.5rem);margin-block:10px}
+.welcome-hero .mark{display:grid;place-items:center;width:48px;height:48px;border-radius:13px;background:var(--accent);color:var(--accent-ink)}
+.welcome-hero .row{margin-top:18px}
+.welcome-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0;padding:0;list-style:none}
+.welcome-steps li{padding:16px;box-shadow:none}
+.welcome-steps h2{margin-block:6px;font-size:1.12rem}
+.welcome-steps p,.welcome-note p{margin:0}
+.welcome-note{padding:16px}
+.welcome-note h2{margin-bottom:6px;font-size:1.12rem}
+@media(max-width:720px){.welcome-steps{grid-template-columns:1fr}}
 .setup{max-width:760px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:18px}
 .steps{display:flex;gap:8px}
 .steps div{flex:1;display:flex;flex-direction:column;gap:6px;font-size:.84rem;color:var(--muted);font-weight:600}
@@ -220,7 +232,7 @@ td.n{text-align:center}
 .sub-gate[hidden]{display:none}.sub-gate{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:20px;background:var(--bg)}.sub-card{width:min(100%,480px);padding:28px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.sub-card h1{font-size:24px;margin:0 0 8px}.sub-card p{line-height:1.8;color:var(--muted)}.sub-card label{display:block;font-weight:600;margin:20px 0 8px}.sub-card input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}.sub-card button{margin-top:14px;width:100%}.sub-error{color:var(--absent)!important;font-size:13px;min-height:20px}</style>
 </head>
 <body>
-<div class="sub-gate" id="subscriber-gate" hidden><section class="sub-card"><h1 id="subscriber-gate-title">رصد غياب الطلبة للمشتركين</h1><p id="subscriber-gate-message">جارٍ التحقق من تسجيل الدخول والاشتراك...</p><div class="row"><a class="btn primary" id="subscriber-login" href="../enjazy/auth.html?mode=login&return=%2Fghiyab-site%2F" hidden>تسجيل الدخول</a><a class="btn" id="subscriber-subscribe" href="../t.html#subscription-section-title" hidden>الاشتراك</a><button class="btn" id="subscriber-retry" type="button" hidden>إعادة المحاولة</button></div><p class="sub-error" id="subscriber-error"></p></section></div><header class="topbar"><div class="topbar-in" id="hdr"></div></header>
+<div class="sub-gate" id="subscriber-gate" hidden><section class="sub-card"><h1 id="subscriber-gate-title">رصد غياب الطلبة للمشتركين</h1><p id="subscriber-gate-message">جارٍ التحقق من تسجيل الدخول والاشتراك...</p><div class="row"><a class="btn primary" id="subscriber-login" href="../enjazy/auth.html?mode=login&return=%2Fghiyab-site%2Findex.html" hidden>تسجيل الدخول</a><a class="btn" id="subscriber-subscribe" href="../t.html#subscription-section-title" hidden>الاشتراك</a><button class="btn" id="subscriber-retry" type="button" hidden>إعادة المحاولة</button></div><p class="sub-error" id="subscriber-error"></p></section></div><header class="topbar"><div class="topbar-in" id="hdr"></div></header>
 <div class="banner" id="banner" hidden></div>
 <main id="app"></main>
 <div id="modal-root"></div>
@@ -273,9 +285,9 @@ const waLink = (text, phone) => "https://wa.me/" + (phone ? phoneIntl(phone) : "
 
 /* ---------- storage: shared database when available, this browser otherwise ---------- */
 const Local = {
-  mem: null, subs: [],
-  all(){ if(this.mem) return this.mem; try{ this.mem = JSON.parse(localStorage.getItem("gh_store") || "{}"); }catch(e){ this.mem = {}; } return this.mem; },
-  persist(){ try{ localStorage.setItem("gh_store", JSON.stringify(this.mem)); }catch(e){} setTimeout(() => this.notify(), 0); },
+  mem: null, subs: [], key: null,
+  all(){ if(this.mem) return this.mem; try{ this.mem = JSON.parse(localStorage.getItem(this.key) || "{}"); }catch(e){ this.mem = {}; } return this.mem; },
+  persist(){ try{ localStorage.setItem(this.key, JSON.stringify(this.mem)); }catch(e){} setTimeout(() => this.notify(), 0); },
   async get(p){ const v = this.all()[p]; return v ? clone(v) : null; },
   async set(p, d){ this.all()[p] = clone(d); this.persist(); },
   async merge(p, d){ const a = this.all(); a[p] = deepMerge(a[p] ? clone(a[p]) : {}, clone(d)); this.persist(); },
@@ -381,7 +393,7 @@ const S = {
   alerts: {data: null, loading: false},
   stuQ: "", showImport: false,
   sf: null,
-  setup: {step: 1, f: {name: "", year: "", pw: "", pw2: "", mode: "daily", periods: 7, pin: "", cc: "971"}},
+  setup: {step: 0, f: {name: "", year: "", pw: "", pw2: "", mode: "daily", periods: 7, pin: "", cc: "971"}},
   imp: null
 };
 const clsById = id => S.classes.find(c => c.id === id);
@@ -537,7 +549,7 @@ function render(){
   let html;
   if(S.fatal) html = `<div class="center"><h2>تعذّر الاتصال بخادم البيانات</h2><p class="muted">${h(S.fatal)}</p><button class="btn primary" data-act="reload">إعادة المحاولة</button></div>`;
   else if(!S.ready) html = `<div class="center"><div class="spinner"></div><p class="muted">جارٍ تحميل بيانات المدرسة…</p></div>`;
-  else if(S.route === "setup") html = setupView();
+  else if(S.route === "setup") html = S.setup.step === 0 ? welcomeView() : setupView();
   else if(S.route === "teacher") html = teacherView();
   else if(S.route === "admin") html = adminView();
   else html = homeView();
@@ -891,12 +903,34 @@ function settingsTab(){
 }
 
 /* ---------- import (Excel / CSV / pasted Google Sheet cells) ---------- */
-function sheetExportUrl(url){ const m = String(url || "").match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/); return m ? `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=xlsx` : ""; }
+const rosterTemplate = "اسم الطالب,الصف,الشعبة,رقم الطالب,هاتف ولي الأمر\r\n";
+const rosterTemplateUrl = "data:text/csv;charset=utf-8," + encodeURIComponent("\uFEFF" + rosterTemplate);
+const sheetImportErrors = {
+  invalid_sheet_url: "أدخل رابطًا صحيحًا من Google Sheets.",
+  sign_in_required: "انتهت جلسة الدخول. سجّل الدخول إلى التحضير الذكي ثم أعد المحاولة.",
+  subscription_required: "يلزم اشتراك فعّال لاستيراد الطلبة.",
+  account_stopped: "الحساب موقوف. تواصل مع إدارة التحضير الذكي.",
+  sheet_not_accessible: "تعذّر قراءة هذا التبويب من الرابط. إذا كان الملف خاصًا، نزّل نسخة Excel من Google Sheets ثم ارفعها هنا.",
+  sheet_too_large: "التبويب أكبر من الحد المسموح. نزّله وارفعه هنا أو قسّمه إلى ملفات أصغر."
+};
+async function loadRosterTab(url){
+  const response = await fetch("/api/ghiyab-sheet", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({url})
+  });
+  if(!response.ok){
+    const {error} = await response.json().catch(() => ({}));
+    throw Error(sheetImportErrors[error] || "تعذّر جلب الطلبة من Google Sheets الآن. أعد المحاولة أو ارفع الملف.");
+  }
+  return [{name: "Google Sheets", rows: parseDelimited(await response.text())}];
+}
 function importPanel(where){
   const I = S.imp;
   const url = where === "setup" ? (S.setup.f.sheetUrl || "") : (S.impUrl ?? S.cfg.sheetUrl ?? "");
   const bind = where === "setup" ? "setup.f.sheetUrl" : "impUrl";
-  const ex = sheetExportUrl(url);
+  const fetching = S.sheetImport?.where === where;
   let prev = "";
   if(I){
     const r = buildClasses();
@@ -925,9 +959,15 @@ function importPanel(where){
   }
   return `
   <div style="display:flex;flex-direction:column;gap:14px">
-    <label class="f">رابط Google Sheet (اختياري)<input type="url" id="im-url-${where}" data-bind="${bind}" value="${h(url)}" dir="ltr" placeholder="https://docs.google.com/spreadsheets/d/…"></label>
-    ${S.backend === "api" ? `<div class="row"><button class="btn primary sm" data-act="impSheet" data-w="${where}">جلب الطلاب من Google Sheet</button><span class="hint">${url ? "يقرأ أوراق الملف في الرابط أعلاه (يجب أن يملك حساب الخادم صلاحية فتحه)." : "اترك الرابط فارغاً لقراءة الأوراق في ملف Google Sheet المرتبط بالخادم."}</span></div>`
-    : ex ? `<p class="small">لا تستطيع الصفحة قراءة الرابط مباشرة. <a href="${h(ex)}" target="_blank" rel="noopener">نزّل نسخة Excel من الملف</a> ثم ارفعها في المربع أدناه، أو انسخ خلايا الجدول والصقها.</p>` : `<p class="hint">يُحفظ الرابط للرجوع إليه، ونجهّز لك منه رابط تنزيل نسخة Excel.</p>`}
+    <label class="f">رابط Google Sheets<input type="url" id="im-url-${where}" data-bind="${bind}" value="${h(url)}" dir="ltr" placeholder="https://docs.google.com/spreadsheets/d/…"></label>
+    <div class="row">
+      <button type="button" class="btn primary" data-act="impSheet" data-w="${where}" ${fetching ? "disabled" : ""}>${fetching ? "جارٍ جلب الطلبة…" : "جلب الطلبة من الرابط"}</button>
+      <a class="btn" href="${h(rosterTemplateUrl)}" download="نموذج-قائمة-الطلبة.csv">تنزيل نموذج الطلبة (CSV)</a>
+    </div>
+    <p class="hint">${S.backend === "api"
+      ? "يمكن جلب الملف إذا كان خادم المدرسة مخوّلًا بقراءته. اترك الحقل فارغًا لجلب الملف المرتبط بالخادم."
+      : "انسخ رابط التبويب المطلوب. إذا كان الملف خاصًا، نزّل نسخة Excel أو انسخ خلايا الجدول والصقها أدناه."}</p>
+    <p class="hint">ضع عناوين الأعمدة في الصف الأول وأضف الطلاب ابتداءً من الصف الثاني في النموذج.</p>
     <label class="drop" id="drop-${where}"><input type="file" accept=".xlsx,.xls,.csv,.txt" data-change="impFile">${ICON.file}<b>اسحب ملف Excel أو CSV هنا، أو اضغط للاختيار</b><span class="hint">يكفي عمود لاسم الطالب وعمود للصف، أو ورقة مستقلة لكل صف.</span></label>
     <div class="or">أو</div>
     <label class="f">الصق خلايا الجدول من Google Sheets أو Excel<textarea id="im-paste-${where}" placeholder="اسم الطالب&#9;الصف&#9;الشعبة"></textarea></label>
@@ -996,7 +1036,7 @@ function buildClasses(){
   return {classes, count: classes.reduce((s, c) => s + c.students.length, 0), skipped};
 }
 function parseDelimited(text){
-  text = text.replace(/\r\n?/g, "\n");
+  text = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
   const first = text.split("\n")[0];
   const delim = first.includes("\t") ? "\t" : (first.split(";").length > first.split(",").length ? ";" : ",");
   const rows = []; let row = [], cur = "", q = false;
@@ -1053,6 +1093,41 @@ function demoRecords(classes, mode){
 }
 
 /* ---------- setup ---------- */
+function welcomeView(){
+  return `
+  <section class="setup welcome" aria-labelledby="welcome-title">
+    <div class="card welcome-hero">
+      <span class="mark">${ICON.logo}</span>
+      <h1 id="welcome-title" tabindex="-1">مرحبًا بك في نظام رصد غياب الطلبة</h1>
+      <p class="muted">أعدّ نظام مدرستك لتسجيل الغياب والتأخر ومتابعة التقارير.</p>
+      <div class="row">
+        <button class="btn primary" type="button" data-act="setupNext">ابدأ إعداد المدرسة</button>
+        <a class="btn ghost" href="../school-services/index.html">العودة إلى خدمات مدرسية</a>
+      </div>
+    </div>
+    <ol class="welcome-steps" role="list" aria-label="خطوات الإعداد">
+      <li class="card">
+        <span class="eyebrow">الخطوة الأولى</span>
+        <h2>بيانات المدرسة</h2>
+        <p class="muted">أدخل اسم المدرسة والعام الدراسي، وعيّن كلمة سر للوحة الإدارة.</p>
+      </li>
+      <li class="card">
+        <span class="eyebrow">الخطوة الثانية</span>
+        <h2>طريقة الرصد</h2>
+        <p class="muted">اختر رصد الغياب يوميًا أو لكل حصة. يمكنك تعيين رمز للمعلمين.</p>
+      </li>
+      <li class="card">
+        <span class="eyebrow">الخطوة الثالثة</span>
+        <h2>استيراد الطلاب</h2>
+        <p class="muted">اجلب القائمة من رابط Google Sheets أو ارفع ملف Excel أو CSV، ثم راجع الصفوف واحفظ الإعداد.</p>
+      </li>
+    </ol>
+    <div class="card welcome-note">
+      <h2>جهّز قائمة الطلاب</h2>
+      <p class="muted">يكفي أن تضم القائمة عمودَي «اسم الطالب» و«الصف». يمكنك أيضًا تخصيص ورقة لكل صف أو تأجيل الاستيراد إلى لوحة الإدارة.</p>
+    </div>
+  </section>`;
+}
 function setupView(){
   const st = S.setup, f = st.f;
   const steps = ["بيانات المدرسة", "طريقة الرصد", "ملف الطلاب"];
@@ -1064,7 +1139,7 @@ function setupView(){
       <label class="f">كلمة سر مدير النظام<input type="password" id="su-pw" data-bind="setup.f.pw" value="${h(f.pw)}" autocomplete="new-password"><span class="hint">4 أحرف على الأقل. تُستخدم لدخول لوحة الإدارة.</span></label>
       <label class="f">تأكيد كلمة السر<input type="password" id="su-pw2" data-bind="setup.f.pw2" value="${h(f.pw2)}" autocomplete="new-password"></label>
     </div>
-    <div class="row"><button class="btn primary" data-act="setupNext">التالي</button></div>`;
+    <div class="row"><button class="btn" data-act="setupBack">رجوع إلى الترحيب</button><button class="btn primary" data-act="setupNext">التالي</button></div>`;
   else if(st.step === 2) body = `
     <div class="radio-cards">
       <label><input type="radio" name="sumode" value="daily" data-bind="setup.f.mode" ${f.mode === "daily" ? "checked" : ""}><span><b>رصد يومي</b><br><span class="hint">يرصد المعلم غياب الصف مرة واحدة صباحاً.</span></span></label>
@@ -1083,8 +1158,8 @@ function setupView(){
   }
   return `
   <section class="setup">
-    <div><p class="eyebrow">تأسيس النظام</p><h1>إعداد نظام رصد الغياب لمدرستك</h1><p class="muted">ثلاث خطوات: بيانات المدرسة وكلمة سر المدير، طريقة الرصد، ثم ملف الطلاب من Excel أو Google Sheets.</p></div>
-    <div class="steps">${steps.map((t, i) => `<div class="${i < st.step ? "on" : ""}"><i></i>${i + 1}. ${t}</div>`).join("")}</div>
+    <div><p class="eyebrow">تأسيس النظام</p><h1 id="setup-title" tabindex="-1">${steps[st.step - 1]}</h1><p class="muted">الخطوة ${st.step} من ${steps.length}</p></div>
+    <div class="steps" aria-label="مراحل الإعداد">${steps.map((t, i) => `<div class="${i < st.step ? "on" : ""}" ${i === st.step - 1 ? 'aria-current="step"' : ""}><i></i>${i + 1}. ${t}</div>`).join("")}</div>
     <div class="card" style="display:flex;flex-direction:column;gap:16px">${body}</div>
   </section>`;
 }
@@ -1099,15 +1174,44 @@ async function saveClasses(classes, replace){
 const ACT = {
   reload(){ location.reload(); },
   async impSheet(t){
-    const url = ((t.dataset.w === "setup" ? S.setup.f.sheetUrl : S.impUrl) || "").trim();
-    t.disabled = true; const old = t.textContent; t.textContent = "جارٍ الجلب…";
-    try{ const sheets = await Api.call("readSheet", {url}); setImport(sheets, url ? "Google Sheet (من الرابط)" : "Google Sheet المرتبط بالخادم"); }
-    catch(e){ toast(errMsg(e), 5000); if(t.isConnected){ t.disabled = false; t.textContent = old; } }
+    if(S.sheetImport) return;
+    const where = t.dataset.w;
+    const input = () => $("#im-url-" + where);
+    const url = (input()?.value || "").trim();
+    const remote = Store === Api;
+    if(!url && !remote) return toast("ألصق رابط Google Sheets أولًا");
+    if(remote && url && !/^https:\/\/docs\.google\.com\/spreadsheets\/(?:u\/\d+\/)?d\/[\w-]+(?:[/?#]|$)/.test(url)){
+      return toast(sheetImportErrors.invalid_sheet_url);
+    }
+    const previous = S.imp;
+    const stillCurrent = () => input()?.value.trim() === url && S.imp === previous;
+    S.sheetImport = {where};
+    render();
+    try{
+      const sheets = remote ? await Api.call("readSheet", {url}) : await loadRosterTab(url);
+      if(stillCurrent()){
+        setImport(sheets, "معاينة قائمة الطلبة من Google Sheets");
+      }
+    }catch(e){
+      if(stillCurrent()) toast(errMsg(e), 5000);
+    }finally{
+      S.sheetImport = null;
+      if(input()){
+        render();
+        $("#im-url-" + where)?.focus({preventScroll: true});
+      }
+    }
   },
   closeModal, logout(){ S.admin = false; ss.set("admin", null); location.hash = "#home"; render(); },
   async modalOk(t){ if(!modalOk) return; t.disabled = true; try{ const r = await modalOk(); if(r !== false) closeModal(); }catch(e){ toast(errMsg(e), 4500); } finally{ if(t.isConnected) t.disabled = false; } },
   /* setup */
-  setupBack(){ S.setup.step--; render(); },
+  setupBack(){
+    if(S.setup.step === 0) return;
+    S.setup.step--;
+    render();
+    window.scrollTo(0, 0);
+    $("#setup-title, #welcome-title")?.focus({preventScroll: true});
+  },
   setupNext(){
     const f = S.setup.f;
     if(S.setup.step === 1){
@@ -1115,7 +1219,11 @@ const ACT = {
       if(f.pw.length < 4) return toast("كلمة السر يجب أن تكون 4 أحرف على الأقل");
       if(f.pw !== f.pw2) return toast("كلمتا السر غير متطابقتين");
     }
-    S.setup.step++; render(); window.scrollTo(0, 0);
+    if(S.setup.step >= 3) return;
+    S.setup.step++;
+    render();
+    window.scrollTo(0, 0);
+    $("#setup-title")?.focus({preventScroll: true});
   },
   impDemo(){ const cls = demoClasses(); S.imp = {label: "بيانات تجريبية (6 صفوف)", demo: true, sheets: [{name: "demo", rows: [["اسم الطالب", "الصف", "الشعبة", "هاتف ولي الأمر"], ...cls.flatMap(c => c.students.map(s => [s.n, c.grade, c.name.split(" / ")[1], s.p]))], det: {hr: 0, name: 0, cls: 1, sec: 2, id: -1, phone: 3}}], mode: "column", over: {name: "auto", cls: "auto", sec: "auto", id: "auto", phone: "auto"}}; render(); },
   impClear(){ S.imp = null; render(); },
@@ -1135,7 +1243,7 @@ const ACT = {
       await Store.set("school/config", cfg);
       S.cfg = cfg; S.admin = true; ss.set("admin", cfg.adminHash);
       if(r.classes.length) S.classes = sortClasses(r.classes);
-      S.imp = null; S.setup = {step: 1, f: {name: "", year: "", pw: "", pw2: "", mode: "daily", periods: 7, pin: "", cc: "971"}};
+      S.imp = null; S.setup = {step: 0, f: {name: "", year: "", pw: "", pw2: "", mode: "daily", periods: 7, pin: "", cc: "971"}};
       toast("تم تأسيس النظام بنجاح");
       location.hash = "#admin"; route();
     }catch(e){ toast(errMsg(e), 5000); if(t.isConnected) t.disabled = false; }
@@ -1341,7 +1449,7 @@ document.addEventListener("change", e => {
   else setPath(b, t.value);
   if(b === "date"){ if(!S.date) S.date = todayStr(); S.roster = null; S.done = null; ensureDaySub(); }
   if(b === "period"){ ls.set("period", S.period); S.roster = null; }
-  if(t.type === "radio" || t.tagName === "SELECT" || b === "date" || b === "setup.f.sheetUrl" || b === "sf.sheetUrl" || b === "impUrl") render();
+  if(t.type === "radio" || t.tagName === "SELECT" || b === "date" || b === "sf.sheetUrl") render();
 });
 document.addEventListener("dragover", e => { const d = e.target.closest && e.target.closest(".drop"); if(d){ e.preventDefault(); d.classList.add("over"); } });
 document.addEventListener("dragleave", e => { const d = e.target.closest && e.target.closest(".drop"); if(d) d.classList.remove("over"); });
@@ -1372,14 +1480,27 @@ function route(){
 
 /* ---------- boot ---------- */
 async function getClaude(){ for(let i = 0; i < 25; i++){ if(window.claude && typeof window.claude.use === "function") return window.claude; await sleep(100); } return null; }
-async function boot(){
+async function boot(teacherId){
   render();
-  if(!sessionStorage.getItem("gh_subscriber")){ S.ready = true; return; }
+  Local.key = "gh_store_v2:" + await sha("ghiyab-account::" + teacherId);
   const API = String(window.GHIYAB_API || "").trim();
-  if(!API){ S.fatal = "يتطلب النظام اشتراكاً سارياً وخادماً مفعلاً. يرجى التواصل مع إدارة الخدمة."; S.ready = true; render(); return; }
-  Api.subscriber = sessionStorage.getItem("gh_subscriber") || "";
   let cl = null;
-  if(API){ Api.url = API; Api.token = String(window.GHIYAB_TOKEN || ""); Store = Api; S.backend = "api"; }
+  if(API){
+    Api.url = API;
+    Api.token = String(window.GHIYAB_TOKEN || "");
+    Api.subscriber = ss.get("subscriber") || "";
+    Store = Api;
+    S.backend = "api";
+    try{
+      if(!Api.subscriber) throw Error("اطلب من مدير الخدمة تهيئة الوصول إلى خادم بيانات المدرسة.");
+      await Api.call("activate", {license: Api.subscriber});
+    }catch(e){
+      S.fatal = errMsg(e);
+      S.ready = true;
+      render();
+      return;
+    }
+  }
   else{
     cl = await getClaude();
     if(cl){
@@ -1388,7 +1509,6 @@ async function boot(){
       S.downloads = dl || null;
     }
   }
-  if(API){ try{ await Api.call("activate", {license: Api.subscriber}); }catch(e){ sessionStorage.removeItem("gh_subscriber"); const gate=$("#subscriber-gate"); if(gate) gate.hidden = false; const msg=$("#subscriber-error"); if(msg) msg.textContent = e.message || "الاشتراك غير صالح أو منتهي. أدخل رمزاً سارياً."; S.ready = true; return; } }
   S.inClaude = !!cl;
   try{
     S.cfg = await Store.get("school/config");
@@ -1421,9 +1541,9 @@ async function verifyPlatformSubscription(){
   try{
     const response=await fetch('/api/subscriptions?action=board_access',{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
     const data=await response.json().catch(()=>({}));
-    if(response.ok&&data.teacher?.id){
-      if(gate)gate.hidden=true;
-      return true;
+    if(response.ok && typeof data.teacher?.id === "string" && data.teacher.id){
+      if(gate) gate.hidden = true;
+      return data.teacher.id;
     }
     if(response.status===401){
       if(message)message.textContent='سجّل الدخول بحسابك في التحضير الذكي للوصول إلى رصد الغياب.';
@@ -1442,8 +1562,12 @@ async function verifyPlatformSubscription(){
   }
   return false;
 }
-document.getElementById('subscriber-retry')?.addEventListener('click',()=>{ verifyPlatformSubscription().then(allowed=>{ if(allowed) boot(); }); });
-verifyPlatformSubscription().then(allowed=>{ if(allowed) boot(); });
+async function openForSubscriber(){
+  const teacherId = await verifyPlatformSubscription();
+  if(teacherId) await boot(teacherId);
+}
+document.getElementById("subscriber-retry")?.addEventListener("click", openForSubscriber);
+openForSubscriber();
 </script>
 </body>
 </html>
