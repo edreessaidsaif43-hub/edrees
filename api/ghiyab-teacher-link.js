@@ -7,7 +7,8 @@ const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || proc
 const tokenPattern = /^[A-Za-z0-9_-]{43}$/;
 const idPattern = /^[^\u0000-\u001f\u007f/]{1,200}$/;
 const uuidPattern = /^[a-f0-9-]{36}$/;
-const maxRequestBytes = 192 * 1024;
+const schoolLinkId = "@all-classes";
+const maxRequestBytes = 3 * 1024 * 1024;
 const isObject = value => value !== null && typeof value === "object" && !Array.isArray(value);
 const label = (value, size = 160) => typeof value === "string" ? value.trim().slice(0, size) : "";
 const hash = value => createHash("sha256").update(value).digest("hex");
@@ -19,43 +20,64 @@ function dateIsValid(value) {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
-function parseRoster(body) {
-  const roster = body.roster;
-  if(!isObject(roster) || !validId(body.workspace) || !validId(body.classId) || !dateIsValid(body.date) ||
-    !Array.isArray(roster.students) || roster.students.length < 1 || roster.students.length > 250 ||
-    !Number.isInteger(roster.periods) || roster.periods < 0 || roster.periods > 12) return null;
-  const school = label(roster.school), className = label(roster.className), grade = label(roster.grade);
-  if(!school || !className) return null;
+function parseClass(entry) {
+  if(!isObject(entry) || !validId(entry.id) || entry.id === schoolLinkId ||
+    !Array.isArray(entry.students) || entry.students.length > 250) return null;
+  const className = label(entry.className), grade = label(entry.grade) || className;
+  if(!className) return null;
   const seen = new Set();
   const students = [];
-  for(const entry of roster.students){
-    if(!isObject(entry) || !validId(entry.id) || seen.has(entry.id) || !label(entry.name)) return null;
-    seen.add(entry.id);
-    students.push({id: entry.id, name: label(entry.name)});
+  for(const student of entry.students){
+    if(!isObject(student) || !validId(student.id) || seen.has(student.id) || !label(student.name)) return null;
+    seen.add(student.id);
+    students.push({id: student.id, name: label(student.name)});
   }
-  return {school, className, grade, periods: roster.periods, students};
+  return {id: entry.id, className, grade, section: label(entry.section), students};
 }
 
-function makeRecord(body, invite) {
+function parseRoster(body) {
+  const roster = body.roster;
+  if(!isObject(roster) || !Number.isInteger(roster.periods) || roster.periods < 0 || roster.periods > 12) return null;
+  const school = label(roster.school);
+  if(!school) return null;
+  const periods = roster.periods;
+  if(body.classId !== schoolLinkId){
+    const entry = parseClass({...roster, id: body.classId});
+    return entry?.students.length ? {...entry, school, periods} : null;
+  }
+  if(!Array.isArray(roster.classes) || roster.classes.length < 1 || roster.classes.length > 300 ||
+    !Array.isArray(roster.teachers) || roster.teachers.length < 1 || roster.teachers.length > 400) return null;
+  const classes = roster.classes.map(parseClass);
+  if(classes.some(entry => !entry) || new Set(classes.map(entry => entry.id)).size !== classes.length ||
+    !classes.some(entry => entry.students.length)) return null;
+  const teachers = roster.teachers.map(name => label(name, 100));
+  if(teachers.some(name => name.length < 3) || new Set(teachers).size !== teachers.length) return null;
+  return {school, periods, classes, teachers};
+}
+
+function selectionAt(items, key) {
+  return Number.isInteger(key) && key >= 0 && key < items.length ? items[key] : null;
+}
+
+function makeRecord(body, invite, selected, teacher) {
   const roster = invite.roster;
-  const teacher = label(body.teacher, 100);
   const period = body.period;
   if(!teacher || teacher.length < 3 || !Number.isInteger(period) ||
     (roster.periods ? period < 1 || period > roster.periods : period !== 0) ||
-    !Array.isArray(body.marks) || body.marks.length > roster.students.length) return null;
+    !selected.students.length || !Array.isArray(body.marks) || body.marks.length > selected.students.length) return null;
 
   const used = new Set();
   const categories = {a: [], e: [], l: []};
   for(const mark of body.marks){
-    if(!isObject(mark) || !Number.isInteger(mark.key) || mark.key < 0 || mark.key >= roster.students.length ||
+    if(!isObject(mark) || !Number.isInteger(mark.key) || mark.key < 0 || mark.key >= selected.students.length ||
       used.has(mark.key) || !Object.hasOwn(categories, mark.status)) return null;
     used.add(mark.key);
-    const student = roster.students[mark.key];
+    const student = selected.students[mark.key];
     categories[mark.status].push({id: student.id, n: student.name});
   }
   return {
-    date: invite.date, classId: invite.class_id, className: roster.className, grade: roster.grade,
-    periods: {[period]: {teacher, absent: categories.a, excused: categories.e, late: categories.l, total: roster.students.length}}
+    date: invite.date, classId: selected.id, className: selected.className, grade: selected.grade,
+    periods: {[period]: {teacher, absent: categories.a, excused: categories.e, late: categories.l, total: selected.students.length}}
   };
 }
 
@@ -121,29 +143,41 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
   async function handleTeacher(body, res, fail) {
     const invite = await resolveInvite(body.token);
     if(!invite) return fail(404, "link_unavailable");
-    if(body.action === "view"){
+    const roster = invite.roster;
+    const schoolLink = Array.isArray(roster.classes);
+    const {school, periods} = roster;
+    if(schoolLink && body.action === "view"){
+      return res.status(200).json({
+        school, date: invite.date, periods, teachers: roster.teachers,
+        classes: roster.classes.map(({className, grade, section}, key) => ({className, grade, section, key}))
+      });
+    }
+
+    const selected = schoolLink ? selectionAt(roster.classes, body.classKey) : {...roster, id: invite.class_id};
+    const teacher = schoolLink ? selectionAt(roster.teachers, body.teacherKey) : label(body.teacher, 100);
+    if(!selected || (schoolLink && !teacher)) return fail(400, "invalid_selection");
+    if(body.action === "view" || body.action === "roster"){
       const captured = await sql`
         SELECT period FROM ghiyab_teacher_receipts WHERE owner_id = ${invite.owner_id}
         AND workspace_id = ${invite.workspace_id}
-        AND class_id = ${invite.class_id} AND attendance_date = ${invite.date}::date;`;
-      const {school, className, periods, students} = invite.roster;
+        AND class_id = ${selected.id} AND attendance_date = ${invite.date}::date;`;
       return res.status(200).json({
-        school, className, date: invite.date, periods,
-        students: students.map(({name}, key) => ({name, key})),
+        school, className: selected.className, date: invite.date, periods,
+        students: selected.students.map(({name}, key) => ({name, key})),
         captured: captured.map(row => Number(row.period))
       });
     }
 
-    const record = makeRecord(body, invite);
+    const record = makeRecord(body, invite, selected, teacher);
     if(!record) return fail(400, "invalid_attendance");
     const [written] = await sql`
       WITH eligible AS (
-        SELECT owner_id, workspace_id, class_id, attendance_date FROM ghiyab_teacher_links
+        SELECT owner_id, workspace_id, attendance_date FROM ghiyab_teacher_links
         WHERE token_hash = ${invite.tokenHash} AND expires_at > NOW()
         FOR UPDATE
       ), receipt AS (
         INSERT INTO ghiyab_teacher_receipts (id, owner_id, workspace_id, class_id, attendance_date, period, record)
-        SELECT ${randomUUID()}, owner_id, workspace_id, class_id, attendance_date, ${body.period}, ${JSON.stringify(record)}::jsonb FROM eligible
+        SELECT ${randomUUID()}, owner_id, workspace_id, ${selected.id}, attendance_date, ${body.period}, ${JSON.stringify(record)}::jsonb FROM eligible
         ON CONFLICT (owner_id, workspace_id, class_id, attendance_date, period) DO NOTHING
         RETURNING id
       )
@@ -168,7 +202,7 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
     const body = requestBody(req);
     if(!body) return fail(400, "invalid_request");
     try {
-      if(body.action === "view" || body.action === "submit") return await handleTeacher(body, res, fail);
+      if(["view", "roster", "submit"].includes(body.action)) return await handleTeacher(body, res, fail);
       if(!["create", "links", "revoke", "pending", "ack"].includes(body.action)) return fail(400, "invalid_request");
       const session = await readSession(req, res);
       if(!session) return fail(401, "sign_in_required");
@@ -196,10 +230,12 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
       if(body.action === "links"){
         if(!dateIsValid(body.date)) return fail(400, "invalid_request");
         const links = await sql`
-          SELECT class_id AS id, roster->>'className' AS name FROM ghiyab_teacher_links
+          SELECT class_id AS id, CASE WHEN class_id = ${schoolLinkId}
+            THEN 'جميع الصفوف والشُّعب' ELSE roster->>'className' END AS name
+          FROM ghiyab_teacher_links
           WHERE owner_id = ${ownerId} AND workspace_id = ${workspace}
           AND attendance_date = ${body.date}::date AND expires_at > NOW()
-          ORDER BY roster->>'className';`;
+          ORDER BY name;`;
         return res.status(200).json({links});
       }
       if(!validId(body.classId) || !dateIsValid(body.date)) return fail(400, "invalid_request");

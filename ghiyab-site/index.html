@@ -714,7 +714,8 @@ const teacherLinkErrors = {
   sign_in_required: "سجّل الدخول إلى التحضير الذكي ثم أعد المحاولة.",
   subscription_required: "إنشاء روابط الرصد يتطلب اشتراكًا فعّالًا.",
   account_stopped: "حساب التحضير الذكي موقوف.",
-  invalid_roster: "تعذّر تجهيز قائمة الصف للرابط. تحقّق من بيانات الطلبة."
+  invalid_request: "تعذّر تجهيز الرابط. تحقّق من بيانات الصفوف وقائمة المعلمين.",
+  invalid_roster: "تعذّر تجهيز قوائم الصفوف أو أسماء المعلمين. راجع البيانات ثم أعد المحاولة."
 };
 
 function teacherWorkspace() {
@@ -738,10 +739,10 @@ function teacherLinkPanel() {
   const canInvite = S.classes.some(c => c.students.length);
   return `<section class="card">
     <div class="card-h"><div><h3>روابط رصد المعلمين</h3>
-      <p class="muted small">${canInvite ? "شارك رابطًا خاصًا بكل صف وتاريخ. تنتهي صلاحيته بعد 24 ساعة." : "أضف قائمة الطلبة لتتمكن من إنشاء رابط للمعلمين."}</p>
+      <p class="muted small">${canInvite ? "شارك رابطًا واحدًا لجميع الصفوف والشُّعب في التاريخ المحدد. تنتهي صلاحيته بعد 24 ساعة." : "أضف قائمة الطلبة لتتمكن من إنشاء رابط للمعلمين."}</p>
     </div></div>
     <div class="row">
-      <button class="btn primary" data-act="manageTeacherLink" ${canInvite ? "" : "disabled"}>إنشاء رابط رصد</button>
+      <button class="btn primary" data-act="manageTeacherLink" ${canInvite ? "" : "disabled"}>إنشاء رابط لجميع الصفوف</button>
       <button class="btn ghost" data-act="revokeTeacherLink">إلغاء رابط</button>
       <button class="btn" data-act="syncTeacherLinks">تحديث رصد المعلمين</button>
     </div>
@@ -753,51 +754,76 @@ async function chooseTeacherLink(revoke = false) {
   if(!S.admin || !S.cfg) return;
   const date = S.date;
   const workspace = teacherWorkspace();
-  let classes;
-  try{
-    classes = revoke ? (await teacherLinkRequest("links", {date}, workspace)).links : S.classes.filter(c => c.students.length);
-  }catch(error){
-    toast(error.message);
+  if(revoke){
+    let links;
+    try{ ({links} = await teacherLinkRequest("links", {date}, workspace)); }
+    catch(error){ toast(errMsg(error)); return; }
+    if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return;
+    if(!links.length) return toast("لا توجد روابط سارية في هذا التاريخ");
+    modal({
+      title: "إلغاء رابط رصد", ok: "إلغاء صلاحية الرابط", danger: true,
+      body: `<p class="muted">${h(fmtDate(date))}</p>
+        <label class="f">الرابط<select id="teacher-link-revoke"><option value="">اختر الرابط</option>${links.map(link => `<option value="${h(link.id)}">${h(link.name)}</option>`).join("")}</select></label>
+        <p class="hint">يتوقف الرابط المحدد عن العمل، وتبقى نتائج الرصد التي أُرسلت.</p>`,
+      onOk: async () => {
+        if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return false;
+        const classId = $("#teacher-link-revoke")?.value;
+        if(!links.some(link => link.id === classId)){ toast("اختر الرابط"); return false; }
+        await teacherLinkRequest("revoke", {classId, date}, workspace);
+        toast("أُلغي رابط الرصد");
+      }
+    });
     return;
   }
-  if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return;
-  if(!classes.length) return toast(revoke ? "لا توجد روابط سارية في هذا التاريخ" : "أضف قائمة الطلبة أولًا");
+
+  if(!S.classes.some(c => c.students.length)) return toast("أضف قائمة الطلبة أولًا");
+  const initialNames = Array.isArray(S.cfg.teacherLinkNames) ? S.cfg.teacherLinkNames.join("\n") : "";
   modal({
-    title: revoke ? "إلغاء رابط رصد" : "إنشاء رابط رصد للمعلمين",
-    ok: revoke ? "إلغاء صلاحية الرابط" : "إنشاء الرابط",
-    danger: revoke,
-    body: `<p class="muted">${h(fmtDate(date))}</p>
-      <label class="f">الصف<select id="teacher-link-class"><option value="">اختر الصف</option>${classes.map(c => `<option value="${h(c.id)}">${h(c.name)}</option>`).join("")}</select></label>
-      <p class="hint">${revoke ? "يتوقف الرابط الحالي لهذا الصف والتاريخ عن العمل. تبقى نتائج الرصد التي أُرسلت." :
-        "شارك الرابط مع معلمي الصف فقط. إنشاء رابط جديد للصف والتاريخ نفسيهما يلغي الرابط السابق."}</p>`,
+    title: "إنشاء رابط رصد لجميع الصفوف",
+    ok: "إنشاء الرابط",
+    body: `<p class="muted">${h(fmtDate(date))} · ${S.classes.length} صف وشعبة</p>
+      <label class="f">أسماء المعلمين<textarea id="teacher-link-names" rows="7" placeholder="اسم معلم في كل سطر">${h(initialNames)}</textarea>
+        <span class="hint">تظهر الأسماء في قائمة اختيار المعلم، وتُحفظ لتستخدمها عند إنشاء الرابط التالي.</span>
+      </label>
+      <p class="hint">شارك الرابط مع المعلمين المعنيين. إنشاء رابط جديد لجميع الصفوف في التاريخ نفسه يلغي الرابط العام السابق.</p>`,
     onOk: async () => {
       if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return false;
-      const classId = $("#teacher-link-class")?.value;
-      if(!classes.some(c => c.id === classId)){ toast("اختر الصف"); return false; }
-      const fields = {classId, date};
-      if(revoke){
-        await teacherLinkRequest("revoke", fields, workspace);
-        toast("أُلغي رابط الرصد");
-        return;
+      const names = ($("#teacher-link-names")?.value || "").split(/\r?\n/).map(name => name.trim().replace(/\s+/g, " ")).filter(Boolean);
+      const teachers = [...new Set(names)];
+      if(!teachers.length){ toast("أدخل اسم معلم واحد على الأقل"); return false; }
+      if(teachers.length > 400 || teachers.some(name => name.length < 3 || name.length > 100)){
+        toast("أدخل الأسماء كاملة، اسمًا واحدًا في كل سطر، وبحد أقصى 400 اسم.");
+        return false;
       }
-      const c = clsById(classId);
-      if(!c || !c.students.length){ toast("قائمة الصف غير متاحة"); return false; }
       const roster = {
-        school: S.cfg.name, className: c.name, grade: c.grade || "",
+        school: S.cfg.name,
         periods: S.cfg.mode === "period" ? Number(S.cfg.periods) : 0,
-        students: c.students.map(s => ({id: s.id, name: s.n}))
+        teachers,
+        classes: S.classes.map(c => {
+          const [gradeName, ...sections] = c.name.split("/").map(part => part.trim());
+          return {
+            id: c.id, className: c.name, grade: c.grade && c.grade !== c.name ? c.grade : gradeName || c.name,
+            section: sections.join(" / "),
+            students: c.students.map(s => ({id: s.id, name: s.n}))
+          };
+        })
       };
-      const result = await teacherLinkRequest("create", {...fields, roster}, workspace);
+      const result = await teacherLinkRequest("create", {classId: "@all-classes", date, roster}, workspace);
+      if(!S.admin || !S.cfg || teacherWorkspace() !== workspace) return false;
+      try{
+        await Store.merge("school/config", {teacherLinkNames: teachers});
+        if(S.cfg && teacherWorkspace() === workspace) S.cfg.teacherLinkNames = teachers;
+      }catch{ toast("تم إنشاء الرابط، وتعذّر حفظ أسماء المعلمين للاستخدام لاحقًا."); }
       const url = new URL("./teacher-link.html", location.href);
       url.hash = result.token;
       const expires = new Intl.DateTimeFormat("ar-OM", {dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Muscat"}).format(new Date(result.expiresAt));
       modal({
-        title: "رابط الرصد جاهز للمشاركة",
-        body: `<p>${h(c.name)} · ${h(fmtDate(date))}</p>
-          <label class="f">رابط المعلم<input type="text" id="teacher-link-url" value="${h(url.href)}" readonly dir="ltr"></label>
+        title: "رابط جميع الصفوف جاهز للمشاركة",
+        body: `<p>جميع الصفوف والشُّعب · ${h(fmtDate(date))}</p>
+          <label class="f">رابط المعلمين<input type="text" id="teacher-link-url" value="${h(url.href)}" readonly dir="ltr"></label>
           <p class="hint">ينتهي الرابط في ${h(expires)} بتوقيت عُمان.</p>
           <div class="row"><button class="btn primary" data-act="copyTeacherLink">نسخ الرابط</button>
-          <a class="btn wa" href="${h(waLink("رابط رصد الغياب لصف " + c.name + " · " + fmtDate(date) + "\n" + url.href))}" target="_blank" rel="noopener noreferrer">مشاركة عبر واتساب</a></div>`
+          <a class="btn wa" href="${h(waLink("رابط رصد الغياب لجميع الصفوف · " + fmtDate(date) + "\n" + url.href))}" target="_blank" rel="noopener noreferrer">مشاركة عبر واتساب</a></div>`
       });
       return false;
     }

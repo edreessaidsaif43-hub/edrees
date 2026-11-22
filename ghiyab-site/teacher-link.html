@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex, nofollow">
-  <title>رصد الغياب للمعلم | التحضير الذكي</title>
+  <title>رصد غياب الطلبة | التحضير الذكي</title>
   <style>
     :root{color-scheme:light;--bg:#f2f5f4;--ink:#13221e;--green:#0e6a51;--line:#d9e2df;--muted:#526760}
     *{box-sizing:border-box}
@@ -14,15 +14,22 @@
     header,section{padding:clamp(16px,4vw,28px);background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
     h1,h2,p{margin:0}h1{font-size:clamp(1.45rem,5vw,2rem)}h2{font-size:1.15rem}
     .school{font-weight:700;color:var(--green)}.muted{color:var(--muted)}.error{color:#9e3527}
-    .fields{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px}.fields label{flex:1 1 175px}
+    fieldset{margin:0;border:0;padding:0;min-width:0}
+    .fields{display:flex;flex-wrap:wrap;gap:12px}
+    .fields label{flex:1 1 175px}.fields label.teacher{flex-basis:100%}
     label{display:block;font-weight:600}input,select,button{min-height:44px;font:inherit;border-radius:8px}
     input,select{border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 10px}
-    .fields input,.fields select{display:block;width:100%;margin-top:4px}
-    .rows{margin:0;padding:0;list-style:none}.rows label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+    .fields input,.fields select,#period-field select{display:block;width:100%;margin-top:4px}
+    #notice{margin-top:16px}
+    #capture{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+    #period-field{max-width:320px;margin-bottom:12px}
+    .rows{margin:0;padding:0;list-style:none}
+    .rows label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
     .rows label span{min-width:0;overflow-wrap:anywhere}.rows select{flex:0 0 auto;min-width:115px}
     button{cursor:pointer;background:var(--green);color:white;border:1px solid var(--green);font-weight:700;padding:7px 16px}
     button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--green);outline-offset:3px}
-    button:disabled{opacity:.55;cursor:default}.actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px}
+    :disabled{opacity:.55;cursor:default}
+    .actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
     [hidden]{display:none!important}
   </style>
 </head>
@@ -33,44 +40,55 @@
       <h1>رصد غياب الطلبة</h1>
       <p class="muted" id="scope"></p>
     </header>
-    <section id="notice" aria-live="polite"><p id="status">جارٍ فتح رابط الرصد…</p><div class="actions"><button id="retry" type="button" hidden>إعادة المحاولة</button></div></section>
-    <section id="panel" hidden>
-      <form id="attendance">
-        <div class="fields">
-          <label>اسم المعلم<input name="teacher" required minlength="3" maxlength="100" autocomplete="name"></label>
-          <label id="period-field" hidden>الحصة<select name="period"></select></label>
-        </div>
-        <div id="roster">
-          <h2>قائمة الطلبة</h2>
-          <p class="muted">الطلبة حاضرون افتراضيًا. غيّر حالة الغائب أو المتأخر ثم اعتمد الرصد.</p>
-          <ol class="rows" id="students" aria-label="قائمة الطلبة"></ol>
-        </div>
-        <div class="actions">
-          <button type="submit" id="submit">اعتماد الرصد</button>
-          <p class="muted" id="tally" aria-live="polite"></p>
-        </div>
+    <section>
+      <form id="attendance" hidden>
+        <fieldset id="controls">
+          <div class="fields">
+            <label class="teacher" id="teacher-field">اسم المعلم<select id="teacher"><option value="">اختر اسمك</option></select></label>
+            <label class="teacher" id="legacy-field" hidden>اسم المعلم<input id="teacher-name" minlength="3" maxlength="100" autocomplete="name"></label>
+            <label id="grade-field">الصف<select id="grade" disabled><option value="">اختر الصف</option></select></label>
+            <label id="section-field">الشعبة<select id="section" disabled><option value="">اختر الشعبة</option></select></label>
+          </div>
+          <div id="capture" hidden>
+            <label id="period-field" hidden>الحصة<select id="period"></select></label>
+            <h2 id="roster-title">قائمة الطلبة</h2>
+            <p class="muted">الطلبة حاضرون افتراضيًا. غيّر حالة الغائب أو المتأخر ثم اعتمد الرصد.</p>
+            <ol class="rows" id="students" aria-labelledby="roster-title"></ol>
+            <div class="actions">
+              <button type="submit">اعتماد الرصد</button>
+              <p class="muted" id="tally" aria-live="polite"></p>
+            </div>
+          </div>
+        </fieldset>
       </form>
+      <div id="notice" aria-live="polite">
+        <p id="status">جارٍ فتح رابط الرصد…</p>
+        <div class="actions" id="retry-actions" hidden><button id="retry" type="button">إعادة المحاولة</button></div>
+      </div>
     </section>
   </main>
   <script>
   "use strict";
   const token = location.hash.slice(1);
-  const find = id => document.getElementById(id);
-  const form = find("attendance"), rows = find("students"), periodSelect = form.elements.period;
+  const el = id => document.getElementById(id);
+  const form = el("attendance"), teacher = el("teacher"), grade = el("grade");
+  const section = el("section"), period = el("period"), rows = el("students");
   const states = [["", "حاضر"], ["a", "غائب"], ["e", "غائب بعذر"], ["l", "متأخر"]];
   const errors = {
     link_unavailable: "رابط الرصد منتهي أو ملغى. اطلب رابطًا جديدًا من إدارة المدرسة.",
-    already_submitted: "اعتمد أحد المعلمين رصد هذه الحصة بالفعل. حدّث الصفحة لرؤية الحصص المتاحة.",
+    already_submitted: "سبق اعتماد الرصد لهذا الصف والحصة. حدّث القائمة لرؤية ما تبقّى.",
+    invalid_selection: "اختر اسمك والصف والشعبة من القوائم.",
     invalid_attendance: "تحقّق من اسم المعلم والحصة وحالات الطلبة ثم أعد المحاولة."
   };
-  let invite;
+  let invite, roster, dateLabel;
+  let requestVersion = 0;
   let busy = false;
 
   function message(text, isError = false, retry = false) {
-    find("notice").hidden = !text;
-    find("status").textContent = text;
-    find("status").classList.toggle("error", isError);
-    find("retry").hidden = !retry;
+    el("notice").hidden = !text;
+    el("status").textContent = text;
+    el("status").classList.toggle("error", isError);
+    el("retry-actions").hidden = !retry;
   }
 
   async function request(action, data = {}) {
@@ -80,98 +98,176 @@
       signal: AbortSignal.timeout?.(15000),
       body: JSON.stringify({action, token, ...data})
     });
-    const result = await response.json().catch(() => ({}));
-    if(!response.ok) throw Object.assign(new Error(errors[result.error] || "تعذّر الاتصال بخدمة الرصد. أعد المحاولة."), {code: result.error});
+    const result = await response.json().catch(() => null);
+    if(!response.ok || !result) {
+      const code = result?.error;
+      throw Object.assign(new Error(errors[code] || "تعذّر الاتصال بخدمة الرصد. أعد المحاولة."), {code});
+    }
     return result;
   }
 
-  function selectedPeriod() { return invite.periods ? Number(periodSelect.value) : 0; }
+  function options(control, choices, prompt) {
+    control.replaceChildren(...(prompt ? [new Option(prompt, "")] : []),
+      ...choices.map(([value, name]) => new Option(name, String(value))));
+  }
 
   function updateTally() {
     const counts = {a: 0, e: 0, l: 0};
     for(const control of rows.querySelectorAll("select")) if(control.value) counts[control.value]++;
-    find("tally").textContent = `غائب ${counts.a} · بعذر ${counts.e} · متأخر ${counts.l}`;
+    el("tally").textContent = `غائب ${counts.a} · بعذر ${counts.e} · متأخر ${counts.l}`;
   }
 
-  function renderPeriods(keep = selectedPeriod()) {
-    const complete = new Set(invite.captured);
-    if(invite.periods){
-      const available = Array.from({length: invite.periods}, (_, index) => index + 1).filter(period => !complete.has(period));
-      periodSelect.replaceChildren(...available.map(period => new Option("الحصة " + period, String(period))));
-      if(available.includes(keep)) periodSelect.value = String(keep);
-      find("period-field").hidden = available.length === 0;
-    }
-    const done = complete.size >= (invite.periods || 1);
-    find("panel").hidden = done;
-    if(done) message("تم اعتماد الرصد لهذا الصف في التاريخ المحدد.");
-    return done;
+  function clearMarks() {
+    for(const control of rows.querySelectorAll("select")) control.value = "";
+    updateTally();
   }
 
-  async function load() {
-    find("retry").hidden = true;
-    if(!/^[A-Za-z0-9_-]{43}$/.test(token)){
-      message(errors.link_unavailable, true);
+  function clearRoster() {
+    requestVersion++;
+    roster = null;
+    rows.replaceChildren();
+    el("capture").hidden = true;
+    el("scope").textContent = dateLabel || "";
+    message("");
+  }
+
+  function renderPeriods() {
+    const total = roster.periods;
+    const available = total
+      ? Array.from({length: total}, (_, index) => index + 1).filter(value => !roster.captured.includes(value))
+      : roster.captured.includes(0) ? [] : [0];
+    el("period-field").hidden = !total;
+    options(period, available.map(value => [value, "الحصة " + value]));
+    el("capture").hidden = !available.length || !roster.students.length;
+    return available.length > 0;
+  }
+
+  function showRoster(data) {
+    roster = data;
+    el("scope").textContent = dateLabel + " · " + data.className;
+    el("roster-title").textContent = "طلبة " + data.className;
+    if(!data.students.length){
+      el("capture").hidden = true;
+      message("لا توجد أسماء طلبة في هذه الشعبة.");
       return;
     }
-    message("جارٍ تحميل قائمة الطلبة…");
+    if(!renderPeriods()){
+      message("تم اعتماد رصد هذه الشعبة في التاريخ المحدد.");
+      return;
+    }
+    rows.replaceChildren(...data.students.map(student => {
+      const item = document.createElement("li"), label = document.createElement("label");
+      const name = document.createElement("span"), select = document.createElement("select");
+      name.textContent = student.name;
+      select.dataset.student = student.key;
+      select.append(...states.map(([value, text]) => new Option(text, value)));
+      label.append(name, select);
+      item.append(label);
+      return item;
+    }));
+    updateTally();
+    message("");
+  }
+
+  function selection() {
+    return teacher.value && section.value
+      ? {teacherKey: Number(teacher.value), classKey: Number(section.value)}
+      : null;
+  }
+
+  async function loadRoster() {
+    if(busy) return;
+    clearRoster();
+    const chosen = selection();
+    if(!chosen) return;
+    const version = requestVersion;
+    message("جارٍ تحميل قائمة طلبة الشعبة…");
     try{
-      invite = await request("view");
-      find("school").textContent = invite.school;
-      const date = new Date(invite.date + "T12:00:00+04:00");
-      find("scope").textContent = invite.className + " · " + new Intl.DateTimeFormat("ar-OM", {
-        dateStyle: "full", timeZone: "Asia/Muscat"
-      }).format(date);
-      if(renderPeriods()) return;
-      rows.replaceChildren(...invite.students.map(student => {
-        const item = document.createElement("li");
-        const label = document.createElement("label");
-        const name = document.createElement("span");
-        name.textContent = student.name;
-        const select = document.createElement("select");
-        select.dataset.student = student.key;
-        select.append(...states.map(([value, text]) => new Option(text, value)));
-        label.append(name, select);
-        item.append(label);
-        return item;
-      }));
-      updateTally();
-      message("");
+      const data = await request("roster", chosen);
+      if(version === requestVersion) showRoster(data);
     }catch(error){
-      find("panel").hidden = true;
+      if(version !== requestVersion) return;
+      if(error.code === "link_unavailable") form.hidden = true;
       message(error.message, true, error.code !== "link_unavailable");
     }
   }
 
-  periodSelect.addEventListener("change", () => {
-    for(const control of rows.querySelectorAll("select")) control.value = "";
-    updateTally();
+  function populateSections() {
+    const selectedGrade = grade.value;
+    const matching = selectedGrade ? invite.classes.filter(entry => entry.grade === selectedGrade) : [];
+    options(section, matching.map(entry => [entry.key,
+      entry.section || (entry.className === selectedGrade ? "بدون شعبة" : entry.className)
+    ]), "اختر الشعبة");
+    section.disabled = !matching.length;
+  }
+
+  async function load() {
+    if(!/^[A-Za-z0-9_-]{43}$/.test(token)){ message(errors.link_unavailable, true); return; }
+    message("جارٍ تحميل بيانات الرصد…");
+    try{
+      invite = await request("view");
+      el("school").textContent = invite.school;
+      dateLabel = new Intl.DateTimeFormat("ar-OM", {dateStyle: "full", timeZone: "Asia/Muscat"})
+        .format(new Date(invite.date + "T12:00:00+04:00"));
+      el("scope").textContent = dateLabel;
+      const allClasses = Array.isArray(invite.classes);
+      for(const id of ["teacher-field", "grade-field", "section-field"]) el(id).hidden = !allClasses;
+      el("legacy-field").hidden = allClasses;
+      form.hidden = false;
+      if(!allClasses){ showRoster(invite); return; }
+      options(teacher, invite.teachers.map((name, index) => [index, name]), "اختر اسمك");
+      const grades = [...new Set(invite.classes.map(entry => entry.grade))];
+      options(grade, grades.map(name => [name, name]), "اختر الصف");
+      grade.disabled = true;
+      populateSections();
+      message("");
+    }catch(error){
+      form.hidden = true;
+      message(error.message, true, error.code !== "link_unavailable");
+    }
+  }
+
+  teacher.addEventListener("change", () => {
+    grade.value = "";
+    grade.disabled = teacher.value === "";
+    populateSections();
+    clearRoster();
   });
+  grade.addEventListener("change", () => { populateSections(); clearRoster(); });
+  section.addEventListener("change", loadRoster);
+  period.addEventListener("change", clearMarks);
   rows.addEventListener("change", updateTally);
-  find("retry").addEventListener("click", load);
+  el("retry").addEventListener("click", () => {
+    if(Array.isArray(invite?.classes) && selection()) void loadRoster();
+    else void load();
+  });
   form.addEventListener("submit", async event => {
     event.preventDefault();
-    if(busy || !invite) return;
-    const teacher = form.elements.teacher.value.trim();
-    if(teacher.length < 3){ message("أدخل اسم المعلم.", true); form.elements.teacher.focus(); return; }
-    const period = selectedPeriod();
-    const controls = [...rows.querySelectorAll("select")];
-    const marks = controls.filter(control => control.value).map(control => ({key: Number(control.dataset.student), status: control.value}));
-    if(!window.confirm(marks.length ? "هل تعتمد حالات الغياب والتأخر لهذه القائمة؟" : "هل تعتمد حضور جميع الطلبة؟")) return;
+    if(busy || !roster || el("capture").hidden) return;
+    const chosen = Array.isArray(invite.classes) ? selection() : {teacher: el("teacher-name").value.trim()};
+    if(!chosen || ("teacher" in chosen && chosen.teacher.length < 3)){
+      message("اختر اسم المعلم أو أدخله للمتابعة.", true);
+      return;
+    }
+    const currentPeriod = roster.periods ? Number(period.value) : 0;
+    const marks = [...rows.querySelectorAll("select")].filter(control => control.value)
+      .map(control => ({key: Number(control.dataset.student), status: control.value}));
+    if(!window.confirm(marks.length ? "هل تعتمد حالات الغياب والتأخر لهذه الشعبة؟" : "هل تعتمد حضور جميع الطلبة في هذه الشعبة؟")) return;
     busy = true;
-    const disabled = [form.elements.teacher, periodSelect, ...controls, find("submit")];
-    disabled.forEach(control => { control.disabled = true; });
+    el("controls").disabled = true;
     try{
-      await request("submit", {teacher, period, marks});
-      invite.captured.push(period);
-      for(const control of controls) control.value = "";
-      updateTally();
-      if(!renderPeriods()) message("تم اعتماد الرصد. يمكنك رصد حصة أخرى من القائمة.");
+      await request("submit", {...chosen, period: currentPeriod, marks});
+      roster.captured.push(currentPeriod);
+      clearMarks();
+      const hasMore = renderPeriods();
+      message(hasMore ? "تم اعتماد الرصد. يمكنك متابعة رصد الحصة التالية." :
+        Array.isArray(invite.classes) ? "تم اعتماد رصد هذه الشعبة. يمكنك اختيار شعبة أخرى." : "تم اعتماد الرصد.");
     }catch(error){
-      if(error.code === "link_unavailable") find("panel").hidden = true;
+      if(error.code === "link_unavailable") form.hidden = true;
       message(error.message, true, error.code === "already_submitted");
     }finally{
       busy = false;
-      disabled.forEach(control => { control.disabled = false; });
+      el("controls").disabled = false;
     }
   });
 
