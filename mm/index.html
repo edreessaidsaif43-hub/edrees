@@ -6,8 +6,8 @@
   <meta name="apple-mobile-web-app-capable" content="true">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#1e3a5f">
-  <meta name="description" content="نظام الحضور والتسرب المدرسي لجميع المدارس">
-  <title>نظام الحضور والتسرب المدرسي</title>
+  <meta name="description" content="بوابة رصد غياب الطلبة ومتابعة تقارير المدارس للمشتركين في التحضير الذكي">
+  <title>رصد غياب الطلبة | التحضير الذكي</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -844,6 +844,69 @@
       }
     }
 
+    .attendance-page { font-family: Tajawal, 'Segoe UI', Tahoma, sans-serif; }
+    .attendance-page .container { max-width: 1120px; }
+    .attendance-nav, .school-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .attendance-nav a, .school-toolbar a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: .4rem .7rem;
+      color: #164759;
+      text-decoration: underline;
+      text-underline-offset: .2em;
+      font-weight: 700;
+    }
+    .attendance-nav a:first-child { text-decoration: none; color: #142c43; }
+    .attendance-page .attendance-hero {
+      padding: clamp(1.5rem, 5vw, 3.25rem);
+      text-align: start;
+      background: linear-gradient(115deg, #102941, #174b53) !important;
+      border-color: #174b53 !important;
+      color: #ecf6fa;
+    }
+    .attendance-hero h1 { color: white !important; margin-block: .35rem .6rem; }
+    .attendance-hero p { max-width: 42rem; }
+    .attendance-hero .hero-school { color: #cae8e5; font-weight: 700; }
+    .attendance-gate { max-width: 38rem; margin-inline: auto; }
+    .attendance-gate h2, .school-section-title { color: #142c43; font-size: 1.3rem; }
+    .school-section-intro { margin-block: .35rem 1rem; color: #425970; }
+    .attendance-page :is(button, a, input, select):focus-visible {
+      outline: 3px solid #176f66; outline-offset: 3px;
+    }
+    .attendance-page .school-action {
+      width: auto; margin: 0; padding: .7rem 1rem;
+      min-height: 44px !important; background: #185d57 !important; box-shadow: none !important;
+    }
+    .attendance-page .school-secondary {
+      border: 1px solid #c4d4e1 !important; color: #142c43 !important; background: #fff !important;
+    }
+    .school-form-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; }
+    .school-form-fields label { margin-block-start: 0; }
+    .school-form-fields :is(select, input) { margin-block-end: 0; }
+    .school-record-controls { margin-block-start: 1rem; }
+    .attendance-page .school-record-controls button[data-record-mode] {
+      background: #eef4f8 !important; color: #14364a !important;
+      border: 1px solid #bdcad8 !important; box-shadow: none !important;
+    }
+    .attendance-page .school-record-controls button[aria-pressed="true"] {
+      background: #175b56 !important; color: #fff !important; border-color: #175b56 !important;
+    }
+    @media (max-width: 650px) {
+      .attendance-page .container { padding: 12px; }
+      .school-form-fields { grid-template-columns: 1fr; }
+      .school-record-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .school-record-controls button[type="submit"] { grid-column: 1 / -1; }
+    }
+    @media print { .attendance-nav, .school-toolbar { display: none !important; } }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation: none !important;
@@ -852,12 +915,17 @@
     }
   </style>
  </head>
- <body>
-  <div class="container">
-   <div class="header">
-    <h1>نظام الحضور والتسرب المدرسي<br>
-      <span id="appSchoolName">النظام العام - جميع المدارس</span></h1>
-   </div>
+ <body class="attendance-page">
+  <main class="container">
+   <nav class="attendance-nav" aria-label="التنقل الرئيسي">
+    <a href="../index.html">التحضير الذكي</a>
+    <a href="../school-services/index.html">الخدمات المدرسية</a>
+   </nav>
+   <header class="header attendance-hero">
+    <p class="hero-school" id="appSchoolName">بوابة المدارس</p>
+    <h1>رصد غياب الطلبة</h1>
+    <p>سجّل الحضور والغياب لكل حصة، وراجع تقارير الصفوف من لوحة إدارة المدرسة.</p>
+   </header>
    <div id="m"></div>
    <div id="progressOverlay">
     <div id="progressCard">
@@ -866,16 +934,14 @@
       <div id="progressBar"><div id="progressBarFill"></div></div>
     </div>
    </div>
-   <div class="card" id="publicGate">
-    <div style="text-align:center;margin-bottom:18px;">
-      <h3 style="margin:0;color:#0f172a;font-size:22px;font-weight:800;">بوابة المدارس</h3>
-      <p style="margin:8px 0 0 0;color:#475569;font-size:14px;">أدخل رمز مدرستك لفتح قوائمها</p>
-    </div>
-   <label>رمز المدرسة:</label>
-    <input id="schoolCodeInput" type="text" placeholder="مثال: JMIS" autocomplete="off" style="margin-bottom:14px;">
+   <section class="card attendance-gate" id="publicGate" aria-labelledby="school-gate-title">
+    <h2 id="school-gate-title">الدخول إلى المدرسة</h2>
+    <p class="school-section-intro">أدخل الرمز الذي زوّدتك به إدارة المدرسة لفتح قوائم الصفوف.</p>
+    <label for="schoolCodeInput">رمز المدرسة</label>
+    <input id="schoolCodeInput" type="text" autocomplete="off" dir="ltr" spellcheck="false" aria-describedby="schoolCodeMsg">
     <div id="schoolCodesHint" style="display:none;"></div>
-    <button type="button" onclick="enterSchoolByCodeWithLoader(this)" style="width:100%;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border:none;padding:16px;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">الدخول إلى المدرسة</button>
-    <div id="schoolCodeMsg" style="margin-top:12px;text-align:center;color:#b91c1c;min-height:20px;"></div>
+    <button class="school-action" type="button" onclick="enterSchoolByCodeWithLoader(this)">فتح بوابة المدرسة</button>
+    <div id="schoolCodeMsg" role="status" style="margin-top:12px;color:#b91c1c;"></div>
     <details id="schoolRequest">
       <summary>طلب إضافة مدرسة</summary>
       <form id="schoolRequestForm" method="post">
@@ -889,12 +955,15 @@
         <div id="schoolRequestStatus" role="status" aria-live="polite"></div>
       </form>
     </details>
-   </div>
+   </section>
    <div id="schoolPortal" style="display:none;">
-    <div style="display:flex;justify-content:flex-start;margin-bottom:10px;">
-      <button type="button" onclick="logout()" style="background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;border:none;padding:12px 16px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">🚪 تسجيل الخروج</button>
+    <div class="school-toolbar">
+      <button class="school-action school-secondary" type="button" onclick="logout()">تغيير المدرسة</button>
+      <a href="#school-management">إدارة المدرسة والتقارير</a>
     </div>
    <div class="card">
+    <h2 class="school-section-title">سجل الحضور والغياب</h2>
+    <p class="school-section-intro">حدّد الصف والحصة، ثم اختر حالة الحضور واحفظ الرصد.</p>
     <form id="f">
      <div id="schoolInternalControls" style="display:none;">
       <label>المدرسة:</label>
@@ -910,8 +979,9 @@
        <input id="customSchoolInput" type="text" placeholder="اكتب اسم المدرسة" autocomplete="organization">
       </div>
      </div>
-     <label>الصف:</label> <select id="c" required> <option>جاري التحميل...</option> </select>
-     <label>الحصة:</label>
+     <div class="school-form-fields">
+     <div><label for="c">الصف</label> <select id="c" required> <option>جاري التحميل...</option> </select></div>
+     <div><label for="absenceType">الحصة</label>
      <select id="absenceType" required>
       <option value="الحصة الأولى">الحصة الأولى</option>
       <option value="الحصة الثانية">الحصة الثانية</option>
@@ -921,21 +991,27 @@
       <option value="الحصة السادسة">الحصة السادسة</option>
       <option value="الحصة السابعة">الحصة السابعة</option>
       <option value="الحصة الثامنة">الحصة الثامنة</option>
-     </select>
-     <label>اسم المعلم:</label>
-     <input id="teacherName" type="text" placeholder="ادخل اسم المعلم" autocomplete="name" required>
+     </select></div>
+     <div><label for="teacherName">اسم المعلم</label>
+     <input id="teacherName" type="text" autocomplete="name" required></div>
+     </div>
      <div id="b" style="display:none">
      <div class="section-title" id="studentsLabel">
        الطالبات:
       </div>
       <div id="l"></div>
-      <div class="button-group"><button type="button" onclick="setRecordMode('absence')">❌ غياب</button> <button type="button" onclick="setRecordMode('dropout')">🚨 تسرب</button> <button type="button" onclick="setRecordMode('full_attendance')">✅ حضور كامل</button> <button type="button" onclick="setRecordMode('full_absence')">🚫 غياب كامل</button> <button>💾 حفظ</button>
+      <div class="button-group school-record-controls" role="group" aria-label="حالة الحضور">
+        <button type="button" data-record-mode="absence" aria-pressed="false" onclick="setRecordMode('absence')">غياب</button>
+        <button type="button" data-record-mode="dropout" aria-pressed="false" onclick="setRecordMode('dropout')">تسرب</button>
+        <button type="button" data-record-mode="full_attendance" aria-pressed="false" onclick="setRecordMode('full_attendance')">حضور كامل</button>
+        <button type="button" data-record-mode="full_absence" aria-pressed="false" onclick="setRecordMode('full_absence')">غياب كامل</button>
+        <button class="school-action" type="submit">حفظ الرصد</button>
       </div>
-      <div id="recordModeHint" style="margin-top:10px;color:#64748b;font-size:14px;">وضع التسجيل: اختر نوع التسجيل قبل الحفظ (غياب/تسرب/حضور كامل/غياب كامل)</div>
+      <div id="recordModeHint" role="status" style="margin-top:10px;color:#475569;">اختر حالة الحضور قبل الحفظ.</div>
      </div>
     </form>
    </div>
-   <hr>
+   <div id="school-management"></div>
    <div class="card" id="g">
     <div style="text-align: center; margin-bottom: 25px;">
      <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);"><span style="font-size: 36px; color: white;">🔐</span>
@@ -964,7 +1040,7 @@
    <div id="r"></div>
    </div>
    </div>
-  </div>
+  </main>
   <script>
     const DEFAULT_API_URL="https://script.google.com/macros/s/AKfycbxOtBFQE7LFg3yusOvdhiFWUBdXGCu5-n0uYR2AvhTfmOnq64lcSZx0mj8sxaMoizE9/exec";
     const LEGACY_API_URL="https://script.google.com/macros/s/AKfycbw_wR_dQ6GCg-qW2XHVFEhZIfcLV7LjhWuDzMdnz2iIrN3erKbR7fO1HE_D3MMWXrA3xw/exec";
@@ -1285,7 +1361,7 @@
 
     function updateSchoolBranding(){
       const schoolName=getSchoolDisplayName();
-        if($('appSchoolName')) $('appSchoolName').textContent=schoolName||'النظام العام - جميع المدارس';
+      if($('appSchoolName')) $('appSchoolName').textContent=schoolName||'بوابة المدارس';
       if($('loginSchoolHint')){
         const exp=(selectedSchoolConfig&&selectedSchoolConfig.expiresAt)?formatDateTime(selectedSchoolConfig.expiresAt):'غير محدد';
         $('loginSchoolHint').textContent=`المدرسة الحالية: ${schoolName} | ينتهي التفعيل: ${exp}`;
@@ -1297,7 +1373,7 @@
       if($('publicGate')) $('publicGate').style.display='block';
       if($('schoolPortal')) $('schoolPortal').style.display='none';
       if($('schoolCodeMsg')) $('schoolCodeMsg').textContent='';
-      if($('appSchoolName')) $('appSchoolName').textContent='النظام العام - جميع المدارس';
+      if($('appSchoolName')) $('appSchoolName').textContent='بوابة المدارس';
       if($('adminPanelCard')) $('adminPanelCard').style.display='none';
       adminSessionOpen=false;
     }
@@ -2321,6 +2397,13 @@
         recordMode='';
         if($('recordModeHint')) $('recordModeHint').textContent='وضع التسجيل: اختر نوع التسجيل قبل الحفظ (غياب/تسرب/حضور كامل/غياب كامل)';
       }
+      updateRecordModeButtons();
+    }
+
+    function updateRecordModeButtons(){
+      document.querySelectorAll('[data-record-mode]').forEach(button => {
+        button.setAttribute('aria-pressed', String(modePicked && button.dataset.recordMode === recordMode));
+      });
     }
 
     f.onsubmit=async e=>{
@@ -2455,6 +2538,7 @@
         $('absenceType').value='الحصة الأولى';
         recordMode='';
         modePicked=false;
+        updateRecordModeButtons();
         if($('recordModeHint')) $('recordModeHint').textContent='وضع التسجيل: اختر نوع التسجيل قبل الحفظ (غياب/تسرب/حضور كامل/غياب كامل)';
         b.style.display='block';
         l.innerHTML='<div style="padding:10px;color:#64748b;">يمكنك الآن اختيار "تسرب" لتسجيل التسرب حتى بعد تسجيل كل الصفوف.</div>';
