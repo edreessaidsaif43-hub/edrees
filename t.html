@@ -1160,7 +1160,7 @@ function getCachedCsv() {
       return null;
     }
 
-    function hydrateDataFromCsv(csvText) {
+    function hydrateDataFromCsv(csvText, parseCSVText) {
       const rows = parseCSVText(csvText);
       if (rows.length < 2) throw new Error('لا توجد بيانات');
 
@@ -1246,16 +1246,12 @@ function getCachedCsv() {
           updateConnectionStatus('online', 'جاهز - ' + D.length + ' درس');
           return;
         }
-        const urls = [
-          "https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ/export?format=csv&gid=0",
-          "https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ/export?format=csv",
-          "https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ/pub?gid=0&single=true&output=csv"
-        ];
+        const { legacyLessonCsvUrls: urls, parseCSVText } = await import('./assets/manual-lesson-legacy.js');
         
         const cachedCsv = getCachedCsv();
         if (cachedCsv && isLiteMode) {
           try {
-            hydrateDataFromCsv(cachedCsv);
+            hydrateDataFromCsv(cachedCsv, parseCSVText);
             await refreshSubscriptionStatus();
             applySubscriptionToGrades();
 
@@ -1300,7 +1296,7 @@ function getCachedCsv() {
           throw new Error('فشل التحميل - تأكد من الاتصال');
         }
 
-        hydrateDataFromCsv(csvText);
+        hydrateDataFromCsv(csvText, parseCSVText);
         setCachedCsv(csvText);
         await refreshSubscriptionStatus();
         applySubscriptionToGrades();
@@ -1312,52 +1308,6 @@ function getCachedCsv() {
         updateConnectionStatus('offline', 'تعذّر جلب الدروس. حدّث الصفحة للمحاولة مجددًا.');
         showMessage('خطأ: ' + error.message, 'error');
       }
-    }
-    
-    function parseCSVText(csvText) {
-      const rows = [];
-      let currentRow = [];
-      let currentCell = '';
-      let inQuotes = false;
-      let i = 0;
-      
-      while (i < csvText.length) {
-        const char = csvText[i];
-        const nextChar = csvText[i + 1];
-        
-        if (char === '"') {
-          if (inQuotes && nextChar === '"') {
-            currentCell += '"';
-            i += 2;
-          } else {
-            inQuotes = !inQuotes;
-            i++;
-          }
-        } else if (char === ',' && !inQuotes) {
-          currentRow.push(currentCell.trim().replace(/^"|"$/g, ''));
-          currentCell = '';
-          i++;
-        } else if ((char === '\n' || char === '\r') && !inQuotes) {
-          if (currentCell.trim() || currentRow.length > 0) {
-            currentRow.push(currentCell.trim().replace(/^"|"$/g, ''));
-            if (currentRow.some(c => c.length > 0)) rows.push(currentRow);
-            currentRow = [];
-            currentCell = '';
-          }
-          if (char === '\r' && nextChar === '\n') i += 2;
-          else i++;
-        } else {
-          currentCell += char;
-          i++;
-        }
-      }
-      
-      if (currentCell.trim() || currentRow.length > 0) {
-        currentRow.push(currentCell.trim().replace(/^"|"$/g, ''));
-        if (currentRow.some(c => c.length > 0)) rows.push(currentRow);
-      }
-      
-      return rows;
     }
     
     function updateSubjects() {
