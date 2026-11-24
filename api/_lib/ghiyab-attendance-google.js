@@ -2,10 +2,12 @@ import { createSign, randomInt, randomUUID } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 
 const tabTitle = "سجل الغياب";
+const portalTabTitle = "سجل رصد المعلمين";
 const columns = [
   "معرّف الرصد", "التاريخ", "الصف والشعبة", "الحصة", "المعلم",
   "الغائبون", "الغائبون بعذر", "المتأخرون", "وقت الاعتماد", "عدد طلبة الشعبة"
 ];
+const portalColumns = [...columns, "المتسربون", "حالة الرصد"];
 const tokenUrl = "https://oauth2.googleapis.com/token";
 const sheetScope = "https://www.googleapis.com/auth/spreadsheets";
 const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || "";
@@ -78,6 +80,13 @@ export function linkedSpreadsheet(ownerId, exportUrl) {
   return result.reason ? null : result.spreadsheetId;
 }
 
+export function schoolSpreadsheetUrl(value) {
+  const input = typeof value === "string" ? value.trim() : "";
+  return googleExportUrl(/^[A-Za-z0-9_-]{2,160}$/.test(input)
+    ? "https://docs.google.com/spreadsheets/d/" + input + "/edit"
+    : input);
+}
+
 function encode(value) { return Buffer.from(JSON.stringify(value)).toString("base64url"); }
 async function googleToken(signal) {
   if(tokenCache && tokenCache.expiresAt > Date.now() + 60000) return tokenCache.value;
@@ -123,15 +132,15 @@ async function tabs(id, signal) {
   return (data.sheets || []).map(sheet => sheet.properties);
 }
 
-export async function checkGoogleAttendanceAccess(id) {
+export async function checkGoogleAttendanceAccess(id, portal = false) {
   const sheets = await tabs(id, AbortSignal.timeout(7500));
-  const log = sheets.find(sheet => sheet.title === tabTitle);
+  const log = sheets.find(sheet => sheet.title === (portal ? portalTabTitle : tabTitle));
   return {url:log ? "https://docs.google.com/spreadsheets/d/" + id + "/edit#gid=" + log.sheetId : ""};
 }
 
 export async function readPrivateRoster(id, exportUrl) {
   const signal = AbortSignal.timeout(15000);
-  const list = (await tabs(id, signal)).filter(sheet => !sheet.hidden && ![tabTitle, "store"].includes(sheet.title));
+  const list = (await tabs(id, signal)).filter(sheet => !sheet.hidden && ![tabTitle, portalTabTitle, "store"].includes(sheet.title));
   const gid = exportUrl.searchParams.get("gid");
   const tab = gid == null ? list[0] : list.find(sheet => String(sheet.sheetId) === gid);
   if(!tab) throw error("sheet_or_tab_not_found");
@@ -146,30 +155,30 @@ export async function readPrivateRoster(id, exportUrl) {
   return rows.map(row => row.map(value => '"' + String(value ?? "").replaceAll('"', '""') + '"').join(",")).join("\r\n");
 }
 
-async function logTab(id, signal) {
-  let existing = (await tabs(id, signal)).find(sheet => sheet.title === tabTitle);
+async function logTab(id, title, header, signal) {
+  let existing = (await tabs(id, signal)).find(sheet => sheet.title === title);
   if(existing) return existing;
   const sheetId = randomInt(1, 2000000000);
   try{
     await google(id, ":batchUpdate", {method:"POST", signal, body:{requests:[
-      {addSheet:{properties:{sheetId, title:tabTitle, rightToLeft:true, gridProperties:{rowCount:1000, columnCount:10, frozenRowCount:1}}}},
+      {addSheet:{properties:{sheetId, title, rightToLeft:true, gridProperties:{rowCount:1000, columnCount:header.length, frozenRowCount:1}}}},
       {updateCells:{start:{sheetId, rowIndex:0, columnIndex:0},
-        rows:[{values:columns.map(name => ({userEnteredValue:{stringValue:name}, userEnteredFormat:{textFormat:{bold:true}}}))}],
+        rows:[{values:header.map(name => ({userEnteredValue:{stringValue:name}, userEnteredFormat:{textFormat:{bold:true}}}))}],
         fields:"userEnteredValue,userEnteredFormat.textFormat"}},
       {updateDimensionProperties:{range:{sheetId, dimension:"COLUMNS", startIndex:0, endIndex:1}, properties:{hiddenByUser:true}, fields:"hiddenByUser"}},
       {repeatCell:{range:{sheetId, startColumnIndex:5, endColumnIndex:8},
         cell:{userEnteredFormat:{wrapStrategy:"WRAP"}}, fields:"userEnteredFormat.wrapStrategy"}}
     ]}});
-    return {sheetId, title:tabTitle, gridProperties:{rowCount:1000}};
+    return {sheetId, title, gridProperties:{rowCount:1000}};
   }catch(failure){
     if(failure.googleStatus !== 400) throw failure;
-    existing = (await tabs(id, signal)).find(sheet => sheet.title === tabTitle);
+    existing = (await tabs(id, signal)).find(sheet => sheet.title === title);
     if(existing) return existing;
     throw failure;
   }
 }
 
-function attendanceRows(entries) {
+function attendanceRows(entries, workspace) {
   if(!Array.isArray(entries) || entries.length < 1 || entries.length > 40) throw error("attendance_invalid");
   const result = new Map();
   for(const row of entries){
@@ -186,9 +195,17 @@ function attendanceRows(entries) {
       if(list.length > 49000) throw error("attendance_invalid");
       return list;
     };
-    const key = date + "|" + Buffer.from(classId).toString("base64url") + "|" + period;
+    const identity = workspace ? JSON.stringify([workspace, classId]) : classId;
+    const key = date + "|" + Buffer.from(identity).toString("base64url") + "|" + period;
     const values = [key, date, className, period === 0 ? "اليوم" : "الحصة " + period, plain(row.teacher, 100),
       people("absent"), people("excused"), people("late"), at, row.total];
+    if(workspace){
+      const dropout = people("dropout");
+      const status = dropout ? "تسرب"
+        : row.absent.length === row.total && row.total > 0 ? "غياب كامل"
+        : values[5] || values[6] || values[7] ? "حالات حضور وغياب" : "حضور كامل";
+      values.push(dropout, status);
+    }
     if(!result.has(key) || Date.parse(result.get(key)[8]) <= isoTime) result.set(key, values);
   }
   return result;
@@ -214,17 +231,20 @@ async function acquire(id) {
   return lease;
 }
 
-export async function saveGoogleAttendance(id, entries) {
-  const rows = attendanceRows(entries);
+export async function saveGoogleAttendance(id, entries, {workspace = ""} = {}) {
+  const rows = attendanceRows(entries, workspace);
+  const title = workspace ? portalTabTitle : tabTitle;
+  const header = workspace ? portalColumns : columns;
+  const lastColumn = workspace ? "L" : "J";
   const lease = await acquire(id);
   const signal = AbortSignal.timeout(22000);
   try{
-    const sheet = await logTab(id, signal);
-    const prefix = quoteTab(tabTitle) + "!";
+    const sheet = await logTab(id, title, header, signal);
+    const prefix = quoteTab(title) + "!";
     const query = new URLSearchParams();
-    for(const range of ["A1:J1", "A:A", "I:I"]) query.append("ranges", prefix + range);
+    for(const range of ["A1:" + lastColumn + "1", "A:A", "I:I"]) query.append("ranges", prefix + range);
     const current = (await google(id, "/values:batchGet?" + query, {signal})).valueRanges || [];
-    if(JSON.stringify(current[0]?.values?.[0]) !== JSON.stringify(columns)) throw error("attendance_tab_conflict");
+    if(JSON.stringify(current[0]?.values?.[0]) !== JSON.stringify(header)) throw error("attendance_tab_conflict");
     const keys = current[1]?.values || [], dates = current[2]?.values || [];
     const occupied = new Map();
     for(let index = 1; index < keys.length; index++){
@@ -239,7 +259,7 @@ export async function saveGoogleAttendance(id, entries) {
       const previous = occupied.get(key);
       const number = previous || ++lastRow;
       if(previous && Date.parse(dates[previous - 1]?.[0]) > Date.parse(values[8])) continue;
-      data.push({range:prefix + "A" + number + ":J" + number, values:[values]});
+      data.push({range:prefix + "A" + number + ":" + lastColumn + number, values:[values]});
     }
     if(data.length){
       const gridRows = Number(sheet.gridProperties?.rowCount || 1000);

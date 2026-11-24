@@ -68,7 +68,7 @@ export function createManualLessonHandler(sql, fetcher = fetch) {
     res.setHeader('Cache-Control', 'no-store');
     const add = action === 'manualLessonAdd';
     const upload = ['manualUploadBegin','manualUploadBatch','manualUploadCommit','manualUploadAppend','manualUploadCancel'].includes(action);
-    if (!upload && !add && !['manualLessonImport','manualLessonInfo','manualLessonCatalog','manualLessonRows'].includes(action)) return fail(404, 'العملية غير متاحة.');
+    if (!upload && !add && !['manualLessonImport','manualLessonInfo','manualLessonCatalog','manualLessonRows','manualLessonSubjects'].includes(action)) return fail(404, 'العملية غير متاحة.');
     if ((upload || add || action === 'manualLessonImport' || action === 'manualLessonInfo') && !isAdmin) return fail(401, 'سجّل الدخول إلى لوحة الإدارة أولًا.');
     if (req.method !== (upload || add || action === 'manualLessonImport' ? 'POST' : 'GET')) return fail(405, 'العملية غير متاحة.');
     await ensure();
@@ -234,6 +234,16 @@ export function createManualLessonHandler(sql, fetcher = fetch) {
     if (action === 'manualLessonInfo') {
       const [source] = await sql`SELECT total, published_at FROM manual_lesson_source WHERE singleton`;
       return res.status(200).json({ success: true, source: source || null });
+    }
+    if (action === 'manualLessonSubjects') {
+      const subjects = await sql`
+        SELECT BTRIM(rows.cells->>0) AS grade, BTRIM(rows.cells->>1) AS subject
+        FROM manual_lesson_source AS source
+        JOIN manual_lesson_rows AS rows ON rows.version = source.version
+        WHERE source.singleton AND BTRIM(rows.cells->>0) <> '' AND BTRIM(rows.cells->>1) <> ''
+        GROUP BY 1, 2
+        ORDER BY MIN(rows.position)`;
+      return res.status(200).json({ success: true, subjects });
     }
     const requested = String(req.query?.version || '');
     if (requested && !/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(requested)) return fail(400, 'إصدار البيانات غير صحيح.');

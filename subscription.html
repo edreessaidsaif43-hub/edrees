@@ -53,26 +53,87 @@
         <div class="login-note" id="subscription-login-note"><span id="subscription-login-text">لإرسال الإيصال يجب تسجيل الدخول أولًا.</span><button class="login-action" id="subscription-login-action" type="button" onclick="goUnifiedAuth('login')">تسجيل الدخول / إنشاء حساب</button></div>
         <div class="subscription-text" id="subscription-text">بعد التحويل إلى <span class="transfer-number">91470590</span> اختر الصف والمواد ثم ارفع صورة الإيصال. الاشتراك ينتهي في 10/06 من كل سنة.</div>
         <div class="subscription-form">
-          <div><label for="subscription-grade">الخطوة 2: اختر الصف</label><select id="subscription-grade" onchange="fillSubscriptionSubjectOptions()"></select></div>
+          <div><label for="subscription-grade">الخطوة 2: اختر الصف</label><select id="subscription-grade" onchange="fillSubscriptionSubjectOptions()" disabled><option value="">جارٍ تحميل الصفوف…</option></select></div>
           <div><label for="subscription-subject">الخطوة 2: اختر المواد المطلوبة</label><select id="subscription-subject" multiple></select></div>
           <div class="subscription-amount" id="subscription-amount">قيمة الاشتراك: 2 ريال عماني لكل مادة</div>
           <div><label for="subscription-receipt">الخطوة 4: ارفع صورة الإيصال</label><input id="subscription-receipt" type="file" accept="image/*"></div>
-          <button type="button" id="subscription-submit" onclick="submitSubscriptionRequest()">إرسال الإيصال للمراجعة</button>
+          <button type="button" id="subscription-submit" onclick="submitSubscriptionRequest()" disabled>إرسال الإيصال للمراجعة</button>
+          <div class="subscription-status">
+            <span id="subscription-catalog-status" role="status">جارٍ تحميل قائمة المواد…</span>
+            <button type="button" id="subscription-catalog-retry" hidden>إعادة تحميل المواد</button>
+          </div>
           <div class="subscription-status" id="subscription-status">سجل الدخول ثم أرسل الإيصال ليتم تفعيل المادة.</div>
         </div>
       </div>
     </section>
   </main>
   <div id="notice" class="notice" role="status" aria-live="polite"></div>
-  <script src="game/rihlat-almarifa/data/index.js"></script>
   <script>
-    const D = (window.__BANK?.index || []).flatMap(grade => grade.subjects.map(subject => ({'1':'الصف '+grade.n,'2':subject})));
+    let D = [];
     window.goToUnifiedLogin = () => window.goUnifiedAuth?.('login');
     window.showMessage = (text) => { const notice=document.getElementById('notice'); if(notice){ notice.textContent=String(text||''); clearTimeout(window.__noticeTimer); window.__noticeTimer=setTimeout(()=>{notice.textContent='';},4200); } };
   </script>
   <script src="game/subscriptions.js?v=subscription-page"></script>
   <script src="assets/site-navbar.js?v=5"></script>
   <script>
+    let catalogLoading = false;
+    const subscriptionStatusReady = Promise.resolve(window.portalSessionReady).then(refreshSubscriptionStatus);
+
+    async function fetchCatalog(url, read){
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+      try{
+        const response = await fetch(url, { cache:'no-store', signal:controller.signal });
+        if(!response.ok) throw Error('تعذّر تحميل قائمة المواد.');
+        return await read(response);
+      }finally{
+        clearTimeout(timeout);
+      }
+    }
+
+    async function loadLegacySubjects(){
+      const {legacyLessonCsvUrls, parseCSVText} = await import('./assets/manual-lesson-legacy.js');
+      for(const url of legacyLessonCsvUrls){
+        try{
+          const csv = await fetchCatalog(url, response => response.text());
+          const subjects = parseCSVText(csv).slice(1).filter(([grade, subject]) => grade && subject)
+            .map(([grade, subject]) => ({grade, subject}));
+          if(subjects.length) return subjects;
+        }catch{}
+      }
+      return [];
+    }
+
+    async function loadSubscriptionCatalog(){
+      if(catalogLoading) return;
+      catalogLoading = true;
+      const status = document.getElementById('subscription-catalog-status');
+      const retry = document.getElementById('subscription-catalog-retry');
+      const gradeSelect = document.getElementById('subscription-grade');
+      const submit = document.getElementById('subscription-submit');
+      status.textContent = 'جارٍ تحميل قائمة المواد…';
+      retry.hidden = true;
+      try{
+        const data = await fetchCatalog(subscriptionApiUrl('/api/edu?action=manualLessonSubjects'), response => response.json());
+        if(!data.success || !Array.isArray(data.subjects)) throw Error('استجابة قائمة المواد غير صحيحة.');
+        const subjects = data.subjects.length ? data.subjects : await loadLegacySubjects();
+        D = subjects.filter(item => item && typeof item.grade === 'string' && item.grade.trim()
+          && typeof item.subject === 'string' && item.subject.trim())
+          .map(({grade, subject}) => ({'1':grade.trim(), '2':subject.trim()}));
+        if(!D.length) throw Error('لا توجد مواد متاحة.');
+        await subscriptionStatusReady;
+        fillSubscriptionGradeOptions(uniqueSubscriptionGrades(D.map(row => row['1'])));
+        gradeSelect.disabled = submit.disabled = false;
+        status.textContent = '';
+      }catch{
+        gradeSelect.options[0].textContent = 'تعذّر تحميل الصفوف';
+        status.textContent = 'تعذّر تحميل قائمة المواد من بنك الدروس.';
+        retry.hidden = false;
+      }finally{
+        catalogLoading = false;
+      }
+    }
+
     function updateSubscriptionLoginNote(){
       const note=document.getElementById('subscription-login-note');
       const text=document.getElementById('subscription-login-text');
@@ -94,9 +155,8 @@
       }
     }
     (function(){
-      const grades = [...new Set(D.map(row => row['1']).filter(Boolean))];
-      fillSubscriptionGradeOptions(grades);
-      refreshSubscriptionStatus();
+      document.getElementById('subscription-catalog-retry').addEventListener('click', loadSubscriptionCatalog);
+      void loadSubscriptionCatalog();
       updateSubscriptionLoginNote();
       const noteObserver=new MutationObserver(updateSubscriptionLoginNote);
       const navUser=document.getElementById('nav-user-area');

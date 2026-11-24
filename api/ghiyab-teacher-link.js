@@ -2,7 +2,10 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 import { isTeacherSessionOrigin, readTeacherSession } from "../enjazy/server_api/_lib/teacher-session.js";
 import { readPreparationSubscription } from "./subscriptions.js";
-import { googleExportUrl, linkedSpreadsheet, saveGoogleAttendance } from "./_lib/ghiyab-attendance-google.js";
+import {
+  attendanceBinding, checkGoogleAttendanceAccess, googleExportUrl, linkedSpreadsheet,
+  saveGoogleAttendance, schoolSpreadsheetUrl
+} from "./_lib/ghiyab-attendance-google.js";
 
 const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || "";
 const tokenPattern = /^[A-Za-z0-9_-]{43}$/;
@@ -72,11 +75,12 @@ function validPeriod(period, periodCount) {
 function makeRecord(body, invite, selected, teacher) {
   const roster = invite.roster;
   const period = body.period;
-  if(!teacher || teacher.length < 3 || !validPeriod(period, roster.periods) ||
+  const portal = isSchoolPortal(invite.workspace_id);
+  if(!teacher || teacher.length < (portal ? 2 : 3) || !validPeriod(period, roster.periods) ||
     !selected.students.length || !Array.isArray(body.marks) || body.marks.length > selected.students.length) return null;
 
   const used = new Set();
-  const categories = {a: [], e: [], l: []};
+  const categories = portal ? {a: [], e: [], l: [], d: []} : {a: [], e: [], l: []};
   for(const mark of body.marks){
     if(!isObject(mark) || !Number.isInteger(mark.key) || mark.key < 0 || mark.key >= selected.students.length ||
       used.has(mark.key) || !Object.hasOwn(categories, mark.status)) return null;
@@ -86,7 +90,10 @@ function makeRecord(body, invite, selected, teacher) {
   }
   return {
     date: invite.date, classId: selected.id, className: selected.className, grade: selected.grade,
-    periods: {[period]: {teacher, absent: categories.a, excused: categories.e, late: categories.l, total: selected.students.length}}
+    periods: {[period]: {
+      teacher, absent: categories.a, excused: categories.e, late: categories.l,
+      ...(portal ? {dropout: categories.d} : {}), total: selected.students.length
+    }}
   };
 }
 
@@ -170,6 +177,18 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
     return linkedSpreadsheet(ownerId, new URL("https://docs.google.com/spreadsheets/d/" + id + "/export"));
   }
 
+  async function approvedSchoolSheet(ownerId, value){
+    const binding = attendanceBinding(ownerId, schoolSpreadsheetUrl(value));
+    if(binding.reason) return {error:binding.reason, status:409};
+    try{
+      await checkGoogleAttendanceAccess(binding.spreadsheetId, true);
+      return {id:binding.spreadsheetId};
+    }catch(failure){
+      const code = failure?.code || "attendance_google_unavailable";
+      return {error:code, status:code === "attendance_sheet_permission" ? 409 : 503};
+    }
+  }
+
   async function syncReceipts(ownerId, workspace, receipts) {
     if(!receipts.length) return "not_linked";
     if(receipts.every(receipt => receipt.sheetSaved)) return "saved";
@@ -177,34 +196,41 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
     const eligible = waiting.filter(receipt => receipt.record && currentSheetId(ownerId, receipt.sheetId));
     if(!eligible.length) return waiting.length ? "pending" : "not_linked";
     const target = eligible[0].sheetId;
-    const entries = eligible.map(({period, record, submittedAt}) => {
-      const data = record.periods[period];
-      return {
-        date:record.date, classId:record.classId, className:record.className, period:Number(period),
-        teacher:data.teacher, at:new Date(submittedAt).toISOString(), total:data.total,
-        absent:data.absent.map(student => student.n),
-        excused:data.excused.map(student => student.n),
-        late:data.late.map(student => student.n)
-      };
-    });
+    const batch = eligible.filter(receipt => receipt.sheetId === target);
+    let entries;
+    try{
+      entries = batch.map(({period, record, submittedAt}) => {
+        const data = record.periods[period];
+        return {
+          date:record.date, classId:record.classId, className:record.className, period:Number(period),
+          teacher:data.teacher, at:new Date(submittedAt).toISOString(), total:data.total,
+          absent:data.absent.map(student => student.n),
+          excused:data.excused.map(student => student.n),
+          late:data.late.map(student => student.n),
+          dropout:(data.dropout || []).map(student => student.n)
+        };
+      });
+    }catch{
+      return "pending";
+    }
 
     for(const delay of [0, 500, 1000, 1500]){
       if(delay) await new Promise(resolve => setTimeout(resolve, delay));
       try{
-        await saveGoogleAttendance(target, entries);
+        await saveGoogleAttendance(target, entries, {workspace:isSchoolPortal(workspace) ? workspace : ""});
       }catch(failure){
         if(failure?.code === "attendance_sheet_busy") continue;
         return "pending";
       }
       try{
-        const ids = eligible.map(receipt => receipt.id);
+        const ids = batch.map(receipt => receipt.id);
         await sql`UPDATE ghiyab_teacher_receipts SET google_synced_at = NOW()
           WHERE owner_id = ${ownerId} AND workspace_id = ${workspace}
           AND google_sheet_id = ${target} AND id = ANY(${ids}::text[]);`;
       }catch{
         // Google accepted the write. The next attempt can update the same rows.
       }
-      return eligible.length === waiting.length ? "saved" : "pending";
+      return batch.length === waiting.length ? "saved" : "pending";
     }
     return "pending";
   }
@@ -213,24 +239,31 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
     const invite = await resolveInvite(body.token);
     if(!invite) return fail(404, "link_unavailable");
     const roster = invite.roster;
+    const portal = isSchoolPortal(invite.workspace_id);
     const schoolLink = Array.isArray(roster.classes);
     const {school, periods} = roster;
     if(schoolLink && body.action === "view"){
       return res.status(200).json({
         school, date: invite.date, periods, teachers: roster.teachers,
-        ...(isSchoolPortal(invite.workspace_id) ? {teacher:label(identity?.name, 100)} : {}),
+        ...(portal ? {teacher:label(identity?.name, 100)} : {}),
         classes: roster.classes.map(({className, grade, section}, key) => ({className, grade, section, key}))
       });
     }
 
     const selected = schoolLink ? selectionAt(roster.classes, body.classKey) : {...roster, id: invite.class_id};
-    const teacher = isSchoolPortal(invite.workspace_id) ? label(identity?.name, 100)
+    const submittedName = portal && body.action === "submit" && Object.hasOwn(body, "teacher");
+    const teacher = portal
+      ? (submittedName ? (typeof body.teacher === "string" ? body.teacher.trim() : "") : label(identity?.name, 100))
       : schoolLink ? selectionAt(roster.teachers, body.teacherKey) : label(body.teacher, 100);
-    if(!selected || (schoolLink && !teacher)) return fail(400, "invalid_selection");
+    if(!selected || (!portal && schoolLink && !teacher)) return fail(400, "invalid_selection");
+    if(portal && body.action === "submit" && (teacher.length < 2 || teacher.length > 100 || /[\u0000-\u001f\u007f]/.test(teacher))) {
+      return fail(400, "invalid_teacher_name");
+    }
     if(body.action === "view" || body.action === "roster"){
       const captured = await sql`
         SELECT period, google_sheet_id AS "sheetId", google_synced_at IS NOT NULL AS "sheetSaved",
-          record #>> ARRAY['periods', period::text, 'teacher'] AS teacher
+          record #>> ARRAY['periods', period::text, 'teacher'] AS teacher,
+          record #>> ARRAY['periods', period::text, 'submittedBy'] AS "submittedBy"
         FROM ghiyab_teacher_receipts WHERE owner_id = ${invite.owner_id}
         AND workspace_id = ${invite.workspace_id}
         AND class_id = ${selected.id} AND attendance_date = ${invite.date}::date;`;
@@ -240,12 +273,16 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
         captured: captured.map(row => Number(row.period)),
         savedSheets: captured.filter(row => row.sheetSaved).map(row => Number(row.period)),
         pendingSheets: captured.filter(row => row.sheetId &&
-          row.sheetId === roster.attendanceSheetId && !row.sheetSaved && row.teacher === teacher).map(row => Number(row.period))
+          row.sheetId === roster.attendanceSheetId && !row.sheetSaved &&
+          (portal ? Boolean(identity?.id) && row.submittedBy === identity.id : row.teacher === teacher)).map(row => Number(row.period))
       });
     }
 
+    if(portal && body.date && body.date !== invite.date) return fail(409, "date_changed");
     if(body.action === "sync_sheet"){
-      if(!teacher || teacher.length < 3 || !validPeriod(body.period, periods)) return fail(400, "invalid_attendance");
+      if(!(portal ? identity?.id : teacher && teacher.length >= 3) || !validPeriod(body.period, periods)) {
+        return fail(400, "invalid_attendance");
+      }
       const [receipt] = await sql`
         SELECT id, period, record, submitted_at AS "submittedAt", google_sheet_id AS "sheetId",
           google_synced_at IS NOT NULL AS "sheetSaved"
@@ -253,36 +290,37 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
         AND workspace_id = ${invite.workspace_id} AND class_id = ${selected.id}
         AND attendance_date = ${invite.date}::date AND period = ${body.period};`;
       if(!receipt?.sheetId || receipt.sheetId !== roster.attendanceSheetId) return fail(409, "sheet_receipt_unavailable");
+      const savedPeriod = receipt.record?.periods?.[body.period];
+      const authorized = portal ? savedPeriod?.submittedBy === identity.id : savedPeriod?.teacher === teacher;
+      if(!authorized) return fail(409, "sheet_receipt_unavailable");
       if(receipt.sheetSaved) return res.status(200).json({saved:true, sheetStatus:"saved"});
-      if(receipt.record?.periods?.[body.period]?.teacher !== teacher) return fail(409, "sheet_receipt_unavailable");
       const sheetStatus = await syncReceipts(invite.owner_id, invite.workspace_id, [receipt]);
       return res.status(200).json({saved:true, sheetStatus});
     }
 
-    if(isSchoolPortal(invite.workspace_id) && body.date && body.date !== invite.date) {
-      return fail(409, "date_changed");
-    }
     const record = makeRecord(body, invite, selected, teacher);
     if(!record) return fail(400, "invalid_attendance");
-    const sheetId = roster.attendanceSheetId || null;
+    if(portal && identity?.id) record.periods[body.period].submittedBy = identity.id;
     const [written] = await sql`
       WITH eligible AS (
-        SELECT owner_id, workspace_id FROM ghiyab_teacher_links
+        SELECT owner_id, workspace_id, roster->>'attendanceSheetId' AS google_sheet_id
+        FROM ghiyab_teacher_links
         WHERE token_hash = ${invite.tokenHash} AND expires_at > NOW()
         FOR UPDATE
       ), receipt AS (
         INSERT INTO ghiyab_teacher_receipts (id, owner_id, workspace_id, class_id, attendance_date, period, record, google_sheet_id)
         SELECT ${randomUUID()}, owner_id, workspace_id, ${selected.id}, ${invite.date}::date,
-          ${body.period}, ${JSON.stringify(record)}::jsonb, ${sheetId} FROM eligible
+          ${body.period}, ${JSON.stringify(record)}::jsonb, google_sheet_id FROM eligible
         ON CONFLICT (owner_id, workspace_id, class_id, attendance_date, period) DO NOTHING
-        RETURNING id, submitted_at
+        RETURNING id, submitted_at, google_sheet_id
       )
       SELECT EXISTS (SELECT 1 FROM eligible) AS active,
-        (SELECT id FROM receipt) AS id, (SELECT submitted_at FROM receipt) AS "submittedAt";`;
+        (SELECT id FROM receipt) AS id, (SELECT submitted_at FROM receipt) AS "submittedAt",
+        (SELECT google_sheet_id FROM receipt) AS "sheetId";`;
     if(!written?.active) return fail(404, "link_unavailable");
     if(!written.id) return fail(409, "already_submitted");
     const sheetStatus = await syncReceipts(invite.owner_id, invite.workspace_id, [{
-      id:written.id, period:body.period, record, submittedAt:written.submittedAt, sheetId
+      id:written.id, period:body.period, record, submittedAt:written.submittedAt, sheetId:written.sheetId
     }]);
     return res.status(200).json({saved:true, sheetStatus});
   }
@@ -303,7 +341,9 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
     if(!body) return fail(400, "invalid_request");
     try {
       const teacherRequest = ["view", "roster", "submit", "sync_sheet"].includes(body.action);
-      if(!teacherRequest && !["create", "links", "revoke", "pending", "ack", "reports"].includes(body.action)) return fail(400, "invalid_request");
+      if(!teacherRequest && !["create", "links", "revoke", "pending", "ack", "reports", "connect_school_sheet"].includes(body.action)) {
+        return fail(400, "invalid_request");
+      }
       const session = await readSession(req, res);
       if(!session) return fail(401, "sign_in_required");
       const access = await readSubscription(session.userId);
@@ -313,11 +353,45 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
       if(!validId(body.workspace)) return fail(400, "invalid_request");
       const workspace = body.workspace;
       const portal = isSchoolPortal(workspace);
-      if(portal && body.action === "create" && Date.now() >= Date.parse(schoolPortalCutoff)) {
+      if(portal && ["create", "connect_school_sheet"].includes(body.action) && Date.now() >= Date.parse(schoolPortalCutoff)) {
         return fail(403, "school_activation_expired");
       }
       if(portal && ["ack", "pending"].includes(body.action)) return fail(400, "invalid_request");
       await ensureSchema();
+      if(body.action === "connect_school_sheet"){
+        if(!portal) return fail(400, "invalid_request");
+        const [active] = await sql`
+          SELECT token_hash AS "tokenHash", roster->>'attendanceSheetId' AS "sheetId"
+          FROM ghiyab_teacher_links
+          WHERE owner_id = ${ownerId} AND workspace_id = ${workspace}
+            AND class_id = ${schoolLinkId} AND expires_at > NOW()
+          ORDER BY expires_at DESC LIMIT 1;`;
+        if(!active) return fail(404, "no_active_school_link");
+        const sheet = await approvedSchoolSheet(ownerId, body.sheetUrl);
+        if(sheet.error) return fail(sheet.status, sheet.error);
+        if(active.sheetId && active.sheetId !== sheet.id) return fail(409, "school_link_sheet_changed");
+        const [connected] = await sql`
+          UPDATE ghiyab_teacher_links
+          SET roster = jsonb_set(roster, '{attendanceSheetId}', to_jsonb(${sheet.id}::text))
+          WHERE token_hash = ${active.tokenHash} AND owner_id = ${ownerId}
+            AND workspace_id = ${workspace} AND expires_at > NOW()
+            AND (roster->>'attendanceSheetId' IS NULL OR roster->>'attendanceSheetId' = ${sheet.id})
+          RETURNING workspace_id;`;
+        if(!connected) return fail(409, "school_link_changed");
+        await sql`
+          UPDATE ghiyab_teacher_receipts
+          SET google_sheet_id = ${sheet.id}
+          WHERE owner_id = ${ownerId} AND workspace_id = ${workspace}
+            AND google_sheet_id IS NULL AND record IS NOT NULL AND google_synced_at IS NULL;`;
+        const waiting = await sql`
+          SELECT id, period, record, submitted_at AS "submittedAt", google_sheet_id AS "sheetId"
+          FROM ghiyab_teacher_receipts
+          WHERE owner_id = ${ownerId} AND workspace_id = ${workspace} AND google_sheet_id = ${sheet.id}
+            AND google_synced_at IS NULL AND record IS NOT NULL
+          ORDER BY submitted_at, id LIMIT 26;`;
+        const sheetStatus = waiting.length ? await syncReceipts(ownerId, workspace, waiting.slice(0, 25)) : "saved";
+        return res.status(200).json({linked:true, sheetStatus, hasMore:waiting.length > 25});
+      }
       if(body.action === "reports"){
         const page = body.page ?? 0;
         if(!portal || !dateIsValid(body.date) || !Number.isSafeInteger(page) || page < 0 || page > 100) {
@@ -377,7 +451,14 @@ export function createTeacherLinkHandler(sql, readSession = readTeacherSession, 
       }
       const roster = parseRoster(body);
       if(!roster) return fail(400, "invalid_roster");
-      const target = portal ? null : linkedSpreadsheet(ownerId, googleExportUrl(body.sheetUrl));
+      let target;
+      if(portal){
+        const binding = await approvedSchoolSheet(ownerId, body.sheetUrl);
+        if(binding.error) return fail(binding.status, binding.error);
+        target = binding.id;
+      }else{
+        target = linkedSpreadsheet(ownerId, googleExportUrl(body.sheetUrl));
+      }
       if(target) roster.attendanceSheetId = target;
       const token = randomBytes(32).toString("base64url");
       const [saved] = await sql`
