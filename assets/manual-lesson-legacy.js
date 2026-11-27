@@ -1,3 +1,5 @@
+import { isManualLessonHeader } from './manual-lesson-csv.js?v=3';
+
 const spreadsheet = 'https://docs.google.com/spreadsheets/d/1GQ6nGXFPkNOtBdDW2SjkaLA6XcNt5HOvQnzRKvjkUGQ';
 
 export const legacyLessonCsvUrls = [
@@ -49,5 +51,5 @@ export function parseCSVText(csvText) {
     if (currentRow.some(c => c.length > 0)) rows.push(currentRow);
   }
 
-  return rows;
+  return rows.length && isManualLessonHeader(rows[0]) ? rows.slice(1) : rows;
 }
