@@ -92,11 +92,11 @@
     }
 
     async function loadLegacySubjects(){
-      const {legacyLessonCsvUrls, parseCSVText} = await import('./assets/manual-lesson-legacy.js');
+      const {legacyLessonCsvUrls, parseCSVText} = await import('./assets/manual-lesson-legacy.js?v=2');
       for(const url of legacyLessonCsvUrls){
         try{
           const csv = await fetchCatalog(url, response => response.text());
-          const subjects = parseCSVText(csv).slice(1).filter(([grade, subject]) => grade && subject)
+          const subjects = parseCSVText(csv).filter(([grade, subject]) => grade && subject)
             .map(([grade, subject]) => ({grade, subject}));
           if(subjects.length) return subjects;
         }catch{}

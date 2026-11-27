@@ -1162,11 +1162,8 @@ function getCachedCsv() {
 
     function hydrateDataFromCsv(csvText, parseCSVText) {
       const rows = parseCSVText(csvText);
-      if (rows.length < 2) throw new Error('لا توجد بيانات');
-
       const parsed = [];
-      for (let i = 1; i < rows.length; i++) {
-        const cells = rows[i];
+      for (const cells of rows) {
         if (cells.length > 0 && cells[0] && cells[0].trim()) {
           const obj = {};
           for (let j = 0; j < cells.length; j++) {
@@ -1175,6 +1172,7 @@ function getCachedCsv() {
           parsed.push(obj);
         }
       }
+      if (!parsed.length) throw new Error('لا توجد بيانات');
       populateLessonCatalog(parsed);
     }
 
@@ -1244,7 +1242,7 @@ function getCachedCsv() {
           updateConnectionStatus('online', D.length ? 'جاهز - ' + D.length + ' درس' : 'لا توجد دروس منشورة.');
           return;
         }
-        const { legacyLessonCsvUrls: urls, parseCSVText } = await import('./assets/manual-lesson-legacy.js');
+        const { legacyLessonCsvUrls: urls, parseCSVText } = await import('./assets/manual-lesson-legacy.js?v=2');
         
         const cachedCsv = getCachedCsv();
         if (cachedCsv && isLiteMode) {

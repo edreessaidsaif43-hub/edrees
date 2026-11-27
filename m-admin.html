@@ -672,7 +672,7 @@
           <input id="manual-sheet-url" type="url" class="w-full p-3 rounded-lg bg-white text-gray-800" placeholder="https://docs.google.com/spreadsheets/...">
           <label class="block text-red-100" for="manual-sheet-file">أو ارفع ملف CSV</label>
           <input id="manual-sheet-file" type="file" accept=".csv,text/csv" class="w-full p-3 rounded-lg bg-white text-gray-800">
-          <p class="text-red-100 text-sm">من Google Sheets اختر ملف ← تنزيل ← CSV للورقة الحالية. اختر الملف أو أدخل رابطًا يسمح بالعرض. استخدم صف عناوين وأعمدة A إلى P بترتيب ملف التحضير. تُنشر النسخة الجديدة بعد اكتمال الحفظ.</p>
+          <p class="text-red-100 text-sm">من Google Sheets اختر ملف ← تنزيل ← CSV للورقة الحالية. اختر الملف أو أدخل رابطًا يسمح بالعرض. رتّب الأعمدة كما في ملف التحضير: الصف، المادة، الفصل، الوحدة، الدرس، ثم محتوى التحضير. صف العناوين اختياري.</p>
           <button class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold" type="submit">استيراد ونشر الدروس</button>
           <label class="block text-red-100" for="manual-file-mode">طريقة حفظ ملف CSV</label>
           <select id="manual-file-mode" class="w-full p-2 rounded-lg bg-white text-gray-800">
@@ -4719,7 +4719,7 @@
 
 <script src="assets/site-navbar.js?v=2"></script>
 <script type="module">
-import { MAX_BYTES, parseManualLessonCsv } from './assets/manual-lesson-csv.js?v=2';
+import { MAX_BYTES, parseManualLessonCsv } from './assets/manual-lesson-csv.js?v=3';
 
 const form = document.getElementById('manual-lesson-import');
 const status = document.getElementById('manual-import-status');
