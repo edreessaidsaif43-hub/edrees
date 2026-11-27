@@ -116,10 +116,15 @@
       try{
         const data = await fetchCatalog(subscriptionApiUrl('/api/edu?action=manualLessonSubjects'), response => response.json());
         if(!data.success || !Array.isArray(data.subjects)) throw Error('استجابة قائمة المواد غير صحيحة.');
-        const subjects = data.subjects.length ? data.subjects : await loadLegacySubjects();
+        const subjects = data.published || data.subjects.length ? data.subjects : await loadLegacySubjects();
         D = subjects.filter(item => item && typeof item.grade === 'string' && item.grade.trim()
           && typeof item.subject === 'string' && item.subject.trim())
           .map(({grade, subject}) => ({'1':grade.trim(), '2':subject.trim()}));
+        if(!D.length && data.published){
+          gradeSelect.options[0].textContent = 'لا توجد صفوف منشورة';
+          status.textContent = 'لا توجد مواد متاحة للاشتراك حاليًا.';
+          return;
+        }
         if(!D.length) throw Error('لا توجد مواد متاحة.');
         await subscriptionStatusReady;
         fillSubscriptionGradeOptions(uniqueSubscriptionGrades(D.map(row => row['1'])));

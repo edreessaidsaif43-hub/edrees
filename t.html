@@ -1179,7 +1179,6 @@ function getCachedCsv() {
     }
 
     function populateLessonCatalog(parsed) {
-      if (parsed.length === 0) throw new Error('لا توجد بيانات صحيحة');
       D = parsed;
 
       const gradesSet = new Set();
@@ -1190,7 +1189,6 @@ function getCachedCsv() {
       const gradeOrder = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع", "الثامن", "التاسع", "العاشر", "الحادي عشر", "الثاني عشر"];
       let grades = gradeOrder.filter(g => gradesSet.has(g));
       gradesSet.forEach(g => { if (!grades.includes(g)) grades.push(g); });
-      if (grades.length === 0) throw new Error('لا توجد صفوف');
 
       grades.sort((a, b) => {
         const orderA = gradeOrder.indexOf(a);
@@ -1243,7 +1241,7 @@ function getCachedCsv() {
           applySubscriptionToGrades();
 
 
-          updateConnectionStatus('online', 'جاهز - ' + D.length + ' درس');
+          updateConnectionStatus('online', D.length ? 'جاهز - ' + D.length + ' درس' : 'لا توجد دروس منشورة.');
           return;
         }
         const { legacyLessonCsvUrls: urls, parseCSVText } = await import('./assets/manual-lesson-legacy.js');

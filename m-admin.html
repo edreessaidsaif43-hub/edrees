@@ -640,6 +640,32 @@
             <p id="manual-add-status" class="text-white text-sm" role="status"></p>
           </form>
         </details>
+        <details id="manual-delete-panel" class="bg-white/10 rounded-xl p-4">
+          <summary class="cursor-pointer text-white font-black">حذف دروس التحضير اليدوي</summary>
+          <form id="manual-delete-form" class="mt-4 space-y-4">
+            <fieldset id="manual-delete-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label class="block text-red-100">نوع الحذف
+                <select id="manual-delete-scope" class="w-full p-2 rounded-lg bg-white text-gray-800">
+                  <option value="lesson">درس واحد</option>
+                  <option value="unit">وحدة في فصل دراسي</option>
+                  <option value="subject">مادة كاملة في صف</option>
+                </select>
+              </label>
+              <label class="block text-red-100">الصف<select data-delete-field required disabled class="w-full p-2 rounded-lg bg-white text-gray-800"></select></label>
+              <label class="block text-red-100">المادة<select data-delete-field required disabled class="w-full p-2 rounded-lg bg-white text-gray-800"></select></label>
+              <label class="text-red-100">الفصل الدراسي<select data-delete-field required disabled class="w-full p-2 rounded-lg bg-white text-gray-800"></select></label>
+              <label class="text-red-100">الوحدة<select data-delete-field required disabled class="w-full p-2 rounded-lg bg-white text-gray-800"></select></label>
+              <label class="text-red-100">الدرس<select data-delete-field required disabled class="w-full p-2 rounded-lg bg-white text-gray-800"></select></label>
+            </fieldset>
+            <p class="text-red-100 text-sm">تُزال الدروس من بنك التحضير المنشور. يشمل حذف المادة كل فصول الصف المحدد.</p>
+            <div class="flex gap-2 flex-wrap">
+              <button id="manual-delete-preview" type="submit" disabled class="bg-slate-700 text-white px-4 py-2 rounded-lg font-bold">معاينة الحذف</button>
+              <button id="manual-delete-confirm" type="button" hidden class="bg-red-700 text-white px-4 py-2 rounded-lg font-bold">تأكيد الحذف</button>
+              <button id="manual-delete-refresh" type="button" class="bg-slate-700 text-white px-4 py-2 rounded-lg font-bold">تحديث القائمة</button>
+            </div>
+            <p id="manual-delete-status" class="text-white text-sm" role="status"></p>
+          </form>
+        </details>
         <form id="manual-lesson-import" class="bg-white/10 rounded-xl p-4 space-y-3">
           <h3 class="text-white font-black">استيراد دروس التحضير اليدوي</h3>
           <label class="block text-red-100" for="manual-sheet-url">رابط Google Sheets</label>
@@ -4707,10 +4733,122 @@ async function request(action, body) {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.success) {
-    throw Error(result.message || (response.status === 401 ? 'سجّل دخول الإدارة مرة أخرى.' : 'تعذّر تنفيذ الاستيراد. أعد المحاولة.'));
+    throw Error(result.message || (response.status === 401 ? 'سجّل دخول الإدارة مرة أخرى.' : 'تعذّر تنفيذ العملية. أعد المحاولة.'));
   }
   return result;
 }
+
+const deletePanel = document.getElementById('manual-delete-panel');
+const deleteForm = document.getElementById('manual-delete-form');
+const deleteFields = document.getElementById('manual-delete-fields');
+const deleteScope = document.getElementById('manual-delete-scope');
+const deleteSelects = [...deleteForm.querySelectorAll('[data-delete-field]')];
+const previewButton = document.getElementById('manual-delete-preview');
+const confirmButton = document.getElementById('manual-delete-confirm');
+const refreshDeleteButton = document.getElementById('manual-delete-refresh');
+const deleteStatus = document.getElementById('manual-delete-status');
+const deleteDepth = {lesson:5, unit:4, subject:2};
+let deletionEpoch = 0;
+let preparedDeletion;
+let deleting = false;
+
+function deletionSelection(depth) {
+  const chosen = deleteSelects.slice(0, depth).map(select => select.selectedOptions[0]);
+  if (!chosen.every(option => option?.value)) return null;
+  return chosen.map(option => option.dataset.label || option.value);
+}
+
+function clearDeletionPreview() {
+  preparedDeletion = null;
+  confirmButton.hidden = true;
+}
+
+async function loadDeletionChoices(depth = 0) {
+  if (deleting) return;
+  const generation = ++deletionEpoch;
+  const needed = deleteDepth[deleteScope.value];
+  const path = deletionSelection(depth);
+  clearDeletionPreview();
+  deleteStatus.textContent = '';
+  deleteSelects.forEach((select, index) => {
+    select.parentElement.hidden = index >= needed;
+    if (index >= depth) {
+      select.replaceChildren(new Option('اختر…', ''));
+      select.disabled = true;
+    }
+  });
+  previewButton.disabled = depth < needed || path === null;
+  if (depth >= needed || path === null) return;
+  deleteStatus.textContent = 'جارٍ تحميل القائمة…';
+  try {
+    const {options} = await request('manualLessonDeleteOptions', {path});
+    if (generation !== deletionEpoch) return;
+    const select = deleteSelects[depth];
+    for (const {label, position} of options) {
+      const isLesson = depth === 4;
+      const option = new Option(isLesson ? label + ' · سجل ' + (Number(position) + 1) : label,
+        isLesson ? String(position) : label);
+      option.dataset.label = label;
+      select.add(option);
+    }
+    select.disabled = !options.length;
+    deleteStatus.textContent = options.length ? '' : 'لا توجد بيانات منشورة لهذا الاختيار.';
+  } catch (error) {
+    if (generation === deletionEpoch) deleteStatus.textContent = error.message;
+  }
+}
+
+deletePanel.addEventListener('toggle', () => {
+  if (deletePanel.open && !deleteSelects[0].options.length) void loadDeletionChoices();
+});
+deleteScope.addEventListener('change', () => void loadDeletionChoices());
+deleteSelects.forEach((select, index) => select.addEventListener('change', () => void loadDeletionChoices(index + 1)));
+refreshDeleteButton.addEventListener('click', () => void loadDeletionChoices());
+
+deleteForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (deleting || previewButton.disabled) return;
+  const scope = deleteScope.value;
+  const path = deletionSelection(deleteDepth[scope]);
+  if (!path) return;
+  const target = {scope, path, position:scope === 'lesson' ? Number(deleteSelects[4].value) : null};
+  const generation = ++deletionEpoch;
+  clearDeletionPreview();
+  previewButton.disabled = true;
+  deleteStatus.textContent = 'جارٍ معاينة الدروس المحددة…';
+  try {
+    const {version, revision, count} = await request('manualLessonDeletePreview', target);
+    if (generation !== deletionEpoch) return;
+    preparedDeletion = {...target, version, revision, count};
+    deleteStatus.textContent = path.join(' ← ') + ' | عدد الدروس المطلوب حذفها: ' + count;
+    confirmButton.hidden = false;
+  } catch (error) {
+    if (generation === deletionEpoch) deleteStatus.textContent = error.message;
+  } finally {
+    if (generation === deletionEpoch) previewButton.disabled = false;
+  }
+});
+
+confirmButton.addEventListener('click', async () => {
+  const target = preparedDeletion;
+  if (deleting || !target || !confirm('إزالة ' + target.count + ' درس من بنك التحضير المنشور؟\n' + target.path.join(' ← '))) return;
+  deleting = true;
+  deleteFields.disabled = previewButton.disabled = confirmButton.disabled = refreshDeleteButton.disabled = true;
+  clearDeletionPreview();
+  deleteStatus.textContent = 'جارٍ حذف الدروس…';
+  let message;
+  try {
+    const {deleted, total} = await request('manualLessonDelete', target);
+    message = 'تم حذف ' + deleted + ' درس. عدد الدروس المتبقية في البنك: ' + total + '.';
+  } catch (error) {
+    message = error.message;
+  } finally {
+    deleting = false;
+    deleteFields.disabled = confirmButton.disabled = refreshDeleteButton.disabled = false;
+  }
+  await loadDeletionChoices();
+  deleteStatus.textContent = message;
+});
 
 const lessonForm = document.getElementById('manual-lesson-add');
 const lessonStatus = document.getElementById('manual-add-status');
@@ -4726,6 +4864,7 @@ lessonForm.addEventListener('submit', async event => {
     await request('manualLessonAdd', {cells});
     lessonForm.reset();
     lessonStatus.textContent = 'تم حفظ الدرس ونشره في صفحة التحضير اليدوي.';
+    if (deletePanel.open) void loadDeletionChoices();
   } catch (error) {
     lessonStatus.textContent = error.message || 'تعذّر حفظ الدرس.';
   } finally {
@@ -4784,6 +4923,7 @@ form.addEventListener('submit', async event => {
       ? 'تمت إضافة ' + result.added + ' درس. عدد الدروس المطابقة التي تم تجاوزها: ' + result.skipped + '.'
       : 'تم نشر ' + result.total + ' درس في صفحة التحضير اليدوي.';
     form.reset();
+    if (deletePanel.open) void loadDeletionChoices();
   } catch (error) {
     status.textContent = error.message || 'تعذر استيراد الدروس.';
   } finally {
