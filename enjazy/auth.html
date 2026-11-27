@@ -249,7 +249,7 @@
     <a href="https://altahdir.app/enjazy" data-page="enjazy">ملف الإنجاز</a>
     <a href="https://altahdir.app/Motivation+/" data-page="motivation">تحفيز+</a>
     <a href="https://altahdir.app/mash/index.html" data-page="mash">مشاريع المعلمين</a>
-    <a href="https://gyab-xi.vercel.app/" data-page="attendance" target="_blank" rel="noopener noreferrer">الحضور والتسرب</a>
+    <a href="/mm/index.html" data-page="ghiyab">الحضور والتسرب</a>
   </div>
   <div id="nav-user-area"><button class="nav-auth-btn" onclick="goUnifiedAuth()"><span>👤</span> دخول / تسجيل</button></div>
   <button id="ntog" onclick="tNav()" aria-label="فتح القائمة"><span></span><span></span><span></span></button>
@@ -262,7 +262,7 @@
   <a href="https://altahdir.app/enjazy" data-page="enjazy">ملف الإنجاز</a>
   <a href="https://altahdir.app/Motivation+/" data-page="motivation">تحفيز+</a>
   <a href="https://altahdir.app/mash/index.html" data-page="mash">مشاريع المعلمين</a>
-  <a href="https://gyab-xi.vercel.app/" data-page="attendance" target="_blank" rel="noopener noreferrer">الحضور والتسرب</a>
+  <a href="/mm/index.html" data-page="ghiyab">الحضور والتسرب</a>
   <a href="#" onclick="goUnifiedAuth();return false;">دخول / تسجيل</a>
 </div>
 <script id="copied-index-navbar-script">
@@ -433,8 +433,12 @@
     const mode = String(query.get("mode") || "").toLowerCase();
     const intent = String(query.get("intent") || "").toLowerCase();
     const isProfileEditMode = intent === "profile_edit";
-    const isBoardReauth = !isProfileEditMode && query.get("reauth") === "board"
-      && query.get("return") === "/Board/index.html";
+    const reauth = query.get("reauth");
+    const returnPath = query.get("return");
+    const isVerifiedSessionReturn = !isProfileEditMode && (
+      (reauth === "board" && returnPath === "/Board/index.html") ||
+      (reauth === "attendance" && ["/mm/index.html", "/mm/admin.html", "/mm/teacher-link.html"].includes(returnPath))
+    );
     let sessionProbe;
 
     function setMode(nextMode) {
@@ -568,7 +572,7 @@
       sessionProbe = controller;
       const timeout = setTimeout(() => controller.abort(), 8000);
       try {
-        const endpoint = isBoardReauth ? "/api/subscriptions?action=board_access" : "/api/auth/login";
+        const endpoint = isVerifiedSessionReturn ? "/api/subscriptions?action=board_access" : "/api/auth/login";
         const response = await fetch(endpoint, {
           method: "GET",
           credentials: "same-origin",
@@ -576,13 +580,13 @@
           headers: { Accept: "application/json" },
           signal: controller.signal,
         });
-        if (!response.ok && !(isBoardReauth && response.status === 403)) return;
+        if (!response.ok && !(isVerifiedSessionReturn && response.status === 403)) return;
         const result = await response.json();
         if (controller.signal.aborted) return;
-        if (isBoardReauth) {
-          const hasBoardSession = response.ok && typeof result?.teacher?.id === "string";
+        if (isVerifiedSessionReturn) {
+          const hasPortalSession = response.ok && typeof result?.teacher?.id === "string";
           const needsSubscription = response.status === 403 && ["subscription_required", "account_stopped"].includes(result?.error);
-          if (hasBoardSession || needsSubscription) window.location.replace(safeReturnPath());
+          if (hasPortalSession || needsSubscription) window.location.replace(safeReturnPath());
           return;
         }
         if (result?.authenticated !== true) return;
@@ -627,7 +631,7 @@
 
     function redirectAfterAuth(session) {
       const target = safeReturnPath();
-      if (isBoardReauth) {
+      if (isVerifiedSessionReturn || target === "/img/index.html") {
         window.location.href = target;
         return;
       }
@@ -881,7 +885,7 @@
     if (mode === "login" && !isProfileEditMode) clearIncompleteStoredSession();
 
     const bridge = consumeBridgePayload();
-    if (!isBoardReauth && !isProfileEditMode && mode === "login" && bridge?.email && bridge.password) {
+    if (!isVerifiedSessionReturn && !isProfileEditMode && mode === "login" && bridge?.email && bridge.password) {
       (async () => {
         document.getElementById("login-contact").value = bridge.email;
         document.getElementById("login-password").value = bridge.password;
@@ -894,7 +898,7 @@
       })();
     } else if (!isProfileEditMode && mode !== "register" && mode !== "reset") {
       if (/^https?:$/.test(window.location.protocol)) void resumePortalSession();
-      else if (!isBoardReauth) autoRedirectIfLoggedIn();
+      else if (!isVerifiedSessionReturn) autoRedirectIfLoggedIn();
     }
   </script>
 <script src="../assets/site-navbar.js?v=4"></script>

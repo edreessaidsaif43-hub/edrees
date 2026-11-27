@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f6fb">
+  <title>رفع الصور | التحضير الذكي</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./upload.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>التحضير الذكي</a>
+      <a class="home-link" href="/">الرئيسية</a>
+    </div>
+  </header>
+
+  <main class="shell">
+    <div class="page-heading">
+      <h1>رفع الصور</h1>
+      <p>اختر صورك، ثم انسخ روابطها لمشاركتها أو إدراجها في تحضيرك.</p>
+    </div>
+
+    <div class="workspace">
+      <section class="upload-panel" aria-labelledby="upload-heading">
+        <h2 id="upload-heading">اختيار الصور</h2>
+        <div class="drop-zone" id="drop-zone">
+          <span class="picture-icon" aria-hidden="true"><i></i></span>
+          <strong>اسحب صورك إلى هنا</strong>
+          <input type="file" id="files" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" multiple hidden>
+          <button type="button" id="choose" class="button primary" aria-describedby="limits">اختيار الصور</button>
+          <p id="limits" class="limits"><bdi>JPG · PNG · WebP · GIF</bdi><br>حتى 4 ميغابايت لكل صورة</p>
+        </div>
+        <p class="share-note">يمكن لأي شخص لديه الرابط فتح الصورة.</p>
+        <p id="feedback" role="status" aria-live="polite"></p>
+        <a class="button secondary" id="sign-in" href="/enjazy/auth.html?mode=login&amp;return=%2Fimg%2Findex.html" hidden>تسجيل الدخول</a>
+        <noscript>فعّل JavaScript لاختيار الصور ورفعها.</noscript>
+      </section>
+
+      <section class="queue-panel" aria-labelledby="queue-heading">
+        <header class="queue-heading">
+          <h2 id="queue-heading">الصور المختارة</h2>
+          <span id="count" class="count" hidden></span>
+        </header>
+        <div class="empty" id="empty">
+          <span class="empty-icon" aria-hidden="true"></span>
+          <p>لم تختر صورًا بعد</p>
+        </div>
+        <ul class="file-list" id="queue"></ul>
+        <button type="button" id="upload" class="button primary upload-button" disabled>رفع الصور</button>
+      </section>
+    </div>
+  </main>
+
+  <template id="file-row">
+    <li class="file-row">
+      <div class="file-summary">
+        <img class="thumbnail" alt="">
+        <div class="file-info">
+          <bdi class="filename"></bdi>
+          <span class="file-status"></span>
+        </div>
+        <button type="button" class="remove">إزالة</button>
+      </div>
+      <progress max="100" aria-label="تقدم رفع الصورة" hidden></progress>
+      <div class="result" hidden>
+        <input type="url" dir="ltr" readonly aria-label="رابط الصورة">
+        <button type="button" class="button secondary copy">نسخ الرابط</button>
+      </div>
+    </li>
+  </template>
+</body>
+</html>
